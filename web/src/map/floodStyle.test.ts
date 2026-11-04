@@ -1,6 +1,12 @@
-import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { CATEGORY_COLORS, DIAMOND_PX, FLOOD_AREA, FLOOD_PALETTE, FLOOD_TICK_RGBA, FLOOD_TOKENS, gaugeTone } from './floodStyle'
+
+/** Node's fs without @types/node (tests run in Node; the app never imports this). */
+interface FsLike {
+  readFileSync(p: URL, enc: string): string
+}
+const fs = (await import(/* @vite-ignore */ `node:${'fs'}`)) as FsLike
+const css = fs.readFileSync(new URL('../styles/map-tokens.css', import.meta.url), 'utf8')
 
 /** [hue°, saturation 0-1] of a #rgb / #rrggbb / rgb() / rgba() colour; null for anything else. */
 function hueSat(c: string): [number, number] | null {
@@ -56,7 +62,6 @@ describe('flood colours (no green anywhere)', () => {
   })
 
   it('the CSS tokens equal the TS mirror and none of them is green', () => {
-    const css = readFileSync(new URL('../styles/map-tokens.css', import.meta.url), 'utf8')
     for (const [name, value] of Object.entries(FLOOD_TOKENS)) {
       const m = new RegExp(`--${name}:\\s*([^;]+);`).exec(css)
       expect(m?.[1].trim(), name).toBe(value)

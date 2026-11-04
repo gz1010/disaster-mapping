@@ -8,14 +8,20 @@
 // overview with a notice. ?t=<epoch ms> sets the time once the bundle is ready. Opening and leaving fires are history
 // entries (state/history.ts), so Back returns to the overview. Workspace URL state (?ws=&preset=&persp=&basemap=&units=)
 // lives in state/workspace.ts.
+// Brief 5 (CONTRACT §16.10): floods beside fires. ?flood=<id> (without ?incident=) opens that flood; ?hazard=flood or a
+// flood link loads the flood lists at start (else they load on the first switch to Floods); the fire start-up is
+// unchanged. One chrome per event kind and preset (views.ts mapChromeOf): the flood views mount PublicFloodChrome or
+// CommandFloodChrome in the same slot, and the map never remounts.
 // Each workspace publishes the map / canvas area its chrome leaves free as CSS vars --safe-top/right/bottom/left
 // (Forensic from its panels; Public/Command from every [data-chrome] slot via ui/shell/useMapSafeArea.ts, which also
 // feeds useWorkspace.safeInsets for MapLibre padding).
 import { recordIssuerLabel } from './api/records'
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { applyTimeWhenReady, useHistorySync } from './state/history'
-import { readUrlParams, useHotkeys, useLivePolling, usePlayback, useUrlSync } from './state/runtime'
+import { useFlood } from './state/flood'
+import { applyTimeWhenReady, floodParam, useHistorySync } from './state/history'
+import { readUrlParams, useFloodPolling, useHotkeys, useLivePolling, usePlayback, useUrlSync } from './state/runtime'
+import { eventKindOf } from './state/selectors'
 import { useStore } from './state/store'
 import { useWorkspace, useWorkspaceUrlSync, type PanelKey } from './state/workspace'
 import { Spinner } from './ui/controls'
@@ -26,12 +32,15 @@ import { ExtrasSync } from './extras/ExtrasSync'
 import { MapAttribution } from './map/MapAttribution'
 import { MapAtmosphere } from './map/MapAtmosphere'
 import { CommandFireChrome } from './ui/shell/CommandFireChrome'
+import { CommandFloodChrome } from './ui/shell/CommandFloodChrome'
+import { FLOOD_OVERVIEW } from './ui/shell/floodCopy'
 import { buildFailed, needsBuild, openFire } from './ui/shell/fireActions'
 import { CREDITS_FOLD_QUERY, NARROW_QUERY, useMediaQuery } from './ui/shell/hooks'
 import { MapBoundary } from './ui/shell/MapBoundary'
 import { OverviewChrome } from './ui/shell/OverviewChrome'
 import { MissingFireNotice } from './ui/shell/OverviewPanel'
 import { PublicFireChrome } from './ui/shell/PublicFireChrome'
+import { PublicFloodChrome } from './ui/shell/PublicFloodChrome'
 import { useMapSafeArea } from './ui/shell/useMapSafeArea'
 import { usePinAboveSheet } from './ui/shell/usePinAboveSheet'
 import { atmosphereEdgesOf, mapChromeOf } from './ui/shell/views'
@@ -61,14 +70,21 @@ function useBootstrap(): void {
     const t = q.t
     // never a build from a link: an unprepared fire shows its "Prepare analysis" notice
     if (id) void st.selectIncident(id, { source: 'link' }).then(() => t != null && applyTimeWhenReady(id, t))
+    // brief 5: a flood link (a link with both opens the fire), the flood lists with it
+    const flood = floodParam(window.location.search)
+    if (flood) void useFlood.getState().openFlood(flood, { source: 'url' })
   }, [])
 }
 
 function useDocumentTitle() {
-  const name = useStore((s) => s.summary?.name ?? null)
-  const live = useStore((s) => s.summary?.mode === 'live')
+  const fireName = useStore((s) => (s.incidentId != null ? (s.summary?.name ?? null) : null))
+  const fireLive = useStore((s) => s.summary?.mode === 'live')
+  const floodName = useFlood((s) => (s.floodId != null ? (s.summary?.name ?? null) : null))
+  const floodLive = useFlood((s) => s.summary?.mode === 'live')
+  const name = fireName ?? floodName
+  const live = fireName ? fireLive : floodLive
   useEffect(() => {
-    document.title = name ? `${name}${live ? ' · live' : ''} · Fire-3d` : 'Fire-3d · Wildfire Forensics & Forecast'
+    document.title = name ? `${name}${live ? ' · live' : ''} · Fire-3d` : FLOOD_OVERVIEW.titleNoEvent
   }, [name, live])
 }
 
@@ -91,6 +107,7 @@ export default function App() {
   useHistorySync()
   usePlayback()
   useLivePolling({ aircraft: workspace === 'forensic' })
+  useFloodPolling()
   useUrlSync(true)
   useWorkspaceUrlSync(true)
   useHotkeys()
@@ -193,7 +210,7 @@ function useEscapeClosesFireCard() {
 }
 
 /** Keyboard shortcuts past the header and the long updates list (visible on focus). */
-function SkipLinks({ overview }: { overview: boolean }) {
+function SkipLinks({ overview, floods }: { overview: boolean; floods: boolean }) {
   const go = (id: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => {
     e.preventDefault()
     const slot = document.getElementById(id)
@@ -207,7 +224,7 @@ function SkipLinks({ overview }: { overview: boolean }) {
       </a>
       {overview ? (
         <a href="#mw-updates" onClick={go('mw-updates')}>
-          Skip to the fire list
+          {floods ? FLOOD_OVERVIEW.skipToList : 'Skip to the fire list'}
         </a>
       ) : (
         <a href="#mw-timeline" onClick={go('mw-timeline')}>
@@ -278,9 +295,11 @@ function NotPreparedNotice({ name, failed }: { name: string; failed: boolean }) 
   )
 }
 
-/** The 2 px loading line along the top edge while an incident or the fire lists load. */
+/** The 2 px loading line along the top edge while an incident or the fire lists load (brief 5: or the open flood). */
 function LoadingLine() {
-  const loading = useStore((s) => s.incidentLoading || s.catalog.loading)
+  const fire = useStore((s) => s.incidentLoading || s.catalog.loading)
+  const flood = useFlood((s) => s.detailLoading)
+  const loading = fire || flood
   return <span className={`mw-hdr-loading ${loading ? 'is-on' : ''}`} aria-hidden="true" />
 }
 
@@ -294,12 +313,16 @@ function MapWorkspace() {
   const preset = useWorkspace((s) => s.preset)
   const hasSelection = useWorkspace((s) => s.selection != null)
   const hasFireCard = useWorkspace((s) => s.fireCardId != null)
-  const overview = useStore((s) => s.incidentId == null)
+  const incidentId = useStore((s) => s.incidentId)
+  const floodId = useFlood((s) => s.floodId)
+  const hazard = useWorkspace((s) => s.hazard)
+  const event = eventKindOf(incidentId, floodId)
+  const overview = event == null
   const collapsed = useStore((s) => s.panelsCollapsed)
   const narrow = useMediaQuery(NARROW_QUERY)
   const midWidth = useMediaQuery(CREDITS_FOLD_QUERY)
   const notPrepared = useNotPrepared()
-  const chrome = mapChromeOf(!overview, preset)
+  const chrome = mapChromeOf(event, preset)
   useNarrowSheets(narrow)
   useEscapeClosesDrawers(narrow)
   useEscapeClosesFireCard()
@@ -311,26 +334,30 @@ function MapWorkspace() {
     overview && 'is-overview',
     collapsed && 'is-collapsed',
     panels.updates && 'has-updates',
-    panels.analysis && !overview && 'has-drawer',
+    panels.analysis && event === 'fire' && 'has-drawer',
     panels.layers && 'has-layers',
     hasSelection && 'has-selection',
     hasFireCard && 'has-firecard',
     sheetOpen && 'has-sheet',
   ]
-  const credits = <CreditsFooter narrow={narrow} fold={narrow || (chrome === 'command-fire' && midWidth)} />
+  const credits = <CreditsFooter narrow={narrow} fold={narrow || ((chrome === 'command-fire' || chrome === 'command-flood') && midWidth)} />
   return (
     <div className={cls.filter(Boolean).join(' ')} ref={root} data-view={chrome}>
-      <SkipLinks overview={overview} />
+      <SkipLinks overview={overview} floods={hazard === 'flood'} />
       <ExtrasSync />
       {chrome === 'overview' ? (
         <OverviewChrome credits={credits} />
       ) : chrome === 'command-fire' ? (
         <CommandFireChrome credits={credits} />
+      ) : chrome === 'public-flood' ? (
+        <PublicFloodChrome credits={credits} />
+      ) : chrome === 'command-flood' ? (
+        <CommandFloodChrome credits={credits} />
       ) : (
         <PublicFireChrome credits={credits} />
       )}
       {/* the map is drawn underneath (z-index) but comes after the chrome in the tab order */}
-      <main className="mw-map" id="mw-map" aria-label="Wildfire map">
+      <main className="mw-map" id="mw-map" aria-label={hazard === 'flood' ? FLOOD_OVERVIEW.mapLabel : 'Wildfire map'}>
         <MapBoundary>
           <Suspense
             fallback={
@@ -347,7 +374,7 @@ function MapWorkspace() {
       <MapAtmosphere edges={atmosphereEdgesOf(chrome)} />
       <LoadingLine />
       {/* the overview panel shows the lists' loading / error / empty states; an unprepared fire gets a short notice */}
-      {!overview && !notPrepared && <StatusOverlay />}
+      {event === 'fire' && !notPrepared && <StatusOverlay />}
       <div className="top-center">
         <MissingFireNotice />
         <ErrorBanner />

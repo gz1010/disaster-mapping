@@ -4,7 +4,7 @@ Role: web-flood-overview (builder), ports API 8752 / Vite 5212. Plan: PLAN-5 4.1
 
 ## Status
 
-- [ ] M1 (before backend M1): tokens + floodStyle, TintLevel 'flood' + frameFlood, workspace hazard + URL, history
+- [x] M1 (committed 22:05 UTC; backend M1 contracts had landed, so it already uses the real flood types): tokens + floodStyle, TintLevel 'flood' + frameFlood, workspace hazard + URL, history
       (one entry per switch), selectors, views.ts five chromes + stub chromes, HazardSwitch, floodCopy.ts + guard test,
       shot.mjs --reduced-motion
 - [ ] M2 (after backend M1/M2): api/floods.ts, fixtures + edgeCases.ts, state/flood.ts, floodCatalog.ts, floodOverview.ts,
@@ -15,3 +15,12 @@ Role: web-flood-overview (builder), ports API 8752 / Vite 5212. Plan: PLAN-5 4.1
 ## Log
 
 - Started (no earlier attempt found).
+- 21:40 M1 started: shot.mjs --reduced-motion, flood tokens + floodStyle (no-green test), TintLevel 'flood'.
+- 21:50 floodCopy.ts (all PLAN-5 §5 strings, slots `{x}` + fillCopy) and the guard test (word-bounded, *.test.ts
+  excluded, data-verbatim stripped, planted-word test).
+- 21:55 backend M1 contracts in git log: api/floods.ts client, state/flood.ts (store, openFlood/closeFlood with
+  crossingHazard / replacingHistory flags in state/floodNav.ts), floodCatalog.ts, floodOverview.ts, selectors
+  (noEventOpen, openEventKind, currentArea), history (one entry per switch, tests fire→flood→Back, flood→fire→Back, alias
+  replace, 404/503), timeZone (flood zone), views (five chromes), stub flood chromes, App (chrome slot, title, bootstrap
+  ?flood=, flood polling), HazardSwitch in the overview title slot, frameFlood (framing target 'flood:<id>').
+- 22:02 gates: typecheck OK, lint 55 (all src/scene), 1406 web tests pass, build OK.

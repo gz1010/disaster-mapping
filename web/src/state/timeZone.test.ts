@@ -72,3 +72,20 @@ describe('getTimeFormat (non-hook read)', () => {
     expect(zoneLine(getTimeFormat(), ms, getZoneSource())).toBe("Times: Mountain Time (MDT), the fire's local time")
   })
 })
+
+describe('brief 5: the open flood’s zone (CONTRACT §16.10)', () => {
+  it("an open flood's IANA zone is used; a fire wins; the event source names it 'flood'", async () => {
+    const { useFlood } = await import('./flood')
+    const { eventZoneSourceOf, getEventZoneSource } = await import('./timeZone')
+    useFlood.setState({ floodId: 'fixture-flood', summary: { id: 'fixture-flood', aliases: [], time_zone: 'America/Denver' } as never })
+    expect(getTimeFormat().tz).toBe('America/Denver')
+    expect(getEventZoneSource()).toBe('flood')
+    // lib/time zoneLine knows fire / place / viewer: a flood's zone is the local time at its place
+    expect(getZoneSource()).toBe('place')
+    useStore.setState({ incidentId: 'a', summary: summary('a', 'America/Los_Angeles') })
+    expect(getTimeFormat().tz).toBe('America/Los_Angeles')
+    expect(eventZoneSourceOf('America/Los_Angeles', 'America/Denver', null)).toBe('fire')
+    expect(eventZoneSourceOf(null, null, null)).toBe('viewer')
+    useFlood.setState({ floodId: null, summary: null })
+  })
+})

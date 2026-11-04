@@ -7,12 +7,18 @@
 //   default. Overview rows and hovers use each row's own zone (`useTimeFormatFor(row.time_zone)`).
 // Components use the hooks; pure helpers take the TimeFmt as an argument; imperative code (the map controller) reads
 // `getTimeFormat()`.
+// Brief 5 (CONTRACT §16.10): an open flood's `summary.time_zone` (IANA) is the zone of its views, zone source 'flood'
+// (useEventZoneSource). For lib/time.ts zoneLine, which knows 'fire' | 'place' | 'viewer', a flood's zone is the local
+// time at the flood's place ('place').
 import { create } from 'zustand'
 import { isValidZone, timeFmt, type Clock, type TimeFmt } from '../lib/time'
+import { openFloodSummary, useFlood, type FloodState } from './flood'
 import { useStore } from './store'
 import { useWorkspace, type Preset, type Workspace } from './workspace'
 
 export type ZoneSource = 'fire' | 'place' | 'viewer'
+/** Brief 5: where the zone comes from, flood included. */
+export type EventZoneSource = ZoneSource | 'flood'
 
 /** '12h' in the map workspace's Public preset, else '24h'. */
 export function clockFor(workspace: Workspace, preset: Preset): Clock {
@@ -43,9 +49,20 @@ function fireZone(s: { incidentId: string | null; summary: { id: string; time_zo
   return zoneOf(s.summary)
 }
 
-/** Where the current zone comes from: the open fire, the selected place, or the viewer's device. */
+/** The open flood's zone (null when no flood is open or its summary has no valid zone). */
+function floodZone(s: Pick<FloodState, 'floodId' | 'summary'>): string | null {
+  return zoneOf(openFloodSummary(s))
+}
+
+/** Where the current zone comes from: the open fire, the selected place, or the viewer's device (a flood's zone counts
+ *  as its place's: pass it as `place`). */
 export function zoneSourceOf(fire: string | null, place: string | null): ZoneSource {
   return fire ? 'fire' : place ? 'place' : 'viewer'
+}
+
+/** The same with the open flood: fire, then flood, then place, then viewer. */
+export function eventZoneSourceOf(fire: string | null, flood: string | null, place: string | null): EventZoneSource {
+  return fire ? 'fire' : flood ? 'flood' : place ? 'place' : 'viewer'
 }
 
 /** The clock of the current workspace and preset. */
@@ -57,8 +74,9 @@ export function useClock(): Clock {
 export function useTimeFormat(): TimeFmt {
   const clock = useClock()
   const fire = useStore(fireZone)
+  const flood = useFlood(floodZone)
   const place = usePlaceZone((s) => s.placeZone)
-  return timeFmt(fire ?? place, clock)
+  return timeFmt(fire ?? flood ?? place, clock)
 }
 
 /** The current clock in another zone (an overview row's own `time_zone`, a point's lookup zone). */
@@ -69,17 +87,31 @@ export function useTimeFormatFor(tz: string | null | undefined): TimeFmt {
 /** Same words as zoneLine's `whose`: 'fire', 'place' or 'viewer'. */
 export function useZoneSource(): ZoneSource {
   const fire = useStore(fireZone)
+  const flood = useFlood(floodZone)
   const place = usePlaceZone((s) => s.placeZone)
-  return zoneSourceOf(fire, place)
+  return zoneSourceOf(fire, flood ?? place)
+}
+
+/** Brief 5: the zone source with 'flood' for an open flood. */
+export function useEventZoneSource(): EventZoneSource {
+  const fire = useStore(fireZone)
+  const flood = useFlood(floodZone)
+  const place = usePlaceZone((s) => s.placeZone)
+  return eventZoneSourceOf(fire, flood, place)
 }
 
 /** Non-hook read of `useTimeFormat()` for imperative code (the map controller, event handlers). */
 export function getTimeFormat(): TimeFmt {
   const ws = useWorkspace.getState()
-  return timeFmt(fireZone(useStore.getState()) ?? usePlaceZone.getState().placeZone, clockFor(ws.workspace, ws.preset))
+  return timeFmt(fireZone(useStore.getState()) ?? floodZone(useFlood.getState()) ?? usePlaceZone.getState().placeZone, clockFor(ws.workspace, ws.preset))
 }
 
 /** Non-hook read of `useZoneSource()`. */
 export function getZoneSource(): ZoneSource {
-  return zoneSourceOf(fireZone(useStore.getState()), usePlaceZone.getState().placeZone)
+  return zoneSourceOf(fireZone(useStore.getState()), floodZone(useFlood.getState()) ?? usePlaceZone.getState().placeZone)
+}
+
+/** Non-hook read of `useEventZoneSource()`. */
+export function getEventZoneSource(): EventZoneSource {
+  return eventZoneSourceOf(fireZone(useStore.getState()), floodZone(useFlood.getState()), usePlaceZone.getState().placeZone)
 }

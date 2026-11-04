@@ -29,6 +29,7 @@ import { useWorkspace } from '../../state/workspace'
 import { OVERVIEW_LEGEND_IN_PANEL_QUERY } from '../public/overviewLayout'
 import { ListNoticeBanner } from '../public/ListNoticeBanner'
 import { OverviewStatus } from '../public/OverviewStatus'
+import { HazardSwitch } from '../public/HazardSwitch'
 import { ShowDetailsPill } from '../public/ShowDetailsPill'
 import { CoordsSlot } from './CoordsSlot'
 import { FireCard } from './FireCard'
@@ -79,9 +80,13 @@ export function OverviewChrome({ credits }: { credits: ReactNode }) {
           <>
             <TopBarBrand />
             <span className="tb-sep" aria-hidden="true" />
-            <h1 className="mw-hdr-title" data-tip={LOWER48_TIP}>
-              United States <span className="mw-hdr-title-sub">· all fires</span>
-            </h1>
+            {/* brief 5: "United States · ( Fires | Floods )" (the switch replaces "all fires"; phones: the switch alone) */}
+            <span className="hz-title">
+              <h1 className="mw-hdr-title hz-title-place" data-tip={LOWER48_TIP}>
+                United States <span className="mw-hdr-title-sub">·</span>
+              </h1>
+              <HazardSwitch />
+            </span>
           </>
         }
         centre={<ViewPill className="mw-wide-only" />}
