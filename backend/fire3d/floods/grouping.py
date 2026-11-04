@@ -6,6 +6,8 @@ alerts, ``sources.nwps`` gauge rows); nothing here makes a request.
 
 from __future__ import annotations
 
+import math
+import re
 from typing import Any, Iterable
 
 # ----------------------------------------------------------------------------------------------------------------
@@ -53,6 +55,9 @@ AREAL_NEAR_KM = 10.0
 AREAL_NEAR_H = 12
 GAUGE_ACTIVE_H = 6
 INACTIVE_LISTED_H = 48
+# Rule 10 continuation: a new flash or areal flood over (AREAL_OVERLAP) one of these kinds that left the lists within
+# INACTIVE_LISTED_H keeps its id (NWS replaced a warning with a new one; catalog.continuations)
+CONTINUE_KINDS = ("flash", "areal")
 H_MS = 3_600_000
 # A gauge-only flood at a gauge that may measure tidal or lake water (review BFS-R2): Fire-3d does not read NWS
 # Coastal Flood or Lakeshore Flood products (D1), so it never says that no NWS flood product names such a gauge.
@@ -155,21 +160,12 @@ def keep_gauge(row: dict, l48: set[str]) -> bool:
 # ----------------------------------------------------------------------------------------------------------------
 # Tide and lake-shore gauges (review BFS-R2)
 # ----------------------------------------------------------------------------------------------------------------
-_TIDAL_DATUM_RE = None
-_COASTAL_WATER_RE = None
-
-
-def _coastal_res():
-    import re
-
-    global _TIDAL_DATUM_RE, _COASTAL_WATER_RE
-    if _TIDAL_DATUM_RE is None:
-        # "Steele Point (in MHHW)", "Georgetown (in NAVD88)", "Annapolis (IN MLLW)": a water level on a tidal datum
-        _TIDAL_DATUM_RE = re.compile(r"\((?:in\s+)?(?:MHHW|MLLW|MHW|MLW|MSL|NAVD\s*-?\s*88)\)", re.IGNORECASE)
-        _COASTAL_WATER_RE = re.compile(
-            r"\b(?:tide|tidal|pier|intracoastal|ocean|gulf|bay|sound|harbou?r|inlet|lagoon|beach|coast|"
-            r"lake\s+(?:superior|michigan|huron|erie|ontario))\b", re.IGNORECASE)
-    return _TIDAL_DATUM_RE, _COASTAL_WATER_RE
+# "Steele Point (in MHHW)", "Georgetown (in NAVD88)", "Annapolis (IN MLLW)": a water level on a tidal datum
+TIDAL_DATUM_RE = re.compile(r"\((?:in\s+)?(?:MHHW|MLLW|MHW|MLW|MSL|NAVD\s*-?\s*88)\)", re.IGNORECASE)
+# Words of a waterbody that is the sea, an estuary or a Great Lake ("Atlantic Ocean Tide Gauge", "Juno Beach Park Pier")
+COASTAL_WATER_RE = re.compile(
+    r"\b(?:tide|tidal|pier|intracoastal|ocean|gulf|bay|sound|harbou?r|inlet|lagoon|beach|coast|"
+    r"lake\s+(?:superior|michigan|huron|erie|ontario))\b", re.IGNORECASE)
 
 
 def is_tidal_row(row: dict) -> bool:
@@ -177,17 +173,14 @@ def is_tidal_row(row: dict) -> bool:
     tidal datum note in its location or waterbody, or a coastal word in its waterbody ("Atlantic Ocean Tide Gauge",
     "Juno Beach Park Pier", "Intracoastal Waterway"). Locations are town names ("Beaver Bay"): only datum notes count
     there."""
-    datum, water = _coastal_res()
     pe = (row.get("pedts") or "")[:2].upper()
     loc, wb = row.get("name") or "", row.get("waterbody") or ""
-    return pe in TIDAL_PE_CODES or bool(datum.search(f"{loc} {wb}")) or bool(water.search(wb))
+    return pe in TIDAL_PE_CODES or bool(TIDAL_DATUM_RE.search(f"{loc} {wb}")) or bool(COASTAL_WATER_RE.search(wb))
 
 
 def coastal_lids(rows: Iterable[dict]) -> set[str]:
     """The gauges that may measure tidal or lake water: :func:`is_tidal_row`, or within :data:`COASTAL_NEAR_KM` of
     such a gauge (Crescent Lake beside the tidal St. Johns, the Loxahatchee 7 km from a pier's tide gauge)."""
-    import math
-
     rows = [r for r in rows if r.get("lid") and r.get("lat") is not None and r.get("lon") is not None]
     tidal = [r for r in rows if is_tidal_row(r)]
     out = {r["lid"] for r in tidal}

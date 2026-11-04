@@ -486,7 +486,8 @@ def summarize(f: _Flood, prods: dict[str, dict], gauges: dict[str, GaugeInfo], l
     levels = [G.product_level(a) for a in products]
     level = max(levels, key=G.LEVEL_ORDER.index) if levels else "gauge_only"
     geoms = [a["_geom"] for a in products if a.get("_geom") is not None]
-    big = _largest([a["_geom"] for a in own if a.get("_geom") is not None]) or _largest(geoms)
+    own_geoms = [a["_geom"] for a in own if a.get("_geom") is not None]
+    big = _largest(own_geoms) or _largest(geoms)
     if refs:
         lon, lat = refs[0]["lon"], refs[0]["lat"]
     elif big is not None:
@@ -555,7 +556,7 @@ def summarize(f: _Flood, prods: dict[str, dict], gauges: dict[str, GaugeInfo], l
         "caveat": gauge_only_caveat(members, nws_ok) if level == "gauge_only" else None,
         "_keys": keys, "_gauge_lids": [gi.lid for gi in members], "_anchor": anchor, "_starts": starts,
         "_crossing": min(crossing) if crossing else None, "_alt_name": alt, "_base_name": name,
-        "_first_sent": min(sent) if sent else None,
+        "_first_sent": min(sent) if sent else None, "_area": shapely.union_all(own_geoms) if own_geoms else None,
     }
 
 
@@ -565,7 +566,9 @@ def reusable_episode(reg: reg_mod.Registry, lid: str, now: int) -> tuple[str | N
     An episode stays open until its flood has been quiet longer than ``INACTIVE_LISTED_H``, judged from the flood's
     own last-known summary (review BFS-R5): an active flood went quiet at most when Fire-3d last saw it, an inactive
     one when it ended. Fire-3d's own build gaps (the server was off overnight) never close an episode alone. Without a
-    last-known summary the episode's first-seen time stands in."""
+    last-known summary the episode's first-seen time stands in. The quiet time is never before the episode began: a
+    gauge whose last reading at flood stage is older than ``INACTIVE_LISTED_H`` when Fire-3d first lists it keeps one
+    episode instead of a new one at every build."""
     ep = reg.open_episode(lid)
     if ep is None:
         return None, None
@@ -578,9 +581,44 @@ def reusable_episode(reg: reg_mod.Registry, lid: str, now: int) -> tuple[str | N
     else:
         summary, seen = lk
         quiet_since = seen if summary.get("status") == "active" else min(seen, summary.get("ended_ms") or seen)
+        quiet_since = max(quiet_since, hit[1])
     if now - quiet_since > G.INACTIVE_LISTED_H * G.H_MS:
         return ep, None
     return ep, hit[0]
+
+
+def continuations(rows: list[dict], claims: list[list[tuple[int, str, str]]], now: int,
+                  reg: reg_mod.Registry) -> dict[int, dict]:
+    """Rule 10, continuation (seen on the real list of 2026-11-04: NWS Pueblo replaced its Conejos River Flood Warning
+    KPUB.FA.W.0026 with a new one, KPUB.FA.W.0028, for the same river): a new flash or areal flood (no member Fire-3d
+    has registered) whose own products cover at least ``AREAL_OVERLAP`` of a flash or areal flood that left the lists
+    within ``INACTIVE_LISTED_H`` (its last-known area) is that flood going on, as rule 3 joins two such products
+    while both are listed. It keeps the older id and start, and is never listed twice under one name.
+    -> {row index: the continued flood's last-known summary}."""
+    new = [i for i, r in enumerate(rows) if not claims[i] and r["kind"] in G.CONTINUE_KINDS and r["level"] != "watch"
+           and r.get("_area") is not None]
+    if not new:
+        return {}
+    live = {fid for c in claims for _fs, fid, _k in c}
+    cands = []
+    for s, seen in reg_mod.iter_last_known():
+        fid, bb = s.get("id"), s.get("bbox_lonlat")
+        if (not fid or fid in live or reg.canonical(fid) != fid or s.get("synthetic") or s.get("kind") not in G.CONTINUE_KINDS
+                or s.get("level") == "watch" or seen < now - G.INACTIVE_LISTED_H * G.H_MS or not bb or len(bb) != 4):
+            continue
+        cands.append((s, shapely.box(*bb)))
+    out: dict[int, dict] = {}
+    for i in new:
+        best: tuple[float, dict] | None = None
+        for s, area in cands:
+            if any(s["id"] == o["id"] for o in out.values()):
+                continue
+            share = G.overlap_share(rows[i]["_area"], area)
+            if share >= G.AREAL_OVERLAP and (best is None or share > best[0]):
+                best = (share, s)
+        if best is not None:
+            out[i] = best[1]
+    return out
 
 
 def assign_ids(rows: list[dict], now: int, reg: reg_mod.Registry) -> None:
@@ -603,6 +641,10 @@ def assign_ids(rows: list[dict], now: int, reg: reg_mod.Registry) -> None:
             keys.append(ep or reg_mod.gauge_episode_key(lid, now))
         row_keys.append(keys)
         claims.append(sorted({(hit[1], hit[0], k) for k in keys for hit in [reg.id_for(k)] if hit}))
+    for i, s in continuations(rows, claims, now, reg).items():
+        claims[i] = [(reg.first_seen_of(s["id"]) or int(s.get("started_ms") or now), s["id"], "")]
+        if s.get("started_basis") == "nws_product" and s.get("started_ms"):
+            rows[i]["_starts"] = [*rows[i]["_starts"], int(s["started_ms"])]
     taken: dict[str, int] = {}
     order = sorted(range(len(rows)), key=lambda i: (claims[i][0][0] if claims[i] else now + 1, i))
     for i in order:
@@ -697,12 +739,14 @@ def as_left(s: dict, seen: int, now: int, *, nws_ok: bool, gauges_ok: bool,
     level = max((G.ref_level(p) for p in live), key=G.LEVEL_ORDER.index) if live else s.get("level")
     caveat = None
     if level == "gauge_only":
-        caveat = s.get("caveat")
+        # Decided again from what is known now, so a summary saved during an outage, or by an earlier Fire-3d that
+        # had no tide-gauge caveat ("Fisher Island flood" at the Atlantic Ocean tide gauge), never keeps a false one.
         if not nws_ok:
             caveat = fcopy.ALERTS_UNAVAILABLE
-        elif caveat in (None, fcopy.ALERTS_UNAVAILABLE):
-            tidal = any(G.ref_looks_tidal(g) for g in s.get("gauges") or [])
-            caveat = fcopy.GAUGE_ONLY_COASTAL_CAVEAT if tidal else fcopy.GAUGE_ONLY_CAVEAT
+        elif s.get("caveat") == fcopy.GAUGE_ONLY_COASTAL_CAVEAT or any(G.ref_looks_tidal(g) for g in s.get("gauges") or []):
+            caveat = fcopy.GAUGE_ONLY_COASTAL_CAVEAT
+        else:
+            caveat = fcopy.GAUGE_ONLY_CAVEAT
     ends = [p["ends_ms"] for p in live if p.get("ends_ms")]
     return {**s, "status": "active" if active else "inactive", "products": prods, "level": level,
             "expires_ms": max(ends) if ends else None, "emergency": any(bool(p.get("emergency")) for p in live),
@@ -730,7 +774,12 @@ def _carry_overs(current_ids: set[str], now: int, reg: reg_mod.Registry, *, nws_
             continue
         if seen >= now - G.INACTIVE_LISTED_H * G.H_MS:
             if _listable(s, nws_ok, gauges_ok, current):
-                out.append(as_left(s, seen, now, nws_ok=nws_ok, gauges_ok=gauges_ok, current=current))
+                left = as_left(s, seen, now, nws_ok=nws_ok, gauges_ok=gauges_ok, current=current)
+                if left != s:
+                    # Remember what the lists said (its products ended), keeping when Fire-3d last saw it in them:
+                    # a later outage then never shows a product NWS already dropped as in effect again.
+                    reg_mod.write_last_known(left, seen)
+                out.append(left)
         elif nws_ok and gauges_ok:
             retire += [(k, now) for k in reg.keys_of(fid) if reg_mod.is_gauge_key(k)]
     if retire:

@@ -118,13 +118,14 @@ export interface FloodSummary {
   gauges: FloodGaugeRef[] // member gauges at action or above, primary first
   gauges_in_flood: number // observed minor or worse
   max_category: FloodCategory | null // highest observed or NWS-forecast category among members
-  products: FloodProductRef[] // in effect or upcoming (live); every product (past)
+  products: FloodProductRef[] // in effect or upcoming (live; "ended" once the flood left the lists); every product (past)
   offices: string[] // "KABQ"
   bundle_status: FloodBundleStatus
   bundle_built_ms: number | null
   aliases: string[]
   synthetic: boolean // fixture-flood and the fixture server's list rows
-  caveat: string | null // GAUGE_ONLY_CAVEAT for level gauge_only, else null
+  caveat: string | null // level gauge_only: GAUGE_ONLY_CAVEAT, GAUGE_ONLY_COASTAL_CAVEAT (a tide or lake gauge) or
+  // ALERTS_UNAVAILABLE (NWS could not be read); else null. Backend-sent: show it as sent.
 }
 
 export interface FloodListSource {

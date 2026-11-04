@@ -6,6 +6,7 @@
 import type { ReactNode } from 'react'
 import { LocationCard } from '../../location/LocationCard'
 import { MapControls } from '../../map/MapControls'
+import { useMapTint } from '../../map/useMapTint'
 import { goToFloodOverview, openFloodSummary, useFlood } from '../../state/flood'
 import { highestProduct } from '../../state/floodOverview'
 import { useTimeFormatFor } from '../../state/timeZone'
@@ -35,6 +36,9 @@ function useFloodStubData() {
 
 export function PublicFloodChrome({ credits }: { credits: ReactNode }) {
   const narrow = useMediaQuery(NARROW_QUERY)
+  // the Public flood view's basemap tint (PLAN-5 §4.4: #333 colour blend at 0.25); web-flood-public keeps this call when
+  // it replaces the stub (review WFO-R12)
+  useMapTint('flood')
   const { summary, product, productLine, lastKnown, loading } = useFloodStubData()
   return (
     <>

@@ -31,6 +31,7 @@ import {
   FLOOD_LISTS_503,
   FLOOD_NOT_LISTED,
   FLOOD_OVERVIEW,
+  fillCopy,
   PAST_PREPARING,
   PAST_RULE_NOTE,
   PAST_RULE_NOTE_FALLBACK,
@@ -40,8 +41,8 @@ import { NARROW_QUERY, useDrawerFocus, useMediaQuery } from './hooks'
 import '../../styles/flood-overview.css'
 
 const TABS: { value: string; key: FloodListKey; label: string; tip: string }[] = [
-  { value: 'live', key: 'live', label: FLOOD_OVERVIEW.tabActive, tip: 'Floods with an NWS flood product in effect or a river gauge at flood stage now' },
-  ...FLOOD_PAST_YEARS.map((y) => ({ value: String(y), key: y as FloodListKey, label: String(y), tip: `Past floods of ${y} (archived NWS products)` })),
+  { value: 'live', key: 'live', label: FLOOD_OVERVIEW.tabActive, tip: FLOOD_OVERVIEW.tabActiveTip },
+  ...FLOOD_PAST_YEARS.map((y) => ({ value: String(y), key: y as FloodListKey, label: String(y), tip: fillCopy(FLOOD_OVERVIEW.tabYearTip, { year: y }) })),
 ]
 
 /** The list data of the current tab: rows (watches as the switch says, ranked), loading / error, health, counts. */
@@ -318,7 +319,8 @@ export function FloodPeekBar() {
   const n = d.rows.length
   const open = () => useWorkspace.getState().setPanel('updates', true)
   const down = floodListUnreadable(d.health) && n === 0 ? (floodListNotices(d.health, d.response)[0] ?? null) : null
-  const text = !d.response ? (d.loading ? 'Loading the floods…' : d.error ? 'Could not load the flood list · open to retry' : 'Loading the floods…') : (down ?? `${n.toLocaleString('en-US')} listed flood${n === 1 ? '' : 's'}`)
+  const count = n === 1 ? FLOOD_OVERVIEW.peekCountOne : fillCopy(FLOOD_OVERVIEW.peekCount, { n: n.toLocaleString('en-US') })
+  const text = !d.response ? (d.error && !d.loading ? FLOOD_OVERVIEW.peekFailed : FLOOD_OVERVIEW.peekLoading) : (down ?? count)
   return (
     <button type="button" className="ov-peek" data-panel-toggle="updates" aria-expanded={false} onClick={open}>
       <Droplets size={14} className="ov-peek-icon fxo-peek-icon" aria-hidden="true" />

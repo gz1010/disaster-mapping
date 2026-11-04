@@ -523,3 +523,105 @@ def test_rule11_the_iem_join_is_a_credited_source() -> None:
     lst = build(inp)
     iem = {s["id"]: s for s in lst["sources"]}["iem_archive"]
     assert iem["status"] == "unavailable" and iem["reason"] == fcopy.IEM_JOIN_DOWN and not cat._degraded(lst)
+
+
+def test_rule10_an_old_reading_never_churns_episodes() -> None:
+    """BFS-R5 follow-up: a gauge whose last reading at flood stage is already 3 days old when Fire-3d first lists it
+    (an inactive gauge-only flood) keeps one episode and one id over many builds and across a UTC date, instead of a
+    new episode at every build."""
+    g = riv("SDDC1", -121.6, 36.6, "minor", "Salinas River", state="CA", valid=NOW - 72 * H)
+    first = build(inputs([], obs=[g]))["floods"]
+    assert [s["status"] for s in first] == ["inactive"]
+    for k in range(1, 4):                                            # every 5 min, then the next UTC day
+        cat.reset_state()
+        again = build(inputs([], obs=[g]), now=NOW + k * 300_000)["floods"]
+        assert [s["id"] for s in again] == [first[0]["id"]]
+    cat.reset_state()
+    nextday = build(inputs([], obs=[g]), now=NOW + 10 * H)["floods"]
+    assert [s["id"] for s in nextday] == [first[0]["id"]]
+    eps = [k for k in reg_mod.get_registry().keys if k.startswith("SDDC1@")]
+    assert len(eps) == 1
+
+
+def test_rule8_a_carry_over_stays_ended_through_a_later_outage(monkeypatch: pytest.MonkeyPatch) -> None:
+    """BFS-R1 follow-up: once NWS answered without a flood's product (carried over, its product "ended"), a later NWS
+    outage never shows that product as in effect again, in the list's detail chain or its last-known summary; the
+    48 h listing window still counts from when Fire-3d last saw the flood in the lists."""
+    import time as _t
+
+    flash = cap("f", "Flash Flood Warning", vt("NEW", "FF", "W", 9, office="KPSR"), box(-112.0, 33.5, 0.05, 0.05),
+                ugcs=("AZC013",), same=("004013",), area="Maricopa, AZ", ends=NOW + 30 * H,
+                desc="Some locations that will experience flash flooding include...\nCave Creek.")
+    fid = build(inputs([flash]))["floods"][0]["id"]
+    cat.reset_state()
+    gone = build(inputs([]), now=NOW + H)                            # NWS answered without it (cancelled early)
+    s = next(x for x in gone["floods"] if x["id"] == fid)
+    assert s["status"] == "inactive" and [p["phase"] for p in s["products"]] == ["ended"]
+    lk, seen = reg_mod.read_last_known(fid)
+    assert [p["phase"] for p in lk["products"]] == ["ended"] and abs(seen - NOW) < 2_000
+    cat.reset_state()
+    out = build(inputs([], nws_down=True), now=NOW + 2 * H)          # then NWS cannot be read
+    assert fid not in {x["id"] for x in out["floods"]}               # cannot decide: not listed as quiet
+    monkeypatch.setattr(cat, "now_ms", lambda: NOW + 2 * H)
+    cat._cache["live"] = (_t.monotonic(), {**out, "_decided": False})
+    d, how = cat.resolve(fid)
+    assert how == "last_known" and d["status"] == "inactive" and [p["phase"] for p in d["products"]] == ["ended"]
+    cat.reset_state()
+    late = build(inputs([]), now=NOW + 49 * H)                       # 48 h after it was last seen in the lists
+    assert fid not in {x["id"] for x in late["floods"]}
+
+
+def test_rule10_a_replaced_areal_warning_continues_its_flood() -> None:
+    """Seen on the real list of 2026-11-04 (fix step of review5-backend-flood-sources): NWS Pueblo replaced its Conejos
+    River Flood Warning KPUB.FA.W.0026 with a new one, KPUB.FA.W.0028, over the same river. The new product continues
+    the flood (same id, its start kept, listed once), never a second "Conejos River flood" beside an inactive copy
+    that would say no NWS product is in effect there. A new warning elsewhere, or one more than INACTIVE_LISTED_H
+    after the old flood left the lists, is a new flood."""
+    desc = "* WHAT...Flooding caused by snowmelt.\n\n* WHERE...Flooding along the Conejos River in Conejos County."
+    kw = dict(ugcs=("COC021",), same=("008021",), area="Conejos, CO", desc=desc)
+    old = cap("o", "Flood Warning", vt("NEW", "FA", "W", 26, office="KPUB"), box(-105.95, 37.25, 0.2, 0.2),
+              sent=NOW - 44 * H, ends=NOW + 5 * H, **kw)
+    first = build(inputs([old]))["floods"]
+    assert [s["name"] for s in first] == ["Conejos River flood"]
+    fid, started = first[0]["id"], first[0]["started_ms"]
+    cat.reset_state()
+    new = cap("n", "Flood Warning", vt("NEW", "FA", "W", 28, office="KPUB"), box(-105.85, 37.28, 0.15, 0.2),
+              sent=NOW + H, ends=NOW + 26 * H, **kw)
+    later = build(inputs([new]), now=NOW + H)["floods"]
+    assert [(s["id"], s["name"], s["status"]) for s in later] == [(fid, "Conejos River flood", "active")]
+    assert [p["vtec_key"] for p in later[0]["products"]] == ["KPUB.FA.W.0028.2026"]
+    assert later[0]["started_ms"] == started and later[0]["aliases"] == []
+    cat.reset_state()
+    again = build(inputs([new]), now=NOW + 2 * H)["floods"]                # the new key is now registered to the id
+    assert [s["id"] for s in again] == [fid]
+    # a new warning far away is its own flood; the old flood, once quiet, is not continued by it
+    fresh()
+    first = build(inputs([old]))["floods"]
+    cat.reset_state()
+    far = cap("f", "Flood Warning", vt("NEW", "FA", "W", 29, office="KPUB"), box(-104.0, 38.5, 0.1, 0.1),
+              sent=NOW + H, **{**kw, "desc": "* WHERE...Flooding along the Huerfano River."})
+    got = {s["id"]: s for s in build(inputs([far]), now=NOW + H)["floods"]}
+    assert len(got) == 2 and got[first[0]["id"]]["status"] == "inactive"
+    # more than 48 h after the old flood left the lists: a new flood
+    fresh()
+    first = build(inputs([old]))["floods"]
+    cat.reset_state()
+    new2 = cap("n2", "Flood Warning", vt("NEW", "FA", "W", 30, office="KPUB"), box(-105.85, 37.28, 0.15, 0.2),
+               sent=NOW + 50 * H, ends=NOW + 70 * H, **kw)
+    late = build(inputs([new2]), now=NOW + 50 * H)["floods"]
+    assert first[0]["id"] not in {s["id"] for s in late} and len(late) == 1
+
+
+def test_rule8_a_left_gauge_flood_never_keeps_a_false_caveat() -> None:
+    """Seen on the real list (fix step): "Fisher Island flood" at the Atlantic Ocean tide gauge, saved by an earlier
+    Fire-3d with the plain gauge-only caveat, was carried over with it. A flood that left the lists gets its caveat
+    decided again: the tide-gauge one for a tide gauge, ALERTS_UNAVAILABLE while NWS cannot be read."""
+    ref = {"lid": "VAKF1", "name": "Virginia Key (Atlantic Ocean Tide Gauge)", "waterbody": "Atlantic Ocean Tide Gauge",
+           "observed_category": "minor", "observed_ms": NOW - 3 * H}
+    s = {"id": "flood-20261104-fisher-island-flood-fl-c23148", "level": "gauge_only", "status": "active",
+         "products": [], "gauges": [ref], "caveat": fcopy.GAUGE_ONLY_CAVEAT, "ended_ms": None}
+    assert cat.as_left(s, NOW, NOW + H, nws_ok=True, gauges_ok=True)["caveat"] == fcopy.GAUGE_ONLY_COASTAL_CAVEAT
+    assert cat.as_left(s, NOW, NOW + H, nws_ok=False, gauges_ok=True)["caveat"] == fcopy.ALERTS_UNAVAILABLE
+    inland = {**s, "gauges": [{**ref, "name": "Nocatee (Joshua Creek)", "waterbody": "Joshua Creek"}],
+              "caveat": fcopy.ALERTS_UNAVAILABLE}
+    assert cat.as_left(inland, NOW, NOW + H, nws_ok=True, gauges_ok=True)["caveat"] == fcopy.GAUGE_ONLY_CAVEAT

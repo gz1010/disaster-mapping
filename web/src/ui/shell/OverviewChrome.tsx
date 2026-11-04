@@ -94,11 +94,10 @@ export function OverviewChrome({ credits }: { credits: ReactNode }) {
               {/* the h1 says what is listed for screen readers ("United States, floods"); the dot is decoration
                   (review WFO-R11) */}
               <h1 className="mw-hdr-title hz-title-place" data-tip={LOWER48_TIP}>
-                United States{' '}
+                United States<span className="mw-sr-only">, {floods ? FLOOD_OVERVIEW.titleFloods : FLOOD_OVERVIEW.titleFires}</span>{' '}
                 <span className="mw-hdr-title-sub" aria-hidden="true">
                   ·
                 </span>
-                <span className="mw-sr-only">, {floods ? FLOOD_OVERVIEW.titleFloods : FLOOD_OVERVIEW.titleFires}</span>
               </h1>
               <HazardSwitch />
             </span>

@@ -46,11 +46,11 @@ export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant 
   const gaugesDown = useNationalGauges(nationalGaugesDown) && gaugesOn && !floodOpen && !past
   const compact = (
     <ul className="fxm-legend-row fxo-legend-row" aria-label="Legend">
-      {!past && <Row sw="flood-large">Flood: moderate or major, or flash flood warning</Row>}
-      {!past && <Row sw="flood-active">Flood warning</Row>}
-      {!past && <Row sw="flood-small">Advisory or gauge in flood</Row>}
-      {(past || watches) && <Row sw="flood-other">{past ? 'Past flood' : 'Flood watch'}</Row>}
-      <Row sw="flood-group" title="Group of floods (N = how many)">
+      {!past && <Row sw="flood-large">{FLOOD_OVERVIEW.legendLarge}</Row>}
+      {!past && <Row sw="flood-active">{FLOOD_OVERVIEW.legendActive}</Row>}
+      {!past && <Row sw="flood-small">{FLOOD_OVERVIEW.legendSmall}</Row>}
+      {(past || watches) && <Row sw="flood-other">{past ? FLOOD_OVERVIEW.legendPast : FLOOD_OVERVIEW.legendWatch}</Row>}
+      <Row sw="flood-group" title={FLOOD_OVERVIEW.legendGroupTip}>
         Group <span className="fxm-legend-mono fxo-legend-mono">N FLOODS</span>
       </Row>
       {DIAMONDS.map((d) => (
@@ -58,7 +58,7 @@ export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant 
           {d.label.replace(' (NWS)', '')}
         </Row>
       ))}
-      {floodOpen && <Row sw="warning">NWS warning area</Row>}
+      {floodOpen && <Row sw="warning">{FLOOD_OVERVIEW.legendWarningArea}</Row>}
       {gaugesDown && (
         <li className="fxm-legend-absence fxo-legend-warn" role="note">
           <span>{FLOOD_OVERVIEW.nationalGaugesDown}</span>
@@ -73,31 +73,23 @@ export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant 
     <div className="fxm-legend-details" id="fxo-legend-details">
       <section>
         <h3>
-          <Sw kind="flood-active" /> Floods (National Weather Service products and NOAA river gauges)
+          <Sw kind="flood-active" /> {FLOOD_OVERVIEW.legendFloodsTitle}
         </h3>
-        <p>
-          One marker per flood: NWS flood products in effect and river gauges at flood stage, grouped per river or area. Its size says the official level, not
-          the size of the flooding: the largest for moderate or major flooding at a gauge or a Flash Flood Warning; then a Flood Warning; the smallest for an
-          advisory or a gauge in flood without an NWS product; a hollow ring for a watch or a past flood. The centre dot takes the highest gauge category&apos;s
-          colour. Close floods are grouped.
-        </p>
+        <p>{FLOOD_OVERVIEW.legendFloodsBody}</p>
       </section>
       <section>
         <h3>
-          <Sw kind="diamond-minor" /> River gauges (NOAA National Water Prediction Service)
+          <Sw kind="diamond-minor" /> {FLOOD_OVERVIEW.legendGaugesTitle}
         </h3>
-        <p>
-          Gauges at action stage or above, from state level zoom: a diamond in NWS&apos;s category colour, larger for higher categories (action, minor,
-          moderate, major). A grey diamond with “?”: NWS has not set flood stages there. Streams without a gauge are not measured.
-        </p>
+        <p>{FLOOD_OVERVIEW.legendGaugesBody}</p>
         {gaugesDown && <p className="fxm-legend-note">{FLOOD_OVERVIEW.nationalGaugesDown}</p>}
       </section>
       {floodOpen && (
         <section>
           <h3>
-            <Sw kind="warning" /> NWS warning area
+            <Sw kind="warning" /> {FLOOD_OVERVIEW.legendWarningArea}
           </h3>
-          <p>The area of an NWS flood product, as NWS drew it (pink outline).</p>
+          <p>{FLOOD_OVERVIEW.legendWarningBody}</p>
         </section>
       )}
       <p className="fxm-legend-note">{FLOOD_LIST_ABSENCE}</p>

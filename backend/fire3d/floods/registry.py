@@ -133,6 +133,12 @@ class Registry:
         with self._lock:
             return [k for k, (i, _) in self.keys.items() if self.canonical(i) == flood_id]
 
+    def first_seen_of(self, flood_id: str) -> int | None:
+        """When Fire-3d first saw any member of an id (its oldest registered key, retired ones included), or None."""
+        with self._lock:
+            seen = [fs for i, fs in self.keys.values() if self.canonical(i) == flood_id]
+        return min(seen) if seen else None
+
     def known_ids(self) -> set[str]:
         with self._lock:
             return {self.canonical(i) for i, _ in self.keys.values()} | set(self.aliases)

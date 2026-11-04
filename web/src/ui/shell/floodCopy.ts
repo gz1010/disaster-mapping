@@ -299,6 +299,28 @@ export const FLOOD_OVERVIEW = {
   layersGauges: 'River gauges (NWS)',
   layersGaugesDesc: 'Gauges at action stage or above, by NWS flood category',
   layersNote: 'Open a flood for its NWS products, gauges and water layers. Model output is shown only in Command, as experimental.',
+  // the list's tabs and the phone peek bar (review WFO-R13)
+  tabActiveTip: 'Floods with an NWS flood product in effect or a river gauge at flood stage now',
+  tabYearTip: 'Past floods of {year} (archived NWS products)',
+  peekLoading: 'Loading the floods…',
+  peekFailed: 'Could not load the flood list · open to retry',
+  peekCount: '{n} listed floods',
+  peekCountOne: '1 listed flood',
+  // the flood legend's rows and details (review WFO-R13)
+  legendLarge: 'Flood: moderate or major, or flash flood warning',
+  legendActive: 'Flood warning',
+  legendSmall: 'Advisory or gauge in flood',
+  legendPast: 'Past flood',
+  legendWatch: 'Flood watch',
+  legendGroupTip: 'Group of floods (N = how many)',
+  legendWarningArea: 'NWS warning area',
+  legendFloodsTitle: 'Floods (National Weather Service products and NOAA river gauges)',
+  legendFloodsBody:
+    "One marker per flood: NWS flood products in effect and river gauges at flood stage, grouped per river or area. Its size says the official level, not the size of the flooding: the largest for moderate or major flooding at a gauge or a Flash Flood Warning; then a Flood Warning; the smallest for an advisory or a gauge in flood without an NWS product; a hollow ring for a watch or a past flood. The centre dot takes the highest gauge category's colour. Close floods are grouped.",
+  legendGaugesTitle: 'River gauges (NOAA National Water Prediction Service)',
+  legendGaugesBody:
+    "Gauges at action stage or above, from state level zoom: a diamond in NWS's category colour, larger for higher categories (action, minor, moderate, major). A grey diamond with “?”: NWS has not set flood stages there. Streams without a gauge are not measured.",
+  legendWarningBody: 'The area of an NWS flood product, as NWS drew it (pink outline).',
   // the overview title for screen readers (review WFO-R11): "United States, floods"
   titleFires: 'all fires',
   titleFloods: 'floods',

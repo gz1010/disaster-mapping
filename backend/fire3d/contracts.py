@@ -958,13 +958,14 @@ class FloodSummary(ContractModel):
     gauges: list[FloodGaugeRef]         # member gauges at action or above, primary first
     gauges_in_flood: int                # observed minor or worse
     max_category: FloodCategory | None  # highest observed or NWS-forecast category among members
-    products: list[FloodProductRef]     # in effect or upcoming (live); every product (past)
+    products: list[FloodProductRef]     # in effect or upcoming (live; "ended" once the flood left the lists); every product (past)
     offices: list[str]                  # "KABQ"
     bundle_status: FloodBundleStatus
     bundle_built_ms: int | None
     aliases: list[str]
     synthetic: bool                     # fixture-flood and the fixture server's list rows
-    caveat: str | None                  # GAUGE_ONLY_CAVEAT for level gauge_only, else null
+    caveat: str | None                  # level gauge_only: GAUGE_ONLY_CAVEAT, GAUGE_ONLY_COASTAL_CAVEAT (a tide or
+    #                                     lake gauge) or ALERTS_UNAVAILABLE (NWS not read); else null
 
 
 class FloodListSource(ContractModel):

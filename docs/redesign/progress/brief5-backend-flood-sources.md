@@ -77,3 +77,19 @@ Role `backend-flood-sources` (PLAN-5 §10.1, `plan5-roles.json`); ports API 8751
 ## Status
 
 All four milestones done. Cut line left: SPEC §10 test notes; the background H-VTEC fetch is backend-flood-live's.
+
+## Review fixes (BFS-R1..R10, docs/redesign/reports/review5-backend-flood-sources.json)
+
+- Picked up after the container restart from the snapshot c69c324 (an earlier fix attempt had R1-R10 mostly done,
+  gates not run). Re-verified each finding with the reviewer's scripts on the recorded day (carry-over, NWS down,
+  downtime, areal link) and on the real API (port 8751, 2026-11-04 ~23:40 UTC, 5 upstream requests).
+- R1 carry-overs `ended` (`catalog.as_left`); R2 tide-gauge caveat `GAUGE_ONLY_COASTAL_CAVEAT` (19 of 25 gauge-only
+  floods today); R3 areal FA.W links the gauge its text names (Winslow + LCWA3 one flood); R4 outages "cannot
+  decide", `ALERTS_UNAVAILABLE` caveat, no split, edge fixtures from the real path; R5 episodes kept until 48 h quiet;
+  R6 200 kept, recorded as a deviation; R7 issue times; R8 strings in `copy.py`; R9 PROVENANCE count; R10 IEM join in
+  `sources[]` and SPEC §2 rows.
+- Found in this step on the real list and fixed: "Conejos River flood" listed twice (NWS replaced KPUB.FA.W.0026 by
+  KPUB.FA.W.0028): continuation rule (`catalog.continuations`); "Fisher Island flood" kept an old-code plain caveat
+  (as_left decides it again); a gauge whose flood-stage reading is old would have opened a new episode each build
+  (quiet time floored at the episode's start); a carry-over's `ended` phases are saved so a later outage cannot revive
+  them. Tests for each.
