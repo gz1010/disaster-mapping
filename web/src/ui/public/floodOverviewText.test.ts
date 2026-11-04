@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { ALERTS, ALERTS_UNAVAILABLE as ALERTS_DOWN, GAUGES, GAUGES_UNAVAILABLE as GAUGES_DOWN, LIST, PAST_FLOOD } from '../../api/__fixtures__/floods/edgeCases'
+import {
+  ALERTS,
+  ALERTS_UNAVAILABLE as ALERTS_DOWN,
+  GAUGES,
+  GAUGES_UNAVAILABLE as GAUGES_DOWN,
+  LIST,
+  LIST_YEAR_ARCHIVE_DOWN,
+  PAST_FLOOD,
+  YEAR_ARCHIVE_DOWN_REASON,
+} from '../../api/__fixtures__/floods/edgeCases'
 import type { FloodAlertsResponse, RiverGaugesResponse } from '../../api/types'
-import { ALERTS_UNAVAILABLE, FLOOD_HERE_IN_FIRES, floodWordingProblems, GAUGES_UNAVAILABLE, NO_GAUGE_NEAR, NO_PRODUCT } from '../shell/floodCopy'
+import { ALERTS_UNAVAILABLE, FLOOD_HERE_IN_FIRES, FLOOD_LISTS_DOWN, FLOOD_NWS_DOWN, FLOOD_OVERVIEW, floodWordingProblems, GAUGES_UNAVAILABLE, NO_GAUGE_NEAR, NO_PRODUCT } from '../shell/floodCopy'
 import {
   categoryWord,
   floodCountPart,
@@ -10,6 +19,7 @@ import {
   floodDotColor,
   floodHereLine,
   floodInViewLine,
+  floodListNotices,
   floodMeta,
   floodPointModel,
   floodRowSub,
@@ -17,6 +27,7 @@ import {
   fmtStage,
   gaugeLabel,
   gaugePlace,
+  gaugeReadingLine,
   officialProductsLine,
 } from './floodOverviewText'
 
@@ -62,6 +73,38 @@ describe('flood overview words', () => {
     expect(floodCountPart({ ...base, count: 0, bothDown: true }).text).toBe('FLOOD LISTS UNAVAILABLE')
   })
 
+  it('bar status: both lists down says so even with floods listed from disk, as fires do (review WFO-R4)', () => {
+    const base = { count: 1, loaded: true, loading: false, failed: false, bothDown: true, hiddenWatches: 0 }
+    expect(floodCountPart(base)).toEqual({ text: 'FLOOD LISTS UNAVAILABLE', tone: 'warn' })
+    expect(floodCountPart({ ...base, count: 12, hiddenWatches: 2 }).text).toBe('FLOOD LISTS UNAVAILABLE')
+  })
+
+  it('bar status: a year whose archive could not be read says FLOOD LIST UNAVAILABLE, never 0 (review WFO-R3)', () => {
+    const base = { count: null, loaded: true, loading: false, failed: false, bothDown: false, archiveDown: true, hiddenWatches: 0 }
+    expect(floodCountPart(base)).toEqual({ text: 'FLOOD LIST UNAVAILABLE', tone: 'warn' })
+    expect(floodCountPart({ ...base, count: 0 }).text).toBe('FLOOD LIST UNAVAILABLE')
+    // an answered, empty year is "0 FLOODS" (the archive was read)
+    expect(floodCountPart({ ...base, count: 0, archiveDown: false }).text).toBe('0 FLOODS')
+    // a loaded list with an unknown count is never written as 0
+    expect(floodCountPart({ ...base, archiveDown: false }).text).toBe('FLOOD LIST UNAVAILABLE')
+  })
+
+  it("list notices: the year archive's reason verbatim, else a fallback; live outages as before", () => {
+    expect(floodListNotices('archive_down', LIST_YEAR_ARCHIVE_DOWN())).toEqual([YEAR_ARCHIVE_DOWN_REASON])
+    expect(floodListNotices('archive_down', null)).toEqual([FLOOD_OVERVIEW.pastListUnavailable])
+    expect(floodListNotices('both_down')).toEqual([FLOOD_LISTS_DOWN])
+    expect(floodListNotices('nws_down')).toEqual([FLOOD_NWS_DOWN])
+    expect(floodListNotices('ok')).toEqual([])
+    expect(floodWordingProblems(FLOOD_OVERVIEW.pastListUnavailable)).toEqual([])
+  })
+
+  it("gauge reading line: its own time in the gauge's zone with its age (review WFO-R7)", () => {
+    const t = Date.UTC(2026, 10, 4, 17, 0)
+    expect(gaugeReadingLine(t, 'America/Denver', '12h', t + 25 * 60_000)).toBe('reading Nov 4, 10:00 AM MST (25 min ago)')
+    expect(gaugeReadingLine(t, 'America/Denver', '24h', t + 3 * 3_600_000)).toBe('reading Nov 4, 10:00 MST (3 h ago)')
+    expect(gaugeReadingLine(null, 'America/Denver', '12h', t)).toBe(FLOOD_OVERVIEW.gaugeNoReadingTime)
+  })
+
   it('official line, in-view line, pill label', () => {
     expect(officialProductsLine(42, 0, 120_000)).toBe('42 in effect in the lower 48 · checked 2 min ago')
     expect(officialProductsLine(1, 0, 120_000)).toBe('1 in effect in the lower 48 · checked 2 min ago')
@@ -69,6 +112,7 @@ describe('flood overview words', () => {
     expect(floodInViewLine(12, 31)).toEqual({ inView: '12 floods in this view', all: 'Show all 31' })
     expect(floodDetailsPillLabel(false, 6).aria).toBe('Show details: list of 6 floods')
     expect(floodDetailsPillLabel(true, null).aria).toMatch(/loading/)
+    expect(floodDetailsPillLabel(false, null, true).aria).toBe('Show details: flood list unavailable')
   })
 })
 
@@ -124,7 +168,7 @@ describe('flood point card (D24: absence needs an answer; C27: every product, wa
   })
 
   it('every sentence the card can say passes the wording guard', () => {
-    const all = [NO_PRODUCT, NO_GAUGE_NEAR, ALERTS_UNAVAILABLE, GAUGES_UNAVAILABLE, FLOOD_HERE_IN_FIRES]
+    const all = [NO_PRODUCT, NO_GAUGE_NEAR, ALERTS_UNAVAILABLE, GAUGES_UNAVAILABLE, FLOOD_HERE_IN_FIRES, FLOOD_OVERVIEW.nearestDistanceNote, FLOOD_OVERVIEW.nationalGaugesDown, FLOOD_OVERVIEW.pastAlerts]
     for (const s of all) expect(floodWordingProblems(s), s).toEqual([])
   })
 })

@@ -406,7 +406,7 @@ interface Aircraft {
 
 | Method | Path | Response |
 |---|---|---|
-| GET | `/api/floods?mode=live\|historical&year=` | `FloodListResponse` `{hazard: "flood", mode, updated_ms, year?, past_rule?, preparing?, floods: FloodSummary[], sources: FloodListSource[], products_in_effect}`. Live: NWS flood products in effect or upcoming in the lower 48 + DC (Flood Warning, Flash Flood Warning, Flood Watch, Flash Flood Watch, Flood Advisory and their statements; coastal and lakeshore products are out) and river gauges observed at minor flooding or worse, grouped per river or area (§8.8), ordered by `floodRank` (CONTRACT §16.8); watches are included (the web hides them by default). `sources[]` (`nws_alerts`, `nwps_gauges`, `rfc_forecasts`, `iem_archive` for past years): NWS down → floods from gauges only (`FLOOD_NWS_DOWN`); gauges down → from NWS products only (`FLOOD_GAUGES_DOWN`); both down → the flood bundles on disk only (`FLOOD_LISTS_DOWN`); never "no floods" for an outage. `products_in_effect` is null when NWS could not be read. Cached 5 min (60 s while degraded); a cold build makes at most 6 upstream requests. |
+| GET | `/api/floods?mode=live\|historical&year=` | `FloodListResponse` `{hazard: "flood", mode, updated_ms, year?, past_rule?, preparing?, floods: FloodSummary[], sources: FloodListSource[], products_in_effect}`. Live: NWS flood products in effect or upcoming in the lower 48 + DC (Flood Warning, Flash Flood Warning, Flood Watch, Flash Flood Watch, Flood Advisory and their statements; coastal and lakeshore products are out) and river gauges observed at minor flooding or worse, grouped per river or area (§8.8), ordered by `floodRank` (CONTRACT §16.8); watches are included (the web hides them by default). `sources[]` (`nws_alerts`, `nwps_gauges`, `rfc_forecasts`; `iem_archive` for past years, and in the live list the IEM copy of NWS warnings that links gauges to them): NWS down → floods from gauges only (`FLOOD_NWS_DOWN`; their caveat says NWS could not be reached); gauges down → from NWS products only (`FLOOD_GAUGES_DOWN`); both down → the flood bundles on disk only (`FLOOD_LISTS_DOWN`), still a 200 whose sources say why (not CONTRACT §16.7's 503; contract5 note); never "no floods" for an outage. `products_in_effect` is null when NWS could not be read. Cached 5 min (60 s while degraded); a cold build makes at most 6 upstream requests. |
 | GET | `/api/floods/status` | `FloodLiveStatus` `{last_refresh_ms, next_refresh_ms, active_floods, gauges_in_flood, auto_build}`; counts null when the lists could not be read (never 0). |
 | GET | `/api/floods/{id}` | `FloodDetailResponse` `{summary, manifest: FloodManifest \| null, job: JobStatus \| null, resolved_from}`. Resolution (PLAN-5 §3.2 rule 13): the live list → the year lists → a registry alias (the canonical summary; the web replaces the URL) → the bundle's frozen summary → the registry's last-known summary → 404. 503 "The flood lists could not be reached right now; try again later." when the lists could not decide and nothing is on disk, never 404. `fixture-flood-<kind>` ids are 404 here (fixture server only). |
 | POST | `/api/floods/{id}/build?force=0\|1` | `JobStatus` (kind "build", `incident_id` = the flood id). 409 for `fixture-flood` or a flood outside the lower 48. |
@@ -903,15 +903,22 @@ flood (no zone outline, product text, gauge detail or series) is requested in th
 2. **Link** gauges to river products (FL.*): a cached product-text H-VTEC, else the IEM join (office, phenomena,
    significance, ETN), else a gauge inside the polygon + 2 km on the river the segment's `* WHERE...` line names.
    Areal products (FA.*) link a flooding gauge inside their area on the water their text names ("along the Silver
-   Creek").
+   Creek", "Flooding of the Little Colorado River", "* WHERE...The Little Colorado River from Winslow to Leupp"); a
+   gauge inside a FL or FA area whose waterbody the segment's own description names is linked too (the
+   "<River> near <Place> affecting <County>" lines that list a whole product's rivers never count).
 3. **Join** (union-find) products with one VTEC key (the CAP `references` chain when NWS sends no VTEC), linked gauges,
    river members of the same river (equal significant name words) within 25 km, and flash / areal polygons overlapping
-   30 % of the smaller or within 10 km and 12 h. River and flash products never join by distance alone; names that name
-   no river ("Tide Station") never join.
+   30 % of the smaller or within 10 km and issued within 12 h (issue time: the oldest message of the CAP `references`
+   chain, so an update never splits a flood). River and flash products never join by distance alone; names that name
+   no river ("Tide Station") never join. While NWS cannot be read, gauges whose open episodes belong to one flood stay
+   joined (the products that tied them are unknown, not gone).
 4. **Watches** never bridge two floods: they attach to every flood they overlap (zone-based ones through their CAP SAME
    counties and the packaged county shapes, no request), else form a flood at level `watch`.
 5. A gauge at minor or worse that no product names is a flood at level `gauge_only` ("No NWS flood product names this
-   gauge right now."); a gauge at action joins a flood but never starts one.
+   gauge right now."); a gauge at action joins a flood but never starts one. A gauge that may measure tidal or lake
+   water (SHEF code HM / HC, a tidal datum note such as "(in MHHW)", a coastal word in its waterbody, or within 10 km of
+   such a gauge) says instead that Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products, which may be in
+   effect there; while NWS cannot be read the caveat is "NWS flood products could not be reached right now. …".
 6. **Fields:** primary gauge (highest observed, then forecast category, then flow); point (primary gauge, else the
    representative point of the largest polygon); `bbox_lonlat`; state, states, county and IANA time zone from
    `fire3d.regions` (never NWPS's POSIX zones); kind river (any FL.* or gauge) / flash (FF.W) / areal; level warning >
@@ -921,21 +928,26 @@ flood (no zone outline, product text, gauge detail or series) is requested in th
    stage refines it (`gauge`) only when its series is already cached.
 8. **Status:** `active` while a product is in effect or upcoming or a member gauge read minor or worse within 6 h, else
    `inactive` (never shown as a word); a flood that left the lists stays listed (inactive) for 48 h after Fire-3d last
-   saw it.
+   saw it, with every product `ended` (it left NWS's active list), `expires_ms` null, `emergency` false and the level it
+   last had. It is listed so only when Fire-3d can tell: NWS answered, the gauges answered when it has any, and none of
+   its products is listed now with another flood; during an outage it is not listed (its detail answers its last-known
+   summary, its products in effect until their own NWS end time).
 9. **Names:** "<River> flood", "<Place> flash flood", "<Water> flood" / "<Place> flood", "Flood watch: <first area>
    and N more areas"; duplicates get the state, then a place-based name, then a number; never "fire".
 10. **Ids** `flood-{YYYYMMDD}-{slug}-{h6}` stay stable through `data/floods/registry.jsonl`: VTEC keys are permanent,
-    a gauge key is an episode `NWSLI@first_seen_ms` (a gauge flooding again after its flood was quiet more than 6 h
-    gets a new id); merges keep the older id (`aliases`), a split keeps it on the part with the anchor.
-11. **Sources and outages:** `sources[]` `nws_alerts`, `nwps_gauges`, `rfc_forecasts` with `status`, `retrieved_ms`,
-    `stale`, `reason`. A failed source answers from its last cached copy (`stale: true`); without one: NWS down → floods
+    a gauge key is an episode `NWSLI@first_seen_ms`, kept until its flood has been quiet longer than 48 h (judged from
+    the flood's last-known summary, never from Fire-3d's own build gaps: a restart after a night off keeps the ids);
+    a gauge flooding again later gets a new id; merges keep the older id (`aliases`), a split keeps it on the part with
+    the anchor. During an outage an id's last-known summary is not overwritten.
+11. **Sources and outages:** `sources[]` `nws_alerts`, `nwps_gauges`, `rfc_forecasts`, `iem_archive` (the IEM join;
+    its outage never shortens the cache) with `status`, `retrieved_ms`, `stale`, `reason`. A failed source answers from its last cached copy (`stale: true`); without one: NWS down → floods
     from gauges only, gauges down → from products only, both down → the flood bundles on disk only. Cached 5 min, 60 s
     while degraded.
 12. **Order:** `floodRank` (CONTRACT §16.8), then the newest update.
 13. **`GET /api/floods/{id}`** resolves: the live list → (the year lists, brief 5 live M2) → a registry alias (the
     canonical summary) → the bundle's frozen summary → the last-known summary (`data/floods/last_known/{id}.json`) →
     404; 503 "The flood lists could not be reached right now; try again later." when the lists could not decide and
-    nothing is on disk.
+    nothing is on disk. A summary from the alias, bundle or last-known step is shown as it left the lists (rule 8).
 
 ## 9. Frontend
 

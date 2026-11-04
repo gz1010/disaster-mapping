@@ -48,13 +48,15 @@ def _error(status: int, detail: str) -> JSONResponse:
 def list_floods(request: Request, mode: str = Query("live", pattern="^(live|historical)$"), year: int | None = None,
                 refresh: int = 0) -> Response:
     """``FloodListResponse``: the live list (cached 5 min; 60 s while degraded); historical lists answer an empty
-    list that says past floods are not listed yet (``backend-flood-live`` M2 adds them)."""
+    list that says past floods are not listed yet (``backend-flood-live`` M2 adds them). With both lists down the
+    answer is still a 200 (every source ``unavailable`` with ``FLOOD_LISTS_DOWN``, the ready bundles on disk only),
+    never a 503: the sources say why (contract5 note, deviation of CONTRACT 16.7; review BFS-R6)."""
     if mode == "historical":
         y = year or time.gmtime().tm_year
         return _json({"hazard": "flood", "mode": "historical", "updated_ms": int(time.time() * 1000), "year": y,
                       "preparing": False, "floods": [],
-                      "sources": [{"id": "iem_archive", "name": catalog.SOURCE_NAMES["iem_archive"],
-                                   "status": "unavailable", "retrieved_ms": None, "reason": catalog.PAST_NOT_YET,
+                      "sources": [{"id": "iem_archive", "name": fcopy.SOURCE_NAMES["iem_archive"],
+                                   "status": "unavailable", "retrieved_ms": None, "reason": fcopy.PAST_NOT_YET,
                                    "stale": False}],
                       "products_in_effect": None}, request)
     return _json(catalog.public_list(catalog.flood_list(refresh=bool(refresh))), request)
@@ -72,7 +74,7 @@ def get_flood(flood_id: str) -> Response:
     try:
         summary, resolved = catalog.resolve(flood_id)
     except catalog.FloodNotFound:
-        return _error(404, "This flood is not listed.")
+        return _error(404, fcopy.FLOOD_NOT_LISTED_DETAIL)
     except catalog.ListsUnavailable:
         return _error(503, fcopy.FLOOD_LISTS_503)
     canonical = summary["id"]

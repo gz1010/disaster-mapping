@@ -177,6 +177,19 @@
    ]
   },
   {
+   "name": "Little Colorado River flood",
+   "kind": "river",
+   "level": "warning",
+   "state": "AZ",
+   "max_category": "minor",
+   "gauges": [
+    "LCWA3"
+   ],
+   "vtec_keys": [
+    "KFGZ.FA.W.0038.2026"
+   ]
+  },
+  {
    "name": "Alafia River flood",
    "kind": "river",
    "level": "warning",
@@ -261,17 +274,6 @@
    "max_category": "minor",
    "gauges": [
     "LRPF1"
-   ],
-   "vtec_keys": []
-  },
-  {
-   "name": "Little Colorado River flood",
-   "kind": "river",
-   "level": "gauge_only",
-   "state": "AZ",
-   "max_category": "minor",
-   "gauges": [
-    "LCWA3"
    ],
    "vtec_keys": []
   },
@@ -456,17 +458,6 @@
    ],
    "vtec_keys": [
     "KABQ.FL.W.0025.2026"
-   ]
-  },
-  {
-   "name": "Winslow flood",
-   "kind": "areal",
-   "level": "warning",
-   "state": "AZ",
-   "max_category": null,
-   "gauges": [],
-   "vtec_keys": [
-    "KFGZ.FA.W.0038.2026"
    ]
   },
   {

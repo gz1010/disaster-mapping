@@ -69,6 +69,41 @@ CONTRACT_STRINGS: dict[str, str] = {
 }
 
 
+# ----------------------------------------------------------------------------------------------------------------
+# Other backend-sent strings of the flood list and detail routes (review BFS-R8; not yet in CONTRACT 16.14: the
+# integration adds them from docs/redesign/contract5/backend-flood-sources.md). Same guard as above.
+# ----------------------------------------------------------------------------------------------------------------
+# FloodSummary.caveat of a gauge-only flood at a gauge that may measure tidal or lake water (review BFS-R2): Fire-3d
+# does not read NWS Coastal Flood or Lakeshore Flood products (PLAN-5 D1), so it never says that none names it.
+GAUGE_ONLY_COASTAL_CAVEAT = ("No NWS Flood or Flash Flood product names this gauge right now. It may measure tidal or "
+                             "lake water: Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products, which "
+                             "may be in effect here.")
+# FloodListSource.reason texts
+RFC_DOWN = "NWS river forecast points could not be reached right now; forecast flood categories may be missing."
+STALE_NWS = "NWS flood products could not be refreshed right now; an earlier copy is shown."
+STALE_GAUGES = "River gauges could not be refreshed right now; an earlier copy is shown."
+STALE_RFC = "NWS river forecasts could not be refreshed right now; an earlier copy is shown."
+STALE_IEM = "IEM's copy of NWS flood warnings could not be refreshed right now; an earlier copy links the gauges."
+IEM_JOIN_DOWN = ("IEM's copy of NWS flood warnings could not be reached right now; some river gauges may not be linked "
+                 "to their NWS warning.")
+PAST_NOT_YET = "Fire-3d does not list past floods yet. That is not an all-clear."
+# HTTP 404 detail of GET /api/floods/{id} (the web shows its own FLOOD_NOT_LISTED)
+FLOOD_NOT_LISTED_DETAIL = "This flood is not listed."
+# FloodListSource.name per source id (the live list's IEM entry is its H-VTEC join, review BFS-R10)
+SOURCE_NAMES: dict[str, str] = {
+    "nws_alerts": "National Weather Service",
+    "nwps_gauges": "NOAA National Water Prediction Service (NWS)",
+    "rfc_forecasts": "NWS River Forecast Centers",
+    "iem_archive": "Iowa Environmental Mesonet (archived NWS products)",
+}
+IEM_JOIN_NAME = "Iowa Environmental Mesonet (copy of NWS flood warnings, used to link river gauges)"
+LIST_STRINGS: dict[str, str] = {
+    "GAUGE_ONLY_COASTAL_CAVEAT": GAUGE_ONLY_COASTAL_CAVEAT, "RFC_DOWN": RFC_DOWN, "STALE_NWS": STALE_NWS,
+    "STALE_GAUGES": STALE_GAUGES, "STALE_RFC": STALE_RFC, "STALE_IEM": STALE_IEM, "IEM_JOIN_DOWN": IEM_JOIN_DOWN,
+    "PAST_NOT_YET": PAST_NOT_YET, "FLOOD_NOT_LISTED_DETAIL": FLOOD_NOT_LISTED_DETAIL, "IEM_JOIN_NAME": IEM_JOIN_NAME,
+}
+
+
 def catfim_note(category: str) -> str:
     """CATFIM_NOTE for a category ("moderate")."""
     return CATFIM_NOTE.format(category=category)

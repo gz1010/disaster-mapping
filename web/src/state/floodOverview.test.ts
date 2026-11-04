@@ -1,8 +1,23 @@
 import { describe, expect, it } from 'vitest'
 import type { FloodSummary } from '../api/types'
-import { LIST, LIST_BOTH_DOWN, LIST_EMPTY, LIST_GAUGES_DOWN, LIST_NWS_DOWN, PAST_FLOOD } from '../api/__fixtures__/floods/edgeCases'
+import { LIST, LIST_2026, LIST_BOTH_DOWN, LIST_EMPTY, LIST_GAUGES_DOWN, LIST_NWS_DOWN, LIST_YEAR_ARCHIVE_DOWN, PAST_FLOOD, YEAR_ARCHIVE_DOWN_REASON } from '../api/__fixtures__/floods/edgeCases'
 import { EMPTY_SLOT } from './floodCatalog'
-import { floodFlyTo, floodListHealth, floodMarkerKind, floodRank, floodsInView, hiddenWatches, highestProduct, knownFloodCount, shownFloods, sortFloods, WATCHES_SHOWN_BY_DEFAULT } from './floodOverview'
+import {
+  floodFlyTo,
+  floodListHealth,
+  floodListUnreadable,
+  floodMarkerKind,
+  floodRank,
+  floodsInView,
+  hiddenWatches,
+  highestProduct,
+  knownFloodCount,
+  listDownReasons,
+  listSourceIds,
+  shownFloods,
+  sortFloods,
+  WATCHES_SHOWN_BY_DEFAULT,
+} from './floodOverview'
 
 const byId = (id: string) => LIST().floods.find((f) => f.id === id)!
 
@@ -57,6 +72,25 @@ describe('flood rank and marker kinds (CONTRACT §16.8)', () => {
     const both = LIST_BOTH_DOWN()
     expect(knownFloodCount({ ...both, floods: [] }, false)).toBeNull()
     expect(knownFloodCount(LIST(), false)).toBe(LIST().floods.length - 1)
+  })
+
+  it('a year list is read from the IEM archive: archive down is an outage, never "0 floods" (review WFO-R3)', () => {
+    const slot = (r: ReturnType<typeof LIST>) => ({ ...EMPTY_SLOT, response: r })
+    expect(listSourceIds(LIST())).toEqual(['nws_alerts', 'nwps_gauges'])
+    expect(listSourceIds(LIST_2026())).toEqual(['iem_archive'])
+    // an answered empty year is a real empty year; an unreadable archive is not
+    expect(floodListHealth(slot(LIST_2026()))).toBe('ok')
+    expect(knownFloodCount(LIST_2026(), false)).toBe(0)
+    const down = LIST_YEAR_ARCHIVE_DOWN()
+    expect(floodListHealth(slot(down))).toBe('archive_down')
+    expect(floodListUnreadable('archive_down')).toBe(true)
+    expect(floodListUnreadable('both_down')).toBe(true)
+    expect(floodListUnreadable('nws_down')).toBe(false)
+    expect(knownFloodCount(down, false)).toBeNull()
+    // the backend's own reason, verbatim and once
+    expect(listDownReasons(down)).toEqual([YEAR_ARCHIVE_DOWN_REASON])
+    expect(listDownReasons(LIST_BOTH_DOWN())).toEqual([LIST_BOTH_DOWN().sources[0].reason])
+    expect(listDownReasons(LIST())).toEqual([])
   })
 
   it('in this view and the fly-to box', () => {

@@ -8,7 +8,8 @@
 import { ChevronDown, Info } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useFlood } from '../state/flood'
-import { FLOOD_LIST_ABSENCE, FLOOD_LIST_ABSENCE_SHORT, GAUGE_CATEGORY_DISPLAY, NOT_ALL_CLEAR } from '../ui/shell/floodCopy'
+import { FLOOD_LIST_ABSENCE, FLOOD_LIST_ABSENCE_SHORT, FLOOD_OVERVIEW, GAUGE_CATEGORY_DISPLAY, NOT_ALL_CLEAR } from '../ui/shell/floodCopy'
+import { nationalGaugesDown, useNationalGauges } from './floodGaugeStatus'
 import { ScaleBar } from './MapAttribution'
 import type { GaugeTone } from './floodStyle'
 import '../styles/flood-overview.css'
@@ -40,6 +41,9 @@ export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant 
   const floodOpen = useFlood((s) => s.floodId != null)
   const past = useFlood((s) => s.filter !== 'live')
   const watches = useFlood((s) => s.showWatches)
+  const gaugesOn = useFlood((s) => s.layers.gauges)
+  // the national gauge layer could not be read: only the listed floods' own gauges are drawn (WFO-R8)
+  const gaugesDown = useNationalGauges(nationalGaugesDown) && gaugesOn && !floodOpen && !past
   const compact = (
     <ul className="fxm-legend-row fxo-legend-row" aria-label="Legend">
       {!past && <Row sw="flood-large">Flood: moderate or major, or flash flood warning</Row>}
@@ -55,6 +59,11 @@ export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant 
         </Row>
       ))}
       {floodOpen && <Row sw="warning">NWS warning area</Row>}
+      {gaugesDown && (
+        <li className="fxm-legend-absence fxo-legend-warn" role="note">
+          <span>{FLOOD_OVERVIEW.nationalGaugesDown}</span>
+        </li>
+      )}
       <li className="fxm-legend-absence" title={FLOOD_LIST_ABSENCE}>
         <span>{FLOOD_LIST_ABSENCE_SHORT}</span>
       </li>
@@ -81,6 +90,7 @@ export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant 
           Gauges at action stage or above, from state level zoom: a diamond in NWS&apos;s category colour, larger for higher categories (action, minor,
           moderate, major). A grey diamond with “?”: NWS has not set flood stages there. Streams without a gauge are not measured.
         </p>
+        {gaugesDown && <p className="fxm-legend-note">{FLOOD_OVERVIEW.nationalGaugesDown}</p>}
       </section>
       {floodOpen && (
         <section>

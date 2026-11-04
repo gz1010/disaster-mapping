@@ -117,6 +117,17 @@ export const LIST_GAUGES_DOWN = (): FloodListResponse => clone(listGaugesDown)
 export const LIST_BOTH_DOWN = (): FloodListResponse => clone(listBothDown)
 export const LIST_EMPTY = (): FloodListResponse => clone(listEmpty)
 
+/** A year list whose IEM archive could not be read (review WFO-R3): the shape the real API answers before past floods
+ *  are listed (backend-flood-live M2): no floods, no past rule, the archive unavailable with its reason. */
+export const YEAR_ARCHIVE_DOWN_REASON = 'Fire-3d does not list past floods yet. That is not an all-clear.'
+export const LIST_YEAR_ARCHIVE_DOWN = (): FloodListResponse => {
+  const l = LIST_2026()
+  l.floods = []
+  l.past_rule = null
+  l.sources = l.sources.map((x) => (x.id === 'iem_archive' ? { ...x, status: 'unavailable', retrieved_ms: null, reason: YEAR_ARCHIVE_DOWN_REASON } : x))
+  return l
+}
+
 /** Each official layer could not be reached (C3). */
 export const ALERTS_UNAVAILABLE = (): FloodAlertsResponse => clone(alertsUnavailable)
 export const GAUGES_UNAVAILABLE = (): RiverGaugesResponse => clone(gaugesUnavailable)

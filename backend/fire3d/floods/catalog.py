@@ -49,19 +49,13 @@ LIST_TTL_DEGRADED_S = 60.0
 MAX_LIST_UPSTREAM_REQUESTS = 6
 WATCHES_SHOWN_BY_DEFAULT = False
 GAUGE_POINT_PAD_DEG = 0.02
-SOURCE_NAMES = {
-    "nws_alerts": "National Weather Service",
-    "nwps_gauges": "NOAA National Water Prediction Service (NWS)",
-    "rfc_forecasts": "NWS River Forecast Centers",
-    "iem_archive": "Iowa Environmental Mesonet (archived NWS products)",
-}
-RFC_DOWN = "NWS river forecast points could not be reached right now; forecast flood categories may be missing."
-STALE_REASON = {
-    "nws_alerts": "NWS flood products could not be refreshed right now; an earlier copy is shown.",
-    "nwps_gauges": "River gauges could not be refreshed right now; an earlier copy is shown.",
-    "rfc_forecasts": "NWS river forecasts could not be refreshed right now; an earlier copy is shown.",
-}
-PAST_NOT_YET = "Fire-3d does not list past floods yet. That is not an all-clear."
+# Backend-sent strings live in floods/copy.py (review BFS-R8); these names stay for the other roles' imports.
+SOURCE_NAMES = fcopy.SOURCE_NAMES
+RFC_DOWN = fcopy.RFC_DOWN
+STALE_REASON = {"nws_alerts": fcopy.STALE_NWS, "nwps_gauges": fcopy.STALE_GAUGES, "rfc_forecasts": fcopy.STALE_RFC,
+                "iem_archive": fcopy.STALE_IEM}
+PAST_NOT_YET = fcopy.PAST_NOT_YET
+MAIN_SOURCES = ("nws_alerts", "nwps_gauges", "rfc_forecasts")    # the ones whose outage shortens the list cache
 _SIG_ORDER = {"W": 0, "Y": 1, "A": 2}
 
 
@@ -223,6 +217,7 @@ class GaugeInfo:
     ref: dict                      # FloodGaugeRef
     flow: float | None
     state: str | None
+    coastal: bool = False          # may measure tidal or lake water (grouping.coastal_lids; review BFS-R2)
 
 
 def gauge_infos(inp: Inputs, l48: set[str]) -> dict[str, GaugeInfo]:
@@ -230,6 +225,7 @@ def gauge_infos(inp: Inputs, l48: set[str]) -> dict[str, GaugeInfo]:
     obs = {r["lid"]: r for r in (inp.observed.data or []) if G.keep_gauge(r, l48)}
     fc = {r["lid"]: r for r in (inp.forecast.data or []) if G.keep_gauge(r, l48)}
     rfc = {r["lid"]: r for r in (inp.rfc.data or [])}
+    coastal = G.coastal_lids([*(inp.observed.data or []), *(inp.forecast.data or [])])
     out: dict[str, GaugeInfo] = {}
     for lid in set(obs) | set(fc) | {k for k, r in rfc.items() if r.get("lat") is not None}:
         o, f, r = obs.get(lid), fc.get(lid), rfc.get(lid)
@@ -253,8 +249,20 @@ def gauge_infos(inp: Inputs, l48: set[str]) -> dict[str, GaugeInfo]:
             "forecast_category": fcat, "forecast_max_value": fval, "forecast_max_ms": fms, "forecast_issued_ms": fiss,
             "url": (o or f or {}).get("url") or nwps.gauge_page(lid),
         }
-        out[lid] = GaugeInfo(lid, ref, o.get("flow") if o else None, base.get("state"))
+        out[lid] = GaugeInfo(lid, ref, o.get("flow") if o else None, base.get("state"), lid in coastal)
     return out
+
+
+def gauge_only_caveat(members: list[GaugeInfo], nws_ok: bool) -> str:
+    """``FloodSummary.caveat`` of a gauge-only flood, never claiming an NWS answer Fire-3d does not have: NWS could not
+    be read -> ``ALERTS_UNAVAILABLE`` (review BFS-R4); a gauge that may measure tidal or lake water ->
+    ``GAUGE_ONLY_COASTAL_CAVEAT`` (Fire-3d does not read NWS Coastal or Lakeshore Flood products, D1; BFS-R2); else
+    ``GAUGE_ONLY_CAVEAT``."""
+    if not nws_ok:
+        return fcopy.ALERTS_UNAVAILABLE
+    if any(gi.coastal for gi in members):
+        return fcopy.GAUGE_ONLY_COASTAL_CAVEAT
+    return fcopy.GAUGE_ONLY_CAVEAT
 
 
 def gauge_crossing_ms(lid: str, minor: float | None) -> int | None:
@@ -319,8 +327,11 @@ class _Flood:
     watches: list[str]
 
 
-def group(inp: Inputs, now: int) -> tuple[dict[str, dict], dict[str, GaugeInfo], dict[str, set[str]], list[_Flood], int]:
-    """Rules 1-5: (products kept, gauges known, gauge links per product, floods as member lists, products in effect)."""
+def group(inp: Inputs, now: int, reg: reg_mod.Registry | None = None
+          ) -> tuple[dict[str, dict], dict[str, GaugeInfo], dict[str, set[str]], list[_Flood], int]:
+    """Rules 1-5: (products kept, gauges known, gauge links per product, floods as member lists, products in effect).
+    While NWS cannot be read, gauges whose open episodes belong to one flood id stay joined (``reg``; review BFS-R4):
+    the products that tied them are unknown, not gone."""
     l48 = set(regions.L48)
     prods: dict[str, dict] = {}
     geoms: dict[str, Any] = {}
@@ -344,6 +355,8 @@ def group(inp: Inputs, now: int) -> tuple[dict[str, dict], dict[str, GaugeInfo],
     # Rule 2: link gauges to river products (FL.*): cached H-VTEC, else the IEM join, else a gauge inside the polygon
     # (+ 2 km) on the river the text names. Areal products (FA.*) link the same way by place and the water their text
     # names ("Flooding along the Silver Creek"): a flooding gauge on that water inside the area is part of the flood.
+    # The water may also be named only in the segment's own description ("* WHERE...The Little Colorado River from
+    # Winslow to Leupp", "Flooding of the Little Colorado River"): its gauge inside the area is linked (BFS-R3).
     links: dict[str, set[str]] = {}
     for pid, a in prods.items():
         v = a.get("vtec") or {}
@@ -359,7 +372,8 @@ def group(inp: Inputs, now: int) -> tuple[dict[str, dict], dict[str, GaugeInfo],
             rivers = [r for r in named if r]
             lids = {lid for lid in observed
                     if G.point_in_buffer(gauges[lid].ref["lon"], gauges[lid].ref["lat"], geoms[pid], G.LINK_BUFFER_KM)
-                    and any(G.river_matches(naming.clean_water(gauges[lid].ref["waterbody"]), r) for r in rivers)}
+                    and (any(G.river_matches(naming.clean_water(gauges[lid].ref["waterbody"]), r) for r in rivers)
+                         or naming.text_names_water(gauges[lid].ref["waterbody"], a.get("description")))}
         links[pid] = lids
 
     # Rule 3: join
@@ -401,10 +415,19 @@ def group(inp: Inputs, now: int) -> tuple[dict[str, dict], dict[str, GaugeInfo],
             a, b = areal[i], areal[j]
             if uf.find("p:" + a) == uf.find("p:" + b):
                 continue
-            near = (G.distance_km(geoms[a], geoms[b]) <= G.AREAL_NEAR_KM
-                    and abs((prods[a].get("sent_ms") or 0) - (prods[b].get("sent_ms") or 0)) <= G.AREAL_NEAR_H * G.H_MS)
+            near = (G.distance_km(geoms[a], geoms[b]) <= G.AREAL_NEAR_KM       # issue times, not update times (R7)
+                    and abs((G.issued_ms(prods[a]) or 0) - (G.issued_ms(prods[b]) or 0)) <= G.AREAL_NEAR_H * G.H_MS)
             if near or G.overlap_share(geoms[a], geoms[b]) >= G.AREAL_OVERLAP:
                 uf.union("p:" + a, "p:" + b)
+    if reg is not None and not inp.alerts.ok:                 # NWS cannot be read: keep each flood's gauges together
+        by_id: dict[str, list[str]] = {}
+        for lid in sorted(observed):
+            fid = reusable_episode(reg, lid, now)[1]
+            if fid:
+                by_id.setdefault(fid, []).append(lid)
+        for lids_ in by_id.values():
+            for other in lids_[1:]:
+                uf.union("g:" + lids_[0], "g:" + other)
 
     # Floods (rules 4-5): a component starts a flood with a non-watch product or a gauge at minor or worse
     floods: list[_Flood] = []
@@ -449,8 +472,9 @@ def _members(f: _Flood, gauges: dict[str, GaugeInfo]) -> list[GaugeInfo]:
 
 
 def summarize(f: _Flood, prods: dict[str, dict], gauges: dict[str, GaugeInfo], links: dict[str, set[str]], now: int,
-              obs_rows: dict[str, dict]) -> dict:
-    """Rule 6-9 fields of one flood (``id``, ``aliases``, bundle state and ``started`` from the registry come later)."""
+              obs_rows: dict[str, dict], nws_ok: bool = True) -> dict:
+    """Rule 6-9 fields of one flood (``id``, ``aliases``, bundle state and ``started`` from the registry come later).
+    ``nws_ok``: the NWS products could be read (fresh or an earlier copy); else no caveat claims their absence."""
     own = [prods[p] for p in f.pids]
     attached = [prods[p] for p in dict.fromkeys(f.watches) if p not in f.pids]
     products = own + attached
@@ -528,11 +552,35 @@ def summarize(f: _Flood, prods: dict[str, dict], gauges: dict[str, GaugeInfo], l
         "max_category": max(cats, key=G.CATEGORY_ORDER.index) if cats else None, "products": pref,
         "offices": sorted({(a.get("vtec") or {}).get("office") for a in products} - {None}),
         "bundle_status": "none", "bundle_built_ms": None, "aliases": [], "synthetic": False,
-        "caveat": fcopy.GAUGE_ONLY_CAVEAT if level == "gauge_only" else None,
+        "caveat": gauge_only_caveat(members, nws_ok) if level == "gauge_only" else None,
         "_keys": keys, "_gauge_lids": [gi.lid for gi in members], "_anchor": anchor, "_starts": starts,
         "_crossing": min(crossing) if crossing else None, "_alt_name": alt, "_base_name": name,
         "_first_sent": min(sent) if sent else None,
     }
+
+
+def reusable_episode(reg: reg_mod.Registry, lid: str, now: int) -> tuple[str | None, str | None]:
+    """(open episode key, its flood id) of a gauge; the id is None when the episode must be retired (rule 10, C8).
+
+    An episode stays open until its flood has been quiet longer than ``INACTIVE_LISTED_H``, judged from the flood's
+    own last-known summary (review BFS-R5): an active flood went quiet at most when Fire-3d last saw it, an inactive
+    one when it ended. Fire-3d's own build gaps (the server was off overnight) never close an episode alone. Without a
+    last-known summary the episode's first-seen time stands in."""
+    ep = reg.open_episode(lid)
+    if ep is None:
+        return None, None
+    hit = reg.id_for(ep)
+    if hit is None:
+        return ep, None
+    lk = reg_mod.read_last_known(hit[0])
+    if lk is None:
+        quiet_since = hit[1]
+    else:
+        summary, seen = lk
+        quiet_since = seen if summary.get("status") == "active" else min(seen, summary.get("ended_ms") or seen)
+    if now - quiet_since > G.INACTIVE_LISTED_H * G.H_MS:
+        return ep, None
+    return ep, hit[0]
 
 
 def assign_ids(rows: list[dict], now: int, reg: reg_mod.Registry) -> None:
@@ -547,14 +595,11 @@ def assign_ids(rows: list[dict], now: int, reg: reg_mod.Registry) -> None:
     for r in rows:
         keys = list(r["_keys"])
         for lid in r["_gauge_lids"]:
-            ep = reg.open_episode(lid)
-            if ep is not None:
-                hit = reg.id_for(ep)
-                lk = reg_mod.read_last_known(hit[0]) if hit else None
-                if hit is None or lk is None or lk[1] < now - G.GAUGE_ACTIVE_H * G.H_MS:
-                    retire.append((ep, now))           # the gauge's earlier flood went quiet: a new episode (C8)
-                    reg.retired[ep] = now
-                    ep = None
+            ep, fid = reusable_episode(reg, lid, now)
+            if ep is not None and fid is None:
+                retire.append((ep, now))               # the gauge's earlier flood stayed quiet too long: a new one (C8)
+                reg.retired[ep] = now
+                ep = None
             keys.append(ep or reg_mod.gauge_episode_key(lid, now))
         row_keys.append(keys)
         claims.append(sorted({(hit[1], hit[0], k) for k in keys for hit in [reg.id_for(k)] if hit}))
@@ -611,63 +656,183 @@ def _overlay_bundle(s: dict) -> dict:
     return {**s, "bundle_status": st, "bundle_built_ms": built}
 
 
-def _source(sid: str, res: SourceResult, down_reason: str) -> dict:
+def _source(sid: str, res: SourceResult, down_reason: str, name: str | None = None) -> dict:
     if not res.ok:
-        return {"id": sid, "name": SOURCE_NAMES[sid], "status": "unavailable", "retrieved_ms": None,
+        return {"id": sid, "name": name or SOURCE_NAMES[sid], "status": "unavailable", "retrieved_ms": None,
                 "reason": down_reason, "stale": False}
-    return {"id": sid, "name": SOURCE_NAMES[sid], "status": "available", "retrieved_ms": res.retrieved_ms,
+    return {"id": sid, "name": name or SOURCE_NAMES[sid], "status": "available", "retrieved_ms": res.retrieved_ms,
             "reason": STALE_REASON[sid] if res.stale else None, "stale": res.stale}
 
 
-def _carry_overs(current: set[str], now: int, reg: reg_mod.Registry) -> list[dict]:
-    """Rule 8: floods that left the current lists stay listed (status "inactive") for INACTIVE_LISTED_H after Fire-3d
-    last saw them; older ones have their gauge episodes retired (a later flood there gets a new id)."""
+def _ref_key(p: dict) -> str:
+    return p.get("vtec_key") or str(p.get("id"))
+
+
+def as_left(s: dict, seen: int, now: int, *, nws_ok: bool, gauges_ok: bool,
+            current: dict[str, str] | None = None) -> dict:
+    """A flood that is no longer in the current lists, as Fire-3d shows it (rules 8 and 13; review BFS-R1, BFS-R4).
+
+    NWS answered (fresh or an earlier copy): each product left NWS's active list, so its phase is "ended" (a product
+    NWS still lists keeps its phase now, ``current``). NWS could not be read: each keeps its last-known phase until its
+    own NWS end time passes (cannot decide). Status, level, ``expires_ms`` and ``emergency`` follow the products still
+    in effect; with none the flood is inactive and keeps the level it last had (as a past flood does), with
+    ``expires_ms`` null and ``emergency`` false. While the gauges cannot be read, a member gauge that read at flood
+    stage within ``GAUGE_ACTIVE_H`` keeps it active. A gauge-only flood's caveat never claims an NWS answer Fire-3d
+    does not have."""
+    current = current or {}
+    prods = []
+    for p in s.get("products") or []:
+        ph = current.get(_ref_key(p))
+        if ph is None:
+            if nws_ok:
+                ph = "ended"
+            else:
+                ph = "ended" if (p.get("ends_ms") is not None and p["ends_ms"] <= now) else (p.get("phase") or "ended")
+        prods.append({**p, "phase": ph})
+    live = [p for p in prods if p["phase"] in ("in_effect", "upcoming")]
+    recent = (not gauges_ok) and any(
+        G.cat_rank(g.get("observed_category")) >= 1 and (g.get("observed_ms") or 0) >= now - G.GAUGE_ACTIVE_H * G.H_MS
+        for g in s.get("gauges") or [])
+    active = bool(live) or recent
+    level = max((G.ref_level(p) for p in live), key=G.LEVEL_ORDER.index) if live else s.get("level")
+    caveat = None
+    if level == "gauge_only":
+        caveat = s.get("caveat")
+        if not nws_ok:
+            caveat = fcopy.ALERTS_UNAVAILABLE
+        elif caveat in (None, fcopy.ALERTS_UNAVAILABLE):
+            tidal = any(G.ref_looks_tidal(g) for g in s.get("gauges") or [])
+            caveat = fcopy.GAUGE_ONLY_COASTAL_CAVEAT if tidal else fcopy.GAUGE_ONLY_CAVEAT
+    ends = [p["ends_ms"] for p in live if p.get("ends_ms")]
+    return {**s, "status": "active" if active else "inactive", "products": prods, "level": level,
+            "expires_ms": max(ends) if ends else None, "emergency": any(bool(p.get("emergency")) for p in live),
+            "ended_ms": None if active else (s.get("ended_ms") or seen), "caveat": caveat}
+
+
+def _listable(s: dict, nws_ok: bool, gauges_ok: bool, current: dict[str, str]) -> bool:
+    """A flood that left the lists is listed (inactive) only when Fire-3d can tell it is quiet: NWS answered, the gauges
+    answered when it has any, and none of its products is listed now with another flood (review BFS-R4: an outage
+    means "cannot decide"; the detail route still answers its last-known summary)."""
+    if not nws_ok or (s.get("gauges") and not gauges_ok):
+        return False
+    return not any(_ref_key(p) in current for p in s.get("products") or [])
+
+
+def _carry_overs(current_ids: set[str], now: int, reg: reg_mod.Registry, *, nws_ok: bool, gauges_ok: bool,
+                 current: dict[str, str]) -> list[dict]:
+    """Rule 8: floods that left the current lists stay listed (status "inactive", their products "ended") for
+    INACTIVE_LISTED_H after Fire-3d last saw them, when Fire-3d can tell (:func:`_listable`); older ones have their
+    gauge episodes retired (a later flood there gets a new id), never during an outage."""
     out, retire = [], []
     for s, seen in reg_mod.iter_last_known():
         fid = s.get("id")
-        if not fid or fid in current or reg.canonical(fid) != fid or s.get("synthetic"):
+        if not fid or fid in current_ids or reg.canonical(fid) != fid or s.get("synthetic"):
             continue
         if seen >= now - G.INACTIVE_LISTED_H * G.H_MS:
-            prods = [{**p, "phase": "ended" if (p.get("ends_ms") and p["ends_ms"] <= now) else p["phase"]}
-                     for p in s.get("products") or []]
-            out.append({**s, "status": "inactive", "ended_ms": s.get("ended_ms") or seen, "products": prods})
-        else:
+            if _listable(s, nws_ok, gauges_ok, current):
+                out.append(as_left(s, seen, now, nws_ok=nws_ok, gauges_ok=gauges_ok, current=current))
+        elif nws_ok and gauges_ok:
             retire += [(k, now) for k in reg.keys_of(fid) if reg_mod.is_gauge_key(k)]
     if retire:
         reg.write(retire=retire)
     return out
 
 
-def build_list(inp: Inputs, now: int) -> dict:
-    """A ``FloodListResponse`` dict from the inputs (rules 1-12); writes registry lines and last-known summaries."""
-    reg = reg_mod.get_registry()
-    sources = [
+def _sources(inp: Inputs) -> list[dict]:
+    """``sources[]`` (rule 11) plus the IEM H-VTEC join that links gauges to warnings (review BFS-R10: credited)."""
+    return [
         _source("nws_alerts", inp.alerts, fcopy.FLOOD_LISTS_DOWN if not inp.observed.ok else fcopy.FLOOD_NWS_DOWN),
         _source("nwps_gauges", inp.observed, fcopy.FLOOD_LISTS_DOWN if not inp.alerts.ok else fcopy.FLOOD_GAUGES_DOWN),
         _source("rfc_forecasts", inp.rfc, RFC_DOWN),
+        _source("iem_archive", inp.iem, fcopy.IEM_JOIN_DOWN, name=fcopy.IEM_JOIN_NAME),
     ]
-    if not inp.alerts.ok and not inp.observed.ok:
+
+
+def current_phases(prods: dict[str, dict]) -> dict[str, str]:
+    """Phase of every product kept from NWS's current answer, by VTEC key (else CAP id)."""
+    out: dict[str, str] = {}
+    for a in prods.values():
+        out[nws.vtec_key(a.get("vtec")) or str(a["id"])] = a["phase"]
+    return out
+
+
+def nws_down_row(s: dict, now: int) -> dict | None:
+    """The row the live list gives a flood while NWS cannot be read and no earlier copy exists (rule 11; review
+    BFS-R4): rebuilt from its gauges only (level ``gauge_only``, no products, caveat ``ALERTS_UNAVAILABLE``, never
+    ``GAUGE_ONLY_CAVEAT``); None when no member gauge reads at minor or worse (such a flood is not listed then). The
+    fixture's ``edge/list-nws-down.json`` is made with it; a test checks it against :func:`build_list` on the recorded
+    day."""
+    refs = [g for g in s.get("gauges") or [] if G.cat_rank(g.get("observed_category")) >= 0]
+    in_flood = [g for g in refs if G.cat_rank(g["observed_category"]) >= 1]
+    if not in_flood:
+        return None
+    cats = [c for g in refs for c in (g["observed_category"], g.get("forecast_category")) if c in G.CATEGORY_ORDER]
+    readings = [g["observed_ms"] for g in refs if g.get("observed_ms")]
+    recent = any((g.get("observed_ms") or 0) >= now - G.GAUGE_ACTIVE_H * G.H_MS for g in in_flood)
+    return {**s, "kind": "river", "level": "gauge_only", "emergency": False, "products": [], "offices": [],
+            "caveat": fcopy.ALERTS_UNAVAILABLE, "expires_ms": None, "last_product_ms": None,
+            "status": "active" if recent else "inactive",
+            "ended_ms": None if recent else max((g.get("observed_ms") or 0) for g in in_flood) or None,
+            "updated_ms": max(readings) if readings else None, "primary_gauge": refs[0], "gauges": refs,
+            "gauges_in_flood": len(in_flood), "max_category": max(cats, key=G.CATEGORY_ORDER.index) if cats else None,
+            "rivers": list(dict.fromkeys(w for w in (naming.clean_water(g.get("waterbody")) for g in refs) if w))}
+
+
+def gauges_down_row(s: dict) -> dict | None:
+    """The row the live list gives a flood while the river gauges (``riv_gauges`` and the RFC forecast points) cannot
+    be read and no earlier copy exists (rule 11): its NWS products only, no gauge; None without a product in effect
+    (a gauge-only flood is not listed then). Used for the fixture's ``edge/list-gauges-down.json``; tested against
+    :func:`build_list`."""
+    prods = [p for p in s.get("products") or [] if p.get("phase") in ("in_effect", "upcoming")]
+    if not prods:
+        return None
+    sent = [p["sent_ms"] for p in prods if p.get("sent_ms")]
+    phs = {(p.get("vtec_key") or "...").split(".")[1] for p in prods if p.get("vtec_key")}
+    kind = "river" if "FL" in phs else ("flash" if any(p.get("event") == "Flash Flood Warning" for p in prods) else "areal")
+    return {**s, "kind": kind, "primary_gauge": None, "gauges": [], "gauges_in_flood": 0, "max_category": None,
+            "products": [{**p, "gauge_lids": p.get("gauge_lids") or []} for p in prods],
+            "updated_ms": max(sent) if sent else s.get("updated_ms"), "status": "active", "ended_ms": None,
+            "caveat": None}
+
+
+def build_list(inp: Inputs, now: int) -> dict:
+    """A ``FloodListResponse`` dict from the inputs (rules 1-12); writes registry lines and last-known summaries.
+
+    Internal keys (dropped by :func:`public_list`): ``_nws_ok``, ``_gauges_ok`` (each source answered, fresh or an
+    earlier copy) and ``_phases`` (:func:`current_phases`), used by :func:`resolve`."""
+    reg = reg_mod.get_registry()
+    nws_ok, gauges_ok = inp.alerts.ok, inp.observed.ok
+    sources = _sources(inp)
+    if not nws_ok and not gauges_ok:
+        # Both lists down: the flood bundles on disk only, as last seen (their products until their own NWS end time).
+        # The answer stays a 200 with every source unavailable (FLOOD_LISTS_DOWN), not a 503 (contract5 deviation).
         rows = []
         for m in store.list_flood_bundles():
             s = m.get("summary")
             if isinstance(s, dict) and not s.get("synthetic") and m.get("status") == "ready":
-                rows.append(_overlay_bundle(s))
+                seen = int(m.get("built_ms") or s.get("updated_ms") or now)
+                rows.append(_overlay_bundle(as_left(s, seen, now, nws_ok=False, gauges_ok=False)))
         return {"hazard": "flood", "mode": "live", "updated_ms": now, "floods": G.sort_floods(rows), "sources": sources,
-                "products_in_effect": None}
-    prods, gauges, links, floods, in_effect = group(inp, now)
+                "products_in_effect": None, "_nws_ok": False, "_gauges_ok": False, "_phases": {}}
+    prods, gauges, links, floods, in_effect = group(inp, now, reg)
     obs_rows = {r["lid"]: r for r in (inp.observed.data or [])}
-    rows = [summarize(f, prods, gauges, links, now, obs_rows) for f in floods]
+    rows = [summarize(f, prods, gauges, links, now, obs_rows, nws_ok) for f in floods]
     naming.dedupe_names(rows)
     assign_ids(rows, now, reg)
-    current = {r["id"] for r in rows}
+    current_ids = {r["id"] for r in rows}
+    phases = current_phases(prods)
     out = []
     for r in rows:
         s = _overlay_bundle(_public(r))
-        reg_mod.write_last_known(s, now)
+        # During an outage Fire-3d sees less: an id's last-known summary (what it last saw with both lists) is kept.
+        if (nws_ok and gauges_ok) or reg_mod.read_last_known(s["id"]) is None:
+            reg_mod.write_last_known(s, now)
         out.append(s)
-    out += [_overlay_bundle(s) for s in _carry_overs(current, now, reg)]
+    out += [_overlay_bundle(s) for s in _carry_overs(current_ids, now, reg, nws_ok=nws_ok, gauges_ok=gauges_ok,
+                                                     current=phases)]
     return {"hazard": "flood", "mode": "live", "updated_ms": now, "floods": G.sort_floods(out), "sources": sources,
-            "products_in_effect": in_effect if inp.alerts.ok else None}
+            "products_in_effect": in_effect if nws_ok else None, "_nws_ok": nws_ok, "_gauges_ok": gauges_ok,
+            "_phases": phases}
 
 
 # ----------------------------------------------------------------------------------------------------------------
@@ -685,7 +850,8 @@ def reset_state() -> None:
 
 
 def _degraded(lst: dict) -> bool:
-    return any(s["status"] != "available" or s["stale"] for s in lst["sources"])
+    """A main source is down or stale (the IEM join alone never shortens the cache: IEM asks for few requests)."""
+    return any(s["status"] != "available" or s["stale"] for s in lst["sources"] if s["id"] in MAIN_SOURCES)
 
 
 def flood_list(refresh: bool = False) -> dict:
@@ -736,6 +902,9 @@ def resolve(flood_id: str) -> tuple[dict, str]:
     by_id = {s["id"]: s for s in lst["floods"]}
     if flood_id in by_id:
         return by_id[flood_id], "live"
+    now = now_ms()
+    # Not in the live list: shown as it left the lists (as_left; products "ended" once NWS answered without them).
+    left = {"nws_ok": lst.get("_nws_ok", True), "gauges_ok": lst.get("_gauges_ok", True), "current": lst.get("_phases")}
     reg = reg_mod.get_registry()
     canon = reg.canonical(flood_id)
     if canon != flood_id:
@@ -743,14 +912,16 @@ def resolve(flood_id: str) -> tuple[dict, str]:
             return by_id[canon], "alias"
         lk = reg_mod.read_last_known(canon)
         if lk is not None:
-            return _overlay_bundle(lk[0]), "alias"
+            return _overlay_bundle(as_left(lk[0], lk[1], now, **left)), "alias"
     m = store.load_flood_manifest(flood_id)
     if m is not None and isinstance(m.get("summary"), dict):
-        s = _overlay_bundle(m["summary"])
-        return s, ("live" if s.get("synthetic") else "bundle")
+        if m["summary"].get("synthetic"):
+            return _overlay_bundle(m["summary"]), "live"
+        seen = int(m.get("built_ms") or m["summary"].get("updated_ms") or now)
+        return _overlay_bundle(as_left(m["summary"], seen, now, **left)), "bundle"
     lk = reg_mod.read_last_known(flood_id)
     if lk is not None:
-        return _overlay_bundle({**lk[0], "status": "inactive"}), "last_known"
+        return _overlay_bundle(as_left(lk[0], lk[1], now, **left)), "last_known"
     if lst.get("_decided", True):
         raise FloodNotFound(flood_id)
     raise ListsUnavailable()

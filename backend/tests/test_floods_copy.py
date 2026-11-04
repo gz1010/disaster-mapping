@@ -74,6 +74,26 @@ def test_every_module_string_passes_the_guard() -> None:
                 assert guard(str(v)) == [], (name, k)
 
 
+def test_list_strings_live_in_copy_and_pass_the_guard() -> None:
+    """Review BFS-R8: every other fixed string the list and detail routes send (source reasons and names, the 404
+    detail, the coastal gauge caveat) is a ``copy.py`` constant under this guard; catalog and the routes read them
+    from there. They are not CONTRACT 16.14 names yet (the integration adds them from the contract5 note)."""
+    from fire3d.api import floods as api_floods
+    from fire3d.floods import catalog as cat
+
+    assert not set(fcopy.LIST_STRINGS) & set(fcopy.CONTRACT_STRINGS)
+    for name, text in fcopy.LIST_STRINGS.items():
+        assert guard(text) == [] and getattr(fcopy, name) == text, name
+    for text in fcopy.SOURCE_NAMES.values():
+        assert guard(text) == []
+    assert cat.RFC_DOWN == fcopy.RFC_DOWN and cat.PAST_NOT_YET == fcopy.PAST_NOT_YET
+    assert set(cat.STALE_REASON.values()) <= set(fcopy.LIST_STRINGS.values()) and cat.SOURCE_NAMES is fcopy.SOURCE_NAMES
+    src = Path(api_floods.__file__).read_text() + Path(cat.__file__).read_text()
+    for text in fcopy.LIST_STRINGS.values():
+        assert text not in src                                       # no second copy of a sent string
+    assert "No NWS flood product names" not in fcopy.GAUGE_ONLY_COASTAL_CAVEAT        # never claims D1's absence
+
+
 @pytest.mark.parametrize("planted", ["This area is safe.", "Low risk here.", "All clear now.", "The river has receded.",
                                      "Flooding ended at noon.", "Dry ground.", "No flooding here.", "Proceed safely.",
                                      "AREA OF MINIMAL FLOOD HAZARD"])

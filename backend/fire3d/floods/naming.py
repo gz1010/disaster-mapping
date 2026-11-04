@@ -25,14 +25,17 @@ _WATER_WORDS = ("River", "Creek", "Fork", "Bayou", "Run", "Brook", "Wash", "Slou
 _WATER = r"(?:" + "|".join(_WATER_WORDS) + r")"
 # A river product's segment names its forecast point on its WHERE line ("* WHERE...Grand River near Sumner."); the
 # "<River> (at|near|above|below) <Place> affecting <Counties>" lines above it list every river of the whole product.
-WHERE_RE = re.compile(r"\*\s*WHERE\.{3}\s*([A-Za-z0-9][A-Za-z0-9 .'&/-]*?)\s+(?:at|near|above|below)\s+[A-Za-z]",
+# Areal products name a reach: "* WHERE...The Little Colorado River from Winslow to Leupp..." (review BFS-R3).
+WHERE_RE = re.compile(r"\*\s*WHERE\.{3}\s*([A-Za-z0-9][A-Za-z0-9 .'&/-]*?)\s+(?:at|near|above|below|from)\s+[A-Za-z]",
                       re.IGNORECASE)
+_LEAD_RE = re.compile(r"^(?:along\s+)?(?:the\s+)?", re.IGNORECASE)
 AFFECTING_RE = re.compile(r"(?m)^\s*([A-Za-z0-9][A-Za-z0-9 .'&/-]*?)\s+(?:at|near|above|below)\s+[^\n]+?\s+affecting\b",
                           re.IGNORECASE)
 # Datum notes in gauge names ("Georgetown (in NAVD88)") and waterbody values that name no river ("Tide Station")
 DATUM_RE = re.compile(r"\s*\((?:in\s+)?(?:MHHW|MLLW|MHW|MLW|NAVD\s*-?\s*88|NGVD\s*-?\s*29|MSL|STND|ft\.?\s*\w*)\)", re.IGNORECASE)
 GENERIC_WATER = frozenset({"tide station", "tidal station", "tide gauge", "tide gage", "tide", "lake level", "reservoir"})
-ALONG_RE = re.compile(r"\balong (?:the )?((?:[A-Z][\w'.-]*\s+){0,4}" + _WATER + r")\b")
+# "Flooding along the Silver Creek", "Flooding of the Little Colorado River is occurring" (review BFS-R3)
+ALONG_RE = re.compile(r"\b(?:[Aa]long|[Ff]looding of) (?:the )?((?:[A-Z][\w'.-]*\s+){0,4}" + _WATER + r")\b")
 LOCATIONS_RE = re.compile(r"(?is)some locations that will experience (?:flash )?flooding include\.{0,3}\s*(.+?)(?:\n\s*\n|$)")
 
 
@@ -81,7 +84,7 @@ def clean_water(name: str | None) -> str | None:
 
 
 def _river_cand(raw: str) -> str | None:
-    cand = proper(raw)
+    cand = proper(_LEAD_RE.sub("", raw.strip()))
     words = cand.split()
     if 1 <= len(words) <= 6 and any(w.rstrip(".").title() in _WATER_WORDS for w in words):
         return cand
@@ -110,6 +113,26 @@ def river_from_gauge_name(name: str | None) -> str | None:
         return None
     m = re.match(r"^(.+?)\s+(?:at|near|above|below)\s+", name, flags=re.IGNORECASE)
     return proper(m.group(1)) if m else None
+
+
+def own_text(text: str | None) -> str:
+    """A product segment's text without the "<River> (at|near|above|below) <Place> affecting <Counties>" lines, which
+    list every river of the whole multi-segment product (so they never tie a gauge to this segment)."""
+    return AFFECTING_RE.sub(" ", text or "")
+
+
+def _norm_words(text: str | None) -> str:
+    return " " + " ".join(re.findall(r"[a-z0-9]+", (text or "").lower().replace("'", ""))) + " "
+
+
+def text_names_water(water: str | None, *texts: str | None) -> bool:
+    """The product's own text names this water ("Little Colorado River", whole words, case and punctuation ignored:
+    "St. Johns River" = "St Johns River"); waters that name no river ("Tide Station") never match (review BFS-R3)."""
+    w = clean_water(water)
+    if not w or len(w) < 4:
+        return False
+    needle = _norm_words(w)
+    return needle.strip() != "" and any(needle in _norm_words(own_text(t)) for t in texts if t)
 
 
 def water_from_text(*texts: str | None) -> str | None:

@@ -55,7 +55,9 @@ def _ok(r, model):
 def test_live_list_status_and_gzip(client: TestClient) -> None:
     body = _ok(client.get("/api/floods"), C.FloodListResponse)
     assert body["hazard"] == "flood" and body["mode"] == "live" and len(body["floods"]) >= 30
-    assert {s["id"] for s in body["sources"]} == {"nws_alerts", "nwps_gauges", "rfc_forecasts"}
+    assert {s["id"] for s in body["sources"]} == {"nws_alerts", "nwps_gauges", "rfc_forecasts", "iem_archive"}
+    iem = {s["id"]: s for s in body["sources"]}["iem_archive"]                         # the H-VTEC join (BFS-R10)
+    assert iem["name"] == fcopy.IEM_JOIN_NAME and iem["status"] == "available"
     raw = client.get("/api/floods", headers={"accept-encoding": "gzip"})
     assert "Accept-Encoding" in raw.headers.get("vary", "") and orjson.loads(raw.content) == body
     st = _ok(client.get("/api/floods/status"), C.FloodLiveStatus)
@@ -93,11 +95,21 @@ def test_detail_bundle_last_known_and_404(client: TestClient, flood_fixture_bund
     (b / "manifest.json").write_bytes(orjson.dumps(m))
     got = _ok(client.get(f"/api/floods/{bid}"), C.FloodDetailResponse)
     assert got["resolved_from"] == "bundle" and got["summary"]["bundle_status"] == "ready" and got["manifest"]["id"] == bid
-    # an id last seen 72 h ago (no longer listed as inactive): its last-known summary
-    s = {**client.get("/api/floods").json()["floods"][1], "id": "flood-20261030-gone-river-flood-0a0b0c"}
+    # an id last seen 72 h ago (no longer listed as inactive): its last-known summary, its products "ended" now that
+    # NWS answered without them (BFS-R1: never "in_effect" with a future end beside an inactive status)
+    live1 = next(x for x in client.get("/api/floods").json()["floods"] if x["products"])
+    gone = [{**p, "id": f"gone-{i}", "vtec_key": f"KZZZ.FL.W.{9000 + i}.2026", "phase": "in_effect",
+             "ends_ms": client.now + 9 * H} for i, p in enumerate(live1["products"])]  # type: ignore[attr-defined]
+    s = {**live1, "id": "flood-20261030-gone-river-flood-0a0b0c", "products": gone, "status": "active"}
     reg_mod.write_last_known(s, client.now - 72 * H)  # type: ignore[attr-defined]
     lk = _ok(client.get(f"/api/floods/{s['id']}"), C.FloodDetailResponse)
     assert lk["resolved_from"] == "last_known" and lk["summary"]["status"] == "inactive"
+    assert {p["phase"] for p in lk["summary"]["products"]} == {"ended"} and lk["summary"]["expires_ms"] is None
+    # a stand-in sharing a product NWS still lists shows that product's phase now, never a false "ended"
+    shared = {**live1, "id": "flood-20261030-shared-river-flood-0d0e0f"}
+    reg_mod.write_last_known(shared, client.now - 72 * H)  # type: ignore[attr-defined]
+    sh = _ok(client.get(f"/api/floods/{shared['id']}"), C.FloodDetailResponse)["summary"]
+    assert [p["phase"] for p in sh["products"]] == [p["phase"] for p in live1["products"]]
     assert client.get("/api/floods/flood-20261104-never-seen-flood-ffffff").status_code == 404
     assert client.get("/api/floods/2025-eaton-fire-dbfa57").status_code == 404        # a fire id is never a flood
 
@@ -122,6 +134,9 @@ def test_an_id_left_the_list_48_h_ago_still_resolves(client: TestClient) -> None
 
 
 def test_503_only_when_the_lists_could_not_decide(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Both lists down: GET /api/floods stays a 200 whose sources say why (FLOOD_LISTS_DOWN; a deliberate deviation of
+    CONTRACT 16.7's 503, recorded in contract5/backend-flood-sources.md, review BFS-R6); a detail the lists cannot
+    decide answers 503 FLOOD_LISTS_503."""
     down = cat.Inputs(*(cat.SourceResult(None, None, error="down") for _ in range(5)))
     monkeypatch.setattr(cat, "fetch_inputs", lambda: down)
     cat.reset_state()

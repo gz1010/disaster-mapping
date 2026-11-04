@@ -19,7 +19,7 @@ import { recordIssuerLabel } from './api/records'
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useFlood } from './state/flood'
-import { applyTimeWhenReady, floodParam, useHistorySync } from './state/history'
+import { applyTimeWhenReady, floodParam, linkWithBothUrl, useHistorySync } from './state/history'
 import { readUrlParams, useFloodPolling, useHotkeys, useLivePolling, usePlayback, useUrlSync } from './state/runtime'
 import { eventKindOf } from './state/selectors'
 import { useStore } from './state/store'
@@ -38,6 +38,7 @@ import { buildFailed, needsBuild, openFire } from './ui/shell/fireActions'
 import { CREDITS_FOLD_QUERY, NARROW_QUERY, useMediaQuery } from './ui/shell/hooks'
 import { MapBoundary } from './ui/shell/MapBoundary'
 import { OverviewChrome } from './ui/shell/OverviewChrome'
+import { FloodMissingNotice } from './ui/shell/FloodListPanel'
 import { MissingFireNotice } from './ui/shell/OverviewPanel'
 import { PublicFireChrome } from './ui/shell/PublicFireChrome'
 import { PublicFloodChrome } from './ui/shell/PublicFloodChrome'
@@ -65,6 +66,9 @@ function useBootstrap(): void {
     bootstrapped = true
     const q = readUrlParams()
     const st = useStore.getState()
+    // brief 5: a link with both ?incident= and ?flood= opens the fire and drops `flood` from the address (CONTRACT §16.1)
+    const both = linkWithBothUrl(window.location.href)
+    if (both) window.history.replaceState(window.history.state, '', both)
     void st.loadCatalog()
     const id = q.incident
     const t = q.t
@@ -377,6 +381,7 @@ function MapWorkspace() {
       {event === 'fire' && !notPrepared && <StatusOverlay />}
       <div className="top-center">
         <MissingFireNotice />
+        <FloodMissingNotice />
         <ErrorBanner />
         {notPrepared && <NotPreparedNotice name={notPrepared.name} failed={notPrepared.failed} />}
         <ForecastPill />

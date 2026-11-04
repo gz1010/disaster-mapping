@@ -19,6 +19,8 @@ import { useExtrasRuntime } from '../../extras/runtime'
 import { fmtAt } from '../../lib/time'
 import { useTimeFormat } from '../../state/timeZone'
 import { FloodLegend } from '../../map/FloodLegend'
+import { nationalGaugesDown, useNationalGauges } from '../../map/floodGaugeStatus'
+import { FLOOD_OVERVIEW } from './floodCopy'
 import { MapLegend } from '../../map/MapLegend'
 import { useFlood } from '../../state/flood'
 import { fitOfficialBounds } from '../../official/select'
@@ -224,6 +226,7 @@ export function LayersPanel() {
   const floodOpen = useFlood((s) => s.floodId != null)
   const floodMode = overview && (floods || floodOpen)
   const gaugesOn = useFlood((s) => s.layers.gauges)
+  const nationalDown = useNationalGauges(nationalGaugesDown)
   // the Public fire view (decision a): no model or estimate toggles here
   const fireView = !command && !overview
   const changed = useWorkspace((s) => (Object.keys(DEFAULT_MAP_LAYERS) as MapLayerKey[]).some((k) => s.mapLayers[k] !== DEFAULT_MAP_LAYERS[k]))
@@ -272,13 +275,14 @@ export function LayersPanel() {
                 <label className="mw-check-row">
                   <input type="checkbox" checked={gaugesOn} onChange={(e) => useFlood.getState().setFloodLayer('gauges', e.target.checked)} />
                   <span className="mw-check-text">
-                    <span className="mw-check-label">River gauges (NWS)</span>
-                    <span className="mw-check-desc">Gauges at action stage or above, by NWS flood category</span>
+                    <span className="mw-check-label">{FLOOD_OVERVIEW.layersGauges}</span>
+                    <span className="mw-check-desc">{FLOOD_OVERVIEW.layersGaugesDesc}</span>
                   </span>
                 </label>
               </li>
             </ul>
-            <p className="mw-set-note">Open a flood for its NWS products, gauges and water layers. Model output is shown only in Command, as experimental.</p>
+            {gaugesOn && nationalDown && <p className="mw-set-note fxo-gauges-down">{FLOOD_OVERVIEW.nationalGaugesDown}</p>}
+            <p className="mw-set-note">{FLOOD_OVERVIEW.layersNote}</p>
           </Section>
         ) : overview ? (
           <Section title="Fire layers">

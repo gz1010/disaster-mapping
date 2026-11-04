@@ -1,6 +1,6 @@
 # Flood samples: river gauges and forecasts
 
-Recorded 2026-11-04T22:16:03Z by `backend/scripts/record_test_samples_floods.py` (0 real requests through `fire3d.http`, one at a time, User-Agent "Fire-3d/0.1 test-sample recorder", no key or token). Public domain U.S. Government data (National Weather Service, NOAA National Water Prediction Service); the IEM file is the Iowa Environmental Mesonet's public-domain copy (https://mesonet.agron.iastate.edu/disclaimer.php).
+Recorded 2026-11-04T22:15:38Z by `backend/scripts/record_test_samples_floods.py` (13 real requests through `fire3d.http`, 13 of them made by an earlier run and read back here from its `--cache-dir`, one at a time, User-Agent "Fire-3d/0.1 test-sample recorder", no key or token). Public domain U.S. Government data (National Weather Service, NOAA National Water Prediction Service); the IEM file is the Iowa Environmental Mesonet's public-domain copy (https://mesonet.agron.iastate.edu/disclaimer.php).
 
 * `riv_gauges_observed.json`, `riv_gauges_forecast.json`: `riv_gauges` layers 0 and 15, status action or worse (97 and 86 gauges), untrimmed.
 * `rfc_max_forecast.json`: `rfc/rfc_max_forecast` layer 0, every point (88), untrimmed.

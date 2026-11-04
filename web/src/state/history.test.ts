@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useFlood } from './flood'
-import { floodNavigationUrl, floodParam, historyWrite, incidentParam, installHistorySync, isHistoryEntry, navigationUrl } from './history'
+import { goToOverview } from '../ui/shell/fireActions'
+import { goToFloodOverview, useFlood } from './flood'
+import { floodNavigationUrl, floodParam, historyWrite, incidentParam, installHistorySync, isHistoryEntry, linkWithBothUrl, navigationUrl } from './history'
 import { useStore } from './store'
 import { useWorkspace } from './workspace'
 
@@ -52,6 +53,16 @@ describe('brief 5: flood addresses (CONTRACT §16.10)', () => {
     expect(navigationUrl(href, '2026-a')).toBe('/?ws=map&hazard=flood&incident=2026-a')
     expect(floodNavigationUrl('http://x/?ws=map&incident=2026-a&mode=live&t=5&sel=1,2', 'fixture-flood')).toBe('/?ws=map&flood=fixture-flood')
     expect(floodNavigationUrl(href, null)).toBe('/?ws=map&hazard=flood')
+  })
+
+  it('a stale ?flood= never survives a fire navigation; a start-up link with both drops it (review WFO-R5)', () => {
+    // a link with both: the fire opens and the address loses `flood`, so Back to all fires or a reload never opens it
+    expect(linkWithBothUrl('http://x/?flood=fixture-flood&incident=fixture-live&ws=map#h')).toBe('/?incident=fixture-live&ws=map#h')
+    expect(linkWithBothUrl('http://x/?flood=fixture-flood&ws=map')).toBeNull()
+    expect(linkWithBothUrl('http://x/?incident=fixture-live')).toBeNull()
+    // closing a fire drops a stale ?flood= (unless a flood is open)
+    expect(navigationUrl('http://x/?flood=fixture-flood&incident=fixture-live&ws=map&mode=live', null)).toBe('/?ws=map')
+    expect(navigationUrl('http://x/?flood=fixture-flood&ws=map', null, true)).toBe('/?flood=fixture-flood&ws=map')
   })
 
   it('reads ?flood= (a link with both opens the fire: no flood)', () => {
@@ -179,6 +190,54 @@ describe('brief 5: one history entry per hazard switch (C21)', () => {
     await settle()
     expect(useFlood.getState().floodId).toBeNull()
     expect(useWorkspace.getState().hazard).toBe('flood')
+  })
+
+  it('fire → flood → "Back to all floods" lands on the flood overview, never Back on the fire (review WFO-R1)', async () => {
+    stubFetch()
+    const b = setup('/?ws=map')
+    await useStore.getState().selectIncident('2026-a', { source: 'picker' })
+    expect(b.entries[1].state).toMatchObject({ incident: '2026-a', fromOverview: true })
+    await useFlood.getState().openFlood('fixture-flood', { source: 'card' })
+    // a fire was open just before: the flood's entry is not "from the overview"
+    expect(b.entries[2].state).toMatchObject({ flood: 'fixture-flood', fromOverview: false })
+    goToFloodOverview()
+    await settle()
+    expect(useFlood.getState().floodId).toBeNull()
+    expect(useStore.getState().incidentId).toBeNull()
+    expect(useWorkspace.getState().hazard).toBe('flood')
+    expect(b.win.location.search).toBe('?ws=map')
+    expect(b.entries).toHaveLength(4)
+    expect(b.index()).toBe(3)
+  })
+
+  it('flood → fire → "Back to all fires" lands on the fire overview, never Back on the flood (review WFO-R1)', async () => {
+    stubFetch()
+    const b = setup('/?ws=map&hazard=flood')
+    await useFlood.getState().openFlood('fixture-flood', { source: 'marker' })
+    expect(b.entries[1].state).toMatchObject({ flood: 'fixture-flood', fromOverview: true })
+    await useStore.getState().selectIncident('2026-a', { source: 'search' })
+    // a flood was open just before: the fire's entry is not "from the overview"
+    expect(b.entries[2].state).toMatchObject({ incident: '2026-a', fromOverview: false })
+    goToOverview()
+    await settle()
+    expect(useStore.getState().incidentId).toBeNull()
+    expect(useFlood.getState().floodId).toBeNull()
+    expect(useWorkspace.getState().hazard).toBe('fire')
+    expect(b.win.location.search).not.toContain('flood=')
+    expect(b.win.location.search).not.toContain('incident=')
+    expect(b.entries).toHaveLength(4)
+    expect(b.index()).toBe(3)
+  })
+
+  it('an event opened from its own overview still goes Back (one entry, no second overview entry)', async () => {
+    stubFetch()
+    const b = setup('/?ws=map&hazard=flood')
+    await useFlood.getState().openFlood('fixture-flood', { source: 'list' })
+    goToFloodOverview()
+    await settle()
+    expect(useFlood.getState().floodId).toBeNull()
+    expect(b.index()).toBe(0)
+    expect(b.entries).toHaveLength(2)
   })
 
   it('an alias answer replaces the address with the canonical id (no new entry)', async () => {

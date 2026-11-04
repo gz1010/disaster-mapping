@@ -162,9 +162,11 @@ def _text(v: Any) -> str | None:
 
 def parse_riv_row(feature: Any) -> dict | None:
     """One ``riv_gauges`` feature (layer 0 or 15) -> ``{lid, name, waterbody, state, lat, lon, status, value, unit,
-    flow, flow_unit, valid_ms, thresholds {action, minor, moderate, major}, wfo, url, forecast_issued_ms}``; None
-    without an id or a point. Layer 15's ``status`` is the forecast category, ``value`` the forecast value at
-    ``valid_ms`` (``fcsttime``) and ``forecast_issued_ms`` its issue time (``fcstissunc``)."""
+    flow, flow_unit, valid_ms, thresholds {action, minor, moderate, major}, wfo, url, forecast_issued_ms, pedts}``;
+    None without an id or a point. Layer 15's ``status`` is the forecast category, ``value`` the forecast value at
+    ``valid_ms`` (``fcsttime``) and ``forecast_issued_ms`` its issue time (``fcstissunc``). ``pedts`` is the SHEF
+    code of the value ("HGIRG" river stage; "HM..." / "HC..." the tidal and coastal water levels, measured on the
+    recorded answers), used only to tell tide gauges from river gauges (``grouping.is_tidal_row``)."""
     p = _props(feature)
     lid = _text(p.get("gaugelid"))
     pt = _point(feature)
@@ -184,6 +186,7 @@ def parse_riv_row(feature: Any) -> dict | None:
                        "major": num(p.get("major"))},
         "wfo": (_text(p.get("wfo")) or "").upper() or None, "url": _text(p.get("url")) or gauge_page(lid),
         "forecast_issued_ms": utc_ms(p.get("fcstissunc")) if "fcstissunc" in p else None,
+        "pedts": (_text(p.get("pedts")) or "").upper() or None,
     }
 
 

@@ -2,11 +2,11 @@
 // second line, the official block and the "Show details" pill. Pure, tested in floodOverviewText.test.ts. Official
 // words only: a flood is named by its NWS product or its gauge's NWS category, never by Fire-3d's own inference, and a
 // count is never "0" when a list could not be read.
-import type { FloodAlert, FloodAlertsResponse, FloodGaugeRef, FloodSummary, GaugeCategory, RiverGauge, RiverGaugesResponse } from '../../api/types'
+import type { FloodAlert, FloodAlertsResponse, FloodGaugeRef, FloodListResponse, FloodSummary, GaugeCategory, RiverGauge, RiverGaugesResponse } from '../../api/types'
 import { bearingDeg, distanceM } from '../../lib/geodesy'
-import { fmtRelative } from '../../lib/time'
+import { fmtAt, fmtRelative, timeFmt, type Clock } from '../../lib/time'
 import { gaugeTone, CATEGORY_COLORS, FLOOD_ALERT, FLOOD_TOKENS } from '../../map/floodStyle'
-import { gaugeCategoryRank, highestProduct, type FloodListHealth } from '../../state/floodOverview'
+import { gaugeCategoryRank, highestProduct, listDownReasons, type FloodListHealth } from '../../state/floodOverview'
 import type { Units } from '../../state/workspace'
 import {
   ALERTS_UNAVAILABLE,
@@ -122,15 +122,21 @@ export interface FloodCountInput {
   failed: boolean
   /** NWS and the gauges could not be read (FLOOD LISTS UNAVAILABLE). */
   bothDown: boolean
+  /** A year list's archive could not be read (FLOOD LIST UNAVAILABLE; review WFO-R3). */
+  archiveDown?: boolean
   /** Watch-only floods hidden by "Show watches" (C27). */
   hiddenWatches: number
 }
 
-/** The count part of the bar: "31 FLOODS" (+ " · 3 WATCHES HIDDEN"), or why there is no count (never "0" unknown). */
+/** The count part of the bar: "31 FLOODS" (+ " · 3 WATCHES HIDDEN"), or why there is no count (never "0" unknown).
+ *  While both live lists are down the bar says FLOOD LISTS UNAVAILABLE even with floods listed from disk, as the fire
+ *  bar does (review WFO-R4); a year whose archive could not be read says FLOOD LIST UNAVAILABLE (WFO-R3). */
 export function floodCountPart(i: FloodCountInput): { text: string; tone: 'count' | 'quiet' | 'warn' } {
   if (!i.loaded) return i.failed && !i.loading ? { text: BAR_STATUS.listDown, tone: 'warn' } : { text: BAR_STATUS.loading, tone: 'quiet' }
-  if (i.bothDown && !i.count) return { text: BAR_STATUS.listsDown, tone: 'warn' }
-  const n = i.count ?? 0
+  if (i.bothDown) return { text: BAR_STATUS.listsDown, tone: 'warn' }
+  if (i.archiveDown) return { text: BAR_STATUS.listDown, tone: 'warn' }
+  if (i.count == null) return { text: BAR_STATUS.listDown, tone: 'warn' }
+  const n = i.count
   const watches = i.hiddenWatches > 0 ? (i.hiddenWatches === 1 ? BAR_STATUS.watchesHiddenOne : fillCopy(BAR_STATUS.watchesHidden, { n: i.hiddenWatches })) : ''
   return { text: `${n.toLocaleString('en-US')} FLOOD${n === 1 ? '' : 'S'}${watches}`, tone: 'count' }
 }
@@ -152,10 +158,11 @@ export function floodInViewLine(n: number, total: number): { inView: string; all
   return { inView: a, all: b ?? '' }
 }
 
-/** The "Show details" pill in Floods: its text and accessible name with the number of listed floods. */
-export function floodDetailsPillLabel(open: boolean, count: number | null): { text: string; aria: string } {
+/** The "Show details" pill in Floods: its text and accessible name with the number of listed floods (`unavailable`:
+ *  the list could not be read, so no number). */
+export function floodDetailsPillLabel(open: boolean, count: number | null, unavailable = false): { text: string; aria: string } {
   const text = open ? 'Hide details' : 'Show details'
-  if (count == null) return { text, aria: `${text}: flood list loading` }
+  if (count == null) return { text, aria: unavailable ? `${text}: flood list unavailable` : `${text}: flood list loading` }
   const n = `${count.toLocaleString('en-US')} flood${count === 1 ? '' : 's'}`
   return { text, aria: open ? `Hide details (list of ${n})` : `Show details: list of ${n}` }
 }
@@ -191,8 +198,6 @@ export interface FloodPointModel {
   nearest: { flood: FloodSummary; distanceM: number; bearingDeg: number }[]
 }
 
-const PAST_ALERTS = 'NWS flood products at this spot are not available for this past date.'
-
 /** The flood point card's content (pure; FloodPointCard renders it). */
 export function floodPointModel(i: FloodPointInput): FloodPointModel {
   const here = { lat: i.point.lat, lon: i.point.lon }
@@ -200,7 +205,7 @@ export function floodPointModel(i: FloodPointInput): FloodPointModel {
   const products = a && a.status === 'available' ? a.alerts.filter((x) => x.covers_point !== false) : []
   let productsNote: string | null = null
   if (i.alertsFailed || (a && a.status === 'unavailable')) productsNote = a?.reason || ALERTS_UNAVAILABLE
-  else if (a && a.status === 'not_available_for_past_dates') productsNote = a.reason || PAST_ALERTS
+  else if (a && a.status === 'not_available_for_past_dates') productsNote = a.reason || FLOOD_OVERVIEW.pastAlerts
   else if (a && a.status === 'available' && products.length === 0) productsNote = NO_PRODUCT
   const g = i.gauges
   let gauge: FloodPointModel['gauge'] = null
@@ -230,10 +235,23 @@ export function floodHereLine(a: FloodAlertsResponse | null): string | null {
   return a && a.status === 'available' && a.alerts.some((x) => x.covers_point !== false) ? FLOOD_HERE_IN_FIRES : null
 }
 
-/** The notices a list's sources give (rule 11): NWS down, the gauges down, both down (never an all-clear). */
-export function floodListNotices(health: FloodListHealth): string[] {
+/** The notices a list's sources give (rule 11): NWS down, the gauges down, both down, a year's archive down (its
+ *  reason as the backend sent it, else PAST list unavailable; review WFO-R3). Never an all-clear. */
+export function floodListNotices(health: FloodListHealth, response: FloodListResponse | null = null): string[] {
   if (health === 'both_down') return [FLOOD_LISTS_DOWN]
   if (health === 'nws_down') return [FLOOD_NWS_DOWN]
   if (health === 'gauges_down') return [FLOOD_GAUGES_DOWN]
+  if (health === 'archive_down') {
+    const reasons = listDownReasons(response)
+    return reasons.length ? reasons : [FLOOD_OVERVIEW.pastListUnavailable]
+  }
   return []
+}
+
+/** A gauge reading's own time in the gauge's zone with its age: "reading Nov 4, 10:00 AM MST (25 min ago)"
+ *  (review WFO-R7); "reading time not given" when NWS sent none. */
+export function gaugeReadingLine(observedMs: number | null, zone: string | null, clock: Clock, nowMs: number): string {
+  if (observedMs == null || !Number.isFinite(observedMs)) return FLOOD_OVERVIEW.gaugeNoReadingTime
+  const tf = timeFmt(zone, clock)
+  return fillCopy(FLOOD_OVERVIEW.gaugeReading, { time: fmtAt(observedMs, tf, { zone: true, year: 'auto', refMs: nowMs }), age: fmtRelative(observedMs, nowMs) })
 }

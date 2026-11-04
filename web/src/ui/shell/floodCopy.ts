@@ -269,6 +269,39 @@ export const FLOOD_OVERVIEW = {
   skipToList: 'Skip to the flood list',
   mapLabel: 'Flood map',
   reload: 'Reload the flood lists (NWS and river gauges)',
+  // the list's sources and states (review WFO-R3)
+  sourceLive: 'NWS flood products · NOAA river gauges',
+  sourcePast: 'Archived NWS products (Iowa Environmental Mesonet)',
+  sourceUnreadable: 'could not be read right now',
+  pastListUnavailable: 'Past floods could not be read right now. That is not an all-clear.',
+  loadingLists: 'Loading the flood lists…',
+  checkingProducts: 'Checking NWS flood products…',
+  // the point card (review WFO-R6, WFO-R7, WFO-R13)
+  pointProductsTitle: 'NWS flood products here',
+  pointGaugeTitle: 'River gauge (NWS)',
+  checkingGauges: 'Checking river gauges…',
+  pastAlerts: 'NWS flood products at this spot are not available for this past date.',
+  gaugeReading: 'reading {time} ({age})',
+  gaugeNoReadingTime: 'reading time not given',
+  gaugePage: 'NWS gauge page',
+  nearestTitle: 'Nearest listed floods',
+  nearestDistanceNote:
+    "Distance from here to each flood's marker (its river gauge or a point of its NWS warning area), not to the water's edge. Distance alone does not tell you the risk; not an all-clear.",
+  // the map's hover texts (review WFO-R13)
+  hoverOpen: 'Click to open this flood',
+  hoverGroup: 'Group of {n} listed floods',
+  hoverZoom: 'Click to zoom in',
+  hoverCheckSpot: 'Click to check this spot',
+  hoverGaugeSource: '{category} · NOAA National Water Prediction Service (NWS)',
+  // national river gauges (review WFO-R8): the map falls back to the listed floods' own gauges
+  nationalGaugesDown: 'River gauges outside the listed floods could not be loaded right now. That is not an all-clear.',
+  // the Layers panel in Floods (review WFO-R13)
+  layersGauges: 'River gauges (NWS)',
+  layersGaugesDesc: 'Gauges at action stage or above, by NWS flood category',
+  layersNote: 'Open a flood for its NWS products, gauges and water layers. Model output is shown only in Command, as experimental.',
+  // the overview title for screen readers (review WFO-R11): "United States, floods"
+  titleFires: 'all fires',
+  titleFloods: 'floods',
 } as const
 
 // ------------------------------------------------------------------------------------------------ the guard

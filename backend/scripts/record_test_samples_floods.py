@@ -54,18 +54,23 @@ TTL_S = 7 * 86400.0
 PAUSE_S = 1.2
 MAX_REQUESTS = 20
 _requests = 0
+_cached = 0                       # answers served from an earlier run's cache (--cache-dir; review BFS-R9)
+_fetched_ms: list[int] = []       # when each answer was fetched from its source
 STAGEFLOW_KEEP_H = 72
 CATEGORY_ORDER = ("major", "moderate", "minor", "action")
 
 
 def fetch_json(url: str, params: dict | None = None, headers: dict | None = None) -> object:
-    global _requests
+    global _requests, _cached
     if fhttp.peek_cache("GET", url, params, TTL_S) is None:
         _requests += 1
         if _requests > MAX_REQUESTS:
             raise SystemExit(f"request budget of {MAX_REQUESTS} reached; nothing written")
         time.sleep(PAUSE_S)
     resp = fhttp.request("GET", url, params=params, headers=headers, ttl_s=TTL_S, timeout=60.0, retries=2)
+    if resp.from_cache:
+        _cached += 1
+    _fetched_ms.append(int(resp.fetched_ms))
     print(f"  {'cache' if resp.from_cache else 'GET  '} {fhttp.display_url(url, params)} ({len(resp.content):,} B)")
     return resp.json()
 
@@ -183,7 +188,7 @@ def main(argv: list[str] | None = None) -> int:
         notes_nws.append(f"* `nws_products_{ptype}_{loc}.json`: `/products/types/{ptype}/locations/{loc}` (first 10 of "
                          f"`@graph`); `nws_product_{pid}.json`: `/products/{pid}` untrimmed (the product of alert "
                          f"`{a['id']}`; its H-VTEC NWSLI {hv['nwsli'] if hv else 'none'}).")
-    print(f"{_requests} real requests")
+    print(f"{_requests} real requests, {_cached} answers from the cache of an earlier run")
     if args.dry_run:
         print("dry run: nothing written")
         return 0
@@ -191,8 +196,14 @@ def main(argv: list[str] | None = None) -> int:
         d.mkdir(parents=True, exist_ok=True)
     for p, doc in files.items():
         p.write_text(json.dumps(doc, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
-    head = (f"Recorded {recorded} by `backend/scripts/record_test_samples_floods.py` ({_requests} real requests through "
-            "`fire3d.http`, one at a time, User-Agent \"Fire-3d/0.1 test-sample recorder\", no key or token). Public "
+    # The answers' own fetch time and request count, also when a re-run with --cache-dir serves them from the cache
+    fetched = (datetime.fromtimestamp(min(_fetched_ms) / 1000, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+               if _fetched_ms else recorded)
+    how = f"{_requests + _cached} real requests through `fire3d.http`"
+    if _cached:
+        how += f", {_cached} of them made by an earlier run and read back here from its `--cache-dir`"
+    head = (f"Recorded {fetched} by `backend/scripts/record_test_samples_floods.py` ({how}, one at a time, User-Agent "
+            "\"Fire-3d/0.1 test-sample recorder\", no key or token). Public "
             "domain U.S. Government data (National Weather Service, NOAA National Water Prediction Service); the IEM file "
             "is the Iowa Environmental Mesonet's public-domain copy (https://mesonet.agron.iastate.edu/disclaimer.php).")
     (NWS_DIR / "PROVENANCE.md").write_text("# Flood samples: NWS\n\n" + head + "\n\n" + "\n".join(notes_nws) + "\n")

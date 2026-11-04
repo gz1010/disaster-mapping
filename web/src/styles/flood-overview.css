@@ -27,7 +27,8 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 24px;
+  /* 22 + 2 x 2 padding + 2 x 1 border = the plan's 28 px pill (review WFO-R10) */
+  height: 22px;
   padding: 0 10px 0 8px;
   border: 0;
   border-radius: 999px;
@@ -401,4 +402,14 @@
 .mw[data-view$='-flood'] .mw-note > .fxc {
   overflow: visible;
   white-space: normal;
+}
+
+/* ------------------------------------------------------------------------------------------------ outage lines */
+/* the national gauge layer could not be read (review WFO-R8): the legend's and the list foot's line, in the warning ink
+   (above the overview legend's own grey absence line) */
+.fxo-gauges-down,
+.mw .ov-absence.fxo-gauges-down,
+.mw .mw-set-note.fxo-gauges-down,
+.mw .fxm-legend.fxo-legend .fxm-legend-absence.fxo-legend-warn {
+  color: var(--m-warn);
 }

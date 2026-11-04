@@ -4,6 +4,9 @@
 // then the nearest listed floods with their distance (measured to each flood's point, never a risk statement). An
 // absence sentence needs an answer: NO_PRODUCT and NO_GAUGE_NEAR show only when that answer is `available`; an
 // unavailable one shows its "could not be reached" text instead. Ends with "Not an all-clear. Follow local officials."
+// The gauge line keeps its own reading time (in the gauge's zone, with its age), a link to its NWS page and its data
+// attribution ("Observations courtesy of U.S. Geological Survey"); the nearest floods say their distance is to each
+// flood's marker, not to the water's edge (review WFO-R6, WFO-R7). Words in ui/shell/floodCopy.ts.
 // Data: /api/official/flood-alerts?bbox=<the point> and /api/official/river-gauges?bbox=<the point ± 25 km> (cached per
 // URL, extras/jsonQuery.ts), the flood list. The flood views' own point check (inside / distance to each layer) is
 // web-flood-public's (location/floodCheck.ts).
@@ -17,12 +20,13 @@ import { useCachedJsonQuery } from '../extras/jsonQuery'
 import { formatLatLon } from '../lib/geodesy'
 import { directionWord, distance } from '../lib/plainLanguage'
 import { fmtAt, timeFmt } from '../lib/time'
+import { useNow } from '../ui/hooks'
 import { pickFlood, useFlood } from '../state/flood'
 import { getSlot } from '../state/floodCatalog'
 import { useClock } from '../state/timeZone'
 import { useWorkspace, type SelectedLocation } from '../state/workspace'
-import { floodDisplayName, floodHereLine, floodPointModel, floodRowSub, fmtStage, NEAR_GAUGE_KM } from '../ui/public/floodOverviewText'
-import { DEMO_TAG, GAUGE_CATEGORY_DISPLAY, NOT_ALL_CLEAR, fillCopy, PRODUCT_END } from '../ui/shell/floodCopy'
+import { floodDisplayName, floodHereLine, floodPointModel, floodRowSub, fmtStage, gaugeReadingLine, NEAR_GAUGE_KM } from '../ui/public/floodOverviewText'
+import { DEMO_TAG, FLOOD_OVERVIEW, GAUGE_CATEGORY_DISPLAY, NOT_ALL_CLEAR, fillCopy, PRODUCT_END } from '../ui/shell/floodCopy'
 import { CardFrame } from './CardParts'
 import './location.css'
 import '../styles/flood-overview.css'
@@ -47,6 +51,7 @@ export function FloodPointCard({ sel }: { sel: SelectedLocation }) {
   const units = useWorkspace((s) => s.units)
   const command = useWorkspace((s) => s.preset === 'command')
   const clock = useClock()
+  const nowMs = useNow(60_000)
   const alerts = usePointFloodAlerts(sel.lat, sel.lon)
   const gauges = useCachedJsonQuery<RiverGaugesResponse>(pointGaugesUrl(sel.lat, sel.lon), { refreshMs: 5 * 60_000 })
   const live = useFlood((s) => getSlot(s.lists, 'live').response)
@@ -68,9 +73,9 @@ export function FloodPointCard({ sel }: { sel: SelectedLocation }) {
     <CardFrame sel={sel} title={title} titleIsCoords={!sel.label} type={sel.source === 'address' ? 'Address' : 'Selected point'} approximate={sel.approximate === true} command={command}>
       <section className="fxo-card-block" aria-label="NWS flood products at this spot">
         <p className="loc-block-title">
-          <span className="mw-tag is-official">Official</span> NWS flood products here
+          <span className="mw-tag is-official">Official</span> {FLOOD_OVERVIEW.pointProductsTitle}
         </p>
-        {loadingAlerts && <p className="loc-line-text">Checking NWS flood products…</p>}
+        {loadingAlerts && <p className="loc-line-text">{FLOOD_OVERVIEW.checkingProducts}</p>}
         <ul className="fxo-card-products">
           {m.products.map((a) => {
             const tf = timeFmt(a.time_zone, clock)
@@ -99,23 +104,49 @@ export function FloodPointCard({ sel }: { sel: SelectedLocation }) {
         {m.productsNote && <p className="loc-line-text fxo-card-note">{m.productsNote}</p>}
       </section>
       <section className="fxo-card-block" aria-label="River gauge near this spot">
-        <p className="loc-block-title">River gauge (NWS)</p>
+        <p className="loc-block-title">{FLOOD_OVERVIEW.pointGaugeTitle}</p>
         {m.gauge ? (
-          <p className="loc-line-text">
-            <span className="mw-mono">{m.gauge.gauge.lid}</span> {m.gauge.gauge.name}
-            {' · '}
-            {[fmtStage(m.gauge.gauge.observed.value, m.gauge.gauge.observed.unit, units), (GAUGE_CATEGORY_DISPLAY[m.gauge.gauge.observed.category] ?? GAUGE_CATEGORY_DISPLAY.unknown).short].filter(Boolean).join(' · ')}
-            {' · '}
-            {distance(m.gauge.distanceM, units).text} {directionWord(m.gauge.bearingDeg)}
-          </p>
+          <>
+            <p className="loc-line-text">
+              <span className="mw-mono">{m.gauge.gauge.lid}</span> <span data-verbatim="">{m.gauge.gauge.name}</span>
+              {' · '}
+              {[fmtStage(m.gauge.gauge.observed.value, m.gauge.gauge.observed.unit, units), (GAUGE_CATEGORY_DISPLAY[m.gauge.gauge.observed.category] ?? GAUGE_CATEGORY_DISPLAY.unknown).short].filter(Boolean).join(' · ')}
+              {' · '}
+              {distance(m.gauge.distanceM, units).text} {directionWord(m.gauge.bearingDeg)}
+            </p>
+            {/* official information keeps its own time, its issuer's attribution and a link (WFO-R7) */}
+            <p className="loc-line-detail fxo-card-gauge-meta">
+              <span className="mw-mono">{gaugeReadingLine(m.gauge.gauge.observed.valid_ms, m.gauge.gauge.time_zone, clock, nowMs)}</span>
+              {m.gauge.gauge.data_attribution.map((d) => (
+                <span key={d.text}>
+                  {' · '}
+                  {d.url ? (
+                    <a href={d.url} target="_blank" rel="noreferrer noopener" data-verbatim="">
+                      {d.text}
+                    </a>
+                  ) : (
+                    <span data-verbatim="">{d.text}</span>
+                  )}
+                </span>
+              ))}
+              {m.gauge.gauge.url && (
+                <>
+                  {' · '}
+                  <a className="fxo-card-link" href={m.gauge.gauge.url} target="_blank" rel="noreferrer noopener">
+                    {FLOOD_OVERVIEW.gaugePage} <ExternalLink size={11} aria-hidden="true" />
+                  </a>
+                </>
+              )}
+            </p>
+          </>
         ) : (
-          gauges.data == null && gauges.loading && <p className="loc-line-text">Checking river gauges…</p>
+          gauges.data == null && gauges.loading && <p className="loc-line-text">{FLOOD_OVERVIEW.checkingGauges}</p>
         )}
         {m.gaugeNote && <p className="loc-line-detail">{m.gaugeNote}</p>}
       </section>
       {m.nearest.length > 0 && (
-        <section className="fxo-card-block" aria-label="Nearest listed floods">
-          <p className="loc-block-title">Nearest listed floods</p>
+        <section className="fxo-card-block" aria-label={FLOOD_OVERVIEW.nearestTitle}>
+          <p className="loc-block-title">{FLOOD_OVERVIEW.nearestTitle}</p>
           <ul className="loc-fire-list">
             {m.nearest.map((n) => (
               <li key={n.flood.id}>
@@ -138,6 +169,8 @@ export function FloodPointCard({ sel }: { sel: SelectedLocation }) {
               </li>
             ))}
           </ul>
+          {/* a far distance must not read as "the flooding is far from here" (WFO-R6) */}
+          <p className="loc-line-detail">{FLOOD_OVERVIEW.nearestDistanceNote}</p>
         </section>
       )}
       <p className="loc-line-detail fxo-card-foot">{NOT_ALL_CLEAR}</p>

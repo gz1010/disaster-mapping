@@ -2581,8 +2581,15 @@ def write_flood_edges(edge: Path, now: int, bbox: list[float], summary: dict, fl
         return [{**s, "status": "unavailable", "retrieved_ms": None, "reason": reasons.get(s["id"])} if s["id"] in ids else s
                 for s in srcs]
 
-    gauge_rows = [r for r in flood_list["floods"] if r["gauges_in_flood"] > 0 and r["kind"] == "river"]
-    product_rows = [r for r in flood_list["floods"] if r["products"]]
+    # The outage lists have the real path's shape (review BFS-R4): NWS down -> floods rebuilt from their gauges only
+    # (gauge_only, no product, caveat ALERTS_UNAVAILABLE; product-only floods are not listed); gauges down -> from
+    # NWS products only (no gauge; gauge-only floods are not listed). catalog.nws_down_row / gauges_down_row are
+    # tested against catalog.build_list on the recorded day.
+    from fire3d.floods import catalog as fcat
+    from fire3d.floods import grouping as fgroup
+
+    gauge_rows = fgroup.sort_floods([x for x in (fcat.nws_down_row(r, now) for r in flood_list["floods"]) if x])
+    product_rows = fgroup.sort_floods([x for x in (fcat.gauges_down_row(r) for r in flood_list["floods"]) if x])
     put("list-nws-down.json", C.FloodListResponse,
         {**flood_list, "floods": gauge_rows, "products_in_effect": None,
          "sources": down({"nws_alerts"}, {"nws_alerts": fc.FLOOD_NWS_DOWN})})
@@ -2595,8 +2602,10 @@ def write_flood_edges(edge: Path, now: int, bbox: list[float], summary: dict, fl
          "sources": down({"nws_alerts", "nwps_gauges", "rfc_forecasts"},
                          {k: fc.FLOOD_LISTS_DOWN for k in ("nws_alerts", "nwps_gauges", "rfc_forecasts")})})
     put("list-empty.json", C.FloodListResponse, {**flood_list, "floods": [], "products_in_effect": 0})
+    # As the real chain answers it once the lists decided (catalog.as_left): products "ended", no expiry (BFS-R1)
+    left = fcat.as_left(summary, now, now, nws_ok=True, gauges_ok=True)
     put("detail-last-known.json", C.FloodDetailResponse,
-        {"summary": {**summary, "status": "inactive", "bundle_status": "none", "bundle_built_ms": None},
+        {"summary": {**left, "bundle_status": "none", "bundle_built_ms": None},
          "manifest": None, "job": None, "resolved_from": "last_known"})
 
 

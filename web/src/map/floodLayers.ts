@@ -148,6 +148,9 @@ export interface GaugePoint {
   observed_value: number | null
   unit: string | null
   waterbody?: string | null
+  /** When the reading was taken (epoch ms) and the gauge's IANA zone, for the hover's "reading {time}" (WFO-R7). */
+  observed_ms?: number | null
+  time_zone?: string | null
 }
 
 /** The diamond image of a tone (device pixels at pixelRatio 2). */

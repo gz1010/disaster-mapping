@@ -54,6 +54,10 @@ AREAL_NEAR_H = 12
 GAUGE_ACTIVE_H = 6
 INACTIVE_LISTED_H = 48
 H_MS = 3_600_000
+# A gauge-only flood at a gauge that may measure tidal or lake water (review BFS-R2): Fire-3d does not read NWS
+# Coastal Flood or Lakeshore Flood products (D1), so it never says that no NWS flood product names such a gauge.
+TIDAL_PE_CODES = ("HM", "HC")        # SHEF codes of tidal / coastal water levels (every one in the recorded answers)
+COASTAL_NEAR_KM = 10.0               # a gauge this close to a recognised tide gauge may be tidal too
 CATEGORY_ORDER = ("action", "minor", "moderate", "major")
 LEVEL_ORDER = ("watch", "advisory", "warning")          # ascending
 _RIVER_STOP = {"river", "creek", "fork", "the", "of", "at", "near", "above", "below", "r", "cr", "ck", "bayou", "run",
@@ -149,6 +153,59 @@ def keep_gauge(row: dict, l48: set[str]) -> bool:
 
 
 # ----------------------------------------------------------------------------------------------------------------
+# Tide and lake-shore gauges (review BFS-R2)
+# ----------------------------------------------------------------------------------------------------------------
+_TIDAL_DATUM_RE = None
+_COASTAL_WATER_RE = None
+
+
+def _coastal_res():
+    import re
+
+    global _TIDAL_DATUM_RE, _COASTAL_WATER_RE
+    if _TIDAL_DATUM_RE is None:
+        # "Steele Point (in MHHW)", "Georgetown (in NAVD88)", "Annapolis (IN MLLW)": a water level on a tidal datum
+        _TIDAL_DATUM_RE = re.compile(r"\((?:in\s+)?(?:MHHW|MLLW|MHW|MLW|MSL|NAVD\s*-?\s*88)\)", re.IGNORECASE)
+        _COASTAL_WATER_RE = re.compile(
+            r"\b(?:tide|tidal|pier|intracoastal|ocean|gulf|bay|sound|harbou?r|inlet|lagoon|beach|coast|"
+            r"lake\s+(?:superior|michigan|huron|erie|ontario))\b", re.IGNORECASE)
+    return _TIDAL_DATUM_RE, _COASTAL_WATER_RE
+
+
+def is_tidal_row(row: dict) -> bool:
+    """A ``riv_gauges`` row that measures tidal, coastal or Great Lakes water: a SHEF tide / coastal code (HM, HC), a
+    tidal datum note in its location or waterbody, or a coastal word in its waterbody ("Atlantic Ocean Tide Gauge",
+    "Juno Beach Park Pier", "Intracoastal Waterway"). Locations are town names ("Beaver Bay"): only datum notes count
+    there."""
+    datum, water = _coastal_res()
+    pe = (row.get("pedts") or "")[:2].upper()
+    loc, wb = row.get("name") or "", row.get("waterbody") or ""
+    return pe in TIDAL_PE_CODES or bool(datum.search(f"{loc} {wb}")) or bool(water.search(wb))
+
+
+def coastal_lids(rows: Iterable[dict]) -> set[str]:
+    """The gauges that may measure tidal or lake water: :func:`is_tidal_row`, or within :data:`COASTAL_NEAR_KM` of
+    such a gauge (Crescent Lake beside the tidal St. Johns, the Loxahatchee 7 km from a pier's tide gauge)."""
+    import math
+
+    rows = [r for r in rows if r.get("lid") and r.get("lat") is not None and r.get("lon") is not None]
+    tidal = [r for r in rows if is_tidal_row(r)]
+    out = {r["lid"] for r in tidal}
+    for r in rows:
+        if r["lid"] in out:
+            continue
+        k = 111.32 * math.cos(math.radians(r["lat"]))
+        if any(math.hypot((r["lon"] - t["lon"]) * k, (r["lat"] - t["lat"]) * 111.32) <= COASTAL_NEAR_KM for t in tidal):
+            out.add(r["lid"])
+    return out
+
+
+def ref_looks_tidal(ref: dict) -> bool:
+    """:func:`is_tidal_row` on a ``FloodGaugeRef`` (no SHEF code there: datum notes and words only)."""
+    return is_tidal_row({"name": ref.get("name"), "waterbody": ref.get("waterbody")})
+
+
+# ----------------------------------------------------------------------------------------------------------------
 # Product classes
 # ----------------------------------------------------------------------------------------------------------------
 def product_class(a: dict) -> str:
@@ -172,6 +229,26 @@ def product_level(a: dict) -> str:
         return {"W": "warning", "Y": "advisory", "A": "watch"}[sig]
     ev = (a.get("event") or "").lower()
     return "watch" if "watch" in ev else ("advisory" if "advisory" in ev else "warning")
+
+
+def ref_level(p: dict) -> str:
+    """:func:`product_level` of a ``FloodProductRef`` (significance from its VTEC key, else its event name)."""
+    parts = (p.get("vtec_key") or "").split(".")
+    return product_level({"vtec": {"significance": parts[2]} if len(parts) == 5 else None, "event": p.get("event")})
+
+
+def issued_ms(a: dict) -> int | None:
+    """When NWS first issued a product's event (rule 3's ``AREAL_NEAR_H``; review BFS-R7): the oldest message of its
+    CAP ``references`` chain, else its VTEC begin when that is not after this message, else this message's own sent
+    time. A CON / EXT update resets ``sent`` but not the issue time, so an update never splits a joined flood."""
+    refs = [r["sent_ms"] for r in a.get("_references") or [] if r.get("sent_ms")]
+    sent = a.get("sent_ms")
+    if refs:
+        return min(refs + ([sent] if sent else []))
+    begin = a.get("_vtec_begin_ms")
+    if begin and (sent is None or begin <= sent):
+        return begin
+    return sent
 
 
 class UnionFind:

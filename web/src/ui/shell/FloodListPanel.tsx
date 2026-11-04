@@ -13,10 +13,11 @@ import { createPortal } from 'react-dom'
 import { useShallow } from 'zustand/react/shallow'
 import type { FloodSummary } from '../../api/types'
 import { fmtRelative } from '../../lib/time'
+import { nationalGaugesDown, useNationalGauges } from '../../map/floodGaugeStatus'
 import { useMapRuntime } from '../../map/mapStore'
 import { pickFlood, useFlood, type FloodListKey } from '../../state/flood'
 import { FLOOD_PAST_YEARS, getSlot } from '../../state/floodCatalog'
-import { floodListHealth, floodsInView, hiddenWatches, shownFloods, sortFloods } from '../../state/floodOverview'
+import { floodListHealth, floodListUnreadable, floodsInView, hiddenWatches, knownFloodCount, shownFloods, sortFloods } from '../../state/floodOverview'
 import { useWorkspace } from '../../state/workspace'
 import { Segmented, Spinner } from '../controls'
 import { useNow } from '../hooks'
@@ -28,7 +29,6 @@ import {
   FLOOD_LIST_EMPTY,
   FLOOD_LIST_EMPTY_VIEW,
   FLOOD_LISTS_503,
-  FLOOD_LISTS_DOWN,
   FLOOD_NOT_LISTED,
   FLOOD_OVERVIEW,
   PAST_PREPARING,
@@ -130,7 +130,7 @@ export function FloodOfficialBlock() {
           <div className="on-row-head">
             <span className="on-row-label">{FLOOD_OVERVIEW.officialTitle}</span>
           </div>
-          <p className="on-line">{live ? officialProductsLine(n, nws?.retrieved_ms ?? null, nowMs) : 'Checking NWS flood products…'}</p>
+          <p className="on-line">{live ? officialProductsLine(n, nws?.retrieved_ms ?? null, nowMs) : FLOOD_OVERVIEW.checkingProducts}</p>
         </li>
       </ul>
     </section>
@@ -200,10 +200,19 @@ export function FloodList({ onPick }: { onPick: (f: FloodSummary) => void }) {
     if (past && !d.response && !d.loading && !d.error) void useFlood.getState().loadFloods(d.filter)
   }, [past, d.response, d.loading, d.error, d.filter])
   const checked = d.response?.sources.reduce<number | null>((m, x) => (x.retrieved_ms != null && (m == null || x.retrieved_ms > m) ? x.retrieved_ms : m), null) ?? null
-  const notices = floodListNotices(d.health)
+  const notices = floodListNotices(d.health, d.response)
+  const unreadable = floodListUnreadable(d.health)
   const preparing = past && d.response?.preparing === true
-  const rule = past && d.response ? (d.response.past_rule === 'fallback' ? PAST_RULE_NOTE_FALLBACK : PAST_RULE_NOTE) : null
+  // the past years' rule only when the backend says which rule its list follows (never for a list it could not read)
+  const pastRule = past ? (d.response?.past_rule ?? null) : null
+  const rule = pastRule === 'fallback' ? PAST_RULE_NOTE_FALLBACK : pastRule === 'moderate_or_worse' ? PAST_RULE_NOTE : null
+  // nothing listed because the list could not be read: the body says why (never "No listed floods", WFO-R3)
+  const bodyDown = unreadable && d.rows.length === 0 && !d.loading && !preparing && !d.error
   const emptyShown = shown.length === 0 && (d.rows.length > 0 || (!d.loading && !d.error))
+  // the national gauge layer could not be read: the map shows the listed floods' own gauges only (WFO-R8)
+  const nationalDown = useNationalGauges(nationalGaugesDown)
+  const gaugesOn = useFlood((st) => st.layers.gauges)
+  const gaugesDown = nationalDown && gaugesOn && !past
   return (
     <>
       <div className="ov-filters fxo-filters">
@@ -228,8 +237,8 @@ export function FloodList({ onPick }: { onPick: (f: FloodSummary) => void }) {
       <p className="ov-source">
         <span className="mw-tag is-official">Official</span>
         <span>
-          {past ? 'Archived NWS products (Iowa Environmental Mesonet)' : 'NWS flood products · NOAA river gauges'}
-          {checked != null && <> · checked {fmtRelative(checked, nowMs)}</>}
+          {past ? FLOOD_OVERVIEW.sourcePast : FLOOD_OVERVIEW.sourceLive}
+          {unreadable ? <> · {FLOOD_OVERVIEW.sourceUnreadable}</> : checked != null && <> · checked {fmtRelative(checked, nowMs)}</>}
         </span>
         <button
           type="button"
@@ -242,11 +251,12 @@ export function FloodList({ onPick }: { onPick: (f: FloodSummary) => void }) {
           {d.loading ? <Spinner size={11} /> : <RefreshCw size={12} />}
         </button>
       </p>
-      {notices.map((n) => (
-        <p key={n} className="ov-warn" role="status">
-          {n}
-        </p>
-      ))}
+      {!bodyDown &&
+        notices.map((n) => (
+          <p key={n} className="ov-warn" role="status">
+            {n}
+          </p>
+        ))}
       {preparing && <p className="ov-warn">{PAST_PREPARING}</p>}
       {d.error && d.rows.length > 0 && (
         <p className="ov-warn" role="status">
@@ -264,7 +274,7 @@ export function FloodList({ onPick }: { onPick: (f: FloodSummary) => void }) {
           </div>
         ) : d.loading || preparing ? (
           <p className="ov-state">
-            <Spinner size={12} /> {preparing ? PAST_PREPARING : 'Loading the flood lists…'}
+            <Spinner size={12} /> {preparing ? PAST_PREPARING : FLOOD_OVERVIEW.loadingLists}
           </p>
         ) : d.error ? (
           <div className="ov-state is-error" role="alert">
@@ -273,9 +283,15 @@ export function FloodList({ onPick }: { onPick: (f: FloodSummary) => void }) {
               <RefreshCw size={12} /> Retry
             </button>
           </div>
+        ) : bodyDown ? (
+          <div className="ov-state is-error" role="status">
+            {notices.map((n) => (
+              <p key={n}>{n}</p>
+            ))}
+          </div>
         ) : (
           <div className="ov-state is-empty">
-            <p>{d.health === 'both_down' ? FLOOD_LISTS_DOWN : past ? FLOOD_LIST_EMPTY_VIEW : FLOOD_LIST_EMPTY}</p>
+            <p>{past ? FLOOD_LIST_EMPTY_VIEW : FLOOD_LIST_EMPTY}</p>
             <p className="ov-absence">{FLOOD_LIST_ABSENCE}</p>
           </div>
         )}
@@ -288,8 +304,9 @@ export function FloodList({ onPick }: { onPick: (f: FloodSummary) => void }) {
             </button>
           </p>
         )}
+        {gaugesDown && <p className="ov-absence fxo-gauges-down" role="note">{FLOOD_OVERVIEW.nationalGaugesDown}</p>}
         {rule && <p className="ov-absence">{rule}</p>}
-        {!emptyShown && <p className="ov-absence">{FLOOD_LIST_ABSENCE}</p>}
+        {(!emptyShown || bodyDown) && <p className="ov-absence">{FLOOD_LIST_ABSENCE}</p>}
       </footer>
     </>
   )
@@ -300,7 +317,8 @@ export function FloodPeekBar() {
   const d = useFloodListData()
   const n = d.rows.length
   const open = () => useWorkspace.getState().setPanel('updates', true)
-  const text = !d.response ? (d.loading ? 'Loading the floods…' : d.error ? 'Could not load the flood list · open to retry' : 'Loading the floods…') : d.health === 'both_down' && n === 0 ? FLOOD_LISTS_DOWN : `${n.toLocaleString('en-US')} listed flood${n === 1 ? '' : 's'}`
+  const down = floodListUnreadable(d.health) && n === 0 ? (floodListNotices(d.health, d.response)[0] ?? null) : null
+  const text = !d.response ? (d.loading ? 'Loading the floods…' : d.error ? 'Could not load the flood list · open to retry' : 'Loading the floods…') : (down ?? `${n.toLocaleString('en-US')} listed flood${n === 1 ? '' : 's'}`)
   return (
     <button type="button" className="ov-peek" data-panel-toggle="updates" aria-expanded={false} onClick={open}>
       <Droplets size={14} className="ov-peek-icon fxo-peek-icon" aria-hidden="true" />
@@ -370,14 +388,16 @@ export function FloodListPanel({ closeHidesDetails = false, sheetPeek = true }: 
 export function FloodShowDetailsPill({ sheet = false }: { sheet?: boolean }) {
   const details = useWorkspace((s) => s.overviewDetails)
   const listOpen = useWorkspace((s) => s.panels.updates)
-  const { count, loading } = useFlood(
+  const { count, loading, unavailable } = useFlood(
     useShallow((st) => {
       const slot = getSlot(st.lists, st.filter)
-      return { count: slot.response ? shownFloods(slot.response.floods, st.showWatches).length : null, loading: slot.loading }
+      // never "0" for a list that could not be read (WFO-R3): no number, a dash
+      const n = knownFloodCount(slot.response, st.showWatches)
+      return { count: n, loading: slot.loading, unavailable: slot.response != null && n == null }
     }),
   )
   const open = sheet ? listOpen : details
-  const label = floodDetailsPillLabel(open, count)
+  const label = floodDetailsPillLabel(open, count, unavailable)
   return (
     <button
       type="button"
@@ -397,7 +417,7 @@ export function FloodShowDetailsPill({ sheet = false }: { sheet?: boolean }) {
       <Layers size={18} aria-hidden="true" className="ovw-pill-icon" />
       <span className="ovw-pill-text">{label.text}</span>
       <span className="ovw-pill-count mw-mono" aria-hidden="true">
-        {count == null ? <Spinner size={10} /> : count.toLocaleString('en-US')}
+        {count == null ? unavailable ? '–' : <Spinner size={10} /> : count.toLocaleString('en-US')}
         {count != null && loading && <Spinner size={9} />}
       </span>
     </button>
@@ -433,11 +453,12 @@ function useTopCentre(): HTMLElement | null {
 /** The list's outage notices while the list itself is not open (as the fire overview's ListNoticeBanner): a missing
  *  source must never read as an all-clear. Dismissable; a changed notice shows again. */
 export function FloodListNoticeBanner() {
-  const health = useFlood((s) => floodListHealth(getSlot(s.lists, 'live')))
-  const lines = floodListNotices(health)
+  // the shown list's own state (the bar and the markers follow the filter too)
+  const slot = useFlood(useShallow((s) => getSlot(s.lists, s.filter)))
+  const lines = floodListNotices(floodListHealth(slot), slot.response)
   const key = lines.join('\n')
   const [dismissed, setDismissed] = useState<string | null>(null)
-  const slot = useTopCentre()
+  const topCentre = useTopCentre()
   if (!lines.length || dismissed === key) return null
   const banner = (
     <div className="banner banner-info mw-list-notice" role="status">
@@ -453,5 +474,5 @@ export function FloodListNoticeBanner() {
       </button>
     </div>
   )
-  return slot ? createPortal(banner, slot) : banner
+  return topCentre ? createPortal(banner, topCentre) : banner
 }

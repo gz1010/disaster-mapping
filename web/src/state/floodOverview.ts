@@ -2,7 +2,7 @@
 // rank and marker kind from the official level and gauge category only (never Fire-3d's own inference), the watches
 // filter (user decision U2: hidden by default, counted), "in this view", the highest NWS product in effect and the
 // list's source state. Tests: floodOverview.test.ts.
-import type { FloodCategory, FloodListResponse, FloodProductRef, FloodSummary, GaugeCategory } from '../api/types'
+import type { FloodCategory, FloodListResponse, FloodProductRef, FloodSourceId, FloodSummary, GaugeCategory } from '../api/types'
 import type { LonLatBox } from '../lib/fireBounds'
 import type { FloodListSlot } from './floodCatalog'
 
@@ -97,13 +97,20 @@ export function gaugeCategoryRank(c: GaugeCategory | FloodCategory | null | unde
   return (c && GAUGE_RANK[c as GaugeCategory]) || 0
 }
 
-/** The state of a flood list for its notices (CONTRACT §16.2 sources, PLAN-5 §3.2 rule 11). */
-export type FloodListHealth = 'loading' | 'ok' | 'nws_down' | 'gauges_down' | 'both_down' | 'failed'
+/** The state of a flood list for its notices (CONTRACT §16.2 sources, PLAN-5 §3.2 rule 11). The live list is read
+ *  from NWS and the river gauges; a year list from the IEM archive ('archive_down' when that could not be read). */
+export type FloodListHealth = 'loading' | 'ok' | 'nws_down' | 'gauges_down' | 'both_down' | 'archive_down' | 'failed'
+
+/** The sources a list itself is read from: a year list's IEM archive, else the live list's NWS products and gauges. */
+export function listSourceIds(r: Pick<FloodListResponse, 'mode'>): FloodSourceId[] {
+  return r.mode === 'historical' ? ['iem_archive'] : ['nws_alerts', 'nwps_gauges']
+}
 
 export function floodListHealth(slot: FloodListSlot): FloodListHealth {
   const r = slot.response
   if (!r) return slot.loading ? 'loading' : slot.error ? 'failed' : 'loading'
-  const down = (id: string) => r.sources.some((s) => s.id === id && s.status === 'unavailable')
+  const down = (id: FloodSourceId) => r.sources.some((s) => s.id === id && s.status === 'unavailable')
+  if (r.mode === 'historical') return down('iem_archive') ? 'archive_down' : 'ok'
   const nws = down('nws_alerts')
   const gauges = down('nwps_gauges')
   if (nws && gauges) return 'both_down'
@@ -112,13 +119,28 @@ export function floodListHealth(slot: FloodListSlot): FloodListHealth {
   return 'ok'
 }
 
-/** The number of listed floods, or null when it is not known (never 0 for unknown): no answer, or both lists down
- *  with nothing listed. */
+/** The list could not be read at all (the live list's NWS products and gauges both down, or a year's archive down):
+ *  the bar says so instead of a count (never "0", review WFO-R3/R4); rows from disk may still be listed. */
+export function floodListUnreadable(health: FloodListHealth): boolean {
+  return health === 'both_down' || health === 'archive_down'
+}
+
+/** The backend's own reasons (verbatim, de-duplicated) of the list's own sources that could not be read. */
+export function listDownReasons(r: FloodListResponse | null): string[] {
+  if (!r) return []
+  const ids = listSourceIds(r)
+  const out: string[] = []
+  for (const s of r.sources) if (ids.includes(s.id) && s.status === 'unavailable' && s.reason && !out.includes(s.reason)) out.push(s.reason)
+  return out
+}
+
+/** The number of listed floods, or null when it is not known (never 0 for unknown): no answer, or the list could not be
+ *  read (both live lists down, or a year's archive down) with nothing listed. */
 export function knownFloodCount(r: FloodListResponse | null, showWatches: boolean): number | null {
   if (!r) return null
   const shown = shownFloods(r.floods, showWatches).length
-  const bothDown = r.sources.some((s) => s.id === 'nws_alerts' && s.status === 'unavailable') && r.sources.some((s) => s.id === 'nwps_gauges' && s.status === 'unavailable')
-  return bothDown && shown === 0 ? null : shown
+  const unreadable = floodListUnreadable(floodListHealth({ response: r, loading: false, error: null, status: null }))
+  return unreadable && shown === 0 ? null : shown
 }
 
 /** Fly-to request framing a flood: its bbox (with a small margin), else its point at z11. */

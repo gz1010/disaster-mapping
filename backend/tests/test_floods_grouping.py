@@ -355,3 +355,171 @@ def test_rule12_order_by_rank() -> None:
     lst = build(inputs([adv, emer], obs=[riv("JSHF1", -82.0, 27.2, "major", "Joshua Creek", state="FL")]))
     assert [s["level"] for s in lst["floods"]] == ["warning", "gauge_only", "advisory"]
     assert lst["floods"][0]["emergency"] and G.flood_rank(lst["floods"][0]) >= 1000
+
+
+# ---- review fixes (docs/redesign/reports/review5-backend-flood-sources.json) ----------------------------------------
+def test_rule8_a_product_nws_dropped_is_ended_never_in_effect() -> None:
+    """BFS-R1: a flood whose products left NWS's active list (one cancelled early, one "until further notice" with no
+    end time) stays listed as inactive with every product "ended", no expiry and no emergency; it keeps the level it
+    last had, never a product "in_effect" beside a status that says none is."""
+    until = cap("u", "Flood Warning", vt("NEW", "FA", "W", 38, office="KFGZ"), box(-110.2, 34.6, 0.1, 0.05),
+                ugcs=("AZC017",), same=("004017",), area="Navajo, AZ", ends=None,
+                desc="* WHERE...Rural areas of Navajo County.")
+    until["properties"]["expires"] = None                             # "until further notice": no end time at all
+    flash = cap("f", "Flash Flood Warning", vt("NEW", "FF", "W", 9, office="KPSR"), box(-112.0, 33.5, 0.05, 0.05),
+                ugcs=("AZC013",), same=("004013",), area="Maricopa, AZ", ends=NOW + 30 * H,
+                params={"flashFloodDamageThreat": ["CATASTROPHIC"]},
+                desc="Some locations that will experience flash flooding include...\nCave Creek.")
+    first = {s["kind"]: s for s in build(inputs([until, flash]))["floods"]}
+    assert first["areal"]["products"][0]["ends_ms"] is None and first["flash"]["emergency"] is True
+    cat.reset_state()
+    can = cap("f2", "Flash Flood Warning", vt("CAN", "FF", "W", 9, office="KPSR"), box(-112.0, 33.5, 0.05, 0.05),
+              ugcs=("AZC013",), same=("004013",), area="Maricopa, AZ", sent=NOW + 10 * 60_000, refs=[("f", NOW - 2 * H)])
+    lst = build(inputs([can]), now=NOW + 20 * 60_000)                # the CAN version is not in effect; FA.W gone
+    assert lst["products_in_effect"] == 0
+    by = {s["id"]: s for s in lst["floods"]}
+    for k in ("areal", "flash"):
+        s = by[first[k]["id"]]
+        assert s["status"] == "inactive" and s["expires_ms"] is None and s["emergency"] is False, k
+        assert [p["phase"] for p in s["products"]] == ["ended"] and s["level"] == "warning", k
+        assert G.flood_rank(s) < G.RANK_EMERGENCY and s["ended_ms"] is not None
+    # the detail chain shows the same once the flood is off the list (rule 13)
+    import time as _t
+
+    cat._cache["live"] = (_t.monotonic(), {**lst, "floods": [], "_phases": {}})
+    s, how = cat.resolve(first["flash"]["id"])
+    assert how == "last_known" and s["status"] == "inactive" and [p["phase"] for p in s["products"]] == ["ended"]
+
+
+def test_rule2_an_areal_warning_links_the_gauge_its_text_names() -> None:
+    """BFS-R3: NWS Flagstaff's areal Flood Warning names the Little Colorado River ("* WHERE...The Little Colorado River
+    from Winslow to Leupp", "Flooding of the Little Colorado River"); the Winslow gauge inside it is its member, so the
+    event is one flood, never an areal flood beside a gauge-only one."""
+    desc = ("* WHAT...Flooding caused by excessive rainfall continues.\n\n* WHERE...The Little Colorado River from "
+            "Winslow to Leupp...\n\n* IMPACTS...Flooding of the Little Colorado River is occurring.")
+    fa = cap("w", "Flood Warning", vt("CON", "FA", "W", 38, office="KFGZ"), box(-110.70, 35.03, 0.25, 0.1),
+             ugcs=("AZC017",), same=("004017",), area="Coconino, AZ; Navajo, AZ", desc=desc)
+    g = riv("LCWA3", -110.70, 35.03, "minor", "Little Colorado River", state="AZ")
+    s = build(inputs([fa], obs=[g]))["floods"]
+    assert len(s) == 1 and s[0]["name"] == "Little Colorado River flood" and s[0]["kind"] == "river"
+    assert [x["lid"] for x in s[0]["gauges"]] == ["LCWA3"] and s[0]["products"][0]["gauge_lids"] == ["LCWA3"]
+    assert s[0]["level"] == "warning" and s[0]["caveat"] is None
+    assert naming.river_from_text(desc) == "Little Colorado River"
+    assert naming.river_from_text("* WHERE...along the San Juan River from the Four Corners through Mexican Hat.") == \
+        "San Juan River"
+    assert naming.water_from_text("Flooding of the Little Colorado River is occurring.") == "Little Colorado River"
+    assert naming.text_names_water("St. Johns River", "Minor flooding on the St Johns River near Astor.")
+    multi = ("Platte River near Agency affecting Buchanan County.\n\nGrand River near Sumner affecting Linn County.\n\n"
+             "* WHERE...Grand River near Sumner.")
+    assert not naming.text_names_water("Platte River", multi) and naming.text_names_water("Grand River", multi)
+    assert not naming.text_names_water("Tide Station", "Tide Station readings")      # names no river
+    fresh()
+    other = riv("CLCA3", -110.69, 35.02, "minor", "Clear Creek", state="AZ")       # water the text does not name
+    assert len(build(inputs([fa], obs=[other]))["floods"]) == 2
+
+
+def test_rule5_a_tide_gauge_caveat_never_claims_no_coastal_product() -> None:
+    """BFS-R2: Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products (D1), so a gauge-only flood at a
+    gauge that may measure tidal or lake water says so, never "No NWS flood product names this gauge"."""
+    pier = {**riv("JBPF1", -80.05, 26.88, "minor", "Juno Beach Park Pier (in MHHW)", state="FL"), "pedts": "HCIRP"}
+    near = riv("LRPF1", -80.10, 26.94, "minor", "Loxahatchee River 500 ft downstream of US 1", state="FL")  # ~8 km
+    inland = riv("NOCF1", -81.85, 27.20, "moderate", "Joshua Creek", state="FL")
+    by = {s["primary_gauge"]["lid"]: s for s in build(inputs([], obs=[pier, near, inland]))["floods"]}
+    assert by["JBPF1"]["caveat"] == by["LRPF1"]["caveat"] == fcopy.GAUGE_ONLY_COASTAL_CAVEAT
+    assert by["NOCF1"]["caveat"] == fcopy.GAUGE_ONLY_CAVEAT
+    assert G.is_tidal_row({"pedts": "HMIRG", "name": "Virginia Key", "waterbody": "Atlantic Ocean Tide Gauge"})
+    assert G.is_tidal_row({"pedts": "HGIRG", "name": "Steele Point (in MHHW)", "waterbody": "St Lucie River"})
+    assert G.is_tidal_row({"pedts": "HGIRG", "name": "Duluth", "waterbody": "Lake Superior"})
+    assert not G.is_tidal_row({"pedts": "HGIRG", "name": "Beaver Bay", "waterbody": "Beaver River (MN)"})  # a town
+    assert not G.is_tidal_row({"pedts": "HPIRP", "name": "Devils Lake", "waterbody": "Devils Lake"})
+
+
+def test_rule11_nws_down_never_claims_an_absence_or_an_end(monkeypatch: pytest.MonkeyPatch) -> None:
+    """BFS-R4: NWS unreachable and no earlier copy. Gauge-only rows say NWS could not be reached (never
+    GAUGE_ONLY_CAVEAT); a river flood whose two far-apart gauges a warning joined stays one flood with its id; a
+    product-only flood is not listed as quiet (cannot decide) and its detail answers its last-known summary, its
+    product in effect until NWS's own end time; when NWS answers again every id is the same. Gauges down: a
+    gauge-only flood is not listed as quiet either."""
+    import time as _t
+
+    flw = cap("a", "Flood Warning", vt("CON", "FL", "W", 400), box(-94.45, 39.82, 0.4, 0.2), desc=RIVER_DESC)
+    iem = [{"nwsli": lid, "office": "KEAX", "phenomena": "FL", "significance": "W", "etn": 400,
+            "key4": ("KEAX", "FL", "W", 400)} for lid in ("A1", "A3")]
+    g1, g3 = riv("A1", -94.70, 39.69, "minor", "Platte River"), riv("A3", -94.20, 39.95, "minor", "Platte River")
+    flash = cap("f", "Flash Flood Warning", vt("NEW", "FF", "W", 7, office="KPSR"), box(-112.0, 33.5, 0.05, 0.05),
+                ugcs=("AZC013",), same=("004013",), area="Maricopa, AZ",
+                desc="Some locations that will experience flash flooding include...\nCave Creek.")
+    lone = riv("JSHF1", -82.0, 27.2, "minor", "Joshua Creek", state="FL")
+    before = build(inputs([flw, flash], obs=[g1, g3, lone], iem=iem))["floods"]
+    ids = {s["name"]: s["id"] for s in before}
+    assert set(ids) == {"Platte River flood", "Cave Creek flash flood", "Joshua Creek flood"}
+    cat.reset_state()
+    out = build(inputs([], obs=[g1, g3, lone], iem=iem, nws_down=True), now=NOW + H)
+    by = {s["id"]: s for s in out["floods"]}
+    assert set(by) == {ids["Platte River flood"], ids["Joshua Creek flood"]}
+    for s in by.values():
+        assert s["level"] == "gauge_only" and s["caveat"] == fcopy.ALERTS_UNAVAILABLE and s["status"] == "active"
+    assert sorted(g["lid"] for g in by[ids["Platte River flood"]]["gauges"]) == ["A1", "A3"]
+    monkeypatch.setattr(cat, "now_ms", lambda: NOW + H)
+    cat._cache["live"] = (_t.monotonic(), {**out, "_decided": False})
+    s, how = cat.resolve(ids["Cave Creek flash flood"])
+    assert how == "last_known" and [p["phase"] for p in s["products"]] == ["in_effect"]   # until NOW + 20 h
+    cat.reset_state()
+    gd = build(inputs([flw, flash], iem=iem, gauges_down=True), now=NOW + 2 * H)
+    listed = {s["id"] for s in gd["floods"]}
+    assert ids["Joshua Creek flood"] not in listed
+    assert {ids["Platte River flood"], ids["Cave Creek flash flood"]} <= listed
+    cat.reset_state()
+    after = build(inputs([flw, flash], obs=[g1, g3, lone], iem=iem), now=NOW + 3 * H)["floods"]
+    assert {s["name"]: s["id"] for s in after} == ids and len(after) == 3
+
+
+def test_rule10_a_restart_after_a_long_gap_keeps_gauge_ids() -> None:
+    """BFS-R5: Fire-3d was off for 23 h (across a UTC date) while the gauge stayed in flood: the same id, no duplicate.
+    A flood quiet for less than INACTIVE_LISTED_H that floods again keeps its id too; longer is a new flood (C8)."""
+    g = riv("DCBN8", -98.9, 48.1, "major", "Devils Lake", state="ND", valid=NOW - 23 * H - 900_000)
+    first = build(inputs([], obs=[g]), now=NOW - 23 * H)["floods"]
+    assert first[0]["id"].startswith("flood-20261103-")
+    cat.reset_state()
+    again = build(inputs([], obs=[{**g, "valid_ms": NOW - 900_000}]))["floods"]
+    assert [s["id"] for s in again] == [first[0]["id"]]
+    cat.reset_state()
+    quiet = build(inputs([], obs=[]), now=NOW + 10 * H)["floods"]                 # below action for a while
+    assert [(s["id"], s["status"]) for s in quiet] == [(first[0]["id"], "inactive")]
+    cat.reset_state()
+    back = build(inputs([], obs=[{**g, "valid_ms": NOW + 30 * H}]), now=NOW + 30 * H)["floods"]
+    assert [s["id"] for s in back] == [first[0]["id"]]
+
+
+def test_rule3_an_update_never_splits_an_areal_join() -> None:
+    """BFS-R7: two Flash Flood Warnings 5.6 km apart issued 1 h apart are one flood; a CON update of one sent 14 h
+    after the other's message keeps them joined (the join compares issue times, not update times)."""
+    kw = dict(ugcs=("AZC013",), same=("004013",), area="Maricopa, AZ")
+    a = cap("a", "Flash Flood Warning", vt("NEW", "FF", "W", 1, office="KPSR"), box(-112.0, 33.5, 0.1, 0.1),
+            sent=NOW - 14 * H, ends=NOW + 10 * H, **kw)
+    b = cap("b", "Flash Flood Warning", vt("NEW", "FF", "W", 4, office="KPSR"), box(-111.80, 33.5, 0.04, 0.04),
+            sent=NOW - 13 * H, ends=NOW + 10 * H, **kw)
+    first = build(inputs([a, b]), now=NOW - 12 * H)["floods"]
+    assert len(first) == 1
+    cat.reset_state()
+    b2 = cap("b2", "Flash Flood Warning", vt("CON", "FF", "W", 4, office="KPSR"), box(-111.80, 33.5, 0.04, 0.04),
+             sent=NOW, ends=NOW + 10 * H, refs=[("b", NOW - 13 * H)], **kw)
+    later = build(inputs([a, b2]))["floods"]
+    assert [s["id"] for s in later] == [first[0]["id"]]
+    assert G.issued_ms(nws.normalize_flood_alert(b2)) == NOW - 13 * H
+    assert G.issued_ms({"sent_ms": NOW, "_vtec_begin_ms": NOW - 5 * H}) == NOW - 5 * H     # no references: VTEC begin
+    assert G.issued_ms({"sent_ms": NOW, "_vtec_begin_ms": NOW + 5 * H}) == NOW            # upcoming: its own time
+
+
+def test_rule11_the_iem_join_is_a_credited_source() -> None:
+    """BFS-R10: the IEM H-VTEC join that links gauges to warnings is credited in ``sources[]``; its outage says gauges
+    may be unlinked and never shortens the list cache (IEM asks for few requests)."""
+    g = riv("JSHF1", -82.0, 27.2, "minor", "Joshua Creek", state="FL")
+    src = {s["id"]: s for s in build(inputs([], obs=[g]))["sources"]}
+    assert src["iem_archive"]["name"] == fcopy.IEM_JOIN_NAME and src["iem_archive"]["status"] == "available"
+    fresh()
+    inp = inputs([], obs=[g])
+    inp.iem = cat.SourceResult(None, None, error="down")
+    lst = build(inp)
+    iem = {s["id"]: s for s in lst["sources"]}["iem_archive"]
+    assert iem["status"] == "unavailable" and iem["reason"] == fcopy.IEM_JOIN_DOWN and not cat._degraded(lst)

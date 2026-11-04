@@ -13,9 +13,11 @@ import type { FloodSummary, RiverGauge } from '../api/types'
 import { openFloodSummary, useFlood } from '../state/flood'
 import { getSlot } from '../state/floodCatalog'
 import { shownFloods } from '../state/floodOverview'
+import { clockFor } from '../state/timeZone'
 import { useWorkspace } from '../state/workspace'
-import { GAUGE_CATEGORY_DISPLAY, NOT_ALL_CLEAR } from '../ui/shell/floodCopy'
-import { floodDisplayName, floodRowSub, gaugeLabel } from '../ui/public/floodOverviewText'
+import { fillCopy, FLOOD_OVERVIEW, GAUGE_CATEGORY_DISPLAY, NOT_ALL_CLEAR } from '../ui/shell/floodCopy'
+import { floodDisplayName, floodRowSub, gaugeLabel, gaugeReadingLine } from '../ui/public/floodOverviewText'
+import { useNationalGauges } from './floodGaugeStatus'
 import {
   diamondImage,
   DIAMOND_IMAGE,
@@ -79,10 +81,34 @@ export function floodMapMode(): boolean {
 
 /** Gauge points from the listed floods' member gauges (the fallback when the national gauge answer is missing). */
 export function memberGauges(floods: readonly FloodSummary[]): GaugePoint[] {
-  return floods.flatMap((f) => f.gauges.map((g) => ({ lid: g.lid, name: g.name, lat: g.lat, lon: g.lon, observed_category: g.observed_category, observed_value: g.observed_value, unit: g.unit, waterbody: g.waterbody })))
+  return floods.flatMap((f) =>
+    f.gauges.map((g) => ({
+      lid: g.lid,
+      name: g.name,
+      lat: g.lat,
+      lon: g.lon,
+      observed_category: g.observed_category,
+      observed_value: g.observed_value,
+      unit: g.unit,
+      waterbody: g.waterbody,
+      observed_ms: g.observed_ms,
+      time_zone: f.time_zone,
+    })),
+  )
 }
 
-const riverToPoint = (g: RiverGauge): GaugePoint => ({ lid: g.lid, name: g.name, lat: g.lat, lon: g.lon, observed_category: g.observed.category, observed_value: g.observed.value, unit: g.observed.unit, waterbody: g.waterbody })
+const riverToPoint = (g: RiverGauge): GaugePoint => ({
+  lid: g.lid,
+  name: g.name,
+  lat: g.lat,
+  lon: g.lon,
+  observed_category: g.observed.category,
+  observed_value: g.observed.value,
+  unit: g.observed.unit,
+  waterbody: g.waterbody,
+  observed_ms: g.observed.valid_ms,
+  time_zone: g.time_zone,
+})
 
 export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; topBeforeId?: string[] } = {}): FloodLayersHandle {
   let removed = false
@@ -102,14 +128,18 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
     if (nationalLoading || removed || useWorkspace.getState().hazard !== 'flood') return
     if (national && Date.now() - national.at < NATIONAL_GAUGES_TTL_MS) return
     nationalLoading = true
+    if (!national) useNationalGauges.getState().set('loading')
     getRiverGauges({ national: true, min: 'action' })
       .then((r) => {
         national = { at: Date.now(), gauges: r.status === 'available' ? r.gauges.map(riverToPoint) : (national?.gauges ?? []) }
         if (r.status !== 'available' && !national.gauges.length) national = { at: Date.now(), gauges: [] }
+        // an unavailable answer: the listed floods' member gauges stand in, and the legend and list say so (WFO-R8)
+        useNationalGauges.getState().set(r.status === 'available' ? 'available' : 'unavailable')
       })
       .catch(() => {
         // the listed floods' member gauges stand in; asked again after the TTL
         national = { at: Date.now(), gauges: national?.gauges ?? [] }
+        useNationalGauges.getState().set('unavailable')
       })
       .finally(() => {
         nationalLoading = false
@@ -276,7 +306,7 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
           { text: floodRowSub(f) },
           ...(f.caveat ? [{ text: f.caveat }] : []),
           { text: NOT_ALL_CLEAR, cls: 'fxm-tip-hint' },
-          { text: 'Click to open this flood', cls: 'fxm-tip-hint' },
+          { text: FLOOD_OVERVIEW.hoverOpen, cls: 'fxm-tip-hint' },
         ],
         clickable: true,
       }
@@ -284,18 +314,22 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
     if (h.kind === 'group') {
       const p = Array.isArray(point) ? { x: point[0], y: point[1] } : (point as { x: number; y: number })
       const n = Number(map.queryRenderedFeatures([p.x, p.y], { layers: FLOOD_CLUSTER_LAYERS.filter(has) })[0]?.properties?.point_count) || 0
-      return { lines: [{ text: `Group of ${n} listed floods`, cls: 'fxm-tip-title' }, { text: 'Click to zoom in', cls: 'fxm-tip-hint' }], clickable: true }
+      return { lines: [{ text: fillCopy(FLOOD_OVERVIEW.hoverGroup, { n }), cls: 'fxm-tip-title' }, { text: FLOOD_OVERVIEW.hoverZoom, cls: 'fxm-tip-hint' }], clickable: true }
     }
     const pts = national?.gauges.length ? national.gauges : memberGauges(floodsShown())
     const g = pts.find((x) => x.lid === h.id)
     if (!g) return null
     const d = GAUGE_CATEGORY_DISPLAY[g.observed_category] ?? GAUGE_CATEGORY_DISPLAY.unknown
+    const ws = useWorkspace.getState()
+    // the reading's own time, in the gauge's zone, with its age (official information keeps its own times; WFO-R7)
+    const reading = gaugeReadingLine(g.observed_ms ?? null, g.time_zone ?? null, clockFor(ws.workspace, ws.preset), Date.now())
     return {
       lines: [
         { text: g.name, cls: 'fxm-tip-title' },
-        { text: gaugeLabel(g, useWorkspace.getState().units) },
-        { text: `${d.short} · NOAA National Water Prediction Service (NWS)` },
-        { text: 'Click to check this spot', cls: 'fxm-tip-hint' },
+        { text: gaugeLabel(g, ws.units) },
+        { text: fillCopy(FLOOD_OVERVIEW.hoverGaugeSource, { category: d.short }) },
+        { text: reading },
+        { text: FLOOD_OVERVIEW.hoverCheckSpot, cls: 'fxm-tip-hint' },
       ],
       clickable: true,
     }
