@@ -44,8 +44,8 @@ Start with these:
   - Credit every source, and check the terms of any new source on its official page.
   - Use polite request rates through `fire3d.http`, which caches.
 - **Secrets:**
-  - The only secret is `FIRMS_MAP_KEY`. It comes from the environment or the gitignored `.env`.
-  - Never print, log, commit or copy it. Check for leaks with count-only scans.
+  - The only secrets are `FIRMS_MAP_KEY` and `EARTHDATA_TOKEN` (NASA Earthdata user token for satellite water, approved in brief 5; optional). They come from the environment or the gitignored `.env`.
+  - Never print, log, commit or copy them. Check for leaks with count-only scans.
 - **Naming:** never use the name "FireTrace" (the name of the reference demo).
 - **Git:** never commit `data/` or `.env`. Add a dependency only when it is clearly needed, and say why.
 - **Running locally:**
