@@ -364,7 +364,7 @@ Layout = the Public fire view (`PublicFireChrome`) with the design's values. Dif
 
 | Design element (FloodView.dc.html) | Ours | Component | Data |
 |---|---|---|---|
-| Map tint, left gradient | `#333` `color` blend **0.25**; gradient **600 px** `rgba(12,12,12,.92)` → **.74** at 55 % → 0 | `MapAtmosphere edges="fire"` reused; new tint level `'flood'` in `mapStore.setTint`; gradient in `styles/view-flood-public.css` | |
+| Map tint, left gradient | `#333` `color` blend **0.25**; gradient **600 px** `rgba(12,12,12,.92)` → **.74** at 55 % → 0 | `MapAtmosphere edges="fire"` reused; new `TintLevel` `'flood'` (`map/basemapStyle.ts`, set through `mapStore.setTint`); gradient in `styles/view-flood-public.css` | |
 | Close (X, 44 px) | "Back to all floods" | `BackButton` reused (label prop) | |
 | Title + date line | "San Juan County, New Mexico" (county, state of the point); "NOV 2 2026 — PRESENT" / "SEEN BY FIRE-3D SINCE NOV 3 2026" / past "NOV 2 2026 — LAST NWS PRODUCT NOV 5 2026" (never "ENDED") | new `ui/public/FloodTitle.tsx` on the presentational part split from `FireTitle.tsx` (`keepDatesWhole` reused) | summary |
 | Distance chip | the look unchanged; target in order: NWS warning area edge, else NWS forecast flooded area, else the primary gauge; line says which | `DistanceChip` with maths moved to pure `lib/areaDistance.ts` `distanceToArea({ rings, point })` (fire uses it too) | flood-alerts, maps |
@@ -446,8 +446,8 @@ in `styles/view-flood-command.css`).
   `ui/controls.tsx`, the Forensic scene stack (terrain, camera, probe, post, atmosphere), evacuation and local-alert rows.
 - **Small additive splits (fire behaviour and screenshots unchanged):** `HazardCircle` → `HazardDisc` + fire container;
   `FireTitle` and `DistanceChip` → presentational parts with props; `overviewLayers.ts` palette/unit/rank parameters;
-  `LeaderLabels.tsx` `meta`/`rank` from features; `OfficialNow.tsx` exports `Row`, `SourceLink`; `mapStore.setTint`
-  gains `'flood'`; `MapControls` framing calls `frameFlood()` when a flood is open.
+  `LeaderLabels.tsx` `meta`/`rank` from features; `OfficialNow.tsx` exports `Row`, `SourceLink`; `TintLevel`
+  (`basemapStyle.ts`) gains `'flood'`; `MapControls` framing calls `frameFlood()` when a flood is open.
 - **Stays fire-only:** fire lists, fire card, incident picker, CAL FIRE / WFIGS records, fire weather, detections,
   perimeters, spread model, accuracy regions, aircraft, fire timelines and charts, `CommandReadout`, `OfficialNow`'s fire
   rows, `MapLegend`, `fireView.ts`, `overviewLayers.ts` fire palette.
@@ -475,7 +475,9 @@ exported string of every `*[Ff]lood*[Cc]opy*.ts` file and `copy.py`, and every r
   all-clear"), "no flooding" (only inside "do not mean no flooding"), "dry" (only inside "Unknown, not dry" and "dry
   pixels do not mean no flooding"), "receded", "the flood is over", "ended" as a status, "normal level", "no danger",
   "you are outside the flood", "minimal flood hazard", "FireTrace". NWS's own wording, quoted verbatim with its issuer,
-  is exempt.
+  is exempt. The guard removes the allowed phrases first, case-insensitively and longest first ("dry pixels do not
+  mean no flooding" before "do not mean no flooding"; "Not an all-clear" with a capital N), then searches for the banned
+  words.
 - `PROTOTYPE_LINE` "Research prototype — not for operational use" and `NOT_ALL_CLEAR` "Not an all-clear. Follow local
   officials." on every flood view, phones included.
 
@@ -642,7 +644,7 @@ Until M2 lands, hand-written minimal fixtures per CONTRACT §16 are allowed and 
   `hazard` URL parameter), `state/history.test.ts` (entry with `flood`), `state/timeZone.test.ts`.
 - `map/overviewLayers.test.ts` (fire defaults of the new parameters; `CLUSTER_RADIUS_EXPR`; draw order; style validity),
   `map/userInput.test.ts` and `state/fireCard.test.ts` (regexes over `mapController.ts`, `SearchBox.tsx`,
-  `OverviewCard.tsx`: keep the fire click path's shape; route flood hits before it), `map/layers.test.ts`.
+  `OverviewCard.tsx`: keep the fire click path's shape; route flood hits before it).
 - `official/runtime.test.ts`, `official/mapLayer.test.ts` (no fire weather in flood mode), `extras/client.test.ts`
   (`currentArea`), `location/search.test.ts` (second provider), `lib/dataCredits.test.ts`, `lib/fileNames.test.ts`.
 - `ui/shell/ForensicWorkspace.test.ts`, `ui/shell/handoff.test.ts` (wave 3), `ui/public/fireView.test.ts` and the fire
