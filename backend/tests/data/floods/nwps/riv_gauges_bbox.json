@@ -1,0 +1,347 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "id": 1382,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -99.27611111083888,
+     47.8213888881476
+    ]
+   },
+   "properties": {
+    "objectid": 1382,
+    "gaugelid": "BRMN8",
+    "status": "not_defined",
+    "location": "Devils Lake State Outlet near Bremen",
+    "waterbody": "Sheyenne River",
+    "state": "ND",
+    "obstime": "2026-11-04 21:00:00",
+    "wfo": "fgf",
+    "url": "https://water.noaa.gov/gauges/brmn8",
+    "action": "",
+    "units": "ft",
+    "lowthresh": "",
+    "lowthreshu": "",
+    "secvalue": "0.0215",
+    "secunit": "kcfs",
+    "flood": "",
+    "moderate": "",
+    "major": "",
+    "observed": "18.11",
+    "latitude": 47.821389,
+    "longitude": -99.276111,
+    "hdatum": "none",
+    "pedts": "HGIRG",
+    "idp_filedate": 1793830092000,
+    "idp_ingestdate": 1793830097000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 1995,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -99.18722200019488,
+     48.26166699919516
+    ]
+   },
+   "properties": {
+    "objectid": 1995,
+    "gaugelid": "CFCN8",
+    "status": "not_defined",
+    "location": "Big Coulee at Hwy 2 near Churchs Ferry",
+    "waterbody": "Big Coulee",
+    "state": "ND",
+    "obstime": "2026-11-04 21:15:00",
+    "wfo": "fgf",
+    "url": "https://water.noaa.gov/gauges/cfcn8",
+    "action": "",
+    "units": "ft",
+    "lowthresh": "",
+    "lowthreshu": "",
+    "secvalue": "",
+    "secunit": "kcfs",
+    "flood": "",
+    "moderate": "",
+    "major": "",
+    "observed": "50.06",
+    "latitude": 48.261667,
+    "longitude": -99.187222,
+    "hdatum": "none",
+    "pedts": "HGIRG",
+    "idp_filedate": 1793830092000,
+    "idp_ingestdate": 1793830097000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 2907,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -98.90277777747224,
+     48.09944444306851
+    ]
+   },
+   "properties": {
+    "objectid": 2907,
+    "gaugelid": "DCBN8",
+    "status": "major",
+    "location": "Devils Lake",
+    "waterbody": "Devils Lake",
+    "state": "ND",
+    "obstime": "2026-11-04 21:00:00",
+    "wfo": "fgf",
+    "url": "https://water.noaa.gov/gauges/dcbn8",
+    "action": "",
+    "units": "ft",
+    "lowthresh": "",
+    "lowthreshu": "",
+    "secvalue": "",
+    "secunit": "kcfs",
+    "flood": "0.1",
+    "moderate": "0.2",
+    "major": "0.3",
+    "observed": "49.93",
+    "latitude": 48.099444000000005,
+    "longitude": -98.902778,
+    "hdatum": "none",
+    "pedts": "HPIRP",
+    "idp_filedate": 1793830092000,
+    "idp_ingestdate": 1793830097000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 3072,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -98.84666666663315,
+     48.25972222156575
+    ]
+   },
+   "properties": {
+    "objectid": 3072,
+    "gaugelid": "DLBN8",
+    "status": "not_defined",
+    "location": "Morrison Lake near Webster",
+    "waterbody": "Morrison Lake",
+    "state": "ND",
+    "obstime": "2026-11-04 20:45:00",
+    "wfo": "fgf",
+    "url": "https://water.noaa.gov/gauges/dlbn8",
+    "action": "",
+    "units": "ft",
+    "lowthresh": "",
+    "lowthreshu": "",
+    "secvalue": "",
+    "secunit": "kcfs",
+    "flood": "",
+    "moderate": "",
+    "major": "",
+    "observed": "58",
+    "latitude": 48.259722000000004,
+    "longitude": -98.846667,
+    "hdatum": "none",
+    "pedts": "HPIRP",
+    "idp_filedate": 1793830092000,
+    "idp_ingestdate": 1793830097000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 3075,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -98.98305555576906,
+     48.23111110995216
+    ]
+   },
+   "properties": {
+    "objectid": 3075,
+    "gaugelid": "DLCN8",
+    "status": "not_defined",
+    "location": "Dry Lake near Penn",
+    "waterbody": "Dry Lake",
+    "state": "ND",
+    "obstime": "2026-11-04 20:45:00",
+    "wfo": "fgf",
+    "url": "https://water.noaa.gov/gauges/dlcn8",
+    "action": "",
+    "units": "ft",
+    "lowthresh": "",
+    "lowthreshu": "",
+    "secvalue": "",
+    "secunit": "kcfs",
+    "flood": "",
+    "moderate": "",
+    "major": "",
+    "observed": "49.83",
+    "latitude": 48.231111,
+    "longitude": -98.983056,
+    "hdatum": "none",
+    "pedts": "HPIRG",
+    "idp_filedate": 1793830092000,
+    "idp_ingestdate": 1793830097000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 3396,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -98.6805555552944,
+     48.266388887799465
+    ]
+   },
+   "properties": {
+    "objectid": 3396,
+    "gaugelid": "ECTN8",
+    "status": "not_defined",
+    "location": "Edmore Coulee Trib near Webster",
+    "waterbody": "Edmore Coulee Tributary",
+    "state": "ND",
+    "obstime": "2026-11-04 21:00:00",
+    "wfo": "fgf",
+    "url": "https://water.noaa.gov/gauges/ectn8",
+    "action": "",
+    "units": "ft",
+    "lowthresh": "",
+    "lowthreshu": "",
+    "secvalue": "0",
+    "secunit": "kcfs",
+    "flood": "",
+    "moderate": "",
+    "major": "",
+    "observed": "66.27",
+    "latitude": 48.266389000000004,
+    "longitude": -98.680556,
+    "hdatum": "none",
+    "pedts": "HGIRP",
+    "idp_filedate": 1793830092000,
+    "idp_ingestdate": 1793830097000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 3412,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -98.66000000039946,
+     48.33666699904552
+    ]
+   },
+   "properties": {
+    "objectid": 3412,
+    "gaugelid": "EDEN8",
+    "status": "not_defined",
+    "location": "Edmore Coulee near Edmore",
+    "waterbody": "Edmore Coulee",
+    "state": "ND",
+    "obstime": "2026-11-04 21:15:00",
+    "wfo": "fgf",
+    "url": "https://water.noaa.gov/gauges/eden8",
+    "action": "",
+    "units": "ft",
+    "lowthresh": "",
+    "lowthreshu": "",
+    "secvalue": "",
+    "secunit": "kcfs",
+    "flood": "",
+    "moderate": "",
+    "major": "",
+    "observed": "79.74",
+    "latitude": 48.336667,
+    "longitude": -98.66,
+    "hdatum": "none",
+    "pedts": "HGIRG",
+    "idp_filedate": 1793830092000,
+    "idp_ingestdate": 1793830097000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 12218,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -98.9402780004292,
+     48.32055599892294
+    ]
+   },
+   "properties": {
+    "objectid": 12218,
+    "gaugelid": "WEBN8",
+    "status": "not_defined",
+    "location": "Starkweather Coulee near Webster",
+    "waterbody": "Starkweather Coulee",
+    "state": "ND",
+    "obstime": "2026-11-04 21:30:00",
+    "wfo": "fgf",
+    "url": "https://water.noaa.gov/gauges/webn8",
+    "action": "",
+    "units": "ft",
+    "lowthresh": "",
+    "lowthreshu": "",
+    "secvalue": "0.034",
+    "secunit": "kcfs",
+    "flood": "",
+    "moderate": "",
+    "major": "",
+    "observed": "1.98",
+    "latitude": 48.320556,
+    "longitude": -98.940278,
+    "hdatum": "none",
+    "pedts": "HGIRG",
+    "idp_filedate": 1793830092000,
+    "idp_ingestdate": 1793830097000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 12640,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -98.71583300039242,
+     47.80555599887115
+    ]
+   },
+   "properties": {
+    "objectid": 12640,
+    "gaugelid": "WRWN8",
+    "status": "not_defined",
+    "location": "Warwick",
+    "waterbody": "Sheyenne River",
+    "state": "ND",
+    "obstime": "2026-11-04 21:00:00",
+    "wfo": "fgf",
+    "url": "https://water.noaa.gov/gauges/wrwn8",
+    "action": "",
+    "units": "ft",
+    "lowthresh": "",
+    "lowthreshu": "",
+    "secvalue": "0.0761",
+    "secunit": "kcfs",
+    "flood": "",
+    "moderate": "",
+    "major": "",
+    "observed": "3.04",
+    "latitude": 47.805556,
+    "longitude": -98.715833,
+    "hdatum": "none",
+    "pedts": "HGIRG",
+    "idp_filedate": 1793830092000,
+    "idp_ingestdate": 1793830097000
+   }
+  }
+ ]
+}

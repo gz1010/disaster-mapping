@@ -1,0 +1,1880 @@
+{
+ "observed": {
+  "pedts": "HGIRG",
+  "issuedTime": "2026-11-04T21:30:00Z",
+  "wfo": "EAX",
+  "timeZone": "CST6CDT",
+  "primaryName": "Stage",
+  "primaryUnits": "ft",
+  "secondaryName": "Flow",
+  "secondaryUnits": "kcfs",
+  "data": [
+   {
+    "validTime": "2026-11-01T21:30:00Z",
+    "generatedTime": "2026-11-01T21:54:11Z",
+    "primary": 7.34,
+    "secondary": 0.528
+   },
+   {
+    "validTime": "2026-11-01T21:45:00Z",
+    "generatedTime": "2026-11-01T22:54:09Z",
+    "primary": 7.34,
+    "secondary": 0.528
+   },
+   {
+    "validTime": "2026-11-01T22:00:00Z",
+    "generatedTime": "2026-11-01T22:54:09Z",
+    "primary": 7.34,
+    "secondary": 0.528
+   },
+   {
+    "validTime": "2026-11-01T22:15:00Z",
+    "generatedTime": "2026-11-01T22:54:09Z",
+    "primary": 7.33,
+    "secondary": 0.525
+   },
+   {
+    "validTime": "2026-11-01T22:30:00Z",
+    "generatedTime": "2026-11-01T22:54:09Z",
+    "primary": 7.33,
+    "secondary": 0.525
+   },
+   {
+    "validTime": "2026-11-01T22:45:00Z",
+    "generatedTime": "2026-11-01T23:54:08Z",
+    "primary": 7.33,
+    "secondary": 0.525
+   },
+   {
+    "validTime": "2026-11-01T23:00:00Z",
+    "generatedTime": "2026-11-01T23:54:08Z",
+    "primary": 7.32,
+    "secondary": 0.522
+   },
+   {
+    "validTime": "2026-11-01T23:15:00Z",
+    "generatedTime": "2026-11-01T23:54:08Z",
+    "primary": 7.32,
+    "secondary": 0.522
+   },
+   {
+    "validTime": "2026-11-01T23:30:00Z",
+    "generatedTime": "2026-11-01T23:54:08Z",
+    "primary": 7.32,
+    "secondary": 0.522
+   },
+   {
+    "validTime": "2026-11-01T23:45:00Z",
+    "generatedTime": "2026-11-02T00:54:07Z",
+    "primary": 7.31,
+    "secondary": 0.518
+   },
+   {
+    "validTime": "2026-11-02T00:00:00Z",
+    "generatedTime": "2026-11-02T00:54:07Z",
+    "primary": 7.31,
+    "secondary": 0.518
+   },
+   {
+    "validTime": "2026-11-02T00:15:00Z",
+    "generatedTime": "2026-11-02T00:54:07Z",
+    "primary": 7.31,
+    "secondary": 0.518
+   },
+   {
+    "validTime": "2026-11-02T00:30:00Z",
+    "generatedTime": "2026-11-02T00:54:07Z",
+    "primary": 7.31,
+    "secondary": 0.518
+   },
+   {
+    "validTime": "2026-11-02T00:45:00Z",
+    "generatedTime": "2026-11-02T01:54:09Z",
+    "primary": 7.3,
+    "secondary": 0.515
+   },
+   {
+    "validTime": "2026-11-02T01:00:00Z",
+    "generatedTime": "2026-11-02T01:54:09Z",
+    "primary": 7.3,
+    "secondary": 0.515
+   },
+   {
+    "validTime": "2026-11-02T01:15:00Z",
+    "generatedTime": "2026-11-02T01:54:09Z",
+    "primary": 7.3,
+    "secondary": 0.515
+   },
+   {
+    "validTime": "2026-11-02T01:30:00Z",
+    "generatedTime": "2026-11-02T01:54:09Z",
+    "primary": 7.3,
+    "secondary": 0.515
+   },
+   {
+    "validTime": "2026-11-02T01:45:00Z",
+    "generatedTime": "2026-11-02T02:54:09Z",
+    "primary": 7.29,
+    "secondary": 0.511
+   },
+   {
+    "validTime": "2026-11-02T02:00:00Z",
+    "generatedTime": "2026-11-02T02:54:09Z",
+    "primary": 7.29,
+    "secondary": 0.511
+   },
+   {
+    "validTime": "2026-11-02T02:15:00Z",
+    "generatedTime": "2026-11-02T02:54:09Z",
+    "primary": 7.29,
+    "secondary": 0.511
+   },
+   {
+    "validTime": "2026-11-02T02:30:00Z",
+    "generatedTime": "2026-11-02T02:54:09Z",
+    "primary": 7.29,
+    "secondary": 0.511
+   },
+   {
+    "validTime": "2026-11-02T02:45:00Z",
+    "generatedTime": "2026-11-02T03:54:09Z",
+    "primary": 7.28,
+    "secondary": 0.508
+   },
+   {
+    "validTime": "2026-11-02T03:00:00Z",
+    "generatedTime": "2026-11-02T03:54:09Z",
+    "primary": 7.28,
+    "secondary": 0.508
+   },
+   {
+    "validTime": "2026-11-02T03:15:00Z",
+    "generatedTime": "2026-11-02T03:54:09Z",
+    "primary": 7.28,
+    "secondary": 0.508
+   },
+   {
+    "validTime": "2026-11-02T03:30:00Z",
+    "generatedTime": "2026-11-02T03:54:09Z",
+    "primary": 7.28,
+    "secondary": 0.508
+   },
+   {
+    "validTime": "2026-11-02T03:45:00Z",
+    "generatedTime": "2026-11-02T04:54:09Z",
+    "primary": 7.27,
+    "secondary": 0.504
+   },
+   {
+    "validTime": "2026-11-02T04:00:00Z",
+    "generatedTime": "2026-11-02T04:54:09Z",
+    "primary": 7.27,
+    "secondary": 0.504
+   },
+   {
+    "validTime": "2026-11-02T04:15:00Z",
+    "generatedTime": "2026-11-02T04:54:09Z",
+    "primary": 7.27,
+    "secondary": 0.504
+   },
+   {
+    "validTime": "2026-11-02T04:30:00Z",
+    "generatedTime": "2026-11-02T04:54:09Z",
+    "primary": 7.27,
+    "secondary": 0.504
+   },
+   {
+    "validTime": "2026-11-02T04:45:00Z",
+    "generatedTime": "2026-11-02T05:54:09Z",
+    "primary": 7.27,
+    "secondary": 0.504
+   },
+   {
+    "validTime": "2026-11-02T05:00:00Z",
+    "generatedTime": "2026-11-02T05:54:09Z",
+    "primary": 7.26,
+    "secondary": 0.501
+   },
+   {
+    "validTime": "2026-11-02T05:15:00Z",
+    "generatedTime": "2026-11-02T05:54:09Z",
+    "primary": 7.26,
+    "secondary": 0.501
+   },
+   {
+    "validTime": "2026-11-02T05:30:00Z",
+    "generatedTime": "2026-11-02T05:54:09Z",
+    "primary": 7.26,
+    "secondary": 0.501
+   },
+   {
+    "validTime": "2026-11-02T05:45:00Z",
+    "generatedTime": "2026-11-02T06:54:11Z",
+    "primary": 7.26,
+    "secondary": 0.501
+   },
+   {
+    "validTime": "2026-11-02T06:00:00Z",
+    "generatedTime": "2026-11-02T06:54:11Z",
+    "primary": 7.26,
+    "secondary": 0.501
+   },
+   {
+    "validTime": "2026-11-02T06:15:00Z",
+    "generatedTime": "2026-11-02T06:54:11Z",
+    "primary": 7.25,
+    "secondary": 0.497
+   },
+   {
+    "validTime": "2026-11-02T06:30:00Z",
+    "generatedTime": "2026-11-02T06:54:11Z",
+    "primary": 7.25,
+    "secondary": 0.497
+   },
+   {
+    "validTime": "2026-11-02T06:45:00Z",
+    "generatedTime": "2026-11-02T07:54:10Z",
+    "primary": 7.25,
+    "secondary": 0.497
+   },
+   {
+    "validTime": "2026-11-02T07:00:00Z",
+    "generatedTime": "2026-11-02T07:54:10Z",
+    "primary": 7.25,
+    "secondary": 0.497
+   },
+   {
+    "validTime": "2026-11-02T07:15:00Z",
+    "generatedTime": "2026-11-02T07:54:10Z",
+    "primary": 7.25,
+    "secondary": 0.497
+   },
+   {
+    "validTime": "2026-11-02T07:30:00Z",
+    "generatedTime": "2026-11-02T07:54:10Z",
+    "primary": 7.25,
+    "secondary": 0.497
+   },
+   {
+    "validTime": "2026-11-02T07:45:00Z",
+    "generatedTime": "2026-11-02T08:54:10Z",
+    "primary": 7.24,
+    "secondary": 0.494
+   },
+   {
+    "validTime": "2026-11-02T08:00:00Z",
+    "generatedTime": "2026-11-02T08:54:10Z",
+    "primary": 7.24,
+    "secondary": 0.494
+   },
+   {
+    "validTime": "2026-11-02T08:15:00Z",
+    "generatedTime": "2026-11-02T08:54:10Z",
+    "primary": 7.24,
+    "secondary": 0.494
+   },
+   {
+    "validTime": "2026-11-02T08:30:00Z",
+    "generatedTime": "2026-11-02T08:54:10Z",
+    "primary": 7.24,
+    "secondary": 0.494
+   },
+   {
+    "validTime": "2026-11-02T08:45:00Z",
+    "generatedTime": "2026-11-02T09:54:09Z",
+    "primary": 7.24,
+    "secondary": 0.494
+   },
+   {
+    "validTime": "2026-11-02T09:00:00Z",
+    "generatedTime": "2026-11-02T09:54:09Z",
+    "primary": 7.24,
+    "secondary": 0.494
+   },
+   {
+    "validTime": "2026-11-02T09:15:00Z",
+    "generatedTime": "2026-11-02T09:54:09Z",
+    "primary": 7.21,
+    "secondary": 0.483
+   },
+   {
+    "validTime": "2026-11-02T09:30:00Z",
+    "generatedTime": "2026-11-02T09:54:09Z",
+    "primary": 7.23,
+    "secondary": 0.49
+   },
+   {
+    "validTime": "2026-11-02T09:45:00Z",
+    "generatedTime": "2026-11-02T10:54:10Z",
+    "primary": 7.18,
+    "secondary": 0.473
+   },
+   {
+    "validTime": "2026-11-02T10:00:00Z",
+    "generatedTime": "2026-11-02T10:54:10Z",
+    "primary": 7.17,
+    "secondary": 0.47
+   },
+   {
+    "validTime": "2026-11-02T10:15:00Z",
+    "generatedTime": "2026-11-02T10:54:10Z",
+    "primary": 7.21,
+    "secondary": 0.483
+   },
+   {
+    "validTime": "2026-11-02T10:30:00Z",
+    "generatedTime": "2026-11-02T10:54:10Z",
+    "primary": 7.2,
+    "secondary": 0.48
+   },
+   {
+    "validTime": "2026-11-02T10:45:00Z",
+    "generatedTime": "2026-11-02T11:54:09Z",
+    "primary": 7.22,
+    "secondary": 0.487
+   },
+   {
+    "validTime": "2026-11-02T11:00:00Z",
+    "generatedTime": "2026-11-02T11:54:09Z",
+    "primary": 7.22,
+    "secondary": 0.487
+   },
+   {
+    "validTime": "2026-11-02T11:15:00Z",
+    "generatedTime": "2026-11-02T11:54:09Z",
+    "primary": 7.22,
+    "secondary": 0.487
+   },
+   {
+    "validTime": "2026-11-02T11:30:00Z",
+    "generatedTime": "2026-11-02T11:54:09Z",
+    "primary": 7.21,
+    "secondary": 0.483
+   },
+   {
+    "validTime": "2026-11-02T11:45:00Z",
+    "generatedTime": "2026-11-02T12:54:08Z",
+    "primary": 7.18,
+    "secondary": 0.473
+   },
+   {
+    "validTime": "2026-11-02T12:00:00Z",
+    "generatedTime": "2026-11-02T12:54:08Z",
+    "primary": 7.17,
+    "secondary": 0.47
+   },
+   {
+    "validTime": "2026-11-02T12:15:00Z",
+    "generatedTime": "2026-11-02T12:54:08Z",
+    "primary": 7.15,
+    "secondary": 0.463
+   },
+   {
+    "validTime": "2026-11-02T12:30:00Z",
+    "generatedTime": "2026-11-02T12:54:08Z",
+    "primary": 7.18,
+    "secondary": 0.473
+   },
+   {
+    "validTime": "2026-11-02T12:45:00Z",
+    "generatedTime": "2026-11-02T13:54:12Z",
+    "primary": 7.15,
+    "secondary": 0.463
+   },
+   {
+    "validTime": "2026-11-02T13:00:00Z",
+    "generatedTime": "2026-11-02T13:54:12Z",
+    "primary": 7.2,
+    "secondary": 0.48
+   },
+   {
+    "validTime": "2026-11-02T13:15:00Z",
+    "generatedTime": "2026-11-02T13:54:12Z",
+    "primary": 7.14,
+    "secondary": 0.459
+   },
+   {
+    "validTime": "2026-11-02T13:30:00Z",
+    "generatedTime": "2026-11-02T13:54:12Z",
+    "primary": 7.17,
+    "secondary": 0.47
+   },
+   {
+    "validTime": "2026-11-02T13:45:00Z",
+    "generatedTime": "2026-11-02T14:54:09Z",
+    "primary": 7.17,
+    "secondary": 0.47
+   },
+   {
+    "validTime": "2026-11-02T14:00:00Z",
+    "generatedTime": "2026-11-02T14:54:09Z",
+    "primary": 7.15,
+    "secondary": 0.463
+   },
+   {
+    "validTime": "2026-11-02T14:15:00Z",
+    "generatedTime": "2026-11-02T14:54:09Z",
+    "primary": 7.14,
+    "secondary": 0.459
+   },
+   {
+    "validTime": "2026-11-02T14:30:00Z",
+    "generatedTime": "2026-11-02T14:54:09Z",
+    "primary": 7.13,
+    "secondary": 0.456
+   },
+   {
+    "validTime": "2026-11-02T14:45:00Z",
+    "generatedTime": "2026-11-02T15:54:10Z",
+    "primary": 7.14,
+    "secondary": 0.459
+   },
+   {
+    "validTime": "2026-11-02T15:00:00Z",
+    "generatedTime": "2026-11-02T15:54:10Z",
+    "primary": 7.14,
+    "secondary": 0.459
+   },
+   {
+    "validTime": "2026-11-02T15:15:00Z",
+    "generatedTime": "2026-11-02T15:54:10Z",
+    "primary": 7.12,
+    "secondary": 0.453
+   },
+   {
+    "validTime": "2026-11-02T15:30:00Z",
+    "generatedTime": "2026-11-02T15:54:10Z",
+    "primary": 7.13,
+    "secondary": 0.456
+   },
+   {
+    "validTime": "2026-11-02T15:45:00Z",
+    "generatedTime": "2026-11-02T16:54:10Z",
+    "primary": 7.13,
+    "secondary": 0.456
+   },
+   {
+    "validTime": "2026-11-02T16:00:00Z",
+    "generatedTime": "2026-11-02T16:54:10Z",
+    "primary": 7.12,
+    "secondary": 0.453
+   },
+   {
+    "validTime": "2026-11-02T16:15:00Z",
+    "generatedTime": "2026-11-02T16:54:10Z",
+    "primary": 7.12,
+    "secondary": 0.453
+   },
+   {
+    "validTime": "2026-11-02T16:30:00Z",
+    "generatedTime": "2026-11-02T16:54:10Z",
+    "primary": 7.09,
+    "secondary": 0.442
+   },
+   {
+    "validTime": "2026-11-02T16:45:00Z",
+    "generatedTime": "2026-11-02T17:54:09Z",
+    "primary": 7.09,
+    "secondary": 0.442
+   },
+   {
+    "validTime": "2026-11-02T17:00:00Z",
+    "generatedTime": "2026-11-02T17:54:09Z",
+    "primary": 7.1,
+    "secondary": 0.446
+   },
+   {
+    "validTime": "2026-11-02T17:15:00Z",
+    "generatedTime": "2026-11-02T17:54:09Z",
+    "primary": 7.11,
+    "secondary": 0.449
+   },
+   {
+    "validTime": "2026-11-02T17:30:00Z",
+    "generatedTime": "2026-11-02T17:54:09Z",
+    "primary": 7.14,
+    "secondary": 0.459
+   },
+   {
+    "validTime": "2026-11-02T17:45:00Z",
+    "generatedTime": "2026-11-02T18:54:10Z",
+    "primary": 7.13,
+    "secondary": 0.456
+   },
+   {
+    "validTime": "2026-11-02T18:00:00Z",
+    "generatedTime": "2026-11-02T18:54:10Z",
+    "primary": 7.12,
+    "secondary": 0.453
+   },
+   {
+    "validTime": "2026-11-02T18:15:00Z",
+    "generatedTime": "2026-11-02T18:54:10Z",
+    "primary": 7.14,
+    "secondary": 0.459
+   },
+   {
+    "validTime": "2026-11-02T18:30:00Z",
+    "generatedTime": "2026-11-02T18:54:10Z",
+    "primary": 7.13,
+    "secondary": 0.456
+   },
+   {
+    "validTime": "2026-11-02T18:45:00Z",
+    "generatedTime": "2026-11-02T19:54:09Z",
+    "primary": 7.16,
+    "secondary": 0.466
+   },
+   {
+    "validTime": "2026-11-02T19:00:00Z",
+    "generatedTime": "2026-11-02T19:54:09Z",
+    "primary": 7.16,
+    "secondary": 0.466
+   },
+   {
+    "validTime": "2026-11-02T19:15:00Z",
+    "generatedTime": "2026-11-02T19:54:09Z",
+    "primary": 7.17,
+    "secondary": 0.47
+   },
+   {
+    "validTime": "2026-11-02T19:30:00Z",
+    "generatedTime": "2026-11-02T19:54:09Z",
+    "primary": 7.17,
+    "secondary": 0.47
+   },
+   {
+    "validTime": "2026-11-02T19:45:00Z",
+    "generatedTime": "2026-11-02T20:54:10Z",
+    "primary": 7.12,
+    "secondary": 0.453
+   },
+   {
+    "validTime": "2026-11-02T20:00:00Z",
+    "generatedTime": "2026-11-02T20:54:10Z",
+    "primary": 7.2,
+    "secondary": 0.48
+   },
+   {
+    "validTime": "2026-11-02T20:15:00Z",
+    "generatedTime": "2026-11-02T20:54:10Z",
+    "primary": 7.19,
+    "secondary": 0.477
+   },
+   {
+    "validTime": "2026-11-02T20:30:00Z",
+    "generatedTime": "2026-11-02T20:54:10Z",
+    "primary": 7.13,
+    "secondary": 0.456
+   },
+   {
+    "validTime": "2026-11-02T20:45:00Z",
+    "generatedTime": "2026-11-02T21:54:10Z",
+    "primary": 7.15,
+    "secondary": 0.463
+   },
+   {
+    "validTime": "2026-11-02T21:00:00Z",
+    "generatedTime": "2026-11-02T21:54:10Z",
+    "primary": 7.19,
+    "secondary": 0.477
+   },
+   {
+    "validTime": "2026-11-02T21:15:00Z",
+    "generatedTime": "2026-11-02T21:54:10Z",
+    "primary": 7.22,
+    "secondary": 0.487
+   },
+   {
+    "validTime": "2026-11-02T21:30:00Z",
+    "generatedTime": "2026-11-02T21:54:10Z",
+    "primary": 7.14,
+    "secondary": 0.459
+   },
+   {
+    "validTime": "2026-11-02T21:45:00Z",
+    "generatedTime": "2026-11-02T22:54:08Z",
+    "primary": 7.19,
+    "secondary": 0.477
+   },
+   {
+    "validTime": "2026-11-02T22:00:00Z",
+    "generatedTime": "2026-11-02T22:54:08Z",
+    "primary": 7.24,
+    "secondary": 0.494
+   },
+   {
+    "validTime": "2026-11-02T22:15:00Z",
+    "generatedTime": "2026-11-02T22:54:08Z",
+    "primary": 7.23,
+    "secondary": 0.49
+   },
+   {
+    "validTime": "2026-11-02T22:30:00Z",
+    "generatedTime": "2026-11-02T22:54:08Z",
+    "primary": 7.23,
+    "secondary": 0.49
+   },
+   {
+    "validTime": "2026-11-02T22:45:00Z",
+    "generatedTime": "2026-11-02T23:54:09Z",
+    "primary": 7.26,
+    "secondary": 0.501
+   },
+   {
+    "validTime": "2026-11-02T23:00:00Z",
+    "generatedTime": "2026-11-02T23:54:09Z",
+    "primary": 7.26,
+    "secondary": 0.501
+   },
+   {
+    "validTime": "2026-11-02T23:15:00Z",
+    "generatedTime": "2026-11-02T23:54:09Z",
+    "primary": 7.27,
+    "secondary": 0.504
+   },
+   {
+    "validTime": "2026-11-02T23:30:00Z",
+    "generatedTime": "2026-11-02T23:54:09Z",
+    "primary": 7.28,
+    "secondary": 0.508
+   },
+   {
+    "validTime": "2026-11-02T23:45:00Z",
+    "generatedTime": "2026-11-03T00:54:09Z",
+    "primary": 7.25,
+    "secondary": 0.497
+   },
+   {
+    "validTime": "2026-11-03T00:00:00Z",
+    "generatedTime": "2026-11-03T00:54:09Z",
+    "primary": 7.26,
+    "secondary": 0.501
+   },
+   {
+    "validTime": "2026-11-03T00:15:00Z",
+    "generatedTime": "2026-11-03T00:54:09Z",
+    "primary": 7.27,
+    "secondary": 0.504
+   },
+   {
+    "validTime": "2026-11-03T00:30:00Z",
+    "generatedTime": "2026-11-03T00:54:09Z",
+    "primary": 7.32,
+    "secondary": 0.522
+   },
+   {
+    "validTime": "2026-11-03T00:45:00Z",
+    "generatedTime": "2026-11-03T01:54:10Z",
+    "primary": 7.34,
+    "secondary": 0.528
+   },
+   {
+    "validTime": "2026-11-03T01:00:00Z",
+    "generatedTime": "2026-11-03T01:54:10Z",
+    "primary": 7.38,
+    "secondary": 0.542
+   },
+   {
+    "validTime": "2026-11-03T01:15:00Z",
+    "generatedTime": "2026-11-03T01:54:10Z",
+    "primary": 7.44,
+    "secondary": 0.562
+   },
+   {
+    "validTime": "2026-11-03T01:30:00Z",
+    "generatedTime": "2026-11-03T01:54:10Z",
+    "primary": 7.5,
+    "secondary": 0.583
+   },
+   {
+    "validTime": "2026-11-03T01:45:00Z",
+    "generatedTime": "2026-11-03T02:54:09Z",
+    "primary": 7.58,
+    "secondary": 0.611
+   },
+   {
+    "validTime": "2026-11-03T02:00:00Z",
+    "generatedTime": "2026-11-03T02:54:09Z",
+    "primary": 7.65,
+    "secondary": 0.635
+   },
+   {
+    "validTime": "2026-11-03T02:15:00Z",
+    "generatedTime": "2026-11-03T02:54:09Z",
+    "primary": 7.73,
+    "secondary": 0.662
+   },
+   {
+    "validTime": "2026-11-03T02:30:00Z",
+    "generatedTime": "2026-11-03T02:54:09Z",
+    "primary": 7.81,
+    "secondary": 0.69
+   },
+   {
+    "validTime": "2026-11-03T02:45:00Z",
+    "generatedTime": "2026-11-03T03:54:10Z",
+    "primary": 7.88,
+    "secondary": 0.714
+   },
+   {
+    "validTime": "2026-11-03T03:00:00Z",
+    "generatedTime": "2026-11-03T03:54:10Z",
+    "primary": 7.94,
+    "secondary": 0.735
+   },
+   {
+    "validTime": "2026-11-03T03:15:00Z",
+    "generatedTime": "2026-11-03T03:54:10Z",
+    "primary": 7.99,
+    "secondary": 0.752
+   },
+   {
+    "validTime": "2026-11-03T03:30:00Z",
+    "generatedTime": "2026-11-03T03:54:10Z",
+    "primary": 8.03,
+    "secondary": 0.768
+   },
+   {
+    "validTime": "2026-11-03T03:45:00Z",
+    "generatedTime": "2026-11-03T04:54:08Z",
+    "primary": 8.07,
+    "secondary": 0.785
+   },
+   {
+    "validTime": "2026-11-03T04:00:00Z",
+    "generatedTime": "2026-11-03T04:54:08Z",
+    "primary": 8.09,
+    "secondary": 0.793
+   },
+   {
+    "validTime": "2026-11-03T04:15:00Z",
+    "generatedTime": "2026-11-03T04:54:08Z",
+    "primary": 8.11,
+    "secondary": 0.801
+   },
+   {
+    "validTime": "2026-11-03T04:30:00Z",
+    "generatedTime": "2026-11-03T04:54:08Z",
+    "primary": 8.12,
+    "secondary": 0.805
+   },
+   {
+    "validTime": "2026-11-03T04:45:00Z",
+    "generatedTime": "2026-11-03T05:54:09Z",
+    "primary": 8.13,
+    "secondary": 0.809
+   },
+   {
+    "validTime": "2026-11-03T05:00:00Z",
+    "generatedTime": "2026-11-03T05:54:09Z",
+    "primary": 8.13,
+    "secondary": 0.809
+   },
+   {
+    "validTime": "2026-11-03T05:15:00Z",
+    "generatedTime": "2026-11-03T05:54:09Z",
+    "primary": 8.06,
+    "secondary": 0.78
+   },
+   {
+    "validTime": "2026-11-03T05:30:00Z",
+    "generatedTime": "2026-11-03T05:54:09Z",
+    "primary": 8.13,
+    "secondary": 0.809
+   },
+   {
+    "validTime": "2026-11-03T05:45:00Z",
+    "generatedTime": "2026-11-03T06:54:09Z",
+    "primary": 8.13,
+    "secondary": 0.809
+   },
+   {
+    "validTime": "2026-11-03T06:00:00Z",
+    "generatedTime": "2026-11-03T06:54:09Z",
+    "primary": 8.06,
+    "secondary": 0.78
+   },
+   {
+    "validTime": "2026-11-03T06:15:00Z",
+    "generatedTime": "2026-11-03T06:54:09Z",
+    "primary": 8.12,
+    "secondary": 0.805
+   },
+   {
+    "validTime": "2026-11-03T06:30:00Z",
+    "generatedTime": "2026-11-03T06:54:09Z",
+    "primary": 8.08,
+    "secondary": 0.789
+   },
+   {
+    "validTime": "2026-11-03T06:45:00Z",
+    "generatedTime": "2026-11-03T07:54:10Z",
+    "primary": 8.12,
+    "secondary": 0.805
+   },
+   {
+    "validTime": "2026-11-03T07:00:00Z",
+    "generatedTime": "2026-11-03T07:54:10Z",
+    "primary": 8.17,
+    "secondary": 0.826
+   },
+   {
+    "validTime": "2026-11-03T07:15:00Z",
+    "generatedTime": "2026-11-03T07:54:10Z",
+    "primary": 8.19,
+    "secondary": 0.835
+   },
+   {
+    "validTime": "2026-11-03T07:30:00Z",
+    "generatedTime": "2026-11-03T07:54:10Z",
+    "primary": 8.19,
+    "secondary": 0.835
+   },
+   {
+    "validTime": "2026-11-03T07:45:00Z",
+    "generatedTime": "2026-11-03T08:54:09Z",
+    "primary": 8.25,
+    "secondary": 0.859
+   },
+   {
+    "validTime": "2026-11-03T08:00:00Z",
+    "generatedTime": "2026-11-03T08:54:09Z",
+    "primary": 8.29,
+    "secondary": 0.876
+   },
+   {
+    "validTime": "2026-11-03T08:15:00Z",
+    "generatedTime": "2026-11-03T08:54:09Z",
+    "primary": 8.33,
+    "secondary": 0.892
+   },
+   {
+    "validTime": "2026-11-03T08:30:00Z",
+    "generatedTime": "2026-11-03T08:54:09Z",
+    "primary": 8.35,
+    "secondary": 0.901
+   },
+   {
+    "validTime": "2026-11-03T08:45:00Z",
+    "generatedTime": "2026-11-03T09:54:10Z",
+    "primary": 8.44,
+    "secondary": 0.938
+   },
+   {
+    "validTime": "2026-11-03T09:00:00Z",
+    "generatedTime": "2026-11-03T09:54:10Z",
+    "primary": 8.49,
+    "secondary": 0.959
+   },
+   {
+    "validTime": "2026-11-03T09:15:00Z",
+    "generatedTime": "2026-11-03T09:54:10Z",
+    "primary": 8.61,
+    "secondary": 1.01
+   },
+   {
+    "validTime": "2026-11-03T09:30:00Z",
+    "generatedTime": "2026-11-03T09:54:10Z",
+    "primary": 8.74,
+    "secondary": 1.06
+   },
+   {
+    "validTime": "2026-11-03T09:45:00Z",
+    "generatedTime": "2026-11-03T10:54:10Z",
+    "primary": 8.83,
+    "secondary": 1.1
+   },
+   {
+    "validTime": "2026-11-03T10:00:00Z",
+    "generatedTime": "2026-11-03T10:54:10Z",
+    "primary": 8.93,
+    "secondary": 1.14
+   },
+   {
+    "validTime": "2026-11-03T10:15:00Z",
+    "generatedTime": "2026-11-03T10:54:10Z",
+    "primary": 9.02,
+    "secondary": 1.18
+   },
+   {
+    "validTime": "2026-11-03T10:30:00Z",
+    "generatedTime": "2026-11-03T10:54:10Z",
+    "primary": 9.11,
+    "secondary": 1.22
+   },
+   {
+    "validTime": "2026-11-03T10:45:00Z",
+    "generatedTime": "2026-11-03T11:54:08Z",
+    "primary": 9.21,
+    "secondary": 1.27
+   },
+   {
+    "validTime": "2026-11-03T11:00:00Z",
+    "generatedTime": "2026-11-03T11:54:08Z",
+    "primary": 9.32,
+    "secondary": 1.32
+   },
+   {
+    "validTime": "2026-11-03T11:15:00Z",
+    "generatedTime": "2026-11-03T11:54:08Z",
+    "primary": 9.42,
+    "secondary": 1.37
+   },
+   {
+    "validTime": "2026-11-03T11:30:00Z",
+    "generatedTime": "2026-11-03T11:54:08Z",
+    "primary": 9.54,
+    "secondary": 1.43
+   },
+   {
+    "validTime": "2026-11-03T11:45:00Z",
+    "generatedTime": "2026-11-03T12:54:08Z",
+    "primary": 9.68,
+    "secondary": 1.49
+   },
+   {
+    "validTime": "2026-11-03T12:00:00Z",
+    "generatedTime": "2026-11-03T12:54:08Z",
+    "primary": 9.85,
+    "secondary": 1.57
+   },
+   {
+    "validTime": "2026-11-03T12:15:00Z",
+    "generatedTime": "2026-11-03T12:54:08Z",
+    "primary": 10.02,
+    "secondary": 1.65
+   },
+   {
+    "validTime": "2026-11-03T12:30:00Z",
+    "generatedTime": "2026-11-03T12:54:08Z",
+    "primary": 10.24,
+    "secondary": 1.77
+   },
+   {
+    "validTime": "2026-11-03T12:45:00Z",
+    "generatedTime": "2026-11-03T13:54:11Z",
+    "primary": 10.49,
+    "secondary": 1.9
+   },
+   {
+    "validTime": "2026-11-03T13:00:00Z",
+    "generatedTime": "2026-11-03T13:54:11Z",
+    "primary": 10.76,
+    "secondary": 2.03
+   },
+   {
+    "validTime": "2026-11-03T13:15:00Z",
+    "generatedTime": "2026-11-03T13:54:11Z",
+    "primary": 11.05,
+    "secondary": 2.19
+   },
+   {
+    "validTime": "2026-11-03T13:30:00Z",
+    "generatedTime": "2026-11-03T13:54:11Z",
+    "primary": 11.34,
+    "secondary": 2.35
+   },
+   {
+    "validTime": "2026-11-03T13:45:00Z",
+    "generatedTime": "2026-11-03T14:54:10Z",
+    "primary": 11.65,
+    "secondary": 2.52
+   },
+   {
+    "validTime": "2026-11-03T14:00:00Z",
+    "generatedTime": "2026-11-03T14:54:10Z",
+    "primary": 11.94,
+    "secondary": 2.68
+   },
+   {
+    "validTime": "2026-11-03T14:15:00Z",
+    "generatedTime": "2026-11-03T14:54:10Z",
+    "primary": 12.23,
+    "secondary": 2.85
+   },
+   {
+    "validTime": "2026-11-03T14:30:00Z",
+    "generatedTime": "2026-11-03T14:54:10Z",
+    "primary": 12.53,
+    "secondary": 3.03
+   },
+   {
+    "validTime": "2026-11-03T14:45:00Z",
+    "generatedTime": "2026-11-03T15:54:08Z",
+    "primary": 12.81,
+    "secondary": 3.2
+   },
+   {
+    "validTime": "2026-11-03T15:00:00Z",
+    "generatedTime": "2026-11-03T15:54:08Z",
+    "primary": 13.1,
+    "secondary": 3.38
+   },
+   {
+    "validTime": "2026-11-03T15:15:00Z",
+    "generatedTime": "2026-11-03T15:54:08Z",
+    "primary": 13.41,
+    "secondary": 3.57
+   },
+   {
+    "validTime": "2026-11-03T15:30:00Z",
+    "generatedTime": "2026-11-03T15:54:08Z",
+    "primary": 13.73,
+    "secondary": 3.78
+   },
+   {
+    "validTime": "2026-11-03T15:45:00Z",
+    "generatedTime": "2026-11-03T16:54:08Z",
+    "primary": 14.07,
+    "secondary": 4
+   },
+   {
+    "validTime": "2026-11-03T16:00:00Z",
+    "generatedTime": "2026-11-03T16:54:08Z",
+    "primary": 14.4,
+    "secondary": 4.22
+   },
+   {
+    "validTime": "2026-11-03T16:15:00Z",
+    "generatedTime": "2026-11-03T16:54:08Z",
+    "primary": 14.75,
+    "secondary": 4.45
+   },
+   {
+    "validTime": "2026-11-03T16:30:00Z",
+    "generatedTime": "2026-11-03T16:54:08Z",
+    "primary": 15.1,
+    "secondary": 4.69
+   },
+   {
+    "validTime": "2026-11-03T16:45:00Z",
+    "generatedTime": "2026-11-03T17:54:09Z",
+    "primary": 15.45,
+    "secondary": 4.93
+   },
+   {
+    "validTime": "2026-11-03T17:00:00Z",
+    "generatedTime": "2026-11-03T17:54:09Z",
+    "primary": 15.77,
+    "secondary": 5.15
+   },
+   {
+    "validTime": "2026-11-03T17:15:00Z",
+    "generatedTime": "2026-11-03T17:54:09Z",
+    "primary": 16.09,
+    "secondary": 5.37
+   },
+   {
+    "validTime": "2026-11-03T17:30:00Z",
+    "generatedTime": "2026-11-03T17:54:09Z",
+    "primary": 16.39,
+    "secondary": 5.58
+   },
+   {
+    "validTime": "2026-11-03T17:45:00Z",
+    "generatedTime": "2026-11-03T18:54:10Z",
+    "primary": 16.68,
+    "secondary": 5.79
+   },
+   {
+    "validTime": "2026-11-03T18:00:00Z",
+    "generatedTime": "2026-11-03T18:54:10Z",
+    "primary": 16.95,
+    "secondary": 5.98
+   },
+   {
+    "validTime": "2026-11-03T18:15:00Z",
+    "generatedTime": "2026-11-03T18:54:10Z",
+    "primary": 17.2,
+    "secondary": 6.17
+   },
+   {
+    "validTime": "2026-11-03T18:30:00Z",
+    "generatedTime": "2026-11-03T18:54:10Z",
+    "primary": 17.45,
+    "secondary": 6.36
+   },
+   {
+    "validTime": "2026-11-03T18:45:00Z",
+    "generatedTime": "2026-11-03T19:54:11Z",
+    "primary": 17.67,
+    "secondary": 6.52
+   },
+   {
+    "validTime": "2026-11-03T19:00:00Z",
+    "generatedTime": "2026-11-03T19:54:11Z",
+    "primary": 17.9,
+    "secondary": 6.69
+   },
+   {
+    "validTime": "2026-11-03T19:15:00Z",
+    "generatedTime": "2026-11-03T19:54:11Z",
+    "primary": 18.12,
+    "secondary": 6.93
+   },
+   {
+    "validTime": "2026-11-03T19:30:00Z",
+    "generatedTime": "2026-11-03T19:54:11Z",
+    "primary": 18.33,
+    "secondary": 7.1
+   },
+   {
+    "validTime": "2026-11-03T19:45:00Z",
+    "generatedTime": "2026-11-03T20:54:08Z",
+    "primary": 18.51,
+    "secondary": 7.25
+   },
+   {
+    "validTime": "2026-11-03T20:00:00Z",
+    "generatedTime": "2026-11-03T20:54:08Z",
+    "primary": 18.71,
+    "secondary": 7.42
+   },
+   {
+    "validTime": "2026-11-03T20:15:00Z",
+    "generatedTime": "2026-11-03T20:54:08Z",
+    "primary": 18.91,
+    "secondary": 7.59
+   },
+   {
+    "validTime": "2026-11-03T20:30:00Z",
+    "generatedTime": "2026-11-03T20:54:08Z",
+    "primary": 19.08,
+    "secondary": 7.74
+   },
+   {
+    "validTime": "2026-11-03T20:45:00Z",
+    "generatedTime": "2026-11-03T21:54:09Z",
+    "primary": 19.28,
+    "secondary": 7.93
+   },
+   {
+    "validTime": "2026-11-03T21:00:00Z",
+    "generatedTime": "2026-11-03T21:54:09Z",
+    "primary": 19.44,
+    "secondary": 8.09
+   },
+   {
+    "validTime": "2026-11-03T21:15:00Z",
+    "generatedTime": "2026-11-03T21:54:09Z",
+    "primary": 19.62,
+    "secondary": 8.26
+   },
+   {
+    "validTime": "2026-11-03T21:30:00Z",
+    "generatedTime": "2026-11-03T21:54:09Z",
+    "primary": 19.8,
+    "secondary": 8.43
+   },
+   {
+    "validTime": "2026-11-03T21:45:00Z",
+    "generatedTime": "2026-11-03T22:54:09Z",
+    "primary": 19.96,
+    "secondary": 8.58
+   },
+   {
+    "validTime": "2026-11-03T22:00:00Z",
+    "generatedTime": "2026-11-03T22:54:09Z",
+    "primary": 20.14,
+    "secondary": 8.76
+   },
+   {
+    "validTime": "2026-11-03T22:15:00Z",
+    "generatedTime": "2026-11-03T22:54:09Z",
+    "primary": 20.32,
+    "secondary": 8.94
+   },
+   {
+    "validTime": "2026-11-03T22:30:00Z",
+    "generatedTime": "2026-11-03T22:54:09Z",
+    "primary": 20.5,
+    "secondary": 9.12
+   },
+   {
+    "validTime": "2026-11-03T22:45:00Z",
+    "generatedTime": "2026-11-03T23:54:08Z",
+    "primary": 20.66,
+    "secondary": 9.28
+   },
+   {
+    "validTime": "2026-11-03T23:00:00Z",
+    "generatedTime": "2026-11-03T23:54:08Z",
+    "primary": 20.86,
+    "secondary": 9.48
+   },
+   {
+    "validTime": "2026-11-03T23:15:00Z",
+    "generatedTime": "2026-11-03T23:54:08Z",
+    "primary": 21.02,
+    "secondary": 9.65
+   },
+   {
+    "validTime": "2026-11-03T23:30:00Z",
+    "generatedTime": "2026-11-03T23:54:08Z",
+    "primary": 21.2,
+    "secondary": 9.85
+   },
+   {
+    "validTime": "2026-11-03T23:45:00Z",
+    "generatedTime": "2026-11-04T00:54:09Z",
+    "primary": 21.38,
+    "secondary": 10.1
+   },
+   {
+    "validTime": "2026-11-04T00:00:00Z",
+    "generatedTime": "2026-11-04T00:54:09Z",
+    "primary": 21.55,
+    "secondary": 10.2
+   },
+   {
+    "validTime": "2026-11-04T00:15:00Z",
+    "generatedTime": "2026-11-04T00:54:09Z",
+    "primary": 21.72,
+    "secondary": 10.4
+   },
+   {
+    "validTime": "2026-11-04T00:30:00Z",
+    "generatedTime": "2026-11-04T00:54:09Z",
+    "primary": 21.88,
+    "secondary": 10.6
+   },
+   {
+    "validTime": "2026-11-04T00:45:00Z",
+    "generatedTime": "2026-11-04T01:54:09Z",
+    "primary": 22.06,
+    "secondary": 10.8
+   },
+   {
+    "validTime": "2026-11-04T01:00:00Z",
+    "generatedTime": "2026-11-04T01:54:09Z",
+    "primary": 22.22,
+    "secondary": 11
+   },
+   {
+    "validTime": "2026-11-04T01:15:00Z",
+    "generatedTime": "2026-11-04T01:54:09Z",
+    "primary": 22.38,
+    "secondary": 11.2
+   },
+   {
+    "validTime": "2026-11-04T01:30:00Z",
+    "generatedTime": "2026-11-04T01:54:09Z",
+    "primary": 22.53,
+    "secondary": 11.5
+   },
+   {
+    "validTime": "2026-11-04T01:45:00Z",
+    "generatedTime": "2026-11-04T02:54:09Z",
+    "primary": 22.66,
+    "secondary": 11.6
+   },
+   {
+    "validTime": "2026-11-04T02:00:00Z",
+    "generatedTime": "2026-11-04T02:54:09Z",
+    "primary": 22.82,
+    "secondary": 11.9
+   },
+   {
+    "validTime": "2026-11-04T02:15:00Z",
+    "generatedTime": "2026-11-04T02:54:09Z",
+    "primary": 22.96,
+    "secondary": 12.1
+   },
+   {
+    "validTime": "2026-11-04T02:30:00Z",
+    "generatedTime": "2026-11-04T02:54:09Z",
+    "primary": 23.1,
+    "secondary": 12.3
+   },
+   {
+    "validTime": "2026-11-04T02:45:00Z",
+    "generatedTime": "2026-11-04T03:54:08Z",
+    "primary": 23.22,
+    "secondary": 12.5
+   },
+   {
+    "validTime": "2026-11-04T03:00:00Z",
+    "generatedTime": "2026-11-04T03:54:08Z",
+    "primary": 23.33,
+    "secondary": 12.6
+   },
+   {
+    "validTime": "2026-11-04T03:15:00Z",
+    "generatedTime": "2026-11-04T03:54:08Z",
+    "primary": 23.42,
+    "secondary": 12.8
+   },
+   {
+    "validTime": "2026-11-04T03:30:00Z",
+    "generatedTime": "2026-11-04T03:54:08Z",
+    "primary": 23.53,
+    "secondary": 12.9
+   },
+   {
+    "validTime": "2026-11-04T03:45:00Z",
+    "generatedTime": "2026-11-04T04:54:10Z",
+    "primary": 23.62,
+    "secondary": 13.1
+   },
+   {
+    "validTime": "2026-11-04T04:00:00Z",
+    "generatedTime": "2026-11-04T04:54:10Z",
+    "primary": 23.7,
+    "secondary": 13.2
+   },
+   {
+    "validTime": "2026-11-04T04:15:00Z",
+    "generatedTime": "2026-11-04T04:54:10Z",
+    "primary": 23.79,
+    "secondary": 13.3
+   },
+   {
+    "validTime": "2026-11-04T04:30:00Z",
+    "generatedTime": "2026-11-04T04:54:10Z",
+    "primary": 23.86,
+    "secondary": 13.5
+   },
+   {
+    "validTime": "2026-11-04T04:45:00Z",
+    "generatedTime": "2026-11-04T05:54:08Z",
+    "primary": 23.95,
+    "secondary": 13.6
+   },
+   {
+    "validTime": "2026-11-04T05:00:00Z",
+    "generatedTime": "2026-11-04T05:54:08Z",
+    "primary": 24.03,
+    "secondary": 13.7
+   },
+   {
+    "validTime": "2026-11-04T05:15:00Z",
+    "generatedTime": "2026-11-04T05:54:08Z",
+    "primary": 24.09,
+    "secondary": 13.8
+   },
+   {
+    "validTime": "2026-11-04T05:30:00Z",
+    "generatedTime": "2026-11-04T05:54:08Z",
+    "primary": 24.16,
+    "secondary": 14
+   },
+   {
+    "validTime": "2026-11-04T05:45:00Z",
+    "generatedTime": "2026-11-04T06:54:09Z",
+    "primary": 24.23,
+    "secondary": 14.1
+   },
+   {
+    "validTime": "2026-11-04T06:00:00Z",
+    "generatedTime": "2026-11-04T06:54:09Z",
+    "primary": 24.29,
+    "secondary": 14.2
+   },
+   {
+    "validTime": "2026-11-04T06:15:00Z",
+    "generatedTime": "2026-11-04T06:54:09Z",
+    "primary": 24.35,
+    "secondary": 14.3
+   },
+   {
+    "validTime": "2026-11-04T06:30:00Z",
+    "generatedTime": "2026-11-04T06:54:09Z",
+    "primary": 24.41,
+    "secondary": 14.4
+   },
+   {
+    "validTime": "2026-11-04T06:45:00Z",
+    "generatedTime": "2026-11-04T07:54:09Z",
+    "primary": 24.48,
+    "secondary": 14.5
+   },
+   {
+    "validTime": "2026-11-04T07:00:00Z",
+    "generatedTime": "2026-11-04T07:54:09Z",
+    "primary": 24.52,
+    "secondary": 14.6
+   },
+   {
+    "validTime": "2026-11-04T07:15:00Z",
+    "generatedTime": "2026-11-04T07:54:09Z",
+    "primary": 24.59,
+    "secondary": 14.7
+   },
+   {
+    "validTime": "2026-11-04T07:30:00Z",
+    "generatedTime": "2026-11-04T07:54:09Z",
+    "primary": 24.63,
+    "secondary": 14.7
+   },
+   {
+    "validTime": "2026-11-04T07:45:00Z",
+    "generatedTime": "2026-11-04T08:54:09Z",
+    "primary": 24.68,
+    "secondary": 14.8
+   },
+   {
+    "validTime": "2026-11-04T08:00:00Z",
+    "generatedTime": "2026-11-04T08:54:09Z",
+    "primary": 24.72,
+    "secondary": 15
+   },
+   {
+    "validTime": "2026-11-04T08:15:00Z",
+    "generatedTime": "2026-11-04T08:54:09Z",
+    "primary": 24.78,
+    "secondary": 15.1
+   },
+   {
+    "validTime": "2026-11-04T08:30:00Z",
+    "generatedTime": "2026-11-04T08:54:09Z",
+    "primary": 24.81,
+    "secondary": 15.1
+   },
+   {
+    "validTime": "2026-11-04T08:45:00Z",
+    "generatedTime": "2026-11-04T09:54:09Z",
+    "primary": 24.84,
+    "secondary": 15.2
+   },
+   {
+    "validTime": "2026-11-04T09:00:00Z",
+    "generatedTime": "2026-11-04T09:54:09Z",
+    "primary": 24.89,
+    "secondary": 15.3
+   },
+   {
+    "validTime": "2026-11-04T09:15:00Z",
+    "generatedTime": "2026-11-04T09:54:09Z",
+    "primary": 24.92,
+    "secondary": 15.3
+   },
+   {
+    "validTime": "2026-11-04T09:30:00Z",
+    "generatedTime": "2026-11-04T09:54:09Z",
+    "primary": 24.95,
+    "secondary": 15.4
+   },
+   {
+    "validTime": "2026-11-04T09:45:00Z",
+    "generatedTime": "2026-11-04T10:54:10Z",
+    "primary": 24.99,
+    "secondary": 15.4
+   },
+   {
+    "validTime": "2026-11-04T10:00:00Z",
+    "generatedTime": "2026-11-04T10:54:10Z",
+    "primary": 25.02,
+    "secondary": 15.5
+   },
+   {
+    "validTime": "2026-11-04T10:15:00Z",
+    "generatedTime": "2026-11-04T10:54:10Z",
+    "primary": 25.05,
+    "secondary": 15.6
+   },
+   {
+    "validTime": "2026-11-04T10:30:00Z",
+    "generatedTime": "2026-11-04T10:54:10Z",
+    "primary": 25.07,
+    "secondary": 15.6
+   },
+   {
+    "validTime": "2026-11-04T10:45:00Z",
+    "generatedTime": "2026-11-04T11:54:09Z",
+    "primary": 25.08,
+    "secondary": 15.6
+   },
+   {
+    "validTime": "2026-11-04T11:00:00Z",
+    "generatedTime": "2026-11-04T11:54:09Z",
+    "primary": 25.12,
+    "secondary": 15.7
+   },
+   {
+    "validTime": "2026-11-04T11:15:00Z",
+    "generatedTime": "2026-11-04T11:54:09Z",
+    "primary": 25.13,
+    "secondary": 15.7
+   },
+   {
+    "validTime": "2026-11-04T11:30:00Z",
+    "generatedTime": "2026-11-04T11:54:09Z",
+    "primary": 25.14,
+    "secondary": 15.8
+   },
+   {
+    "validTime": "2026-11-04T11:45:00Z",
+    "generatedTime": "2026-11-04T12:54:09Z",
+    "primary": 25.15,
+    "secondary": 15.8
+   },
+   {
+    "validTime": "2026-11-04T12:00:00Z",
+    "generatedTime": "2026-11-04T12:54:09Z",
+    "primary": 25.19,
+    "secondary": 15.9
+   },
+   {
+    "validTime": "2026-11-04T12:15:00Z",
+    "generatedTime": "2026-11-04T12:54:09Z",
+    "primary": 25.2,
+    "secondary": 15.9
+   },
+   {
+    "validTime": "2026-11-04T12:30:00Z",
+    "generatedTime": "2026-11-04T12:54:09Z",
+    "primary": 25.21,
+    "secondary": 15.9
+   },
+   {
+    "validTime": "2026-11-04T12:45:00Z",
+    "generatedTime": "2026-11-04T13:54:10Z",
+    "primary": 25.24,
+    "secondary": 16
+   },
+   {
+    "validTime": "2026-11-04T13:00:00Z",
+    "generatedTime": "2026-11-04T13:54:10Z",
+    "primary": 25.27,
+    "secondary": 16.1
+   },
+   {
+    "validTime": "2026-11-04T13:15:00Z",
+    "generatedTime": "2026-11-04T13:54:10Z",
+    "primary": 25.3,
+    "secondary": 16.1
+   },
+   {
+    "validTime": "2026-11-04T13:30:00Z",
+    "generatedTime": "2026-11-04T13:54:10Z",
+    "primary": 25.32,
+    "secondary": 16.2
+   },
+   {
+    "validTime": "2026-11-04T13:45:00Z",
+    "generatedTime": "2026-11-04T14:54:10Z",
+    "primary": 25.35,
+    "secondary": 16.2
+   },
+   {
+    "validTime": "2026-11-04T14:00:00Z",
+    "generatedTime": "2026-11-04T14:54:10Z",
+    "primary": 25.38,
+    "secondary": 16.3
+   },
+   {
+    "validTime": "2026-11-04T14:15:00Z",
+    "generatedTime": "2026-11-04T14:54:10Z",
+    "primary": 25.39,
+    "secondary": 16.3
+   },
+   {
+    "validTime": "2026-11-04T14:30:00Z",
+    "generatedTime": "2026-11-04T14:54:10Z",
+    "primary": 25.43,
+    "secondary": 16.4
+   },
+   {
+    "validTime": "2026-11-04T14:45:00Z",
+    "generatedTime": "2026-11-04T15:54:09Z",
+    "primary": 25.44,
+    "secondary": 16.4
+   },
+   {
+    "validTime": "2026-11-04T15:00:00Z",
+    "generatedTime": "2026-11-04T15:54:09Z",
+    "primary": 25.47,
+    "secondary": 16.5
+   },
+   {
+    "validTime": "2026-11-04T15:15:00Z",
+    "generatedTime": "2026-11-04T15:54:09Z",
+    "primary": 25.47,
+    "secondary": 16.5
+   },
+   {
+    "validTime": "2026-11-04T15:30:00Z",
+    "generatedTime": "2026-11-04T15:54:09Z",
+    "primary": 25.5,
+    "secondary": 16.6
+   },
+   {
+    "validTime": "2026-11-04T15:45:00Z",
+    "generatedTime": "2026-11-04T16:54:08Z",
+    "primary": 25.53,
+    "secondary": 16.6
+   },
+   {
+    "validTime": "2026-11-04T16:00:00Z",
+    "generatedTime": "2026-11-04T16:54:08Z",
+    "primary": 25.55,
+    "secondary": 16.7
+   },
+   {
+    "validTime": "2026-11-04T16:15:00Z",
+    "generatedTime": "2026-11-04T16:54:08Z",
+    "primary": 25.58,
+    "secondary": 16.8
+   },
+   {
+    "validTime": "2026-11-04T16:30:00Z",
+    "generatedTime": "2026-11-04T16:54:08Z",
+    "primary": 25.61,
+    "secondary": 16.8
+   },
+   {
+    "validTime": "2026-11-04T16:45:00Z",
+    "generatedTime": "2026-11-04T17:54:10Z",
+    "primary": 25.64,
+    "secondary": 16.9
+   },
+   {
+    "validTime": "2026-11-04T17:00:00Z",
+    "generatedTime": "2026-11-04T17:54:10Z",
+    "primary": 25.68,
+    "secondary": 17
+   },
+   {
+    "validTime": "2026-11-04T17:15:00Z",
+    "generatedTime": "2026-11-04T17:54:10Z",
+    "primary": 25.72,
+    "secondary": 17.1
+   },
+   {
+    "validTime": "2026-11-04T17:30:00Z",
+    "generatedTime": "2026-11-04T17:54:10Z",
+    "primary": 25.73,
+    "secondary": 17.1
+   },
+   {
+    "validTime": "2026-11-04T17:45:00Z",
+    "generatedTime": "2026-11-04T18:54:09Z",
+    "primary": 25.75,
+    "secondary": 17.1
+   },
+   {
+    "validTime": "2026-11-04T18:00:00Z",
+    "generatedTime": "2026-11-04T18:54:09Z",
+    "primary": 25.78,
+    "secondary": 17.2
+   },
+   {
+    "validTime": "2026-11-04T18:15:00Z",
+    "generatedTime": "2026-11-04T18:54:09Z",
+    "primary": 25.81,
+    "secondary": 17.3
+   },
+   {
+    "validTime": "2026-11-04T18:30:00Z",
+    "generatedTime": "2026-11-04T18:54:09Z",
+    "primary": 25.84,
+    "secondary": 17.3
+   },
+   {
+    "validTime": "2026-11-04T18:45:00Z",
+    "generatedTime": "2026-11-04T19:54:08Z",
+    "primary": 25.86,
+    "secondary": 17.4
+   },
+   {
+    "validTime": "2026-11-04T19:00:00Z",
+    "generatedTime": "2026-11-04T19:54:08Z",
+    "primary": 25.91,
+    "secondary": 17.5
+   },
+   {
+    "validTime": "2026-11-04T19:15:00Z",
+    "generatedTime": "2026-11-04T19:54:08Z",
+    "primary": 25.95,
+    "secondary": 17.6
+   },
+   {
+    "validTime": "2026-11-04T19:30:00Z",
+    "generatedTime": "2026-11-04T19:54:08Z",
+    "primary": 25.96,
+    "secondary": 17.6
+   },
+   {
+    "validTime": "2026-11-04T19:45:00Z",
+    "generatedTime": "2026-11-04T20:54:09Z",
+    "primary": 26,
+    "secondary": 17.7
+   },
+   {
+    "validTime": "2026-11-04T20:00:00Z",
+    "generatedTime": "2026-11-04T20:54:09Z",
+    "primary": 26.02,
+    "secondary": 17.7
+   },
+   {
+    "validTime": "2026-11-04T20:15:00Z",
+    "generatedTime": "2026-11-04T20:54:09Z",
+    "primary": 26.04,
+    "secondary": 17.8
+   },
+   {
+    "validTime": "2026-11-04T20:30:00Z",
+    "generatedTime": "2026-11-04T20:54:09Z",
+    "primary": 26.06,
+    "secondary": 17.8
+   },
+   {
+    "validTime": "2026-11-04T20:45:00Z",
+    "generatedTime": "2026-11-04T21:54:09Z",
+    "primary": 26.08,
+    "secondary": 17.9
+   },
+   {
+    "validTime": "2026-11-04T21:00:00Z",
+    "generatedTime": "2026-11-04T21:54:09Z",
+    "primary": 26.11,
+    "secondary": 18
+   },
+   {
+    "validTime": "2026-11-04T21:15:00Z",
+    "generatedTime": "2026-11-04T21:54:09Z",
+    "primary": 26.12,
+    "secondary": 18
+   },
+   {
+    "validTime": "2026-11-04T21:30:00Z",
+    "generatedTime": "2026-11-04T21:54:09Z",
+    "primary": 26.13,
+    "secondary": 18
+   }
+  ]
+ },
+ "forecast": {
+  "pedts": "HGIFE",
+  "issuedTime": "2026-11-04T14:36:00Z",
+  "wfo": "EAX",
+  "timeZone": "CST6CDT",
+  "primaryName": "Stage",
+  "primaryUnits": "ft",
+  "secondaryName": "Flow",
+  "secondaryUnits": "kcfs",
+  "data": [
+   {
+    "validTime": "2026-11-04T18:00:00Z",
+    "generatedTime": "2026-11-04T14:39:09Z",
+    "primary": 25.9,
+    "secondary": 17.5
+   },
+   {
+    "validTime": "2026-11-05T00:00:00Z",
+    "generatedTime": "2026-11-04T14:39:09Z",
+    "primary": 26.2,
+    "secondary": 18.2
+   },
+   {
+    "validTime": "2026-11-05T06:00:00Z",
+    "generatedTime": "2026-11-04T14:39:09Z",
+    "primary": 26.5,
+    "secondary": 18.9
+   },
+   {
+    "validTime": "2026-11-05T12:00:00Z",
+    "generatedTime": "2026-11-04T14:39:09Z",
+    "primary": 26.4,
+    "secondary": 18.7
+   },
+   {
+    "validTime": "2026-11-05T18:00:00Z",
+    "generatedTime": "2026-11-04T14:39:09Z",
+    "primary": 25.9,
+    "secondary": 17.5
+   },
+   {
+    "validTime": "2026-11-06T00:00:00Z",
+    "generatedTime": "2026-11-04T14:39:09Z",
+    "primary": 24.9,
+    "secondary": 15.3
+   },
+   {
+    "validTime": "2026-11-06T06:00:00Z",
+    "generatedTime": "2026-11-04T14:39:09Z",
+    "primary": 23.2,
+    "secondary": 12.4
+   },
+   {
+    "validTime": "2026-11-06T12:00:00Z",
+    "generatedTime": "2026-11-04T14:39:09Z",
+    "primary": 21,
+    "secondary": 9.63
+   },
+   {
+    "validTime": "2026-11-06T18:00:00Z",
+    "generatedTime": "2026-11-04T14:39:09Z",
+    "primary": 19,
+    "secondary": 7.66
+   },
+   {
+    "validTime": "2026-11-07T00:00:00Z",
+    "generatedTime": "2026-11-04T14:39:09Z",
+    "primary": 17,
+    "secondary": 6.02
+   },
+   {
+    "validTime": "2026-11-07T06:00:00Z",
+    "generatedTime": "2026-11-04T14:39:09Z",
+    "primary": 15.2,
+    "secondary": 4.76
+   },
+   {
+    "validTime": "2026-11-07T12:00:00Z",
+    "generatedTime": "2026-11-04T14:39:09Z",
+    "primary": 13.6,
+    "secondary": 3.7
+   },
+   {
+    "validTime": "2026-11-07T18:00:00Z",
+    "generatedTime": "2026-11-04T14:39:09Z",
+    "primary": 12.1,
+    "secondary": 2.78
+   },
+   {
+    "validTime": "2026-11-08T00:00:00Z",
+    "generatedTime": "2026-11-04T14:39:09Z",
+    "primary": 11.2,
+    "secondary": 2.27
+   },
+   {
+    "validTime": "2026-11-08T06:00:00Z",
+    "generatedTime": "2026-11-04T14:39:09Z",
+    "primary": 10.5,
+    "secondary": 1.9
+   },
+   {
+    "validTime": "2026-11-08T12:00:00Z",
+    "generatedTime": "2026-11-04T14:39:09Z",
+    "primary": 9.9,
+    "secondary": 1.6
+   },
+   {
+    "validTime": "2026-11-08T18:00:00Z",
+    "generatedTime": "2026-11-04T14:39:09Z",
+    "primary": 9.5,
+    "secondary": 1.41
+   },
+   {
+    "validTime": "2026-11-09T00:00:00Z",
+    "generatedTime": "2026-11-04T14:39:09Z",
+    "primary": 9.2,
+    "secondary": 1.27
+   },
+   {
+    "validTime": "2026-11-09T06:00:00Z",
+    "generatedTime": "2026-11-04T14:39:09Z",
+    "primary": 8.9,
+    "secondary": 1.13
+   },
+   {
+    "validTime": "2026-11-09T12:00:00Z",
+    "generatedTime": "2026-11-04T14:39:09Z",
+    "primary": 8.4,
+    "secondary": 0.922
+   }
+  ]
+ }
+}

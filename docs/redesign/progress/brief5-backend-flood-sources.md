@@ -41,6 +41,26 @@ Role `backend-flood-sources` (PLAN-5 §10.1, `plan5-roles.json`); ports API 8751
 - Tests: `test_floods_fixture.py`, `test_floods_copy.py`, `test_serve_fixture.py` flood routes. Full suite 1159 passed,
   0 skipped (67 s).
 
+## M3 sources (done)
+
+- `sources/nws.py` (fire defaults unchanged, the existing NWS tests pass untouched): `FLOOD_EVENTS`,
+  `FLOOD_PHENOMENA`, `EVENT_LABELS`; `normalize_alert(feature, family="fire"|"flood")` ->
+  `normalize_flood_alert` (FloodAlert fields + internal `_geometry`, `_same`, `_references`, `_awips`, VTEC year from
+  the begin time, else the oldest reference, else sent; Emergency from damage threat CATASTROPHIC or the headline);
+  `flood_url()`, `flood_active()` (one national request, NWS limiter, 2 min); `parse_hvtec`, `parse_hvtec_for`,
+  `product_hvtec` (product list 5 min + product for good; never in the list build); `local_in_scope(...,
+  hazard=)`, `mentions_flood`, `normalize_local_nws(f, hazard)`, `split_local(f, hazard)`, `past_local(...,
+  hazard=)`, `NationalAnswer.local_flood`; `bypoint_events(..., phenomena=)`; `ArchiveEvent.event` from
+  `EVENT_LABELS`.
+- `sources/nwps.py`: riv_gauges layers 0/15 and envelope, rfc_max_forecast, IEM join keys (`key4`: the rows have no
+  year), NWPS gauge/stageflow/reach (timeout 20 s, one retry, `NWPS_DOWN` outage memory); parsers to `RiverGauge`,
+  `GaugeSeries`, `ModelSeries`. Measured: `riv_gauges.obstime` is UTC (equals NWPS validTime); rfc_max_forecast has
+  no last step, so its `crest_at_end` is read conservatively (min before max).
+- Recorder `scripts/record_test_samples_floods.py`: 13 real requests on 2026-11-04 ~22:15 UTC; samples in
+  `tests/data/floods/{nws,nwps}/` with PROVENANCE.md (35 flood products, 97 gauges at action+, 88 RFC points, 22 IEM
+  warnings).
+- Tests: `test_floods_nws.py` (12), `test_floods_nwps.py` (11+). Full suite 1182 passed, 0 skipped.
+
 ## Next
 
-- M3 sources (NWS flood family, NWPS, recorder + samples), M4 catalog + routes.
+- M4 catalog + routes.

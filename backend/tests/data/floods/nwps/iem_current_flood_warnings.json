@@ -1,0 +1,1228 @@
+{
+ "type": "FeatureCollection",
+ "name": "pyogrio_2bf3777185f64ba49dc5382bba46efe6",
+ "crs": {
+  "type": "name",
+  "properties": {
+   "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+  }
+ },
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "nwsli": "RSDM7",
+    "stage_text": "At 7:30 AM CST Wednesday the stage was 19.2 feet.",
+    "flood_text": "Flood stage is 18.0 feet.",
+    "forecast_text": "Forecast...The river is expected to rise to a crest of 19.8 feet this evening. It will then fall below flood stage late this evening.",
+    "severity": "2",
+    "impact_text": "At 13.0 feet, Lowland agricultural flooding begins. At 18.0 feet, State Route 48 on the east side of Rosendale is overtopped by flood waters. At 19.0 feet, State Route 48 on the east and west sides of Rosendale is under water. At 20.0 feet, State Route 48 is flooded on the east and west sides of town which prevents travel in or out of town.",
+    "wfo": "EAX",
+    "eventid": 215,
+    "hvtec_nwsli": "RSDM7",
+    "name": "Rosendale",
+    "river_name": "102 River",
+    "longitude": -94.82861111,
+    "latitude": 40.04527778,
+    "phenomena": "FL",
+    "significance": "W",
+    "counties": "Buchanan, Andrew, "
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        -94.88,
+        40.13
+       ],
+       [
+        -94.78,
+        40.13
+       ],
+       [
+        -94.71,
+        39.77
+       ],
+       [
+        -94.8,
+        39.77
+       ],
+       [
+        -94.88,
+        40.13
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "nwsli": "LITF1",
+    "stage_text": "At 7:00 AM EST Wednesday the stage was 13.1 feet.",
+    "flood_text": "Flood stage is 13.0 feet.",
+    "forecast_text": "Forecast...The river is expected to rise to a crest of 13.3 feet this afternoon. It will then fall below flood stage just after midnight tonight.",
+    "severity": "1",
+    "impact_text": "At 13.0 feet, River Drive and Squirrel Run Way downstream of County Road 640 are completely covered by water. One home begins to flood.",
+    "wfo": "TBW",
+    "eventid": 19,
+    "hvtec_nwsli": "LITF1",
+    "name": "Lithia ",
+    "river_name": "Alafia River",
+    "longitude": -82.21138889,
+    "latitude": 27.87194444,
+    "phenomena": "FL",
+    "significance": "W",
+    "counties": "Hillsborough, "
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        -82.18,
+        27.87
+       ],
+       [
+        -82.28,
+        27.84
+       ],
+       [
+        -82.28,
+        27.89
+       ],
+       [
+        -82.18,
+        27.92
+       ],
+       [
+        -82.18,
+        27.87
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "nwsli": "CWOL1",
+    "stage_text": "At 10:35 PM CST Tuesday the stage was 2.1 feet.",
+    "flood_text": "Flood stage is 2.0 feet.",
+    "forecast_text": "Forecast...The river will oscillate around flood stage with a maximum value of 2.4 feet early this morning.",
+    "severity": "1",
+    "impact_text": "At 2.0 feet, Minor flooding of Goos Ferry Road will occur.",
+    "wfo": "LCH",
+    "eventid": 47,
+    "hvtec_nwsli": "CWOL1",
+    "name": "White Oak Park",
+    "river_name": "Calcasieu River",
+    "longitude": -93.11777778,
+    "latitude": 30.29694444,
+    "phenomena": "FL",
+    "significance": "W",
+    "counties": "Calcasieu, "
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        -93.14,
+        30.38
+       ],
+       [
+        -93.03,
+        30.31
+       ],
+       [
+        -93.08,
+        30.25
+       ],
+       [
+        -93.21,
+        30.19
+       ],
+       [
+        -93.29,
+        30.3
+       ],
+       [
+        -93.14,
+        30.38
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "nwsli": "PATM7",
+    "stage_text": "At 8:30 AM CST Wednesday the stage was 25.1 feet.",
+    "flood_text": "Flood stage is 25.0 feet.",
+    "forecast_text": "Forecast...The river is expected to rise to a crest of 25.7 feet this evening. It will then fall below flood stage tomorrow morning.",
+    "severity": "1",
+    "impact_text": "At 25.0 feet, Low-lying farmland begins to flood.",
+    "wfo": "EAX",
+    "eventid": 218,
+    "hvtec_nwsli": "PATM7",
+    "name": "Pattonsburg",
+    "river_name": "Grand River",
+    "longitude": -94.127222,
+    "latitude": 40.026111,
+    "phenomena": "FL",
+    "significance": "W",
+    "counties": "Gentry, Daviess, "
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        -94.0,
+        40.04
+       ],
+       [
+        -94.1,
+        39.96
+       ],
+       [
+        -94.45,
+        40.14
+       ],
+       [
+        -94.33,
+        40.2
+       ],
+       [
+        -94.0,
+        40.04
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "nwsli": "GAZM7",
+    "stage_text": "At 7:45 AM CST Wednesday the stage was 24.7 feet.",
+    "flood_text": "Flood stage is 26.0 feet.",
+    "forecast_text": "Forecast...The river is expected to rise above flood stage this afternoon to a crest of 26.2 feet this evening. It will then fall below flood stage tomorrow morning.",
+    "severity": "1",
+    "impact_text": "At 26.0 feet, Low-lying woodlands and farmland along the river flood.",
+    "wfo": "EAX",
+    "eventid": 221,
+    "hvtec_nwsli": "GAZM7",
+    "name": "Gallatin",
+    "river_name": "Grand River",
+    "longitude": -93.9425,
+    "latitude": 39.926944,
+    "phenomena": "FL",
+    "significance": "W",
+    "counties": "Daviess, Livingston, "
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        -94.1,
+        39.96
+       ],
+       [
+        -93.99,
+        40.04
+       ],
+       [
+        -93.63,
+        39.83
+       ],
+       [
+        -93.67,
+        39.74
+       ],
+       [
+        -94.1,
+        39.96
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "nwsli": "CHZM7",
+    "stage_text": "At 7:45 AM CST Wednesday the stage was 18.9 feet.",
+    "flood_text": "Flood stage is 24.0 feet.",
+    "forecast_text": "Forecast...The river is expected to rise above flood stage late this afternoon to a crest of 25.1 feet just after midnight tonight. It will then fall below flood stage early Friday morning.",
+    "severity": "1",
+    "impact_text": "At 24.0 feet, Low-lying cropland floods.",
+    "wfo": "EAX",
+    "eventid": 220,
+    "hvtec_nwsli": "CHZM7",
+    "name": "Chillicothe",
+    "river_name": "Grand River",
+    "longitude": -93.558611,
+    "latitude": 39.755833,
+    "phenomena": "FL",
+    "significance": "W",
+    "counties": "Linn, Livingston, "
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        -93.63,
+        39.83
+       ],
+       [
+        -93.43,
+        39.78
+       ],
+       [
+        -93.43,
+        39.67
+       ],
+       [
+        -93.67,
+        39.74
+       ],
+       [
+        -93.63,
+        39.83
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "nwsli": "SNZM7",
+    "stage_text": "At 7:45 AM CST Wednesday the stage was 10.2 feet.",
+    "flood_text": "Flood stage is 26.0 feet.",
+    "forecast_text": "Forecast...The river is expected to rise above flood stage late this evening to a crest of 30.7 feet early Friday morning. It will then fall below flood stage early Saturday morning.",
+    "severity": "2",
+    "impact_text": "At 23.0 feet, Bottomland 1 to 2 miles south of the gage begins to flood. At 26.0 feet, Rural land adjacent to the river is flooded. At 28.0 feet, Rural roads are under water.",
+    "wfo": "EAX",
+    "eventid": 219,
+    "hvtec_nwsli": "SNZM7",
+    "name": "Sumner",
+    "river_name": "Grand River",
+    "longitude": -93.273694,
+    "latitude": 39.640028,
+    "phenomena": "FL",
+    "significance": "W",
+    "counties": "Livingston, Linn, Chariton, Carroll, "
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        -93.43,
+        39.67
+       ],
+       [
+        -93.43,
+        39.78
+       ],
+       [
+        -93.27,
+        39.7
+       ],
+       [
+        -93.21,
+        39.53
+       ],
+       [
+        -93.3,
+        39.51
+       ],
+       [
+        -93.43,
+        39.67
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "nwsli": "ARHF1",
+    "stage_text": "At 7:30 AM EST Wednesday the stage was 13.9 feet.",
+    "flood_text": "Flood stage is 12.0 feet.",
+    "forecast_text": "Forecast...The river is expected to fall to 12.4 feet Saturday morning.",
+    "severity": "1",
+    "impact_text": "At 14.0 feet, Buildings in Hidden Oak flood.",
+    "wfo": "TBW",
+    "eventid": 17,
+    "hvtec_nwsli": "ARHF1",
+    "name": "Arcadia at SR 72",
+    "river_name": "Horse Creek",
+    "longitude": -81.98861111,
+    "latitude": 27.19916667,
+    "phenomena": "FL",
+    "significance": "W",
+    "counties": "DeSoto, "
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        -81.94,
+        27.26
+       ],
+       [
+        -81.98,
+        27.08
+       ],
+       [
+        -82.02,
+        27.08
+       ],
+       [
+        -82.01,
+        27.26
+       ],
+       [
+        -81.94,
+        27.26
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "nwsli": "MROI4",
+    "stage_text": "At 10:00 AM CST Wednesday the stage was 14.9 feet.",
+    "flood_text": "Flood stage is 15.0 feet.",
+    "forecast_text": "Forecast...The river is expected to rise above flood stage this afternoon to a crest of 16.5 feet Friday evening. It will then fall below flood stage late Tuesday evening.",
+    "severity": "1",
+    "impact_text": "At 16.0 feet, Water affects agricultural land along the river. Water is several feet deep in places.",
+    "wfo": "DVN",
+    "eventid": 91,
+    "hvtec_nwsli": "MROI4",
+    "name": "Marengo",
+    "river_name": "Iowa River",
+    "longitude": -92.07055556,
+    "latitude": 41.79666667,
+    "phenomena": "FL",
+    "significance": "W",
+    "counties": "Benton, Iowa, "
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        -92.3,
+        41.89
+       ],
+       [
+        -92.24,
+        41.87
+       ],
+       [
+        -92.2,
+        41.85
+       ],
+       [
+        -92.02,
+        41.81
+       ],
+       [
+        -91.9,
+        41.79
+       ],
+       [
+        -91.85,
+        41.81
+       ],
+       [
+        -91.83,
+        41.81
+       ],
+       [
+        -91.83,
+        41.77
+       ],
+       [
+        -91.98,
+        41.77
+       ],
+       [
+        -92.12,
+        41.81
+       ],
+       [
+        -92.13,
+        41.82
+       ],
+       [
+        -92.28,
+        41.84
+       ],
+       [
+        -92.3,
+        41.85
+       ],
+       [
+        -92.3,
+        41.89
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "nwsli": "SIGI4",
+    "stage_text": "At 10:30 AM CST Wednesday the stage was 14.9 feet and rising.",
+    "flood_text": "Flood stage is 16.0 feet.",
+    "forecast_text": "Forecast...The river is expected to rise above flood stage just after midnight tonight to a crest of 16.5 feet early tomorrow afternoon. It will then fall below flood stage late Friday evening.",
+    "severity": "1",
+    "impact_text": "At 16.0 feet, Water affects agricultural land, some county roads, and farm houses.",
+    "wfo": "DVN",
+    "eventid": 92,
+    "hvtec_nwsli": "SIGI4",
+    "name": "Sigourney",
+    "river_name": "North Skunk River",
+    "longitude": -92.20444444,
+    "latitude": 41.30083333,
+    "phenomena": "FL",
+    "significance": "W",
+    "counties": "Keokuk, "
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        -92.04,
+        41.25
+       ],
+       [
+        -92.13,
+        41.28
+       ],
+       [
+        -92.17,
+        41.29
+       ],
+       [
+        -92.2,
+        41.3
+       ],
+       [
+        -92.25,
+        41.27
+       ],
+       [
+        -92.4,
+        41.31
+       ],
+       [
+        -92.4,
+        41.33
+       ],
+       [
+        -92.33,
+        41.32
+       ],
+       [
+        -92.26,
+        41.3
+       ],
+       [
+        -92.23,
+        41.31
+       ],
+       [
+        -92.17,
+        41.31
+       ],
+       [
+        -92.14,
+        41.32
+       ],
+       [
+        -92.12,
+        41.32
+       ],
+       [
+        -92.1,
+        41.3
+       ],
+       [
+        -92.08,
+        41.3
+       ],
+       [
+        -92.01,
+        41.26
+       ],
+       [
+        -92.04,
+        41.25
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "nwsli": "ZFSF1",
+    "stage_text": "At 7:30 AM EST Wednesday the stage was 16.6 feet.",
+    "flood_text": "Flood stage is 16.0 feet.",
+    "forecast_text": "Forecast...The river is expected to rise to a crest of 16.6 feet this afternoon. It will then fall below flood stage late tonight.",
+    "severity": "1",
+    "impact_text": "",
+    "wfo": "TBW",
+    "eventid": 18,
+    "hvtec_nwsli": "ZFSF1",
+    "name": "Zolfo Springs at SR 17",
+    "river_name": "Peace River",
+    "longitude": -81.80111111,
+    "latitude": 27.50416667,
+    "phenomena": "FL",
+    "significance": "W",
+    "counties": "Hardee, "
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        -81.76,
+        27.62
+       ],
+       [
+        -81.79,
+        27.35
+       ],
+       [
+        -81.87,
+        27.35
+       ],
+       [
+        -81.84,
+        27.62
+       ],
+       [
+        -81.76,
+        27.62
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "nwsli": "ARCF1",
+    "stage_text": "At 7:30 AM EST Wednesday the stage was 14.5 feet.",
+    "flood_text": "Flood stage is 11.0 feet.",
+    "forecast_text": "Forecast...The river is expected to rise to a crest of 16.5 feet tomorrow evening.",
+    "severity": "3",
+    "impact_text": "At 16.0 feet, Up to 60 homes at River Acres are flooded. The Woman's Club and American Legion are impacted.",
+    "wfo": "TBW",
+    "eventid": 15,
+    "hvtec_nwsli": "ARCF1",
+    "name": "Arcadia at SR 70",
+    "river_name": "Peace River",
+    "longitude": -81.87611111,
+    "latitude": 27.22194444,
+    "phenomena": "FL",
+    "significance": "W",
+    "counties": "DeSoto, "
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        -81.79,
+        27.35
+       ],
+       [
+        -81.89,
+        27.14
+       ],
+       [
+        -81.97,
+        27.04
+       ],
+       [
+        -82.02,
+        27.04
+       ],
+       [
+        -81.86,
+        27.35
+       ],
+       [
+        -81.79,
+        27.35
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "nwsli": "AGYM7",
+    "stage_text": "At 7:30 AM CST Wednesday the stage was 25.3 feet.",
+    "flood_text": "Flood stage is 20.0 feet.",
+    "forecast_text": "Forecast...The river is expected to rise to a crest of 26.5 feet just after midnight tonight. It will then fall below flood stage late Friday morning.",
+    "severity": "2",
+    "impact_text": "At 20.0 feet, Low-lying areas east of Agency begin to flood. At 25.0 feet, Flooding begins at the east border of Agency.",
+    "wfo": "EAX",
+    "eventid": 217,
+    "hvtec_nwsli": "AGYM7",
+    "name": "Agency",
+    "river_name": "Platte River",
+    "longitude": -94.702611,
+    "latitude": 39.688028,
+    "phenomena": "FL",
+    "significance": "W",
+    "counties": "Buchanan, "
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        -94.8,
+        39.77
+       ],
+       [
+        -94.71,
+        39.77
+       ],
+       [
+        -94.64,
+        39.51
+       ],
+       [
+        -94.64,
+        39.41
+       ],
+       [
+        -94.72,
+        39.41
+       ],
+       [
+        -94.8,
+        39.77
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "nwsli": "SSTM7",
+    "stage_text": "At 9:30 AM CST Wednesday the stage was 23.2 feet.",
+    "flood_text": "Flood stage is 26.0 feet.",
+    "forecast_text": "Forecast...The river is expected to rise above flood stage late tonight to a crest of 28.9 feet early Saturday morning. It will then fall below flood stage early Saturday afternoon.",
+    "severity": "1",
+    "impact_text": "At 26.0 feet, Low-lying rural land along the river begins to flood. At 29.0 feet, Backwater from the Platte River floods Highway KK along the Little Platte River at the location 0.2 miles east of Highway B. At 30.5 feet, Interurban Road floods about 1.5 miles southeast of Sharps Station.",
+    "wfo": "EAX",
+    "eventid": 223,
+    "hvtec_nwsli": "SSTM7",
+    "name": "Sharps Station",
+    "river_name": "Platte River",
+    "longitude": -94.726833,
+    "latitude": 39.400972,
+    "phenomena": "FL",
+    "significance": "W",
+    "counties": "Platte, "
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        -94.74,
+        39.41
+       ],
+       [
+        -94.64,
+        39.41
+       ],
+       [
+        -94.76,
+        39.35
+       ],
+       [
+        -94.79,
+        39.39
+       ],
+       [
+        -94.74,
+        39.41
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "nwsli": "PLCM7",
+    "stage_text": "At 9:30 AM CST Wednesday the stage was 16.5 feet.",
+    "flood_text": "Flood stage is 20.0 feet.",
+    "forecast_text": "Forecast...The river is expected to rise above flood stage tomorrow morning to a crest of 23.1 feet Saturday morning. It will then fall below flood stage Saturday evening.",
+    "severity": "1",
+    "impact_text": "At 20.0 feet, Cropland near State Highway 92 near Platte City begins to flood. At 22.0 feet, Flooding occurs at Humphreys Access Area which is located 5 miles downstream from Platte City. 300 acres of pasture are also flooded. At 25.0 feet, Water overtops 1st Street in Tracy, Missouri.",
+    "wfo": "EAX",
+    "eventid": 224,
+    "hvtec_nwsli": "PLCM7",
+    "name": "Platte City",
+    "river_name": "Platte River",
+    "longitude": -94.786389,
+    "latitude": 39.368889,
+    "phenomena": "FL",
+    "significance": "W",
+    "counties": "Platte, "
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        -94.79,
+        39.39
+       ],
+       [
+        -94.76,
+        39.35
+       ],
+       [
+        -94.81,
+        39.27
+       ],
+       [
+        -94.84,
+        39.29
+       ],
+       [
+        -94.83,
+        39.33
+       ],
+       [
+        -94.79,
+        39.39
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "nwsli": "ALAC2",
+    "stage_text": "At 2:30 PM MST Monday the stage was 2.7 feet.",
+    "flood_text": "Flood stage is 9.0 feet.",
+    "forecast_text": "Forecast...The river is expected to rise above flood stage early Wednesday afternoon to a crest of 9.6 feet late Wednesday evening. It will then fall below flood stage early Thursday afternoon.",
+    "severity": "1",
+    "impact_text": "At 9.0 feet, Minor flooding. Minor agricultural flooding in low lying areas along the river.",
+    "wfo": "PUB",
+    "eventid": 8,
+    "hvtec_nwsli": "ALAC2",
+    "name": "Alamosa",
+    "river_name": "Rio Grande River",
+    "longitude": -105.8800218,
+    "latitude": 37.48139328,
+    "phenomena": "FL",
+    "significance": "W",
+    "counties": "Alamosa, "
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        -105.97,
+        37.59
+       ],
+       [
+        -105.89,
+        37.54
+       ],
+       [
+        -105.82,
+        37.49
+       ],
+       [
+        -105.86,
+        37.42
+       ],
+       [
+        -105.93,
+        37.47
+       ],
+       [
+        -106.01,
+        37.52
+       ],
+       [
+        -105.97,
+        37.59
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "nwsli": "SHRN5",
+    "stage_text": "At 10:00 AM MST Wednesday the stage was 15.0 feet.",
+    "flood_text": "Flood stage is 15.5 feet.",
+    "forecast_text": "Forecast...The river is expected to fall below bankfull stage late this evening and continue falling through Thursday and Friday.",
+    "severity": "2",
+    "impact_text": "",
+    "wfo": "ABQ",
+    "eventid": 25,
+    "hvtec_nwsli": "SHRN5",
+    "name": "Shiprock",
+    "river_name": "San Juan River",
+    "longitude": -108.6830556,
+    "latitude": 36.77666667,
+    "phenomena": "FL",
+    "significance": "W",
+    "counties": "San Juan, "
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        -108.68,
+        36.75
+       ],
+       [
+        -108.93,
+        36.87
+       ],
+       [
+        -109.04,
+        36.98
+       ],
+       [
+        -108.98,
+        37.0
+       ],
+       [
+        -108.66,
+        36.79
+       ],
+       [
+        -108.68,
+        36.75
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "nwsli": "ASTF1",
+    "stage_text": "At 9:30 AM EST Wednesday the stage was 3.3 feet.",
+    "flood_text": "Flood stage is 2.3 feet.",
+    "forecast_text": "Forecast...While remaining in Moderate Flood Stage, the river is forecast to gradually decline the next couple days, then rise again this weekend.",
+    "severity": "2",
+    "impact_text": "At 3.5 feet, Canals have overflowed into yards. Homes on or near Wildhog and Bonnet roads become inaccessible with several inches of water inside homes along the river and canals. Docks at Astor Bridge marina and throughout Astor are completely submerged. Bartram Rd and Holiday Circle are inaccessible with yards completely submerged. Clair Street is inaccessible. Roads flooded in South Moon Fish Camp, docks and yards at condominiums on Juno Trail and water breaches the sea wall at Blair's Jungle Den.",
+    "wfo": "MLB",
+    "eventid": 3,
+    "hvtec_nwsli": "ASTF1",
+    "name": "Astor",
+    "river_name": "St Johns River",
+    "longitude": -81.52222222,
+    "latitude": 29.16666667,
+    "phenomena": "FL",
+    "significance": "W",
+    "counties": "Volusia, Lake, "
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        -81.5,
+        29.08
+       ],
+       [
+        -81.69,
+        29.32
+       ],
+       [
+        -81.57,
+        29.35
+       ],
+       [
+        -81.42,
+        29.1
+       ],
+       [
+        -81.5,
+        29.08
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "nwsli": "DLAF1",
+    "stage_text": "At 9:30 AM EST Wednesday the stage was 4.0 feet.",
+    "flood_text": "Flood stage is 4.0 feet.",
+    "forecast_text": "Forecast...The river is expected to rise through Minor flood stage through late week and into the weekend, rising to 4.7 feet Sunday evening. Additional rises are possible thereafter.",
+    "severity": "1",
+    "impact_text": "At 4.8 feet, Water starts to enter low lying buildings around Hontoon Island. Many secondary roads and homes in low lying areas are flooded.",
+    "wfo": "MLB",
+    "eventid": 5,
+    "hvtec_nwsli": "DLAF1",
+    "name": "Deland",
+    "river_name": "St Johns River",
+    "longitude": -81.38277778,
+    "latitude": 29.00805556,
+    "phenomena": "FL",
+    "significance": "W",
+    "counties": "Lake, Volusia, "
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        -81.39,
+        28.9
+       ],
+       [
+        -81.5,
+        29.08
+       ],
+       [
+        -81.42,
+        29.1
+       ],
+       [
+        -81.31,
+        28.93
+       ],
+       [
+        -81.39,
+        28.9
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "nwsli": "SNFF1",
+    "stage_text": "At 8:30 AM EST Wednesday the stage was 5.1 feet.",
+    "flood_text": "Flood stage is 5.5 feet.",
+    "forecast_text": "Forecast...The river is expected to rise to Minor flood stage tomorrow afternoon and continue rising to 6.4 feet Monday morning. Additional rises are possible thereafter.",
+    "severity": "1",
+    "impact_text": "At 6.5 feet, Water enters a few lower lying homes in the Stone Island and Stillbrook subdivisions. The road into Stone Island becomes impassable. Water rises onto low lying property near Sanford. Parks and docks are flooded near Lake Monroe.",
+    "wfo": "MLB",
+    "eventid": 8,
+    "hvtec_nwsli": "SNFF1",
+    "name": "Sanford",
+    "river_name": "St Johns River",
+    "longitude": -81.32444444,
+    "latitude": 28.83777778,
+    "phenomena": "FL",
+    "significance": "W",
+    "counties": "Seminole, "
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        -81.23,
+        28.7
+       ],
+       [
+        -81.39,
+        28.9
+       ],
+       [
+        -81.31,
+        28.93
+       ],
+       [
+        -81.17,
+        28.79
+       ],
+       [
+        -81.23,
+        28.7
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "nwsli": "GENF1",
+    "stage_text": "At 8:30 AM EST Wednesday the stage was 8.5 feet.",
+    "flood_text": "Flood stage is 8.0 feet.",
+    "forecast_text": "Forecast...The river is expected to rise to 9.8 feet Monday morning. Additional rises are possible thereafter.",
+    "severity": "2",
+    "impact_text": "At 10.0 feet, Flooding of homes in low lying areas becomes more significant. Many secondary roads are impassable, limiting access to homes.",
+    "wfo": "MLB",
+    "eventid": 7,
+    "hvtec_nwsli": "GENF1",
+    "name": "Lake Harney",
+    "river_name": "St Johns River",
+    "longitude": -81.03555556,
+    "latitude": 28.71388889,
+    "phenomena": "FL",
+    "significance": "W",
+    "counties": "Seminole, "
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        -81.23,
+        28.7
+       ],
+       [
+        -81.17,
+        28.79
+       ],
+       [
+        -81.0,
+        28.73
+       ],
+       [
+        -80.9,
+        28.54
+       ],
+       [
+        -81.23,
+        28.7
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "nwsli": "COCF1",
+    "stage_text": "At 8:15 AM EST Wednesday the stage was 16.7 feet.",
+    "flood_text": "Flood stage is 16.0 feet.",
+    "forecast_text": "Forecast...The river is forecast to continue to climb through Moderate Flood Stage, reaching Major Flood Stage late in the week.",
+    "severity": "3",
+    "impact_text": "At 17.0 feet, Flooding to some roads and water approaching low lying homes in the Silver Pines subdivision in Rockledge. Many yards, ditches and pastures flooded and water approaching low lying structures along Pluckebaum Road in Cocoa and Rockledge. Flooding to low lying structures in the Lake Washington area of Melbourne.",
+    "wfo": "MLB",
+    "eventid": 6,
+    "hvtec_nwsli": "COCF1",
+    "name": "Cocoa 9w",
+    "river_name": "St Johns River",
+    "longitude": -80.87277778,
+    "latitude": 28.36944444,
+    "phenomena": "FL",
+    "significance": "W",
+    "counties": "Brevard, "
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        -80.99,
+        28.54
+       ],
+       [
+        -80.9,
+        28.55
+       ],
+       [
+        -80.8,
+        28.35
+       ],
+       [
+        -80.72,
+        28.05
+       ],
+       [
+        -80.99,
+        28.54
+       ]
+      ]
+     ]
+    ]
+   }
+  }
+ ]
+}
