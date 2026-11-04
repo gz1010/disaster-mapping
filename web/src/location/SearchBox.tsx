@@ -14,9 +14,10 @@
 import { Building2, Flame, Hash, LoaderCircle, MapPin, Search, X } from 'lucide-react'
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { IncidentSummary } from '../api/types'
-import { distanceM, formatLat, formatLon, type ParsedLatLon } from '../lib/geodesy'
+import { distanceM, formatLat, formatLon, parseLatLonDetailed, type ParsedLatLon } from '../lib/geodesy'
 import { distance } from '../lib/plainLanguage'
 import { pickFire } from '../state/fireCard'
+import { pickFlood, useFlood } from '../state/flood'
 import { useStore } from '../state/store'
 import { useWorkspace, type PanelKey } from '../state/workspace'
 import { addressDetails, addressRange, prettyAddress, useAddressDetails } from './addressStore'
@@ -47,6 +48,7 @@ import {
   type SearchEvent,
   type SearchPlan,
   type SearchState,
+  searchFloods,
 } from './search'
 import { freshCarry, useSearchUi } from './searchUi'
 import type { GeocodeMatch, GeocodeResponse } from './types'
@@ -307,7 +309,25 @@ export function SearchBox({ variant = 'panel' }: { variant?: SearchBoxVariant } 
     }
   }
 
+  /** Brief 5: in Floods an exact (or the only) flood name opens that flood's view (the second hit provider); anything
+   *  else goes on to the place search. */
+  const openFloodByName = (): boolean => {
+    const fl = useFlood.getState()
+    if (useWorkspace.getState().hazard !== 'flood' && fl.floodId == null) return false
+    if (parseLatLonDetailed(text.trim())) return false
+    const pool = Object.values(fl.lists).flatMap((slot) => slot.response?.floods ?? [])
+    const hits = searchFloods(text, pool)
+    const best = hits[0]
+    if (!best || !(best.exact || (hits.length === 1 && best.score >= 60))) return false
+    setText('')
+    dispatch({ type: 'close' })
+    pickFlood(best.flood.id, 'search')
+    afterPick()
+    return true
+  }
+
   const submit = () => {
+    if (openFloodByName()) return
     const st = useStore.getState()
     // a fire list not arrived yet (first seconds after load): a search finding nothing says so (integration part 2)
     const pending = (['live', 'season', 'historical'] as const).some((k) => st.catalog.updatedMs[k] == null && st.catalog.listLoading[k])

@@ -9,7 +9,7 @@ Role: web-flood-overview (builder), ports API 8752 / Vite 5212. Plan: PLAN-5 4.1
       shot.mjs --reduced-motion
 - [x] M2 (committed ~22:25 UTC): api/floods.ts, fixtures + edgeCases.ts, state/flood.ts, floodCatalog.ts, floodOverview.ts,
       official/extras/fire-weather checks in flood mode, fetch-spy test
-- [ ] M3: map module, FloodStatus, FloodListPanel, FloodLegend, FloodPointCard, Fires-mode line, search, Forensic entry,
+- [x] M3 (committed ~23:15 UTC): map module, FloodStatus, FloodListPanel, FloodLegend, FloodPointCard, Fires-mode line, search, Forensic entry,
       phones, screenshots
 
 ## Log
@@ -31,3 +31,11 @@ Role: web-flood-overview (builder), ports API 8752 / Vite 5212. Plan: PLAN-5 4.1
   effects collected then run once; zustand hooks read current state) for the flood overview and both flood chromes.
 - 22:20 tests: api/floods, floodCatalog, floodOverview (rank, kinds, watches, health, never 0 unknown), flood store.
 - 22:22 gates: typecheck OK, lint 55 (src/scene only), 1430 tests pass, build OK.
+- 22:30-23:05 M3: overviewLayers options (fire defaults unchanged), floodLayers / floodController / floodProfile, the
+  flood module in mapController (fire markers hidden, focus off, clicks and hover routed), LeaderLabels in Floods,
+  FloodStatus, FloodListPanel (+ pill, notices, missing notice), FloodLegend, FloodPointCard + Fires-mode line,
+  floodOverviewText (pure words + point model), flood search, Forensic entry page, LayersPanel flood legend and gauges
+  toggle, flood credits, stub chrome CSS.
+- 23:05 screenshots (fixture server on 8752, Vite 5212; fire regression with the real API): every one viewed.
+- 23:10 gates: typecheck OK, lint 55 (src/scene only), 1457 web tests pass, build OK, backend 1213 pass.
+- Report and as-built note written; servers stopped after the last screenshot.

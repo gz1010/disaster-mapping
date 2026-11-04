@@ -8,7 +8,7 @@
 //    "Springfield IL", "83702 ID" and "ID 83702", and lists a bare "Springfield" across states with their state).
 // No autocomplete, no POI search, no Nominatim. The state machine below gives every lookup a sequence number: Escape,
 // edits, Clear, an outside click, a map click and a new selection cancel it, and a reply with an old number is dropped.
-import type { IncidentSummary } from '../api/types'
+import type { FloodSummary, IncidentSummary } from '../api/types'
 import { LOWER48_BOX, parseLatLonDetailed, type ParsedLatLon } from '../lib/geodesy'
 import { stateCode, stateName, stateWords } from '../lib/usStates'
 import { area } from '../lib/plainLanguage'
@@ -356,4 +356,40 @@ export function searchReducer(s: SearchState, e: SearchEvent): SearchState {
 /** The lookup that a transition cancelled (its AbortController must be aborted), else null. */
 export function cancelledLookup(prev: SearchState, next: SearchState): number | null {
   return prev.pending != null && next.pending !== prev.pending ? prev.pending : null
+}
+
+// ------------------------------------------------------------------------------------------------ brief 5: floods
+export interface FloodHit {
+  flood: Pick<FloodSummary, 'id' | 'name' | 'rivers' | 'county' | 'state' | 'mode' | 'synthetic'>
+  score: number
+  /** The whole flood name was typed ("San Juan River flood"), or its id; "San Juan River" (the name without " flood")
+   *  counts as exact too. */
+  exact: boolean
+}
+
+/** Flood matches in Floods (PLAN-5 §4.3, the second hit provider): every query word starts a word of the flood's name,
+ *  its rivers, county, state or id. Ranked: exact name > name prefix > all words in the name > other fields; live floods
+ *  first. */
+export function searchFloods(text: string, pool: readonly FloodHit['flood'][], limit = 6): FloodHit[] {
+  const q = fold(text)
+  if (!q) return []
+  const words = q.split(' ')
+  const seen = new Set<string>()
+  const hits: FloodHit[] = []
+  for (const f of pool) {
+    if (seen.has(f.id)) continue
+    seen.add(f.id)
+    const name = fold(f.name)
+    const nameWords = name.split(' ')
+    const all = [...nameWords, ...fold([...f.rivers, f.county, f.state, f.state ? stateName(f.state) : null, f.id].filter(Boolean).join(' ')).split(' ')]
+    if (!words.every((w) => all.some((t) => t.startsWith(w)))) continue
+    const bare = name.replace(/ (flash )?flood$/, '')
+    const exact = name === q || bare === q || fold(f.id) === q
+    let score = 40
+    if (exact) score = 100
+    else if (name.startsWith(q)) score = 80
+    else if (words.every((w) => nameWords.some((t) => t.startsWith(w)))) score = 60
+    hits.push({ flood: f, score, exact })
+  }
+  return hits.sort((a, b) => b.score - a.score || Number(b.flood.mode === 'live') - Number(a.flood.mode === 'live')).slice(0, limit)
 }

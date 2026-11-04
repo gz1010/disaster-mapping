@@ -101,3 +101,14 @@ export function bundleCredits(
 export function safeHref(href: string | undefined): string | undefined {
   return href && /^https:\/\//.test(href) ? href : undefined
 }
+
+/** Brief 5 (CONTRACT §16.15): the flood list's sources, credited on the map while Floods is picked or a flood is open:
+ *  NWS flood products and NOAA's river gauges (the flood views add their own layers' credits: USGS, FEMA, NASA OPERA,
+ *  the National Water Model, while those layers are drawn). */
+export const NWS_FLOOD_CREDIT: DataCredit = { id: 'nws-floods', text: 'Flood products: National Weather Service', href: 'https://www.weather.gov/disclaimer' }
+export const NWPS_CREDIT: DataCredit = { id: 'nwps', text: 'River gauges: NOAA National Water Prediction Service (NWS)', href: 'https://water.noaa.gov/' }
+
+/** The flood credits for the map footer (none in Fires mode). */
+export function floodCredits(floodMode: boolean): DataCredit[] {
+  return floodMode ? [NWS_FLOOD_CREDIT, NWPS_CREDIT] : []
+}

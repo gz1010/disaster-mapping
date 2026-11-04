@@ -10,15 +10,20 @@
 // Brief 4 H4 (decision a): in the Public fire view the card shows no model output (location/publicCard.ts withoutModel:
 // the spread model's sentence, run and section, the weather-model wind and dryness readings, the forecast caveats and
 // the model sources); "Model weather and the experimental spread model for this spot are in Command ›" opens Command.
+// Brief 5 (PLAN-5 §4.3): with Floods picked or a flood open the card is FloodPointCard (every NWS flood product at the
+// point, the nearest gauge, the nearest listed floods; no fire check and no fire weather request). In Fires the fire
+// card adds one line, FLOOD_HERE_IN_FIRES, only when NWS flood products are in effect at the point.
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import { useOfficialAtPoint, type OfficialInfo } from '../official/hooks'
+import { useFlood } from '../state/flood'
 import { useStore } from '../state/store'
 import { useWorkspace, type SelectedLocation } from '../state/workspace'
 import { useCardPrefs } from './cardPrefs'
 import type { CardLine, LocationCardModel } from './describe'
 import { CardFrame, CoverageNotice, KindTag, OfficialSection, StaleChip } from './CardParts'
 import { useOpenFireAccuracy } from '../state/accuracy'
+import { FloodHereInFires, FloodPointCard } from './FloodPointCard'
 import { OverviewCard } from './OverviewCard'
 import { useLocationCheck } from './useLocationCheck'
 import { useNarrow } from './useNarrow'
@@ -29,8 +34,18 @@ import './location.css'
 
 export function LocationCard() {
   const sel = useWorkspace((s) => s.selection)
+  const floods = useWorkspace((s) => s.hazard === 'flood')
+  const floodOpen = useFlood((s) => s.floodId != null)
+  const fireOpen = useStore((s) => s.incidentId != null)
   // the body (and its raster downloads) mounts only while a point is selected
-  return sel ? <SelectedPointCard sel={sel} /> : null
+  if (!sel) return null
+  if ((floods || floodOpen) && !fireOpen) return <FloodPointCard sel={sel} />
+  return (
+    <>
+      <SelectedPointCard sel={sel} />
+      <FloodHereInFires sel={sel} />
+    </>
+  )
 }
 
 /** Stays mounted while the point is selected, so the official answer for the point survives the open fire changing

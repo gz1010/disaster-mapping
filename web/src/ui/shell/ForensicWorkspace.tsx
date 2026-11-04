@@ -10,10 +10,15 @@
 // "View" switch is gone); "Frame fire" and "Charts & key events" sit directly under the scene's compass (left 20), the
 // demo badge under them; the disclaimer is a glass pill above the timeline (prototype line + "Not an all-clear"); a
 // 120 px top gradient keeps the bar readable over the terrain (no vignette and no tint in Forensic).
+// Brief 5 (PLAN-5 §4.3): the "open an event first" page carries the Fires | Floods switch next to its title and lists
+// fires or floods by it; the prototype line and "Not an all-clear" stay at its foot, phones included. A flood picked
+// here opens its 3D branch (ui/forensic-flood, web-flood-forensic); until that branch is mounted, an open flood keeps
+// this page.
 import { BarChart3, Crosshair, Map as MapIcon, PanelBottomClose, PanelBottomOpen } from 'lucide-react'
 import { lazy, Suspense, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import type { IncidentSummary } from '../../api/types'
 import { useSceneStore } from '../../scene/sceneStore'
+import { pickFlood } from '../../state/flood'
 import { useStore } from '../../state/store'
 import { isDemoBundle, useWorkspace } from '../../state/workspace'
 import { BottomDock } from '../BottomDock'
@@ -26,6 +31,9 @@ import { FixedCopy } from './FixedCopy'
 import { NARROW_QUERY, useMediaQuery } from './hooks'
 import { switchWorkspace } from './handoff'
 import { parseDockSide, safeInsetsFor, type ChromeRect, type DockSide } from './layout'
+import { HazardSwitch } from '../public/HazardSwitch'
+import { FLOOD_OVERVIEW } from './floodCopy'
+import { FloodList } from './FloodListPanel'
 import { OverviewList } from './OverviewPanel'
 import { BackButton, TopBar, TopBarBrand, ViewPill } from './TopBar'
 import '../../styles/forensic-narrow.css'
@@ -77,6 +85,7 @@ function useSafeArea(collapsed: boolean, refs: { header: RefObject<HTMLElement |
 function OpenFireFirst() {
   const pick = (f: IncidentSummary) => useWorkspace.getState().setFireCard(f.id)
   const hasCard = useWorkspace((s) => s.fireCardId != null)
+  const floods = useWorkspace((s) => s.hazard === 'flood')
   return (
     <div className="mw fx-empty">
       <TopBar
@@ -88,6 +97,8 @@ function OpenFireFirst() {
             <TopBarBrand size={22} />
             <span className="tb-sep" aria-hidden="true" />
             <span className="fx-empty-where">Forensic · 3D analysis</span>
+            <span className="tb-sep" aria-hidden="true" />
+            <HazardSwitch />
           </>
         }
         centre={<ViewPill />}
@@ -95,19 +106,21 @@ function OpenFireFirst() {
       <main className={`fx-empty-main${hasCard ? ' has-card' : ''}`}>
         <section className="mw-panel fx-empty-list" aria-labelledby="fx-empty-title">
           <header className="mw-panel-head">
-            <h2 id="fx-empty-title">Zoom in on a fire or pick one</h2>
+            <h2 id="fx-empty-title">{floods ? 'Pick a flood' : 'Zoom in on a fire or pick one'}</h2>
           </header>
           <p className="fx-empty-text">
-            The 3D analysis shows one fire at a time. Zoom in on a fire on the map, or pick one here to see its agency record, then open it in 3D.
+            {floods
+              ? `The 3D view shows one flood at a time: its NWS products, river gauges and water layers draped on the terrain. Pick one here (${FLOOD_OVERVIEW.listTitle.toLowerCase()}).`
+              : 'The 3D analysis shows one fire at a time. Zoom in on a fire on the map, or pick one here to see its agency record, then open it in 3D.'}
           </p>
           <div className="fx-empty-actions">
             <button type="button" className="mw-btn" onClick={() => switchWorkspace('map')}>
               <MapIcon size={14} /> Back to the map
             </button>
           </div>
-          <OverviewList onPick={pick} />
+          {floods ? <FloodList onPick={(f) => pickFlood(f.id, 'list')} /> : <OverviewList onPick={pick} />}
         </section>
-        {hasCard && (
+        {hasCard && !floods && (
           <div className="fx-empty-card">
             <FireCard />
           </div>

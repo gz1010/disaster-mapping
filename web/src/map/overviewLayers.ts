@@ -25,6 +25,9 @@
 // not started) are removed from the data, keyed on the hidden set (layer filters would not change group counts).
 // Decision 10 (brief 2): the markers stay at every zoom, lighter while a fire is open; zoomed in near an unprepared
 // fire, a chip says "Spread not prepared yet · Prepare analysis (1-3 min)" and opens the fire card, never a build.
+// Brief 5 (CONTRACT §16.11): the same builder draws the flood markers (map/floodLayers.ts) with options: a palette, the
+// group unit (" FLOODS"), the cluster's rank property (max_rank), the sources and layer ids (fx-flood-overview-…), a
+// per-feature centre-dot colour and no chips. The defaults are the fire markers, unchanged.
 import type { LayerSpecification } from 'maplibre-gl'
 import type { IncidentSummary } from '../api/types'
 import { isActiveFire } from '../state/overview'
@@ -341,8 +344,10 @@ export function overviewData(split: OverviewSplit, units: Units, cardId: string 
   }
 }
 
-/** GeoJSON source options of one group (§14.11): the pinned source is never clustered. */
-export function overviewSourceOptions(group: OverviewGroup, containerWidthPx: number): Record<string, unknown> {
+/** GeoJSON source options of one group (§14.11): the pinned source is never clustered. `rankProp` / `rankValue`
+ *  (brief 5): the cluster property holding the group's largest value (fires: max_acres of acres; floods: max_rank of
+ *  rank). */
+export function overviewSourceOptions(group: OverviewGroup, containerWidthPx: number, o: { rankProp?: string; rankValue?: string } = {}): Record<string, unknown> {
   const base = { type: 'geojson', data: { type: 'FeatureCollection', features: [] }, tolerance: 0.2 }
   if (group === 'pinned') return base
   const c = CLUSTER[group]
@@ -353,7 +358,7 @@ export function overviewSourceOptions(group: OverviewGroup, containerWidthPx: nu
     clusterMaxZoom: c.maxZoom,
     clusterMinPoints: c.minPoints,
     clusterProperties: {
-      max_acres: ['max', ['get', 'acres']],
+      [o.rankProp ?? 'max_acres']: ['max', ['get', o.rankValue ?? 'acres']],
       small: ['+', ['case', ['get', 'small'], 1, 0]],
     },
   }
@@ -587,9 +592,29 @@ function byGroupRadius(f: (r: number) => [number, number]): unknown {
 export const GROUP_TICK_OFFSET: unknown = byGroupRadius((r) => [r * Math.SQRT1_2, -r * Math.SQRT1_2])
 /** The label's bottom-left corner (ems of GROUP_LABEL_PX): just past the tick's end. */
 export const GROUP_TEXT_OFFSET: unknown = byGroupRadius((r) => [(r * Math.SQRT1_2 + GROUP_TICK_PX.w + 1) / GROUP_LABEL_PX, (-r * Math.SQRT1_2 + 3) / GROUP_LABEL_PX])
-/** "28 FIRES": the count, then the unit in a smaller size and its own colour. */
-export function groupLabelText(unitColor: string): unknown {
-  return ['format', ['get', 'point_count_abbreviated'], {}, ' FIRES', { 'font-scale': GROUP_UNIT_SCALE, 'text-color': unitColor }]
+/** "28 FIRES": the count, then the unit in a smaller size and its own colour (brief 5: " FLOODS"). */
+export function groupLabelText(unitColor: string, unit = ' FIRES'): unknown {
+  return ['format', ['get', 'point_count_abbreviated'], {}, unit, { 'font-scale': GROUP_UNIT_SCALE, 'text-color': unitColor }]
+}
+
+/** A marker palette (PALETTE.dark's keys; brief 5 floodStyle.ts FLOOD_PALETTE has the same shape). */
+export type MarkerPalette = { readonly [K in keyof (typeof PALETTE)['dark']]: string }
+
+/** Options of the overview layer builder (brief 5): every one defaults to the fire markers. */
+export interface OverviewLayerOptions {
+  narrow?: boolean
+  /** Marker colours for the dark (and aerial) and the light map. */
+  palette?: { dark: MarkerPalette; light: MarkerPalette }
+  /** The group label's unit (' FIRES'). */
+  unit?: string
+  /** The cluster property of the group's largest value ('max_acres'). */
+  rankProp?: string
+  sources?: Record<OverviewGroup, string>
+  ids?: Record<keyof typeof OVR, string>
+  /** Draw the "Spread not prepared yet" chips (fires only). */
+  chips?: boolean
+  /** A feature property holding the centre dot's colour (floods: the highest category's); absent = the palette's. */
+  dotColorProp?: string
 }
 
 /** The label text at the current zoom: the fire's label once the zoom reaches its `lz`, else '' (no symbol). */
@@ -606,10 +631,14 @@ const LABEL_TEXT: unknown = [
 ]
 
 /** The overview layers, bottom to top (added above the basemap labels, below the open fire's markers). */
-export function overviewLayers(theme: MapTheme, o: { narrow?: boolean } = {}): LayerSpecification[] {
-  const p = theme === 'light' ? PALETTE.light : PALETTE.dark
+export function overviewLayers(theme: MapTheme, o: OverviewLayerOptions = {}): LayerSpecification[] {
+  const pal = o.palette ?? PALETTE
+  const p: MarkerPalette = theme === 'light' ? pal.light : pal.dark
   const tone = theme === 'light' ? 'light' : 'dark'
-  const S = OVERVIEW_SOURCES
+  const S = o.sources ?? OVERVIEW_SOURCES
+  const OVR_ = o.ids ?? OVR
+  const unit = o.unit ?? ' FIRES'
+  const dotColor: unknown = o.dotColorProp ? ['coalesce', ['get', o.dotColorProp], p.dot] : p.dot
   const circle = (id: string, source: string, filter: Filter | null, paint: Record<string, unknown>, sortKey = true): LayerSpecification =>
     ({
       id,
@@ -634,7 +663,7 @@ export function overviewLayers(theme: MapTheme, o: { narrow?: boolean } = {}): L
       'circle-stroke-width': ['case', ['==', ['get', 'kind'], 'large'], 1.2, 1],
     })
   const dot = (id: string, source: string, filter: Filter | null) =>
-    circle(id, source, filter, { 'circle-radius': zoomed(['get', 'dot']), 'circle-color': p.dot })
+    circle(id, source, filter, { 'circle-radius': zoomed(['get', 'dot']), 'circle-color': dotColor })
   const cluster = (id: string, source: string, active: boolean) =>
     circle(
       id,
@@ -654,7 +683,7 @@ export function overviewLayers(theme: MapTheme, o: { narrow?: boolean } = {}): L
       source,
       filter: CLUSTERED,
       layout: {
-        'text-field': groupLabelText(active ? p.countUnit : p.otherCount),
+        'text-field': groupLabelText(active ? p.countUnit : p.otherCount, unit),
         'text-font': FONT_BOLD,
         'text-size': GROUP_LABEL_PX,
         'text-anchor': 'bottom-left',
@@ -741,24 +770,24 @@ export function overviewLayers(theme: MapTheme, o: { narrow?: boolean } = {}): L
   const chips = overviewFilters([])
   return [
     // other fires (not active): groups and single hollow rings, below every active mark
-    cluster(OVR.otherCluster, S.other, false),
-    clusterDot(OVR.otherClusterDot, S.other, false),
-    casing(OVR.otherCasing, S.other, SINGLE),
-    past(OVR.otherPoint, S.other, SINGLE),
+    cluster(OVR_.otherCluster, S.other, false),
+    clusterDot(OVR_.otherClusterDot, S.other, false),
+    casing(OVR_.otherCasing, S.other, SINGLE),
+    past(OVR_.otherPoint, S.other, SINGLE),
     // active fires
-    cluster(OVR.activeCluster, S.active, true),
-    clusterDot(OVR.activeClusterDot, S.active, true),
-    casing(OVR.activeCasing, S.active, SINGLE),
-    live(OVR.activePoint, S.active, SINGLE),
-    dot(OVR.activeDot, S.active, SINGLE),
+    cluster(OVR_.activeCluster, S.active, true),
+    clusterDot(OVR_.activeClusterDot, S.active, true),
+    casing(OVR_.activeCasing, S.active, SINGLE),
+    live(OVR_.activePoint, S.active, SINGLE),
+    dot(OVR_.activeDot, S.active, SINGLE),
     // pinned fires (never grouped): large active fires and the fire whose card is open
-    casing(OVR.pinnedCasing, S.pinned, null),
-    past(OVR.pinnedPast, S.pinned, ['!', ['get', 'live']]),
-    live(OVR.pinnedLive, S.pinned, ['get', 'live']),
-    dot(OVR.pinnedDot, S.pinned, ['get', 'live']),
+    casing(OVR_.pinnedCasing, S.pinned, null),
+    past(OVR_.pinnedPast, S.pinned, ['!', ['get', 'live']]),
+    live(OVR_.pinnedLive, S.pinned, ['get', 'live']),
+    dot(OVR_.pinnedDot, S.pinned, ['get', 'live']),
     {
       // the fire whose card is open (filter set by the controller; it is always in the pinned source)
-      id: OVR.selected,
+      id: OVR_.selected,
       type: 'circle',
       source: S.pinned,
       filter: selectedFilter(null),
@@ -770,23 +799,27 @@ export function overviewLayers(theme: MapTheme, o: { narrow?: boolean } = {}): L
         'circle-pitch-alignment': 'viewport',
       },
     } as unknown as LayerSpecification,
-    hit(OVR.otherHit, S.other, SINGLE),
-    hit(OVR.activeHit, S.active, SINGLE),
-    hit(OVR.pinnedHit, S.pinned, null),
+    hit(OVR_.otherHit, S.other, SINGLE),
+    hit(OVR_.activeHit, S.active, SINGLE),
+    hit(OVR_.pinnedHit, S.pinned, null),
     // labels: the top layer is placed first, so pinned labels win collisions, then active, then other fires
-    label(OVR.otherLabel, S.other, SINGLE),
-    label(OVR.activeLabel, S.active, SINGLE),
-    label(OVR.pinnedLabel, S.pinned, null),
+    label(OVR_.otherLabel, S.other, SINGLE),
+    label(OVR_.activeLabel, S.active, SINGLE),
+    label(OVR_.pinnedLabel, S.pinned, null),
     // groups' "N FIRES" (outside their circles since brief 4): above the names, placed first, so names avoid them
-    count(OVR.otherCount, S.other, false),
-    count(OVR.activeCount, S.active, true),
+    count(OVR_.otherCount, S.other, false),
+    count(OVR_.activeCount, S.active, true),
     // the chips of the fires after the first, then the first fire's on top: the top layers are placed first, so the
     // first chip claims its place and the others give way to it
-    chip(OVR.otherChipNext, S.other, chips[OVR.otherChipNext], true),
-    chip(OVR.activeChipNext, S.active, chips[OVR.activeChipNext], true),
-    chip(OVR.pinnedChipNext, S.pinned, chips[OVR.pinnedChipNext], true),
-    chip(OVR.otherChip, S.other, chips[OVR.otherChip]),
-    chip(OVR.activeChip, S.active, chips[OVR.activeChip]),
-    chip(OVR.pinnedChip, S.pinned, chips[OVR.pinnedChip]),
+    ...(o.chips === false
+      ? []
+      : [
+          chip(OVR_.otherChipNext, S.other, chips[OVR.otherChipNext], true),
+          chip(OVR_.activeChipNext, S.active, chips[OVR.activeChipNext], true),
+          chip(OVR_.pinnedChipNext, S.pinned, chips[OVR.pinnedChipNext], true),
+          chip(OVR_.otherChip, S.other, chips[OVR.otherChip]),
+          chip(OVR_.activeChip, S.active, chips[OVR.activeChip]),
+          chip(OVR_.pinnedChip, S.pinned, chips[OVR.pinnedChip]),
+        ]),
   ]
 }

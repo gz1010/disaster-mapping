@@ -4,8 +4,10 @@
 // optional sources while their layers show data (extras/credits.ts, CONTRACT §12.5), and "Weather data by
 // Open-Meteo.com" (CC BY 4.0) while the incident's weather or forecast comes from Open-Meteo: the forecast overlay,
 // the location card's wind and the updates feed all show values derived from it.
+// Brief 5: while Floods is picked or a flood is open, the flood list's sources (NWS flood products, NOAA river gauges).
 import { useExtrasCredits } from '../extras/runtime'
-import { weatherCredits } from '../lib/dataCredits'
+import { floodCredits, weatherCredits } from '../lib/dataCredits'
+import { useFlood } from '../state/flood'
 import { useStore } from '../state/store'
 import { useWorkspace } from '../state/workspace'
 import { metersPerPixel, useMapRuntime } from './mapStore'
@@ -38,7 +40,15 @@ export function MapAttribution() {
   const extras = useExtrasCredits()
   const weatherSource = useStore((s) => (s.manifest?.status === 'ready' ? s.weather?.source : null) ?? null)
   const forecastWeather = useStore((s) => s.forecast?.weather.source ?? null)
-  const items = [...activeCredits(basemap, perspective, { vectorOk, terrainOk, imageryOk }), ...weatherCredits(weatherSource, forecastWeather), ...extras]
+  const floods = useWorkspace((s) => s.hazard === 'flood')
+  const floodOpen = useFlood((s) => s.floodId != null)
+  const fireOpen = useStore((s) => s.incidentId != null)
+  const items = [
+    ...activeCredits(basemap, perspective, { vectorOk, terrainOk, imageryOk }),
+    ...weatherCredits(weatherSource, forecastWeather),
+    ...floodCredits((floods || floodOpen) && !fireOpen),
+    ...extras,
+  ]
   return (
     <div className="mw-attrib fxm-attrib">
       <span className="fxm-credits">
