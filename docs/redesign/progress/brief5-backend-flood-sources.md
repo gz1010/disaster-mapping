@@ -22,6 +22,25 @@ Role `backend-flood-sources` (PLAN-5 §10.1, `plan5-roles.json`); ports API 8751
   in a URL, log, error or cache file; count-only).
 - `SPEC.md` §4.4 "Flood ids", §6 flood route rows.
 
+## M2 fixture (done)
+
+- `backend/scripts/make_fixture.py --only flood [--now ISO] [--copy-api DIR]` (also in the default run): writes
+  `data/floods/fixture-flood/` in about 6 s: procedural valley (EPSG:32612, 12 km, 1024²), every layer of PLAN-5 3.3
+  (elevation, sky_view, naip.jpg, water_forecast, floodplain, water_satellite, water_model), `warnings.json` (FL.W NEW +
+  EXT ending now + 8 h, FA.Y, FA.A zone-based), `gauges.json` (ZZRF1 moderate, crest major − 1 ft at +30 h; ZZRF2 action,
+  `crest_at_end`; ZZRF3 no_flooding without reach; ZZRF4 obs_not_current), `satellite.json` + PNG (cloud ~25 %, no-data
+  strip, image ending before the AOI's east edge, no-view hatch never transparent), maps (RFC FIM per reach with
+  member-reach stats, CatFIM moderate/major, NFHL with availability and two effective dates, no zone X minimal), model
+  (NWM analysis, 5-day, high flow with `recur_cat`, series for ZZRF1/ZZRF2), and `api/` canned answers for every route,
+  the seven list-only demo floods, `edge/` cases and a canned build job. Issuers fictional (KZZZ, ZZRFC).
+- `backend/scripts/serve_fixture.py`: every flood route of CONTRACT 16.7 from `data/floods/*/api/`, `?edge=`.
+- `backend/tests/conftest.py`: session `flood_fixture_data` / `flood_fixture_bundle` (generated in tmp at
+  2026-11-04T18:00:00Z, network refused); `tmp_data_dir` sets `FLOODS_DIR`.
+- Committed copy `backend/tests/data/floods/fixture_api/` (equal to a fresh run: tested).
+- `backend/fire3d/floods/copy.py` (16.14 strings, 16.15 credits and sources), `floods/grouping.py` (`flood_rank`).
+- Tests: `test_floods_fixture.py`, `test_floods_copy.py`, `test_serve_fixture.py` flood routes. Full suite 1159 passed,
+  0 skipped (67 s).
+
 ## Next
 
-- M2 fixture, M3 sources, M4 catalog + routes.
+- M3 sources (NWS flood family, NWPS, recorder + samples), M4 catalog + routes.

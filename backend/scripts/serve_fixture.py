@@ -6,6 +6,16 @@ bundle file endpoint (gzip, ETag, no-cache, traversal-safe). Build/forecast POST
 ~5 s, and ``/aircraft`` returns 4-6 synthetic fire aircraft circling live incidents (``?force=1`` for any incident,
 ``?all=1`` adds non-fire traffic).
 
+Floods (brief 5, PLAN-5 7.2): every flood route of CONTRACT 16.7 answers from the canned files in ``data/floods/*/api/``
+(``scripts/make_fixture.py --only flood`` writes them): the list (with ``fixture-flood`` and the seven list-only demo
+floods ``fixture-flood-<kind>``), details, NWS products and river gauges (by flood, by ``bbox`` with point checks, by
+``lid``, national), maps, model output, satellite water and its PNG, bundle files, a canned build job for list-only
+floods, and ``hazard=flood`` local alerts and evacuations. ``?edge=<case>`` answers an edge case: each official layer
+``unavailable`` (``alerts``, ``gauges``, ``rfc_fim``, ``catfim``, ``nfhl``, ``satellite``, ``model``), lists
+(``nws_down``, ``gauges_down``, ``both_down``, ``empty``), satellite (``satellite_refused``, ``satellite_picture``) and
+details (``last_known``). The canned times are those of the run that wrote them: run ``make_fixture.py --only flood``
+again to bring them back to the present.
+
 Usage: ``uv run python scripts/serve_fixture.py --port 8099 [--data-dir DIR] [--host 127.0.0.1]``
 """
 
@@ -153,7 +163,7 @@ def create_app(data_dir: Path) -> FastAPI:
     def job_view(j: dict[str, Any]) -> dict:
         now = time.time()
         el = now - j["t0"]
-        steps = BUILD_STEPS if j["kind"] == "build" else FORECAST_STEPS
+        steps = j.get("steps") or (BUILD_STEPS if j["kind"] == "build" else FORECAST_STEPS)
         if el < 0.4:
             status, progress, step, started_ms, finished_ms = "queued", 0.0, "queued", None, None
         elif el < JOB_SECONDS:
@@ -171,13 +181,15 @@ def create_app(data_dir: Path) -> FastAPI:
             result=j["result"] if status == "done" else None,
         ))
 
-    def start_job(kind: str, incident_id: str, result: Any) -> dict:
+    def start_job(kind: str, incident_id: str, result: Any, steps: list[str] | None = None) -> dict:
         with jobs_lock:
             for j in jobs.values():
                 if j["incident_id"] == incident_id and j["kind"] == kind and time.time() - j["t0"] < JOB_SECONDS:
                     return job_view(j)
             jid = f"job-{len(jobs) + 1:04d}-{kind}"
             j = {"id": jid, "kind": kind, "incident_id": incident_id, "t0": time.time(), "created_ms": int(time.time() * 1000), "result": result}
+            if steps:
+                j["steps"] = steps
             jobs[jid] = j
             return job_view(j)
 
@@ -320,11 +332,369 @@ def create_app(data_dir: Path) -> FastAPI:
             return Response(gz.get(p, st), media_type=ctype, headers=headers)
         return Response(p.read_bytes(), media_type=ctype, headers=headers)
 
+    mount_flood_routes(app, Path(data_dir).resolve(), start_job=start_job, latest_job=latest_job, gz=gz)
+
     @app.exception_handler(HTTPException)
     async def http_error(_request: Request, exc: HTTPException) -> JSONResponse:
         return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
 
     return app
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Brief 5: flood routes (CONTRACT 16.7) from the canned answers in data/floods/*/api/ (PLAN-5 7.2)
+# ---------------------------------------------------------------------------------------------------------------------
+FLOOD_BUILD_STEPS = ["catalog", "terrain", "maps", "gauges", "satellite", "finish"]
+FLOOD_EDGE_FILES = {
+    "alerts": "alerts-unavailable.json", "gauges": "gauges-unavailable.json", "rfc_fim": "rfc_fim-unavailable.json",
+    "catfim": "catfim-unavailable.json", "nfhl": "nfhl-unavailable.json", "satellite": "satellite-unavailable.json",
+    "satellite_refused": "satellite-refused.json", "satellite_picture": "satellite-picture.json",
+    "model": "model-unavailable.json", "nws_down": "list-nws-down.json", "gauges_down": "list-gauges-down.json",
+    "both_down": "list-both-down.json", "empty": "list-empty.json", "last_known": "detail-last-known.json",
+}
+FLOOD_ID_RE = __import__("re").compile(r"^[a-z0-9][a-z0-9-]{0,120}$")
+CATEGORY_ORDER = ("action", "minor", "moderate", "major")
+_SIG_ORDER = {"W": 0, "Y": 1, "A": 2}
+
+
+def _bbox_param(raw: str | None) -> tuple[float, float, float, float] | None:
+    if raw is None:
+        return None
+    try:
+        w, s_, e, n = (float(x) for x in raw.split(","))
+    except ValueError:
+        raise HTTPException(422, "bbox must be w,s,e,n") from None
+    if not (w <= e and s_ <= n):
+        raise HTTPException(422, "bbox must be w,s,e,n")
+    return (w, s_, e, n)
+
+
+def mount_flood_routes(app: FastAPI, data_dir: Path, *, start_job, latest_job, gz: GzipCache) -> None:
+    """Mount the flood routes on the fixture app (answers are read from disk on each request; they are small)."""
+    import orjson
+    import shapely
+    from shapely.geometry import Point, box, shape
+
+    from fire3d.contracts import (
+        FloodAlertsResponse, FloodDetailResponse, FloodListResponse, FloodLiveStatus, FloodMapResponse,
+        LocalAlertsResponse, ModelOutputResponse, RiverGaugesResponse, SatelliteWaterResponse,
+    )
+
+    floods_dir = data_dir / "floods"
+
+    def api_dirs() -> list[Path]:
+        if not floods_dir.is_dir():
+            return []
+        return [d / "api" for d in sorted(floods_dir.iterdir()) if (d / "api").is_dir()]
+
+    def load(name: str) -> Any | None:
+        for d in api_dirs():
+            p = d / name
+            if p.is_file():
+                return orjson.loads(p.read_bytes())
+        return None
+
+    def matching(prefix: str) -> list[Any]:
+        out = []
+        for d in api_dirs():
+            for p in sorted(d.glob(f"{prefix}*.json")):
+                out.append(orjson.loads(p.read_bytes()))
+        return out
+
+    def edge(name: str | None) -> Any | None:
+        if not name:
+            return None
+        f = FLOOD_EDGE_FILES.get(name)
+        if f is None:
+            raise HTTPException(422, f"unknown edge case {name!r}; one of {', '.join(FLOOD_EDGE_FILES)}")
+        return load(f"edge/{f}")
+
+    def check_id(flood_id: str) -> str:
+        if not FLOOD_ID_RE.match(flood_id):
+            raise HTTPException(404, "unknown flood")
+        return flood_id
+
+    def known(flood_id: str) -> bool:
+        return flood_id == "fixture-flood" and load("detail.json") is not None or load(f"detail-{flood_id}.json") is not None
+
+    def per_flood(flood_id: str, base: str) -> Any:
+        """``<base>.json`` for fixture-flood, ``<base>-<id>.json`` for a list-only demo flood; 404 otherwise."""
+        check_id(flood_id)
+        obj = load(f"{base}.json") if flood_id == "fixture-flood" else load(f"{base}-{flood_id}.json")
+        if obj is None:
+            raise HTTPException(404, "unknown flood")
+        return obj
+
+    def now_ms() -> int:
+        return int(time.time() * 1000)
+
+    # ---- lists, status, detail -----------------------------------------------------------------------------------
+    @app.get("/api/floods")
+    def flood_list(mode: str = Query("live", pattern="^(live|historical)$"), year: int | None = None,
+                   edge_case: str | None = Query(None, alias="edge")) -> Any:
+        e = edge(edge_case)
+        if e is not None:
+            return e
+        if mode == "live":
+            obj = load("list.json")
+            if obj is None:
+                raise HTTPException(503, "The flood lists could not be reached right now; try again later.")
+            return obj
+        y = year or time.gmtime().tm_year
+        obj = load(f"list-{y}.json")
+        if obj is None:
+            obj = {"hazard": "flood", "mode": "historical", "updated_ms": now_ms(), "year": y, "past_rule": "fallback",
+                   "preparing": False, "floods": [], "sources": [
+                       {"id": "iem_archive", "name": "Iowa Environmental Mesonet (archived NWS products)",
+                        "status": "unavailable", "retrieved_ms": None, "stale": False,
+                        "reason": "Fixture server: no past floods are canned for this year."}],
+                   "products_in_effect": None}
+            FloodListResponse.model_validate(obj)
+        return obj
+
+    @app.get("/api/floods/status")
+    def flood_status() -> Any:
+        obj = load("status.json")
+        if obj is None:
+            obj = {"last_refresh_ms": None, "next_refresh_ms": None, "active_floods": None, "gauges_in_flood": None,
+                   "auto_build": False}
+        return FloodLiveStatus.model_validate(obj).model_dump(mode="json")
+
+    @app.get("/api/floods/{flood_id}")
+    def flood_detail(flood_id: str, edge_case: str | None = Query(None, alias="edge")) -> Any:
+        e = edge(edge_case)
+        if e is not None:
+            return e
+        obj = per_flood(flood_id, "detail")
+        if flood_id != "fixture-flood":
+            obj = {**obj, "job": latest_job(flood_id)}
+        return obj
+
+    @app.post("/api/floods/{flood_id}/build")
+    def flood_build(flood_id: str, force: bool = False) -> Any:
+        check_id(flood_id)
+        if flood_id == "fixture-flood":
+            raise HTTPException(409, "'fixture-flood' is a synthetic bundle; it cannot be rebuilt.")
+        if load(f"detail-{flood_id}.json") is None:
+            raise HTTPException(404, "unknown flood")
+        return start_job("build", flood_id, {"canned": True, "force": force, "bundle": None}, steps=FLOOD_BUILD_STEPS)
+
+    @app.get("/api/floods/{flood_id}/files/{path:path}")
+    def flood_file(flood_id: str, path: str, request: Request) -> Response:
+        check_id(flood_id)
+        d = floods_dir / flood_id
+        try:
+            p = bundle.resolve_bundle_file(d, path)
+        except ValueError:
+            raise HTTPException(404, "not found") from None
+        if any(part.startswith(".") for part in Path(path).parts) or Path(path).parts[:1] == ("api",) or not p.is_file():
+            raise HTTPException(404, "not found")
+        st = p.stat()
+        use_gzip = "gzip" in request.headers.get("accept-encoding", "").lower() and p.suffix.lower() not in NO_GZIP
+        etag = f'W/"{st.st_size:x}-{st.st_mtime_ns:x}{"-gz" if use_gzip else ""}"'
+        headers = {"ETag": etag, "Cache-Control": "no-cache", "Vary": "Accept-Encoding"}
+        inm = request.headers.get("if-none-match")
+        if inm and etag in [t.strip() for t in inm.split(",")]:
+            return Response(status_code=304, headers=headers)
+        ctype = CONTENT_TYPES.get(p.suffix.lower(), "application/geo+json" if p.suffix == ".geojson" else "application/octet-stream")
+        if use_gzip:
+            headers["Content-Encoding"] = "gzip"
+            return Response(gz.get(p, st), media_type=ctype, headers=headers)
+        return Response(p.read_bytes(), media_type=ctype, headers=headers)
+
+    # ---- maps, model, satellite -------------------------------------------------------------------------------
+    @app.get("/api/floods/{flood_id}/maps")
+    def flood_maps(flood_id: str, kind: str = Query(..., pattern="^(rfc_fim|catfim|nfhl)$"), lid: str | None = None,
+                   category: str | None = None, at_ms: int | None = None,
+                   edge_case: str | None = Query(None, alias="edge")) -> Any:
+        e = edge(edge_case)
+        if e is not None:
+            return e
+        if flood_id == "fixture-flood" and kind == "catfim" and lid and category:
+            obj = load(f"maps-catfim-{lid.upper()}-{category}.json")
+            if obj is not None:
+                return obj
+        return per_flood(flood_id, f"maps-{kind}")
+
+    @app.get("/api/floods/{flood_id}/model")
+    def flood_model(flood_id: str, kind: str = Query(..., pattern="^(nwm_analysis|nwm_5day|nwm_high_flow|nwm_series)$"),
+                    lid: str | None = None, edge_case: str | None = Query(None, alias="edge")) -> Any:
+        e = edge(edge_case)
+        if e is not None:
+            return e
+        check_id(flood_id)
+        if not known(flood_id):
+            raise HTTPException(404, "unknown flood")
+        if flood_id == "fixture-flood":
+            if kind == "nwm_series":
+                if not lid:
+                    raise HTTPException(422, "nwm_series needs lid=")
+                obj = load(f"model-nwm_series-{lid.upper()}.json")
+            else:
+                obj = load(f"model-{kind}.json")
+            if obj is not None:
+                return obj
+        base = load("model-nwm_analysis.json") or {}
+        obj = {**base, "kind": kind, "status": "unavailable", "retrieved_ms": None, "reference_ms": None, "updated_ms": None,
+               "reason": "Fixture server: no model output is canned for this demo flood.", "features": None,
+               "series": None, "reach_id": None, "lid": lid, "flood_id": flood_id, "now_ms": now_ms()}
+        return ModelOutputResponse.model_validate(obj).model_dump(mode="json")
+
+    @app.get("/api/floods/{flood_id}/satellite")
+    def flood_satellite(flood_id: str, at_ms: int | None = None, edge_case: str | None = Query(None, alias="edge")) -> Any:
+        e = edge(edge_case)
+        if e is not None:
+            return e
+        check_id(flood_id)
+        if not known(flood_id):
+            raise HTTPException(404, "unknown flood")
+        if flood_id == "fixture-flood":
+            obj = load("satellite.json")
+            if obj is not None:
+                return obj
+        base = load("satellite.json") or {}
+        obj = {**base, "status": "unavailable", "reason_code": "no_image", "measured": False, "granules": [],
+               "reason": "Fixture server: no satellite image is canned for this demo flood.", "image": None,
+               "tiles": None, "stats": None, "retrieved_ms": None, "flood_id": flood_id, "now_ms": now_ms(), "caveats": []}
+        return SatelliteWaterResponse.model_validate(obj).model_dump(mode="json")
+
+    @app.get("/api/floods/{flood_id}/satellite.png")
+    def flood_satellite_png(flood_id: str, granule: str | None = None) -> Response:
+        check_id(flood_id)
+        p = floods_dir / flood_id / "satellite.png"
+        if not p.is_file():
+            raise HTTPException(404, "not found")
+        return Response(p.read_bytes(), media_type="image/png", headers={"Cache-Control": "no-cache"})
+
+    # ---- official: flood alerts and river gauges --------------------------------------------------------------
+    def _alert_geoms(answer: dict) -> dict[str, list]:
+        out: dict[str, list] = {}
+        for a in answer.get("alerts") or []:
+            if a.get("geometry"):
+                out.setdefault(a["id"], []).append(shape(a["geometry"]))
+        for f in (answer.get("zones") or {}).get("features") or []:
+            for aid in (f.get("properties") or {}).get("alert_ids") or []:
+                out.setdefault(aid, []).append(shape(f["geometry"]))
+        return out
+
+    def _alert_order(a: dict) -> tuple:
+        v = a.get("vtec") or {}
+        return (0 if a.get("emergency") else 1, _SIG_ORDER.get(v.get("significance"), 3), -(a.get("sent_ms") or 0))
+
+    @app.get("/api/official/flood-alerts")
+    def flood_alerts(flood: str | None = None, bbox: str | None = None, at_ms: int | None = None,
+                     edge_case: str | None = Query(None, alias="edge")) -> Any:
+        e = edge(edge_case)
+        if e is not None:
+            return e
+        if flood:
+            return per_flood(flood, "flood-alerts")
+        area = _bbox_param(bbox)
+        if area is None:
+            raise HTTPException(422, "flood-alerts needs flood= or bbox=")
+        abox = box(*area)
+        is_point = (area[2] - area[0]) < 1e-6 and (area[3] - area[1]) < 1e-6
+        here = Point(area[0], area[1])
+        seen: dict[str, dict] = {}
+        zones: dict[str, dict] = {}
+        answers = matching("flood-alerts")
+        template = None
+        for ans in answers:
+            if ans.get("source", {}).get("name", "").find("Iowa") >= 0:
+                continue                                       # archived (past) answers are not "now" at a point
+            template = template or ans
+            geoms = _alert_geoms(ans)
+            for a in ans.get("alerts") or []:
+                gs = geoms.get(a["id"]) or []
+                if not gs or a["id"] in seen or not any(g.intersects(abox) for g in gs):
+                    continue
+                seen[a["id"]] = {**a, "covers_point": any(g.covers(here) for g in gs) if is_point else None}
+            for f in (ans.get("zones") or {}).get("features") or []:
+                if any(aid in seen for aid in f["properties"]["alert_ids"]):
+                    zones[f["properties"]["ugc"]] = f
+        if template is None:
+            raise HTTPException(404, "no canned flood alerts (run scripts/make_fixture.py --only flood)")
+        from fire3d import regions
+        obj = {**template, "flood_id": None, "now_ms": now_ms(), "alerts": sorted(seen.values(), key=_alert_order),
+               "zones": {"type": "FeatureCollection", "features": list(zones.values())}, "area_bbox": list(area),
+               "states_checked": regions.states_in_bbox(area), "caveats": []}
+        return FloodAlertsResponse.model_validate(obj).model_dump(mode="json")
+
+    def all_gauges() -> dict[str, dict]:
+        out: dict[str, dict] = {}
+        for ans in matching("river-gauges-"):
+            for g in ans.get("gauges") or []:
+                cur = out.get(g["lid"])
+                if cur is None or ("series" in g and "series" not in cur):
+                    out[g["lid"]] = g
+        return out
+
+    @app.get("/api/official/river-gauges")
+    def river_gauges(flood: str | None = None, bbox: str | None = None, lid: str | None = None, scope: str | None = None,
+                     min: str = Query("action", pattern="^(action|minor|moderate|major)$"),  # noqa: A002 - query name
+                     series: int = 0, at_ms: int | None = None, edge_case: str | None = Query(None, alias="edge")) -> Any:
+        e = edge(edge_case)
+        if e is not None:
+            return e
+        strip = (lambda g: g) if series else (lambda g: {k: v for k, v in g.items() if k != "series"})
+        if flood:
+            obj = per_flood(flood, "river-gauges")
+            if series:
+                full = all_gauges()
+                obj = {**obj, "gauges": [{**full.get(g["lid"], g), "member": g["member"]} for g in obj["gauges"]]}
+            return obj
+        if lid:
+            obj = load(f"river-gauges-{lid.upper()}.json")
+            if obj is None:
+                g = all_gauges().get(lid.upper())
+                if g is None:
+                    raise HTTPException(404, "unknown gauge")
+                base = load("river-gauges-national.json")
+                obj = {**base, "gauges": [g], "area_bbox": [g["lon"], g["lat"], g["lon"], g["lat"]]}
+            return {**obj, "gauges": [strip(g) for g in obj["gauges"]]}
+        if scope == "national":
+            obj = load("river-gauges-national.json")
+            if obj is None:
+                raise HTTPException(404, "no canned national gauges")
+            lo = CATEGORY_ORDER.index(min)
+            keep = [g for g in obj["gauges"] if g["observed"]["category"] in CATEGORY_ORDER[lo:]]
+            return {**obj, "gauges": keep}
+        area = _bbox_param(bbox)
+        if area is None:
+            raise HTTPException(422, "river-gauges needs flood=, bbox=, lid= or scope=national")
+        cx, cy = (area[0] + area[2]) / 2, (area[1] + area[3]) / 2
+        rows = [{**strip(g), "member": False} for g in all_gauges().values()
+                if area[0] <= g["lon"] <= area[2] and area[1] <= g["lat"] <= area[3]]
+        rows.sort(key=lambda g: (g["lon"] - cx) ** 2 + (g["lat"] - cy) ** 2)
+        base = load("river-gauges-national.json")
+        obj = {**base, "flood_id": None, "now_ms": now_ms(), "gauges": rows, "area_bbox": list(area)}
+        return RiverGaugesResponse.model_validate(obj).model_dump(mode="json")
+
+    # ---- hazard=flood local alerts and evacuations (canned for the fixture's area) ----------------------------------
+    @app.get("/api/official/local-alerts")
+    def local_alerts(bbox: str | None = None, incident: str | None = None, hazard: str = "fire",
+                     at_ms: int | None = None) -> Any:
+        if hazard != "flood":
+            raise HTTPException(404, "the fixture server answers local alerts for hazard=flood only")
+        obj = load("local-alerts.json")
+        if obj is None:
+            raise HTTPException(404, "not found")
+        area = _bbox_param(bbox)
+        obj = {**obj, "now_ms": now_ms(), "area_bbox": list(area) if area else obj.get("area_bbox")}
+        return LocalAlertsResponse.model_validate(obj).model_dump(mode="json")
+
+    @app.get("/api/extras/evacuations")
+    def evacuations(bbox: str | None = None, incident: str | None = None, hazard: str = "fire",
+                    at_ms: int | None = None) -> Any:
+        if hazard != "flood":
+            raise HTTPException(404, "the fixture server answers evacuations for hazard=flood only")
+        obj = load("evacuations.json")
+        if obj is None:
+            raise HTTPException(404, "not found")
+        area = _bbox_param(bbox)
+        return {**obj, "now_ms": now_ms(), "bbox": list(area) if area else obj.get("bbox")}
+
+    _ = (FloodDetailResponse, FloodMapResponse, shapely)   # imported for the validators used by the tests
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -334,7 +704,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--data-dir", type=Path, default=None, help="data dir containing incidents/ (default: FIRE3D_DATA_DIR or <repo>/data)")
     args = ap.parse_args(argv)
     data_dir = (args.data_dir or config.DATA_DIR).resolve()
-    print(f"serving bundles from {data_dir / 'incidents'} on http://{args.host}:{args.port}", flush=True)
+    print(f"serving bundles from {data_dir / 'incidents'} and {data_dir / 'floods'} on http://{args.host}:{args.port}", flush=True)
     uvicorn.run(create_app(data_dir), host=args.host, port=args.port, log_level="warning")
     return 0
 

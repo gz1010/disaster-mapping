@@ -17,7 +17,13 @@ fuels by elevation/aspect/slope, canopy, a NAIP-like aerial photo, sky-view AO, 
 hourly series, events, diurnal weather with a wind event, and an ensemble forecast. Every JSON file is validated
 strictly against ``fire3d.contracts``. The spread here is NOT pyretechnics output: it only has to look plausible.
 
-Usage: ``uv run python scripts/make_fixture.py [--data-dir DIR] [--only demo|live|east] [--members 31] [--quicklook DIR]``
+* ``fixture-flood`` (``--only flood``, brief 5; also in the default run) live, 12 km AOI in San Juan County, NM: the synthetic
+  "Ridge Fork River flood" (fictional office, gauges and products, all marked synthetic), with every flood bundle layer
+  and file, and canned answers for every flood route in ``data/floods/fixture-flood/api/`` (PLAN-5 7.1, CONTRACT 16.9).
+  ``--now 2026-11-04T18:00:00Z`` pins its times; ``--copy-api tests/data/floods/fixture_api`` writes the committed copy.
+
+Usage: ``uv run python scripts/make_fixture.py [--data-dir DIR] [--only demo|live|east|flood] [--members 31] [--quicklook DIR]
+[--now ISO] [--copy-api DIR]``
 """
 
 from __future__ import annotations
@@ -1486,13 +1492,1147 @@ def write_quicklooks(out: Path, name: str, terr: Terrain, svf: np.ndarray, fu: F
     Image.open(io.BytesIO(naip)).save(out / f"{name}-naip.jpg", quality=90)
 
 
+# =================================================================================================================
+# Brief 5: the synthetic flood fixture ``fixture-flood`` (PLAN-5 7.1, CONTRACT 16.9)
+# =================================================================================================================
+# Everything is synthetic and says so: the flood ("Ridge Fork River flood"), its gauges (ZZRF1-ZZRF4, LIDs that cannot
+# collide with real ones), its NWS-style products (text marked SYNTHETIC_MARK, issued by the fictional office KZZZ,
+# "NWS Example Office (synthetic)") and its forecasts (the fictional "Example River Forecast Center (synthetic)",
+# ZZRFC). The procedural valley does not follow a real river. Times are relative to ``now`` (``--now`` pins it); the
+# frozen files carry absolute times only (C16). Canned answers for every flood route go to ``api/`` (the fixture server
+# serves them); the seven list-only demo floods ``fixture-flood-<kind>`` have fictional names and live only there.
+from fire3d.timeutil import ms_to_dt  # noqa: E402
+
+FLOOD_ID = "fixture-flood"
+FLOOD_CENTER = (-108.06, 36.79)                    # lon, lat (San Juan County, NM)
+FLOOD_EXTENT_M = 12000.0
+FLOOD_TZ = "America/Denver"
+FLOOD_SEED = 5
+FLOOD_NOW_DEFAULT_STEP_MS = 15 * 60_000            # time-relative runs round "now" down to 15 min
+SYNTHETIC_MARK = "[SYNTHETIC — NOT AN NWS PRODUCT]"
+SYN_SENDER = "NWS Example Office (synthetic)"
+SYN_OFFICE = "KZZZ"
+SYN_WFO = "ZZZ"
+SYN_RFC, SYN_RFC_NAME = "ZZRFC", "Example River Forecast Center (synthetic)"
+SYN_ATTRIBUTION = "Observations courtesy of U.S. Geological Survey"
+FLOOD_REACHES = 8                                  # RFC FIM reaches (feature ids 9900001..9900008), west to east
+REACH_STATION = {0: "ZZXX9", 1: "ZZXX9", 2: "ZZRF1", 3: "ZZRF1", 4: "ZZRF1", 5: "ZZRF1", 6: "ZZRF2", 7: "ZZRF2"}
+SAT_IMAGE_EAST_FRACTION = 0.86                     # the satellite image ends before the AOI's east edge (C2)
+NFHL_EFFECTIVE = ("2010-09-26", "2021-08-03")
+FLOOD_EDGE_LAYERS = ("alerts", "gauges", "rfc_fim", "catfim", "nfhl", "satellite", "model")
+
+
+def _flood_copy():
+    from fire3d.floods import copy as fcopy
+    return fcopy
+
+
+def _syn_source(src: dict) -> dict:
+    """An OfficialSource dict for synthetic data: the shape of the real source, never its credit."""
+    return {**src, "name": f"Synthetic fixture (shaped like: {src['name']})",
+            "credit": f"Synthetic data for testing; not from: {src['credit']}"}
+
+
+def _iso_ms(s: str) -> int:
+    return int(datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp() * 1000)
+
+
+def _ms_date(s: str) -> int:
+    return int(datetime.fromisoformat(s).replace(tzinfo=timezone.utc).timestamp() * 1000)
+
+
+def _local_text(ms: int, fmt: str = "%-I:%M %p %Z %a %b %-d %Y", tz: str = FLOOD_TZ) -> str:
+    return datetime.fromtimestamp(ms / 1000, ZoneInfo(tz)).strftime(fmt)
+
+
+def _vtec_key(office: str, ph: str, sig: str, etn: int, year: int) -> str:
+    return f"{office}.{ph}.{sig}.{etn:04d}.{year}"
+
+
+def _round_geom(g):
+    import shapely
+    return shapely.set_precision(g, 1e-5)
+
+
+def _geojson(g) -> dict:
+    from shapely.geometry import mapping
+    d = mapping(_round_geom(g))
+    return orjson_roundtrip(d)
+
+
+def orjson_roundtrip(obj):
+    """Plain JSON types (tuples -> lists) so canned answers compare equal after a reload."""
+    import orjson
+    return orjson.loads(orjson.dumps(obj, option=orjson.OPT_SERIALIZE_NUMPY))
+
+
+def _fc(features: list[dict]) -> dict:
+    return {"type": "FeatureCollection", "features": features}
+
+
+@dataclass
+class FloodValley:
+    render: Grid
+    dem: np.ndarray            # float32 m
+    hand: np.ndarray           # height above the channel water surface, m
+    d: np.ndarray              # distance to the channel centerline, m
+    s: np.ndarray              # along-channel coordinate (local x of the nearest centerline point), m
+    line: np.ndarray           # (K, 2) centerline local x, z
+    to_lonlat: object          # UTM -> lon/lat transformer
+    lon: np.ndarray            # cell centre lon / lat
+    lat: np.ndarray
+
+
+def flood_valley(render: Grid, rng: np.random.Generator) -> FloodValley:
+    """A procedural river valley: a meandering west-flowing channel on a 0.4-0.7 km wide floodplain, terraces and mesas."""
+    X, Z = render.cell_centers_local()
+    ext = render.extent_m
+    xs = np.linspace(-0.6 * ext, 0.6 * ext, 4000)
+    zc = 950.0 * np.sin(2 * np.pi * xs / 7400.0 + 0.6) + 330.0 * np.sin(2 * np.pi * xs / 2300.0 + 1.9)
+    line = np.c_[xs, zc]
+    d, idx = cKDTree(line).query(np.c_[X.ravel(), Z.ravel()], workers=-1)
+    d = d.reshape(X.shape)
+    s = xs[idx].reshape(X.shape)
+    shape = X.shape
+    width_noise = value_fbm(rng, shape, 18.0, octaves=3)
+    small = value_fbm(rng, shape, 120.0, octaves=4)
+    mesa_noise = value_fbm(rng, shape, 9.0, octaves=4)
+    z_river = 1488.0 + 0.0025 * (X + 0.5 * ext)                 # 2.5 m/km, flowing west (smooth: no seams)
+    fp_w = 520.0 + 260.0 * width_noise                          # floodplain half-width
+    fp = np.clip(d - 28.0, 0, None)
+    prof = 4.6 * np.clip(fp / fp_w, 0, 1.6) ** 1.25
+    terrace = smoothstep(0.85, 2.4, d / fp_w) * 38.0
+    mesa = smoothstep(1500.0, 3400.0, d) * (85.0 + 80.0 * mesa_noise)
+    elev = z_river + prof + terrace + mesa + 0.7 * small * smoothstep(40.0, 400.0, d)
+    elev = np.where(d < 28.0, z_river - 2.2 * (1.0 - d / 28.0), elev)
+    hand = (elev - z_river).astype(np.float32)
+    epsg = render.epsg
+    tll = transformer(epsg, 4326)
+    lon, lat = render.cell_centers_lonlat()
+    return FloodValley(render, elev.astype(np.float32), hand, d.astype(np.float32), s.astype(np.float32), line, tll,
+                       np.asarray(lon), np.asarray(lat))
+
+
+def _mask_polygons(v: FloodValley, mask: np.ndarray, tol_deg: float = 0.0002):
+    """(lon/lat geometry, UTM geometry) of a boolean mask on the render grid; (None, None) when empty."""
+    import shapely
+    from rasterio import features as rfeatures
+    from shapely.geometry import shape
+
+    if not mask.any():
+        return None, None
+    polys = [shape(g) for g, val in rfeatures.shapes(mask.astype(np.uint8), mask=mask, transform=v.render.transform) if val == 1]
+    utm = shapely.union_all(polys)
+    ll = shapely.transform(utm, lambda xy: np.column_stack(v.to_lonlat.transform(xy[:, 0], xy[:, 1])))
+    ll = ll.simplify(tol_deg, preserve_topology=True)
+    return _round_geom(ll), utm
+
+
+def _local_lonlat(v: FloodValley, x: float, z: float) -> tuple[float, float]:
+    lon, lat = v.render.local_to_lonlat(x, z)
+    return round(float(lon), 5), round(float(lat), 5)
+
+
+def _centerline_z(v: FloodValley, x: float) -> float:
+    i = int(np.argmin(np.abs(v.line[:, 0] - x)))
+    return float(v.line[i, 1])
+
+
+def _stage_series(knots: list[tuple[float, float]], t_h: np.ndarray, rng: np.random.Generator, noise: float) -> np.ndarray:
+    k = np.array(knots, dtype=float)
+    y = np.interp(t_h, k[:, 0], k[:, 1])
+    if noise:
+        y = y + rng.normal(0, noise, size=y.shape)
+    return np.round(y, 2)
+
+
+def _category(stage: float | None, th: dict) -> str:
+    if stage is None:
+        return "unknown"
+    for cat in ("major", "moderate", "minor", "action"):
+        if th.get(cat) is not None and stage >= th[cat]:
+            return cat
+    return "no_flooding"
+
+
+def _series_rows(t_ms: np.ndarray, stage: np.ndarray, flow: np.ndarray) -> list[list]:
+    return [[int(t), float(h), float(round(q, 3))] for t, h, q in zip(t_ms, stage, flow)]
+
+
+def flood_gauges(v: FloodValley, now: int, rng: np.random.Generator) -> list[dict]:
+    """The four synthetic gauges as RiverGauge dicts with ``series`` (members ZZRF1, ZZRF2; nearby ZZRF3, ZZRF4)."""
+    step = 15 * 60_000
+    t_obs = np.arange(now - 72 * HOUR_MS, now + 1, step)
+    th_obs = (t_obs - now) / HOUR_MS
+    t_fc = np.arange(now + 6 * HOUR_MS, now + 120 * HOUR_MS + 1, 6 * HOUR_MS)
+    th_fc = (t_fc - now) / HOUR_MS
+    issued = now - 2 * HOUR_MS
+    out = []
+
+    def gauge(lid, name, waterbody, x, z, th, obs_knots, fc_knots, rating, *, reach, member, fc_point, last_ms=None,
+              category_override=None, impacts=None, notes=None):
+        lon, lat = _local_lonlat(v, x, z)
+        t_o = t_obs if last_ms is None else t_obs[t_obs <= last_ms]
+        h_o = _stage_series(obs_knots, (t_o - now) / HOUR_MS, rng, 0.015)
+        q_o = rating(h_o)
+        obs_cat = category_override or _category(float(h_o[-1]), th)
+        reading = {"value": float(h_o[-1]), "unit": "ft", "flow": float(round(q_o[-1], 3)), "flow_unit": "kcfs",
+                   "category": obs_cat, "valid_ms": int(t_o[-1])}
+        series = {"observed": _series_rows(t_o, h_o, q_o), "forecast": [], "forecast_issued_ms": None,
+                  "stage_unit": "ft", "flow_unit": "kcfs"}
+        forecast = None
+        if fc_point:
+            h_f = _stage_series(fc_knots, th_fc, rng, 0.0)
+            q_f = rating(h_f)
+            series.update(forecast=_series_rows(t_fc, h_f, q_f), forecast_issued_ms=issued)
+            i_max = int(np.argmax(h_f))
+            forecast = {"category": _category(float(h_f[i_max]), th), "max_value": float(h_f[i_max]), "max_ms": int(t_fc[i_max]),
+                        "issued_ms": issued, "producer": SYN_RFC, "producer_name": SYN_RFC_NAME, "issuer": SYN_WFO,
+                        "url": None, "crest_at_end": bool(i_max == len(h_f) - 1)}
+        g = {"lid": lid, "usgs_id": None, "reach_id": reach, "name": name, "waterbody": waterbody, "state": None,
+             "county": None, "time_zone": FLOOD_TZ, "lat": lat, "lon": lon, "url": f"https://water.noaa.gov/gauges/{lid.lower()}",
+             "rfc": SYN_RFC, "wfo": SYN_WFO, "member": member, "is_forecast_point": fc_point,
+             "thresholds": {"unit": "ft", **th}, "observed": reading, "forecast": forecast, "series": series,
+             "impacts": impacts or [], "forecast_reliability": notes[0] if notes else None,
+             "hydronotes": list(notes[1:]) if notes else [],
+             "data_attribution": [{"text": SYN_ATTRIBUTION, "url": None}]}
+        out.append(g)
+
+    x1, x2 = -300.0, 3800.0
+    gauge("ZZRF1", "Ridge Fork River at Example Crossing", "Ridge Fork River", x1, _centerline_z(v, x1),
+          {"action": 13.0, "minor": 15.0, "moderate": 17.0, "major": 19.0},
+          [(-72, 10.9), (-48, 11.4), (-40, 13.0), (-30, 14.3), (-20, 15.0), (-12, 16.0), (-4, 17.0), (0, 17.6)],
+          [(0, 17.6), (6, 17.75), (12, 17.85), (24, 17.95), (30, 18.0), (36, 17.92), (48, 17.3), (72, 15.9), (96, 14.7),
+           (120, 13.9)],
+          lambda h: 0.12 * np.clip(h - 8.0, 0, None) ** 1.8, reach="9900004", member=True, fc_point=True,
+          impacts=[{"stage": 15.0, "statement": "[SYNTHETIC] Water reaches the picnic area at Example Crossing Park."},
+                   {"stage": 17.0, "statement": "[SYNTHETIC] Water covers the low-water crossing on Example Road and "
+                                                "fields along the river."},
+                   {"stage": 19.0, "statement": "[SYNTHETIC] Water reaches homes on Riverside Lane in the fictional "
+                                                "town of Example Crossing."}],
+          notes=["[SYNTHETIC] Forecasts are issued as needed during times of high water.",
+                 "[SYNTHETIC] River forecasts for this example gauge take into account past precipitation and the "
+                 "precipitation expected in the next 48 hours."])
+    gauge("ZZRF2", "Ridge Fork River near Sample Bend", "Ridge Fork River", x2, _centerline_z(v, x2),
+          {"action": 9.0, "minor": 11.0, "moderate": 13.0, "major": 15.0},
+          [(-72, 7.2), (-36, 7.9), (-12, 8.8), (0, 9.4)],
+          [(0, 9.4), (24, 9.8), (48, 10.1), (72, 10.35), (96, 10.6), (120, 10.8)],
+          lambda h: 0.05 * np.clip(h - 4.0, 0, None) ** 1.9, reach="9900007", member=True, fc_point=True)
+    gauge("ZZRF3", "Demo Draw at Mock Springs", "Demo Draw", -2600.0, 3300.0,
+          {"action": 6.0, "minor": 8.0, "moderate": 10.0, "major": 12.0},
+          [(-72, 3.0), (-24, 3.2), (0, 3.1)], [], lambda h: 0.01 * np.clip(h - 1.0, 0, None) ** 1.7,
+          reach=None, member=False, fc_point=False)
+    gauge("ZZRF4", "Sample Wash near Placeholder", "Sample Wash", 1500.0, -3600.0,
+          {"action": 5.0, "minor": 7.0, "moderate": 9.0, "major": 11.0},
+          [(-72, 3.6), (-30, 4.0), (-9, 4.2)], [], lambda h: 0.01 * np.clip(h - 1.0, 0, None) ** 1.7,
+          reach="9900099", member=False, fc_point=False, last_ms=now - 9 * HOUR_MS, category_override="obs_not_current")
+    from fire3d import regions
+    for g in out:
+        g["state"] = regions.state_at(g["lon"], g["lat"])
+        c = regions.county_at(g["lon"], g["lat"])
+        g["county"] = c.name if c else None
+    return out
+
+
+def gauge_ref(g: dict) -> dict:
+    """FloodGaugeRef of a RiverGauge dict."""
+    f = g.get("forecast") or {}
+    return {"lid": g["lid"], "name": g["name"], "waterbody": g["waterbody"], "state": g["state"], "lat": g["lat"],
+            "lon": g["lon"], "observed_category": g["observed"]["category"], "observed_value": g["observed"]["value"],
+            "unit": g["observed"]["unit"], "observed_ms": g["observed"]["valid_ms"],
+            "forecast_category": f.get("category") if g.get("forecast") else None,
+            "forecast_max_value": f.get("max_value"), "forecast_max_ms": f.get("max_ms"),
+            "forecast_issued_ms": f.get("issued_ms"), "url": g["url"]}
+
+
+def product_ref(a: dict) -> dict:
+    """FloodProductRef of a FloodAlert dict."""
+    vt = a.get("vtec")
+    return {"id": a["id"], "event": a["event"],
+            "vtec_key": _vtec_key(vt["office"], vt["phenomena"], vt["significance"], vt["etn"], vt["year"]) if vt else None,
+            "sender_name": a["sender_name"], "phase": a["phase"], "sent_ms": a["sent_ms"], "onset_ms": a["onset_ms"],
+            "ends_ms": a["ends_ms"] if a["ends_ms"] is not None else a["expires_ms"], "emergency": a["emergency"],
+            "damage_threat": a["damage_threat"], "gauge_lids": [a["hvtec"]["nwsli"]] if a.get("hvtec") else [],
+            "url": a["url"], "archived": a["archived"]}
+
+
+def syn_alert(*, aid: str, event: str, ph: str, sig: str, etn: int, action: str, year: int, sent: int,
+              onset: int | None, ends: int | None, headline: str, description: str, instruction: str | None,
+              area_desc: str, ugcs: list[str], geometry: dict | None, flood_ids: list[str], phase: str = "in_effect",
+              hvtec: dict | None = None, emergency: bool = False, damage: str | None = None,
+              detection: str | None = None, archived: bool = False, tz: str = FLOOD_TZ, sender: str = SYN_SENDER,
+              office: str = SYN_OFFICE) -> dict:
+    return {
+        "id": aid, "url": None, "office_url": None, "event": event,
+        "vtec": {"office": office, "phenomena": ph, "significance": sig, "etn": etn, "action": action, "year": year},
+        "hvtec": hvtec, "sender_name": sender, "sent_ms": sent, "effective_ms": sent, "onset_ms": onset,
+        "expires_ms": (ends if ends is not None else sent + 6 * HOUR_MS) if not archived else None, "ends_ms": ends,
+        "headline": headline, "nws_headline": headline.upper() if not archived else headline,
+        "description": f"{SYNTHETIC_MARK}\n\n{description}", "instruction": instruction, "area_desc": area_desc,
+        "ugcs": ugcs, "message_type": None if archived else ("Alert" if action == "NEW" else "Update"),
+        "status": "Actual", "phase": phase, "archived": archived, "time_zone": tz, "emergency": emergency,
+        "damage_threat": damage, "detection": detection, "geometry": geometry, "covers_point": None,
+        "flood_ids": flood_ids,
+    }
+
+
+def _envelope(kind: str, src: dict, now: int, flood_id: str | None, *, status: str = "available",
+              reason_code: str | None = None, reason: str | None = None, caveats: list[str] | None = None,
+              retrieved: int | None = None, updated: int | None = None, at_ms: int | None = None) -> dict:
+    return {"kind": kind, "status": status, "reason_code": reason_code, "reason": reason, "source": _syn_source(src),
+            "retrieved_ms": retrieved if retrieved is not None else (now - 60_000 if status == "available" else None),
+            "source_updated_ms": updated, "requested_at_ms": at_ms, "now_ms": now, "flood_id": flood_id,
+            "synthetic": True, "caveats": list(caveats or [])}
+
+
+def _bbox_of(geoms: list, pad_deg: float = 0.005) -> list[float]:
+    import shapely
+    u = shapely.union_all([g for g in geoms if g is not None])
+    w, s, e, n = u.bounds
+    return [round(w - pad_deg, 5), round(s - pad_deg, 5), round(e + pad_deg, 5), round(n + pad_deg, 5)]
+
+
+def _place(lon: float, lat: float) -> dict:
+    from fire3d import regions
+    c = regions.county_at(lon, lat)
+    st = regions.state_at(lon, lat)
+    return {"state": st, "county": c.name if c else None, "time_zone": regions.time_zone_at(lon, lat) or regions.main_zone(st)}
+
+
+def _summary(*, fid: str, name: str, kind: str, level: str, emergency: bool, status: str, mode: str, year: int,
+             started: int, basis: str, products: list[dict], gauges: list[dict], lon: float, lat: float, bbox: list[float],
+             states: list[str], now: int, bundle_status: str = "none", built: int | None = None,
+             ended: int | None = None, caveat: str | None = None, rivers: list[str] | None = None) -> dict:
+    from fire3d.floods.grouping import flood_rank  # noqa: F401 - documents where the order comes from
+    members = [g for g in gauges if g["member"]]
+    cats = [c for g in members for c in (g["observed"]["category"], (g.get("forecast") or {}).get("category"))]
+    max_cat = next((c for c in ("major", "moderate", "minor", "action") if c in cats), None)
+    in_effect = [p for p in products if p["phase"] in ("in_effect", "upcoming")]
+    ends = [p["ends_ms"] for p in in_effect if p.get("ends_ms")]
+    sent = [p["sent_ms"] for p in products if p.get("sent_ms")]
+    readings = [g["observed"]["valid_ms"] for g in members if g["observed"]["valid_ms"]]
+    place = _place(lon, lat)
+    refs = [gauge_ref(g) for g in members]
+    return {
+        "id": fid, "hazard": "flood", "name": name, "kind": kind, "level": level, "emergency": emergency, "status": status,
+        "mode": mode, "year": year, "started_ms": started, "started_basis": basis,
+        "updated_ms": max(sent + readings) if (sent or readings) else None,
+        "expires_ms": max(ends) if ends else None, "last_product_ms": max(sent) if sent else None, "ended_ms": ended,
+        "lat": lat, "lon": lon, "bbox_lonlat": bbox, "state": place["state"], "states": states,
+        "county": place["county"], "time_zone": place["time_zone"],
+        "rivers": rivers if rivers is not None else list(dict.fromkeys(g["waterbody"] for g in members if g["waterbody"])),
+        "primary_gauge": refs[0] if refs else None, "gauges": refs,
+        "gauges_in_flood": sum(1 for g in members if g["observed"]["category"] in ("minor", "moderate", "major")),
+        "max_category": max_cat, "products": products, "offices": sorted({SYN_OFFICE}) if products else [],
+        "bundle_status": bundle_status, "bundle_built_ms": built, "aliases": [], "synthetic": True, "caveat": caveat,
+    }
+
+
+def _rect(lon: float, lat: float, dx: float, dy: float, rot: float = 0.0):
+    from shapely import affinity
+    from shapely.geometry import box as sbox
+    g = sbox(lon - dx, lat - dy, lon + dx, lat + dy)
+    return _round_geom(affinity.rotate(g, rot, origin=(lon, lat)))
+
+
+def _simple_gauge(lid: str, name: str, waterbody: str, lon: float, lat: float, th: dict, stage: float, now: int, *,
+                  member: bool, fc: tuple[float, int] | None, rng: np.random.Generator, tz: str,
+                  category: str | None = None, past_ms: int | None = None) -> dict:
+    """A list-only demo flood's gauge (RiverGauge dict, 72 h of hourly series)."""
+    t_end = past_ms if past_ms is not None else now
+    t = np.arange(t_end - 72 * HOUR_MS, t_end + 1, HOUR_MS)
+    h = np.round(stage - 2.4 * np.exp(-((t - t[0]) / (36 * HOUR_MS))) + rng.normal(0, 0.02, t.shape), 2)
+    q = 0.08 * np.clip(h - 2.0, 0, None) ** 1.8
+    cat = category or _category(float(h[-1]), th)
+    forecast = None
+    series = {"observed": _series_rows(t, h, q), "forecast": [], "forecast_issued_ms": None, "stage_unit": "ft", "flow_unit": "kcfs"}
+    if fc is not None:
+        fmax, fh = fc
+        tf = np.arange(now + 6 * HOUR_MS, now + 96 * HOUR_MS + 1, 6 * HOUR_MS)
+        hf = np.round(np.interp((tf - now) / HOUR_MS, [0, fh, 96], [float(h[-1]), fmax, fmax - 2.5]), 2)
+        qf = 0.08 * np.clip(hf - 2.0, 0, None) ** 1.8
+        series.update(forecast=_series_rows(tf, hf, qf), forecast_issued_ms=now - 3 * HOUR_MS)
+        i = int(np.argmax(hf))
+        forecast = {"category": _category(float(hf[i]), th), "max_value": float(hf[i]), "max_ms": int(tf[i]),
+                    "issued_ms": now - 3 * HOUR_MS, "producer": SYN_RFC, "producer_name": SYN_RFC_NAME, "issuer": SYN_WFO,
+                    "url": None, "crest_at_end": bool(i == len(hf) - 1)}
+    place = _place(lon, lat)
+    return {"lid": lid, "usgs_id": None, "reach_id": None, "name": name, "waterbody": waterbody, "state": place["state"],
+            "county": place["county"], "time_zone": tz, "lat": lat, "lon": lon,
+            "url": f"https://water.noaa.gov/gauges/{lid.lower()}", "rfc": SYN_RFC, "wfo": SYN_WFO, "member": member,
+            "is_forecast_point": fc is not None, "thresholds": {"unit": "ft", **th},
+            "observed": {"value": float(h[-1]), "unit": "ft", "flow": float(round(q[-1], 3)), "flow_unit": "kcfs",
+                         "category": cat, "valid_ms": int(t[-1])},
+            "forecast": forecast, "series": series, "impacts": [], "forecast_reliability": None, "hydronotes": [],
+            "data_attribution": [{"text": SYN_ATTRIBUTION, "url": None}]}
+
+
+def _no_series(g: dict) -> dict:
+    return {k: v for k, v in g.items() if k != "series"}
+
+
+def _gauges_answer(gauges: list[dict], now: int, fid: str | None, bbox, *, series: bool, at_ms: int | None = None,
+                   caveats: list[str] | None = None, status: str = "available", reason: str | None = None,
+                   reason_code: str | None = None) -> dict:
+    fc = _flood_copy()
+    rows = [g if series else _no_series(g) for g in gauges]
+    return {**_envelope("river_gauges", fc.SOURCE_NWPS, now, fid, status=status, reason=reason, reason_code=reason_code,
+                        caveats=caveats if caveats is not None else [fc.GAUGE_NOT_ALL_CLEAR], updated=now - 15 * 60_000,
+                        at_ms=at_ms),
+            "gauges": rows, "area_bbox": bbox}
+
+
+def _alerts_answer(alerts: list[dict], zones: dict, now: int, fid: str | None, bbox, states: list[str], *,
+                   archived: bool = False, at_ms: int | None = None, caveats: list[str] | None = None) -> dict:
+    fc = _flood_copy()
+    src = fc.SOURCE_IEM if archived else fc.SOURCE_NWS
+    return {**_envelope("flood_alerts", src, now, fid, caveats=caveats or [], updated=now - 2 * 60_000, at_ms=at_ms),
+            "alerts": alerts, "zones": zones, "area_bbox": bbox, "states_checked": states}
+
+
+def _map_answer(kind: str, features: dict, now: int, fid: str | None, *, reference: int | None, updated: int | None,
+                stats: float | None, category: str | None = None, availability: str | None = None,
+                eff: tuple[int, int] | None = None, status: str = "available", reason: str | None = None,
+                reason_code: str | None = None, caveats: list[str] | None = None) -> dict:
+    fc = _flood_copy()
+    src = {"rfc_fim": fc.SOURCE_RFC_FIM, "catfim": fc.SOURCE_CATFIM, "nfhl": fc.SOURCE_NFHL}[kind]
+    note = {"rfc_fim": fc.RFC_FIM_NOTE, "catfim": fc.catfim_note(category or "moderate"), "nfhl": fc.NFHL_NOTE}[kind]
+    out = {**_envelope("flood_map", src, now, fid, status=status, reason=reason, reason_code=reason_code,
+                       caveats=caveats, updated=updated),
+           "map": kind, "features": features, "reference_ms": reference, "updated_ms": updated,
+           "stats": {"area_km2": round(stats, 3)} if stats is not None else None, "coverage_note": note,
+           "outside_note": fc.RFC_FIM_OUTSIDE if kind == "rfc_fim" else None, "experimental": kind != "nfhl",
+           "category": category if kind == "catfim" else None, "min_zoom": None}
+    if kind == "nfhl":
+        out.update(availability=availability, effective_min_ms=eff[0] if eff else None, effective_max_ms=eff[1] if eff else None)
+    return out
+
+
+def _model_answer(kind: str, now: int, fid: str | None, *, features: dict | None = None, series: list[dict] | None = None,
+                  reach_id: str | None = None, lid: str | None = None, reference: int | None = None,
+                  updated: int | None = None, status: str = "available", reason: str | None = None) -> dict:
+    fc = _flood_copy()
+    return {"kind": kind, "model_output": True, "label": fc.MODEL_LABEL, "status": status, "reason": reason,
+            "source": _syn_source(fc.SOURCE_NWM), "retrieved_ms": now - 60_000 if status == "available" else None,
+            "reference_ms": reference, "updated_ms": updated, "features": features, "series": series,
+            "reach_id": reach_id, "lid": lid, "now_ms": now, "flood_id": fid, "synthetic": True,
+            "caveats": [fc.MODEL_CAVEAT]}
+
+
+def _sat_palette_rgba(cls: np.ndarray) -> np.ndarray:
+    """DSWx WTR classes -> RGBA (CONTRACT 16.5): water #2a8ce6 a.55, partial #7fd4ff a.35, cloud (253) and no data
+    (255) the same grey #9a9a9a "no view" hatch (never transparent), snow/ice white a.3, not water and ocean clear."""
+    h, w = cls.shape
+    out = np.zeros((h, w, 4), np.uint8)
+    out[cls == 1] = (0x2A, 0x8C, 0xE6, 140)
+    out[cls == 2] = (0x7F, 0xD4, 0xFF, 89)
+    out[cls == 252] = (255, 255, 255, 77)
+    noview = (cls == 253) | (cls == 255)
+    rr, cc = np.mgrid[0:h, 0:w]
+    hatch = ((rr + cc) % 6) < 2
+    out[noview] = (0x9A, 0x9A, 0x9A, 115)
+    out[noview & hatch] = (0x7A, 0x7A, 0x7A, 190)
+    return out
+
+
+def _png(rgba: np.ndarray) -> bytes:
+    buf = io.BytesIO()
+    Image.fromarray(rgba, "RGBA").save(buf, format="PNG", optimize=True)
+    return buf.getvalue()
+
+
+def _naip(v: FloodValley, rng: np.random.Generator) -> bytes:
+    gy, gx = np.gradient(v.dem.astype(np.float64), v.render.res_m)
+    shade = np.clip((-gx * 0.6 + gy * 0.6 + 1) / np.sqrt(gx * gx + gy * gy + 1) * 0.9, 0.35, 1.1)
+    hand = v.hand
+    fields = value_fbm(rng, hand.shape, 60.0, octaves=2)
+    base = np.empty(hand.shape + (3,), np.float32)
+    base[:] = (158, 142, 122)                                               # desert soil
+    fp = hand < 5.0
+    base[fp] = np.stack([116 + 18 * fields[fp], 124 + 16 * fields[fp], 98 + 10 * fields[fp]], -1)   # fields, cottonwoods
+    base[v.d < 30.0] = (74, 82, 78)                                        # channel (normal water)
+    mesa = hand > 60
+    base[mesa] = (170, 140, 112)
+    img = np.clip(base * shade[..., None], 0, 255).astype(np.uint8)
+    buf = io.BytesIO()
+    Image.fromarray(img, "RGB").save(buf, format="JPEG", quality=82)
+    return buf.getvalue()
+
+
+def build_flood_fixture(data_dir: Path, now: int | None = None, *, copy_api: Path | None = None) -> Path:
+    """Write ``<data_dir>/floods/fixture-flood/`` (bundle, frozen files, canned answers in ``api/``) and return it.
+    ``now``: epoch ms the fixture is relative to (default: the current time rounded down to 15 min). Every JSON file is
+    validated strictly against ``fire3d.contracts``. ``copy_api``: also copy ``api/`` there (the committed test copy)."""
+    from shapely.geometry import LineString as SLine, mapping, shape as sshape
+
+    from fire3d import contracts as C
+    from fire3d import regions
+    from fire3d.floods.grouping import sort_floods
+
+    fc = _flood_copy()
+    t0 = time.time()
+    if now is None:
+        now = now_ms() // FLOOD_NOW_DEFAULT_STEP_MS * FLOOD_NOW_DEFAULT_STEP_MS
+    rng = np.random.default_rng(FLOOD_SEED)
+    root = Path(data_dir) / "floods" / FLOOD_ID
+    if root.exists():
+        shutil.rmtree(root)
+    api = root / "api"
+    (api / "edge").mkdir(parents=True)
+    year = ms_to_dt(now).year
+
+    epsg = utm_epsg_for(FLOOD_CENTER[0])
+    ce, cn = transformer(4326, epsg).transform(*FLOOD_CENTER)
+    render = Grid(epsg, float(round(ce)), float(round(cn)), FLOOD_EXTENT_M, config.RENDER_SIZE, config.RENDER_SIZE)
+    v = flood_valley(render, rng)
+    res2 = render.res_m ** 2
+    aoi_bbox = [round(float(x), 5) for x in render.bbox_lonlat()]
+    print(f"[{FLOOD_ID}] grid EPSG:{epsg} extent {FLOOD_EXTENT_M:.0f} m @ {render.res_m:.2f} m", flush=True)
+
+    # ---- gauges ------------------------------------------------------------------------------------------------
+    gauges = flood_gauges(v, now, rng)
+    g1 = gauges[0]
+    members = [g for g in gauges if g["member"]]
+
+    # ---- products (FL.W two versions, FA.Y, FA.A zones) -------------------------------------------------------
+    reach_mask = (np.abs(v.s - (-300.0)) < 3500.0) & (v.hand < 4.2) & (v.d < 1500.0)
+    flw_geom, _ = _mask_polygons(v, reach_mask, tol_deg=0.002)
+    flw_geom = flw_geom.convex_hull.buffer(0.004).simplify(0.002)
+    fay_geom = _rect(*_local_lonlat(v, -2400.0, 2600.0), 0.022, 0.016, rot=18.0)
+    t_new, t_ext = now - 30 * HOUR_MS, now - 6 * HOUR_MS
+    flw_begin, flw_end_old, flw_end = now - 20 * HOUR_MS, now + 2 * HOUR_MS, now + 8 * HOUR_MS
+    crest_ms = now + 30 * HOUR_MS
+    hv = {"nwsli": "ZZRF1", "severity": "2", "cause": "ER", "begin_ms": flw_begin, "crest_ms": crest_ms, "end_ms": None,
+          "record": "NO"}
+    area_flw = "San Juan, NM"
+    desc_flw = ("* WHAT...Flooding caused by excessive rainfall is occurring and is forecast to continue.\n\n"
+                "* WHERE...Ridge Fork River at Example Crossing (a fictional gauge).\n\n"
+                f"* WHEN...Until {_local_text(flw_end, '%-I:%M %p %Z %A')}.\n\n"
+                "* IMPACTS...At 17.0 feet, water covers the low-water crossing on Example Road and fields along the river.\n\n"
+                "* ADDITIONAL DETAILS...\n"
+                f"- At {_local_text(now - HOUR_MS, '%-I:%M %p %Z %A')} the stage was 17.6 feet.\n"
+                "- Flood stage is 15.0 feet.\n"
+                f"- Forecast...The river is expected to rise to a crest of 18.0 feet {_local_text(crest_ms, '%A %p')}.")
+    instr = ("Turn around, don't drown when encountering flooded roads. Most flood deaths occur in vehicles.\n\n"
+             "[SYNTHETIC] This text is test data for Fire-3d, not an instruction from any office.")
+    zones_geom = {"NMZ901": _rect(*_local_lonlat(v, -2500.0, 0.0), 0.06, 0.05), "NMZ902": _rect(*_local_lonlat(v, 4200.0, 0.0), 0.05, 0.05)}
+    alerts_all = [
+        syn_alert(aid="urn:oid:synthetic.fixture-flood.flw.1", event="Flood Warning", ph="FL", sig="W", etn=1, action="NEW",
+                  year=ms_to_dt(t_new).year, sent=t_new, onset=flw_begin, ends=flw_end_old,
+                  headline=f"Flood Warning issued {_local_text(t_new)} by {SYN_SENDER}", description=desc_flw,
+                  instruction=instr, area_desc=area_flw, ugcs=["NMC045"], geometry=mapping(flw_geom),
+                  flood_ids=[FLOOD_ID], hvtec=hv),
+        syn_alert(aid="urn:oid:synthetic.fixture-flood.flw.2", event="Flood Warning", ph="FL", sig="W", etn=1, action="EXT",
+                  year=ms_to_dt(t_new).year, sent=t_ext, onset=flw_begin, ends=flw_end,
+                  headline=f"Flood Warning issued {_local_text(t_ext)} by {SYN_SENDER}", description=desc_flw,
+                  instruction=instr, area_desc=area_flw, ugcs=["NMC045"], geometry=mapping(flw_geom),
+                  flood_ids=[FLOOD_ID], hvtec=hv),
+        syn_alert(aid="urn:oid:synthetic.fixture-flood.fay.1", event="Flood Advisory", ph="FA", sig="Y", etn=7, action="NEW",
+                  year=year, sent=now - 3 * HOUR_MS, onset=now - 3 * HOUR_MS, ends=now + 5 * HOUR_MS,
+                  headline=f"Flood Advisory issued {_local_text(now - 3 * HOUR_MS)} by {SYN_SENDER}",
+                  description="* WHAT...Urban and small stream flooding caused by excessive rainfall is expected.\n\n"
+                              "* WHERE...A portion of the fictional Demo Draw area.\n\n"
+                              "* IMPACTS...Minor flooding in low-lying and poor drainage areas.",
+                  instruction=instr, area_desc=area_flw, ugcs=["NMC045"], geometry=mapping(fay_geom),
+                  flood_ids=[FLOOD_ID]),
+        syn_alert(aid="urn:oid:synthetic.fixture-flood.faa.1", event="Flood Watch", ph="FA", sig="A", etn=3, action="NEW",
+                  year=year, sent=now - 20 * HOUR_MS, onset=now - 18 * HOUR_MS, ends=now + 30 * HOUR_MS,
+                  headline=f"Flood Watch issued {_local_text(now - 20 * HOUR_MS)} by {SYN_SENDER}",
+                  description="* WHAT...Flooding caused by excessive rainfall is possible.\n\n"
+                              "* WHERE...Example Mesa and Sample Valley (fictional zones).\n\n"
+                              "* IMPACTS...Excessive runoff may result in flooding of rivers, creeks, streams and other "
+                              "low-lying and flood-prone locations.",
+                  instruction="You should monitor later forecasts and be alert for possible Flood Warnings.\n\n"
+                              "[SYNTHETIC] This text is test data for Fire-3d, not an instruction from any office.",
+                  area_desc="Example Mesa; Sample Valley", ugcs=list(zones_geom), geometry=None, flood_ids=[FLOOD_ID]),
+    ]
+    current = [alerts_all[1], alerts_all[2], alerts_all[3]]                # the versions in effect now
+    zones_fc = _fc([{"type": "Feature", "id": ugc, "geometry": _geojson(g),
+                     "properties": {"ugc": ugc, "name": {"NMZ901": "Example Mesa", "NMZ902": "Sample Valley"}[ugc],
+                                    "alert_ids": [alerts_all[3]["id"]]}} for ugc, g in zones_geom.items()])
+    flood_bbox = _bbox_of([flw_geom, fay_geom] + [sshape({"type": "Point", "coordinates": [g["lon"], g["lat"]]}) for g in members])
+
+    # ---- water layers ------------------------------------------------------------------------------------------
+    reach = np.clip(((v.s + FLOOD_EXTENT_M / 2) / FLOOD_EXTENT_M * FLOOD_REACHES).astype(int), 0, FLOOD_REACHES - 1)
+    near = v.d < 2600.0
+    channel = v.d < 60.0
+
+    def joined(m: np.ndarray) -> np.ndarray:
+        """Only the parts of ``m`` connected to the channel (no ponds on the terraces)."""
+        lab, _ = ndimage.label(m)
+        keep = np.unique(lab[m & channel])
+        return np.isin(lab, keep[keep > 0])
+
+    fim = joined((v.hand < 3.0) & near)
+    cat_mod, cat_maj = joined((v.hand < 2.6) & near), joined((v.hand < 3.4) & near)
+    floodway = (v.hand < 1.0) & (v.d < 220.0)
+    sfha = joined((v.hand < 4.0) & near)
+    band02 = joined((v.hand < 5.2) & near)
+    floodplain = np.zeros(v.hand.shape, np.uint8)
+    floodplain[band02] = 1
+    floodplain[sfha] = 2
+    floodplain[floodway] = 3
+    model_thr = 2.1 + 0.6 * np.sin(v.s / 1500.0)
+    nwm = joined((v.hand < model_thr) & near)
+    nwm5 = joined((v.hand < 3.6) & near)
+    # satellite classes (DSWx WTR): water near the channel (more around ZZRF1), partial water at the edge, a cloud
+    # patch (~30 %), a no-data strip, and the image ending before the AOI's east edge
+    boost = 1.0 * np.exp(-(((v.s + 300.0) / 2600.0) ** 2))
+    wet = joined((v.hand < 1.3 + boost) & near)
+    partial = (~wet) & joined((v.hand < 1.9 + boost) & near)
+    sat = np.zeros(v.hand.shape, np.uint8)
+    sat[partial & near] = 2
+    sat[wet & near] = 1
+    cloud_field = ndimage.gaussian_filter(rng.random(v.hand.shape), 60.0)
+    lon_w, _, lon_e, _ = render.bbox_lonlat()
+    img_e = lon_w + SAT_IMAGE_EAST_FRACTION * (lon_e - lon_w)
+    in_img = v.lon <= img_e
+    thr = np.quantile(cloud_field[in_img], 0.70)
+    sat[(cloud_field > thr) & in_img] = 253
+    X, Z = render.cell_centers_local()
+    strip = np.abs((0.8 * X + 0.6 * Z) - 2600.0) < 260.0
+    sat[strip & in_img] = 255
+    sat[~in_img] = 255
+
+    # ---- bundle files ------------------------------------------------------------------------------------------
+    svf = sky_view_factor(v.dem, render.res_m, n_az=8, n_steps=10)
+    layers = {
+        "elevation": bundle.write_layer(root, "elevation", v.dem, "render", "m", "Elevation (synthetic terrain)", register=False),
+        "sky_view": bundle.write_layer(root, "sky_view", (np.clip(svf, 0, 1) * 255).astype(np.uint8), "render", None,
+                                       "Sky-view factor (0-255)", register=False),
+        "water_forecast": bundle.write_layer(root, "water_forecast", (fim * 255).astype(np.uint8), "render", None,
+                                             "NWS forecast flooded area, next 5 days (synthetic; 0/255)", register=False),
+        "floodplain": bundle.write_layer(root, "floodplain", floodplain, "render", None,
+                                         "FEMA floodplain (synthetic): 0 none, 1 0.2 % band, 2 SFHA, 3 floodway", register=False),
+        "water_satellite": bundle.write_layer(root, "water_satellite", sat, "render", None,
+                                              "Water seen by satellite (synthetic DSWx WTR classes)", register=False),
+        "water_model": bundle.write_layer(root, "water_model", (nwm * 255).astype(np.uint8), "render", None,
+                                          "National Water Model flooded area (synthetic model output; 0/255)", register=False),
+    }
+    naip = _naip(v, rng)
+    layers["naip"] = bundle.write_image_layer(root, "naip", naip, config.RENDER_SIZE, config.RENDER_SIZE,
+                                              "Aerial photo (synthetic), before this flood", register=False)
+
+    # ---- maps --------------------------------------------------------------------------------------------------
+    import shapely
+    fim_feats, member_utm = [], []
+    for r in range(FLOOD_REACHES):
+        ll, utm = _mask_polygons(v, fim & (reach == r))
+        if ll is None:
+            continue
+        fid_r = 9900001 + r
+        fim_feats.append({"type": "Feature", "id": fid_r, "geometry": _geojson(ll),
+                          "properties": {"feature_id": fid_r, "streamflow_cfs": round(6400.0 - 300.0 * abs(r - 3.5), 1)}})
+        if REACH_STATION[r] in {g["lid"] for g in members}:
+            member_utm.append(utm)
+    fim_area = shapely.union_all(member_utm).area / 1e6 if member_utm else None
+    rfc_ref, rfc_upd = now - 2 * HOUR_MS, now - 100 * 60_000
+    maps = {"rfc_fim": _fc(fim_feats)}
+    for cat, m in (("moderate", cat_mod), ("major", cat_maj)):
+        ll, _ = _mask_polygons(v, m)
+        maps[f"catfim_ZZRF1_{cat}"] = _fc([{"type": "Feature", "id": f"ZZRF1-{cat}", "geometry": _geojson(ll),
+                                           "properties": {"ahps_lid": "zzrf1", "magnitude": cat,
+                                                          "stage": 17.0 if cat == "moderate" else 19.0}}])
+    nfhl_feats = []
+    for code, zone, subty, sfha_tf, bfe in ((3, "AE", "FLOODWAY", "T", 1491.0), (2, "AE", None, "T", 1492.4),
+                                            (1, "X", "0.2 PCT ANNUAL CHANCE FLOOD HAZARD", "F", -9999.0)):
+        ll, _ = _mask_polygons(v, floodplain == code)
+        if ll is not None:
+            nfhl_feats.append({"type": "Feature", "id": f"nfhl-{code}", "geometry": _geojson(ll),
+                               "properties": {"fld_zone": zone, "zone_subty": subty, "sfha": sfha_tf, "static_bfe": bfe}})
+    maps["nfhl"] = _fc(nfhl_feats)
+    nwm_ll, _ = _mask_polygons(v, nwm)
+    nwm5_ll, _ = _mask_polygons(v, nwm5)
+    nwm_ref, nwm_upd = now - 2 * HOUR_MS + 0, now - HOUR_MS
+    model_fc = {"nwm_analysis": _fc([{"type": "Feature", "id": 1, "geometry": _geojson(nwm_ll),
+                                      "properties": {"feature_id": 9900004, "streamflow_cfs": 6100.0}}]),
+                "nwm_5day": _fc([{"type": "Feature", "id": 1, "geometry": _geojson(nwm5_ll),
+                                  "properties": {"feature_id": 9900004, "streamflow_cfs": 6900.0}}])}
+    hf_feats = []
+    for r in range(FLOOD_REACHES):
+        x0 = -FLOOD_EXTENT_M / 2 + r * FLOOD_EXTENT_M / FLOOD_REACHES
+        sel = (v.line[:, 0] >= x0) & (v.line[:, 0] <= x0 + FLOOD_EXTENT_M / FLOOD_REACHES)
+        pts = [v.render.local_to_lonlat(float(x), float(z)) for x, z in v.line[sel][::40]]
+        if len(pts) < 2:
+            continue
+        recur = "10" if 2 <= r <= 5 else (">50" if r >= 6 else "20")
+        hf_feats.append({"type": "Feature", "id": 9900001 + r, "geometry": _geojson(SLine(pts).simplify(0.0002)),
+                         "properties": {"feature_id": 9900001 + r, "recur_cat": recur, "streamflow_cfs": 6000.0 - 250.0 * r,
+                                        "high_water_threshold": 2400.0}})
+    model_fc["nwm_high_flow"] = _fc(hf_feats)
+    for name, f in maps.items():
+        bundle.write_json(root / "maps" / f"{name}.geojson", f)
+    bundle.write_json(root / "model" / "nwm_analysis.geojson", model_fc["nwm_analysis"])
+
+    # NWM series (model output) for the gauges with a reach
+    def nwm_series(g: dict) -> list[dict]:
+        obs = np.array([r[2] for r in g["series"]["observed"]], dtype=float) * 1000.0
+        t_obs = np.array([r[0] for r in g["series"]["observed"]], dtype=np.int64)
+        ana_t = np.arange(now - 24 * HOUR_MS, now + 1, HOUR_MS)
+        ana = np.interp(ana_t, t_obs, obs) * 0.93
+        sr_ref = now - HOUR_MS
+        sr_t = np.arange(sr_ref + HOUR_MS, sr_ref + 18 * HOUR_MS + 1, HOUR_MS)
+        mr_ref = now - 6 * HOUR_MS
+        mr_t = np.arange(mr_ref + HOUR_MS, mr_ref + 240 * HOUR_MS + 1, HOUR_MS)
+        fc_rows = g["series"]["forecast"]
+        ft = np.array([now] + [r[0] for r in fc_rows], dtype=np.int64)
+        fq = np.array([obs[-1]] + [r[2] * 1000.0 for r in fc_rows], dtype=float)
+        sr = np.interp(sr_t, ft, fq) * 1.08
+        mr = np.interp(mr_t, ft, fq) * 1.12 * (1 + 0.05 * np.sin((mr_t - mr_ref) / (30 * HOUR_MS)))
+        rows = lambda t, q: [[int(a), float(round(b, 1))] for a, b in zip(t, q)]  # noqa: E731
+        return [{"name": "analysis_assimilation", "reference_ms": now - HOUR_MS, "unit": "ft3/s", "points": rows(ana_t, ana)},
+                {"name": "short_range", "reference_ms": sr_ref, "unit": "ft3/s", "points": rows(sr_t, sr)},
+                {"name": "medium_range_blend", "reference_ms": mr_ref, "unit": "ft3/s", "points": rows(mr_t, mr)}]
+
+    model_series = {}
+    for g in gauges:
+        if g["reach_id"] and g["is_forecast_point"]:
+            model_series[g["lid"]] = _model_answer("nwm_series", now, FLOOD_ID, series=nwm_series(g), reach_id=g["reach_id"],
+                                                   lid=g["lid"], reference=now - 6 * HOUR_MS, updated=now - 5 * HOUR_MS)
+            bundle.write_json(root / "model" / f"nwm_series_{g['lid']}.json", model_series[g["lid"]])
+
+    # ---- satellite ---------------------------------------------------------------------------------------------
+    acquired = now - 4 * 86_400_000 - 2 * HOUR_MS
+    granule_id = f"SYNTHETIC_OPERA_L3_DSWx-HLS_T12SZZ_{ms_to_dt(acquired).strftime('%Y%m%dT%H%M%SZ')}_S2B_30_v1.1"
+    bounds = [aoi_bbox[0], aoi_bbox[1], round(img_e, 5), aoi_bbox[3]]
+    pw = 640
+    ph = int(round(pw * (bounds[3] - bounds[1]) / ((bounds[2] - bounds[0]) * math.cos(math.radians(FLOOD_CENTER[1])))))
+    plon = bounds[0] + (np.arange(pw) + 0.5) / pw * (bounds[2] - bounds[0])
+    plat = bounds[3] - (np.arange(ph) + 0.5) / ph * (bounds[3] - bounds[1])
+    LON, LAT = np.meshgrid(plon, plat)
+    rr, cc = render.lonlat_to_rowcol(LON, LAT)
+    rr = np.clip(np.floor(rr).astype(int), 0, render.height - 1)
+    cc = np.clip(np.floor(cc).astype(int), 0, render.width - 1)
+    png_cls = sat[rr, cc]
+    png_cls = np.where(LON > img_e, 255, png_cls)
+    sat_png = _png(_sat_palette_rgba(png_cls))
+    (root / "satellite.png").write_bytes(sat_png)
+    cell_km2 = res2 / 1e6
+    n_cells = sat.size
+    sat_stats = {"area_km2": round(n_cells * cell_km2, 3), "water_km2": round(float((sat == 1).sum()) * cell_km2, 3),
+                 "partial_km2": round(float((sat == 2).sum()) * cell_km2, 3),
+                 "cloud_pct": round(100.0 * float((sat == 253).sum()) / n_cells, 1),
+                 "nodata_pct": round(100.0 * float((sat == 255).sum()) / n_cells, 1)}
+    sat_when = _local_text(acquired, "%b %-d, %Y, %-I:%M %p %Z")
+    satellite = {
+        "kind": "satellite_water", "status": "available", "reason_code": None, "reason": None, "login": "not_configured",
+        "login_note": fc.SAT_NOT_SET_UP, "measured": True,
+        "granules": [{"id": granule_id, "product": "DSWx-HLS", "platform": "Sentinel-2B", "acquired_ms": acquired,
+                      "produced_ms": acquired + 31 * HOUR_MS, "cloud_pct": sat_stats["cloud_pct"], "route": "earthdata_gis",
+                      "url": None}],
+        "image": {"url": f"/api/floods/{FLOOD_ID}/satellite.png?granule={granule_id}", "bounds_lonlat": bounds},
+        "tiles": None, "stats": sat_stats, "source": _syn_source(fc.SOURCE_OPERA_HLS), "retrieved_ms": now - 60_000,
+        "now_ms": now, "flood_id": FLOOD_ID, "synthetic": True, "caveats": [fc.sat_caveat(sat_when, sat_stats["cloud_pct"])],
+    }
+
+    # ---- summary, warnings.json, gauges.json, manifest ---------------------------------------------------------
+    products = [product_ref(a) for a in current]
+    summary = _summary(fid=FLOOD_ID, name="Ridge Fork River flood", kind="river", level="warning", emergency=False,
+                       status="active", mode="live", year=ms_to_dt(flw_begin).year, started=flw_begin, basis="nws_product",
+                       products=products, gauges=gauges, lon=g1["lon"], lat=g1["lat"], bbox=flood_bbox,
+                       states=regions.states_in_bbox(tuple(flood_bbox)), now=now, bundle_status="ready", built=now)
+    warnings_doc = _alerts_answer(alerts_all, zones_fc, now, FLOOD_ID, flood_bbox, summary["states"])
+    gauges_doc = _gauges_answer(gauges, now, FLOOD_ID, flood_bbox, series=True)
+    bundle.write_json(root / "warnings.json", warnings_doc)
+    bundle.write_json(root / "gauges.json", gauges_doc)
+    bundle.write_json(root / "satellite.json", satellite)
+    eff = (_ms_date(NFHL_EFFECTIVE[0]), _ms_date(NFHL_EFFECTIVE[1]))
+
+    def syn(credit: str) -> str:
+        return f"Synthetic data for testing; not from: {credit}"
+
+    layer_status = {
+        "terrain": {"status": "ok", "reason": None, "source": "Synthetic terrain (procedural; not a real place's shape)", "time_ms": None},
+        "naip": {"status": "ok", "reason": None, "source": "Synthetic aerial photo", "time_ms": None},
+        "water_forecast": {"status": "ok", "reason": None, "source": syn(fc.CREDIT_NWC_EXPERIMENTAL), "time_ms": rfc_ref},
+        "floodplain": {"status": "ok", "reason": None, "source": syn(fc.CREDIT_NFHL), "time_ms": eff[1]},
+        "water_satellite": {"status": "ok", "reason": fc.SAT_NOT_SET_UP, "source": syn(fc.CREDIT_OPERA_HLS), "time_ms": acquired},
+        "water_model": {"status": "ok", "reason": None, "source": syn(fc.CREDIT_NWM), "time_ms": nwm_ref},
+        "warnings": {"status": "ok", "reason": None, "source": syn(fc.CREDIT_NWS), "time_ms": max(a["sent_ms"] for a in current)},
+        "gauges": {"status": "ok", "reason": None, "source": syn(fc.CREDIT_NWPS), "time_ms": g1["observed"]["valid_ms"]},
+    }
+    t_start, t_end = now - 72 * HOUR_MS, now + 120 * HOUR_MS
+    manifest = {
+        "schema_version": 1, "id": FLOOD_ID, "hazard": "flood", "name": summary["name"], "mode": "live", "status": "ready",
+        "summary": summary, "time_origin_ms": t_start, "time_range": {"start_ms": t_start, "end_ms": t_end, "now_ms": now},
+        "grid": manifest_grid(render, render, float(v.dem.min()), float(v.dem.max())), "aoi_note": None,
+        "layers": layers, "layer_status": layer_status,
+        "files": {"warnings": "warnings.json", "gauges": "gauges.json", "satellite": "satellite.json",
+                  "satellite_image": "satellite.png",
+                  "maps": {k: f"maps/{k}.geojson" for k in maps},
+                  "model": {"nwm_analysis": "model/nwm_analysis.geojson",
+                            **{f"nwm_series_{lid}": f"model/nwm_series_{lid}.json" for lid in model_series}}},
+        "data_sources": [{"name": "Synthetic fixture", "detail": "fixture-flood: procedural valley, synthetic NWS-style "
+                          "products (fictional office KZZZ), gauges, maps, satellite water and model output", "fetched_ms": now}],
+        "warnings": ["Simulated data for testing: not a real flood, NWS product or gauge reading."],
+        "built_ms": now,
+    }
+
+    # ---- the seven list-only demo floods (C26) -----------------------------------------------------------------
+    demo = demo_floods(now, rng)
+
+    # ---- canned answers ----------------------------------------------------------------------------------------
+    def put(name: str, model: type, obj: dict) -> None:
+        C.validate_strict(model, obj)
+        bundle.write_json(api / name, obj)
+
+    live_rows = sort_floods([summary] + [d["summary"] for d in demo if d["summary"]["mode"] == "live"])
+    sources_ok = [
+        {"id": "nws_alerts", "name": "National Weather Service", "status": "available", "retrieved_ms": now - 60_000,
+         "reason": None, "stale": False},
+        {"id": "nwps_gauges", "name": "NOAA National Water Prediction Service (NWS)", "status": "available",
+         "retrieved_ms": now - 60_000, "reason": None, "stale": False},
+        {"id": "rfc_forecasts", "name": "NWS River Forecast Centers", "status": "available", "retrieved_ms": now - 60_000,
+         "reason": None, "stale": False},
+    ]
+    n_products = sum(len(r["products"]) for r in live_rows)
+    flood_list = {"hazard": "flood", "mode": "live", "updated_ms": now, "floods": live_rows, "sources": sources_ok,
+                  "products_in_effect": n_products}
+    put("list.json", C.FloodListResponse, flood_list)
+    past_rows = [d["summary"] for d in demo if d["summary"]["mode"] == "historical"]
+    iem_src = {"id": "iem_archive", "name": "Iowa Environmental Mesonet (archived NWS products)", "status": "available",
+               "retrieved_ms": now - 3600_000, "reason": None, "stale": False}
+    for y in sorted({r["year"] for r in past_rows} | {year}):
+        rows = sort_floods([r for r in past_rows if r["year"] == y])
+        put(f"list-{y}.json", C.FloodListResponse,
+            {"hazard": "flood", "mode": "historical", "updated_ms": now, "year": y, "past_rule": "fallback",
+             "preparing": False, "floods": rows, "sources": [iem_src], "products_in_effect": None})
+    put("status.json", C.FloodLiveStatus, {"last_refresh_ms": now - 5 * 60_000, "next_refresh_ms": now + 10 * 60_000,
+                                          "active_floods": sum(1 for r in live_rows if r["status"] == "active"),
+                                          "gauges_in_flood": sum(r["gauges_in_flood"] for r in live_rows), "auto_build": False})
+    put("detail.json", C.FloodDetailResponse, {"summary": summary, "manifest": manifest, "job": None, "resolved_from": "live"})
+    C.validate_strict(C.FloodManifest, manifest)
+    bundle.write_json(root / "manifest.json", manifest)
+    put("flood-alerts.json", C.FloodAlertsResponse, _alerts_answer(current, zones_fc, now, FLOOD_ID, flood_bbox, summary["states"]))
+    put("river-gauges.json", C.RiverGaugesResponse, _gauges_answer(gauges, now, FLOOD_ID, flood_bbox, series=False))
+    for g in gauges:
+        put(f"river-gauges-{g['lid']}.json", C.RiverGaugesResponse,
+            _gauges_answer([g], now, FLOOD_ID, [g["lon"], g["lat"], g["lon"], g["lat"]], series=True))
+    national = [g for g in gauges if g["observed"]["category"] in ("action", "minor", "moderate", "major")]
+    national += [g for d in demo if d["summary"]["mode"] == "live" for g in d["gauges"]
+                 if g["observed"]["category"] in ("action", "minor", "moderate", "major")]
+    put("river-gauges-national.json", C.RiverGaugesResponse,
+        _gauges_answer([{**g, "member": False} for g in national], now, None, None, series=False))
+    put("maps-rfc_fim.json", C.FloodMapResponse, _map_answer("rfc_fim", maps["rfc_fim"], now, FLOOD_ID, reference=rfc_ref,
+                                                              updated=rfc_upd, stats=fim_area))
+    for cat in ("moderate", "major"):
+        ans = _map_answer("catfim", maps[f"catfim_ZZRF1_{cat}"], now, FLOOD_ID, reference=None, updated=_ms_date("2025-06-01"),
+                          stats=None, category=cat)
+        put(f"maps-catfim-ZZRF1-{cat}.json", C.FloodMapResponse, ans)
+        if cat == "moderate":
+            put("maps-catfim.json", C.FloodMapResponse, ans)
+    put("maps-nfhl.json", C.FloodMapResponse, _map_answer("nfhl", maps["nfhl"], now, FLOOD_ID, reference=None, updated=eff[1],
+                                                          stats=None, availability="mapped", eff=eff))
+    put("model-nwm_analysis.json", C.ModelOutputResponse,
+        _model_answer("nwm_analysis", now, FLOOD_ID, features=model_fc["nwm_analysis"], reference=nwm_ref, updated=nwm_upd))
+    put("model-nwm_5day.json", C.ModelOutputResponse,
+        _model_answer("nwm_5day", now, FLOOD_ID, features=model_fc["nwm_5day"], reference=now - 8 * HOUR_MS,
+                      updated=now - 2 * HOUR_MS))
+    put("model-nwm_high_flow.json", C.ModelOutputResponse,
+        _model_answer("nwm_high_flow", now, FLOOD_ID, features=model_fc["nwm_high_flow"], reference=nwm_ref, updated=nwm_upd))
+    for lid, ans in model_series.items():
+        put(f"model-nwm_series-{lid}.json", C.ModelOutputResponse, ans)
+    for g in gauges:
+        if g["lid"] not in model_series:
+            put(f"model-nwm_series-{g['lid']}.json", C.ModelOutputResponse,
+                _model_answer("nwm_series", now, FLOOD_ID, lid=g["lid"], reach_id=g["reach_id"], status="unavailable",
+                              reason="This gauge has no National Water Model series here." if g["reach_id"] is None
+                              else "No National Water Model series for this gauge in the fixture."))
+    put("satellite.json", C.SatelliteWaterResponse, satellite)
+    (api / "satellite.png").write_bytes(sat_png)
+    for d in demo:
+        did = d["summary"]["id"]
+        put(f"detail-{did}.json", C.FloodDetailResponse,
+            {"summary": d["summary"], "manifest": None, "job": None,
+             "resolved_from": "year" if d["summary"]["mode"] == "historical" else "live"})
+        put(f"flood-alerts-{did}.json", C.FloodAlertsResponse, d["alerts_answer"])
+        put(f"river-gauges-{did}.json", C.RiverGaugesResponse, d["gauges_answer"])
+        for kind, ans in d["maps"].items():
+            put(f"maps-{kind}-{did}.json", C.FloodMapResponse, ans)
+    job0 = {"id": "fixture-flood-build-job", "kind": "build", "incident_id": "fixture-flood-<kind>", "status": "queued",
+            "progress": 0.0, "step": "queued", "message": "Queued (fixture server: a canned build job)", "created_ms": now,
+            "started_ms": None, "finished_ms": None, "error": None, "result": None}
+    jobs = [job0, {**job0, "status": "running", "progress": 0.45, "step": "terrain", "message": "Terrain (canned)",
+                   "started_ms": now + 1000},
+            {**job0, "status": "done", "progress": 1.0, "step": "finish", "message": "Done (canned; no bundle is written)",
+             "started_ms": now + 1000, "finished_ms": now + 6000}]
+    for j in jobs:
+        C.validate_strict(C.JobStatus, j)
+    bundle.write_json(api / "build-job.json", jobs)
+    write_flood_edges(api / "edge", now, flood_bbox, summary, flood_list, satellite)
+    write_flood_extras(api, now, flood_bbox)
+    if copy_api is not None:
+        dst = Path(copy_api)
+        if dst.exists():
+            shutil.rmtree(dst)
+        shutil.copytree(api, dst)
+    print(f"[{FLOOD_ID}] written in {time.time() - t0:.1f} s: {root}", flush=True)
+    return root
+
+
+def demo_floods(now: int, rng: np.random.Generator) -> list[dict]:
+    """The seven list-only demo floods ``fixture-flood-<kind>`` (fictional names, issuer and gauges; C4, C26). Each:
+    ``summary``, ``gauges`` (RiverGauge dicts), ``alerts_answer``, ``gauges_answer`` and ``maps`` (rfc_fim, nfhl,
+    catfim answers)."""
+    from shapely.geometry import Point, mapping
+    from shapely.geometry import shape as sshape
+
+    from fire3d import regions
+
+    fc = _flood_copy()
+    out = []
+
+    def finish(fid, name, kind, level, alerts, gauges, *, emergency=False, mode="live", status="active", started=None,
+               rivers=None, caveat=None, zones=None, fim_empty=False, ended=None, at_ms=None):
+        geoms = [sshape(a["geometry"]) for a in alerts if a.get("geometry")]
+        zone_geoms = [sshape(f["geometry"]) for f in (zones or {}).get("features", [])]
+        pts = [Point(g["lon"], g["lat"]) for g in gauges if g["member"]]
+        bbox = _bbox_of([g for g in geoms if g is not None] + zone_geoms + pts, pad_deg=0.01)
+        lon, lat = None, None
+        members = [g for g in gauges if g["member"]]
+        if members:
+            lon, lat = members[0]["lon"], members[0]["lat"]
+        else:
+            big = max([g for g in geoms if g is not None] + zone_geoms, key=lambda g: g.area)
+            rp = big.representative_point()
+            lon, lat = round(rp.x, 5), round(rp.y, 5)
+        for a in alerts:
+            a["flood_ids"] = [fid]
+            a["time_zone"] = _place(lon, lat)["time_zone"]
+        products = [product_ref(a) for a in alerts]
+        yr = ms_to_dt(started).year
+        s = _summary(fid=fid, name=name, kind=kind, level=level, emergency=emergency, status=status, mode=mode, year=yr,
+                     started=started, basis="nws_product" if alerts else "first_seen", products=products, gauges=gauges,
+                     lon=lon, lat=lat, bbox=bbox, states=regions.states_in_bbox(tuple(bbox)), now=now, ended=ended,
+                     caveat=caveat, rivers=rivers)
+        archived = mode == "historical"
+        src_states = s["states"]
+        alerts_answer = _alerts_answer(alerts, zones or _fc([]), now, fid, bbox, src_states, archived=archived, at_ms=at_ms)
+        gcav = [fc.GAUGE_NOT_ALL_CLEAR] + ([fc.THRESHOLDS_TODAY, fc.PAST_NO_FORECAST] if archived else [])
+        gauges_answer = _gauges_answer(gauges, now, fid, bbox, series=False, caveats=gcav, at_ms=at_ms)
+        if archived:
+            rfc = _map_answer("rfc_fim", _fc([]), now, fid, reference=None, updated=None, stats=None,
+                              status="not_available_for_past_dates", reason_code="past_date",
+                              reason="NWS forecast flooded-area maps hold the current forecast only; they are not "
+                                     "available for past dates.")
+        elif fim_empty or not members:
+            rfc = _map_answer("rfc_fim", _fc([]), now, fid, reference=now - 2 * HOUR_MS, updated=now - 90 * 60_000, stats=None)
+        else:
+            m = members[0]
+            poly = _round_geom(Point(m["lon"], m["lat"]).buffer(0.012).simplify(0.002))
+            rfc = _map_answer("rfc_fim", _fc([{"type": "Feature", "id": 9800001, "geometry": mapping(poly),
+                                               "properties": {"feature_id": 9800001, "streamflow_cfs": 12000.0}}]),
+                              now, fid, reference=now - 2 * HOUR_MS, updated=now - 90 * 60_000, stats=round(poly.area * 9.5e3, 3))
+        nfhl = _map_answer("nfhl", _fc([]), now, fid, reference=None, updated=None, stats=None, availability="unknown",
+                           eff=None)
+        if members:
+            cat = (members[0].get("forecast") or {}).get("category") or members[0]["observed"]["category"]
+            cat = cat if cat in ("action", "minor", "moderate", "major") else "minor"
+            catfim = _map_answer("catfim", _fc([]), now, fid, reference=None, updated=_ms_date("2025-06-01"), stats=None,
+                                 category=cat, caveats=["The fixture server has no category map for this demo gauge."])
+        else:
+            catfim = _map_answer("catfim", _fc([]), now, fid, reference=None, updated=None, stats=None, category=None,
+                                 status="unavailable", reason_code="not_covered",
+                                 reason="This flood has no NWS forecast gauge, so no category flood map applies.")
+        out.append({"summary": s, "gauges": gauges, "alerts_answer": alerts_answer, "gauges_answer": gauges_answer,
+                    "maps": {"rfc_fim": rfc, "nfhl": nfhl, "catfim": catfim}})
+
+    def poly_alert(**kw):
+        lon, lat, dx, dy, rot = kw.pop("box")
+        g = _rect(lon, lat, dx, dy, rot)
+        return syn_alert(**kw, geometry=mapping(g))
+
+    # 1. Flash Flood Emergency (no member gauge; a below-stage gauge 6 km away on another stream)
+    t = now - 2 * HOUR_MS
+    a = poly_alert(aid="urn:oid:synthetic.fixture-flood-flash.ffw.1", event="Flash Flood Warning", ph="FF", sig="W", etn=41,
+                   action="NEW", year=ms_to_dt(t).year, sent=t, onset=t, ends=now + 3 * HOUR_MS,
+                   headline=f"Flash Flood Warning issued by {SYN_SENDER}",
+                   description="FLASH FLOOD EMERGENCY FOR EXAMPLE CREEK (FICTIONAL)...\n\n"
+                               "* WHAT...Flash flooding caused by excessive rainfall is occurring.\n\n"
+                               "* WHERE...Example Creek, Mock Hollow and Sample Flats (fictional places).\n\n"
+                               "Some locations that will experience flash flooding include...\n"
+                               "Example Creek, Mock Hollow and Sample Flats.",
+                   instruction="Move to higher ground now. Act quickly to protect your life.\n\n"
+                               "[SYNTHETIC] This text is test data for Fire-3d, not an instruction from any office.",
+                   area_desc="Kerr, TX", ugcs=["TXC265"], flood_ids=[], emergency=True, damage="CATASTROPHIC",
+                   detection="OBSERVED", box=(-99.30, 30.06, 0.06, 0.04, -12.0))
+    far = _simple_gauge("ZZEC1", "Sample Brook at Mock Ford", "Sample Brook", -99.30 + 0.0626, 30.06, {"action": 9.0, "minor": 12.0,
+                        "moderate": 15.0, "major": 18.0}, 4.1, now, member=False, fc=None, rng=rng, tz="America/Chicago")
+    finish("fixture-flood-flash", "Example Creek flash flood", "flash", "warning", [a], [far], emergency=True,
+           started=t, rivers=[], fim_empty=True)
+    # 2. Major river flood
+    g = _simple_gauge("ZZSR1", "Sample River at Demo Landing", "Sample River", -93.21, 39.52,
+                      {"action": 14.0, "minor": 16.0, "moderate": 20.0, "major": 24.0}, 24.6, now, member=True,
+                      fc=(25.3, 18), rng=rng, tz="America/Chicago")
+    t = now - 40 * HOUR_MS
+    a = poly_alert(aid="urn:oid:synthetic.fixture-flood-major.flw.1", event="Flood Warning", ph="FL", sig="W", etn=88,
+                   action="CON", year=ms_to_dt(t).year, sent=now - 4 * HOUR_MS, onset=t, ends=now + 36 * HOUR_MS,
+                   headline=f"Flood Warning issued by {SYN_SENDER}",
+                   description="* WHAT...Major flooding is occurring and major flooding is forecast.\n\n"
+                               "* WHERE...Sample River at Demo Landing (fictional).",
+                   instruction=None, area_desc="Carroll, MO", ugcs=["MOC033"], flood_ids=[],
+                   hvtec={"nwsli": "ZZSR1", "severity": "3", "cause": "ER", "begin_ms": t, "crest_ms": now + 18 * HOUR_MS,
+                          "end_ms": None, "record": "NO"}, box=(-93.21, 39.52, 0.08, 0.025, 25.0))
+    finish("fixture-flood-major", "Sample River flood", "river", "warning", [a], [g], started=t)
+    # 3. Moderate river flood
+    g = _simple_gauge("ZZDF1", "Demo Fork near Testville", "Demo Fork", -91.62, 41.93,
+                      {"action": 11.0, "minor": 13.0, "moderate": 15.0, "major": 18.0}, 15.4, now, member=True,
+                      fc=(15.9, 12), rng=rng, tz="America/Chicago")
+    t = now - 26 * HOUR_MS
+    a = poly_alert(aid="urn:oid:synthetic.fixture-flood-moderate.flw.1", event="Flood Warning", ph="FL", sig="W", etn=23,
+                   action="EXT", year=ms_to_dt(t).year, sent=now - 5 * HOUR_MS, onset=t, ends=now + 20 * HOUR_MS,
+                   headline=f"Flood Warning issued by {SYN_SENDER}",
+                   description="* WHAT...Moderate flooding is occurring.\n\n* WHERE...Demo Fork near Testville (fictional).",
+                   instruction=None, area_desc="Linn, IA", ugcs=["IAC113"], flood_ids=[],
+                   hvtec={"nwsli": "ZZDF1", "severity": "2", "cause": "ER", "begin_ms": t, "crest_ms": now + 12 * HOUR_MS,
+                          "end_ms": now + 60 * HOUR_MS, "record": "NO"}, box=(-91.62, 41.93, 0.07, 0.02, -30.0))
+    finish("fixture-flood-moderate", "Demo Fork flood", "river", "warning", [a], [g], started=t)
+    # 4. Gauge only (minor, no NWS product)
+    g = _simple_gauge("ZZTC1", "Testbed Creek at Example Park", "Testbed Creek", -81.86, 27.24,
+                      {"action": 9.0, "minor": 11.0, "moderate": 14.0, "major": 16.0}, 11.6, now, member=True,
+                      fc=None, rng=rng, tz="America/New_York")
+    finish("fixture-flood-minor", "Testbed Creek flood", "river", "gauge_only", [], [g], started=now - 14 * HOUR_MS,
+           caveat=fc.GAUGE_ONLY_CAVEAT)
+    # 5. Advisory only (areal)
+    t = now - HOUR_MS
+    a = poly_alert(aid="urn:oid:synthetic.fixture-flood-advisory.fay.1", event="Flood Advisory", ph="FA", sig="Y", etn=12,
+                   action="NEW", year=ms_to_dt(t).year, sent=t, onset=t, ends=now + 2 * HOUR_MS,
+                   headline=f"Flood Advisory issued by {SYN_SENDER}",
+                   description="* WHAT...Urban and small stream flooding caused by excessive rainfall is expected.\n\n"
+                               "* WHERE...Flooding along the Mockingbird Run (fictional).",
+                   instruction=None, area_desc="Maricopa, AZ", ugcs=["AZC013"], flood_ids=[],
+                   box=(-111.94, 33.46, 0.05, 0.035, 8.0))
+    finish("fixture-flood-advisory", "Mockingbird Run flood", "areal", "advisory", [a], [], started=t, rivers=[])
+    # 6. Watch only (zone-based, SAME counties, no gauge)
+    zones = {"COZ991": ("Example Valley", (-105.62, 39.12)), "COZ992": ("Sample Foothills", (-105.46, 39.30)),
+             "COZ993": ("Demo Plains", (-105.30, 39.06))}
+    t = now - 6 * HOUR_MS
+    wa = syn_alert(aid="urn:oid:synthetic.fixture-flood-watch.faa.1", event="Flood Watch", ph="FA", sig="A", etn=9,
+                   action="NEW", year=ms_to_dt(t).year, sent=t, onset=now + 4 * HOUR_MS, ends=now + 40 * HOUR_MS,
+                   headline=f"Flood Watch issued by {SYN_SENDER}",
+                   description="* WHAT...Flooding caused by excessive rainfall is possible.\n\n"
+                               "* WHERE...Example Valley, Sample Foothills and Demo Plains (fictional zones).",
+                   instruction="You should monitor later forecasts and be prepared to take action should Flood "
+                               "Warnings be issued.", area_desc="Example Valley; Sample Foothills; Demo Plains",
+                   ugcs=list(zones), geometry=None, flood_ids=[], phase="upcoming")
+    zfc = _fc([{"type": "Feature", "id": u, "geometry": _geojson(_rect(c[0], c[1], 0.09, 0.07)),
+                "properties": {"ugc": u, "name": n, "alert_ids": [wa["id"]]}} for u, (n, c) in zones.items()])
+    finish("fixture-flood-watch", "Flood watch: Example Valley and 2 more areas", "areal", "watch", [wa], [], started=t,
+           rivers=[], zones=zfc)
+    # 7. A past flood (2025, archived products, inactive)
+    p0 = _iso_ms("2025-04-06T09:00:00Z")
+    g = _simple_gauge("ZZPR1", "Placeholder River at Sample Mills", "Placeholder River", -83.31, 37.58,
+                      {"action": 16.0, "minor": 20.0, "moderate": 25.0, "major": 30.0}, 31.2, now, member=True, fc=None,
+                      rng=rng, tz="America/New_York", past_ms=p0 + 30 * HOUR_MS)
+    a = poly_alert(aid="2025-KZZZ-FL-W-0031", event="Flood Warning", ph="FL", sig="W", etn=31, action="EXP", year=2025,
+                   sent=p0 + 60 * HOUR_MS, onset=p0, ends=p0 + 66 * HOUR_MS, headline=f"Flood Warning issued by {SYN_SENDER}",
+                   description="* WHAT...Major flooding occurred.\n\n* WHERE...Placeholder River at Sample Mills (fictional).",
+                   instruction=None, area_desc="Breathitt, KY", ugcs=["KYC025"], flood_ids=[], phase="ended", archived=True,
+                   hvtec={"nwsli": "ZZPR1", "severity": "3", "cause": "ER", "begin_ms": p0, "crest_ms": p0 + 30 * HOUR_MS,
+                          "end_ms": p0 + 64 * HOUR_MS, "record": "NR"}, box=(-83.31, 37.58, 0.07, 0.02, 40.0))
+    finish("fixture-flood-past", "Placeholder River flood", "river", "warning", [a], [g], mode="historical",
+           status="inactive", started=p0, ended=p0 + 66 * HOUR_MS, at_ms=p0 + 30 * HOUR_MS)
+    return out
+
+
+def write_flood_edges(edge: Path, now: int, bbox: list[float], summary: dict, flood_list: dict, satellite: dict) -> None:
+    """``api/edge/``: each official layer ``unavailable`` (C3), plus list and satellite variants the web's edge cases
+    use (NWS down, gauges down, both down, empty list, login refused, picture only)."""
+    from fire3d import contracts as C
+
+    fc = _flood_copy()
+
+    def put(name: str, model: type, obj: dict) -> None:
+        C.validate_strict(model, obj)
+        bundle.write_json(edge / name, obj)
+
+    put("alerts-unavailable.json", C.FloodAlertsResponse,
+        {**_envelope("flood_alerts", fc.SOURCE_NWS, now, FLOOD_ID, status="unavailable", reason_code="upstream_error",
+                     reason=fc.ALERTS_UNAVAILABLE), "alerts": [], "zones": _fc([]), "area_bbox": bbox, "states_checked": []})
+    put("gauges-unavailable.json", C.RiverGaugesResponse,
+        _gauges_answer([], now, FLOOD_ID, bbox, series=False, status="unavailable", reason_code="upstream_error",
+                       reason=fc.GAUGES_UNAVAILABLE, caveats=[]) | {"retrieved_ms": None})
+    for kind, text in (("rfc_fim", fc.RFC_FIM_UNAVAILABLE), ("catfim", fc.CATFIM_UNAVAILABLE), ("nfhl", fc.NFHL_DOWN)):
+        ans = _map_answer(kind, _fc([]), now, FLOOD_ID, reference=None, updated=None, stats=None,
+                          category="moderate" if kind == "catfim" else None,
+                          availability="unknown" if kind == "nfhl" else None, status="unavailable",
+                          reason_code="upstream_error", reason=text)
+        ans["retrieved_ms"] = None
+        put(f"{kind}-unavailable.json", C.FloodMapResponse, ans)
+    put("satellite-unavailable.json", C.SatelliteWaterResponse,
+        {**satellite, "status": "unavailable", "reason_code": "upstream_error", "reason": fc.SAT_UNAVAILABLE,
+         "measured": False, "granules": [], "image": None, "tiles": None, "stats": None, "retrieved_ms": None,
+         "caveats": []})
+    put("satellite-refused.json", C.SatelliteWaterResponse,
+        {**satellite, "login": "refused", "login_note": fc.SAT_LOGIN_REFUSED})
+    put("satellite-picture.json", C.SatelliteWaterResponse,
+        {**satellite, "measured": False, "image": None, "stats": None,
+         "granules": [{**satellite["granules"][0], "route": "gibs", "cloud_pct": None}],
+         "tiles": {"url_template": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/"
+                                   "OPERA_L3_Dynamic_Surface_Water_Extent-HLS/default/{date}/GoogleMapsCompatible_Level12/"
+                                   "{z}/{y}/{x}.png", "date": ms_to_dt(satellite["granules"][0]["acquired_ms"]).strftime("%Y-%m-%d"),
+                   "max_zoom": 12}})
+    put("model-unavailable.json", C.ModelOutputResponse,
+        _model_answer("nwm_analysis", now, FLOOD_ID, status="unavailable",
+                      reason="National Water Model output could not be loaded right now.") | {"retrieved_ms": None})
+    srcs = flood_list["sources"]
+
+    def down(ids: set[str], reasons: dict[str, str]) -> list[dict]:
+        return [{**s, "status": "unavailable", "retrieved_ms": None, "reason": reasons.get(s["id"])} if s["id"] in ids else s
+                for s in srcs]
+
+    gauge_rows = [r for r in flood_list["floods"] if r["gauges_in_flood"] > 0 and r["kind"] == "river"]
+    product_rows = [r for r in flood_list["floods"] if r["products"]]
+    put("list-nws-down.json", C.FloodListResponse,
+        {**flood_list, "floods": gauge_rows, "products_in_effect": None,
+         "sources": down({"nws_alerts"}, {"nws_alerts": fc.FLOOD_NWS_DOWN})})
+    put("list-gauges-down.json", C.FloodListResponse,
+        {**flood_list, "floods": product_rows,
+         "sources": down({"nwps_gauges", "rfc_forecasts"}, {"nwps_gauges": fc.FLOOD_GAUGES_DOWN,
+                                                           "rfc_forecasts": fc.FLOOD_GAUGES_DOWN})})
+    put("list-both-down.json", C.FloodListResponse,
+        {**flood_list, "floods": [r for r in flood_list["floods"] if r["id"] == FLOOD_ID], "products_in_effect": None,
+         "sources": down({"nws_alerts", "nwps_gauges", "rfc_forecasts"},
+                         {k: fc.FLOOD_LISTS_DOWN for k in ("nws_alerts", "nwps_gauges", "rfc_forecasts")})})
+    put("list-empty.json", C.FloodListResponse, {**flood_list, "floods": [], "products_in_effect": 0})
+    put("detail-last-known.json", C.FloodDetailResponse,
+        {"summary": {**summary, "status": "inactive", "bundle_status": "none", "bundle_built_ms": None},
+         "manifest": None, "job": None, "resolved_from": "last_known"})
+
+
+def write_flood_extras(api: Path, now: int, bbox: list[float]) -> None:
+    """Canned ``/api/official/local-alerts?hazard=flood`` and ``/api/extras/evacuations?hazard=flood`` answers for the
+    fixture's area (no request is made: New Mexico has no evacuation feed, and the fixture server never asks NWS)."""
+    from fire3d import contracts as C
+    from fire3d.api import extras
+
+    local = {"kind": "local_alerts", "status": "unavailable", "reason_code": "upstream_error",
+             "reason": "Fixture server: local officials' messages are not fetched for this demo flood. Follow local officials.",
+             "source": {"name": "National Weather Service", "url": "https://www.weather.gov/",
+                        "credit": "Synthetic data for testing; not from: National Weather Service"},
+             "retrieved_ms": None, "source_updated_ms": None, "requested_at_ms": None, "now_ms": now, "incident_id": None,
+             "caveats": [], "alerts": [], "channels": [
+                 {"id": "nws_api", "status": "not_checked", "retrieved_ms": None, "source_updated_ms": None, "reason": None},
+                 {"id": "openfema_archive", "status": "not_checked", "retrieved_ms": None, "source_updated_ms": None,
+                  "reason": None}],
+             "area_bbox": bbox, "reported_location": None, "counties": []}
+    C.validate_strict(C.LocalAlertsResponse, local)
+    bundle.write_json(api / "local-alerts.json", local)
+    evac = extras.evacuations_payload(extras.AreaContext(tuple(bbox), None, now, None, "live"))
+    bundle.write_json(api / "evacuations.json", evac)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--data-dir", type=Path, default=None, help="data dir (default: FIRE3D_DATA_DIR or <repo>/data)")
-    ap.add_argument("--only", choices=("demo", "live", "east"), default=None,
-                    help="one fixture; the default run writes demo + live (east only with --only east)")
+    ap.add_argument("--only", choices=("demo", "live", "east", "flood"), default=None,
+                    help="one fixture; the default run writes demo + live + flood (east only with --only east)")
     ap.add_argument("--members", type=int, default=31)
     ap.add_argument("--quicklook", type=Path, default=None, help="also write quick-look PNGs to this directory")
+    ap.add_argument("--now", default=None, help="flood fixture: the time it is relative to (ISO 8601, e.g. "
+                                                "2026-11-04T18:00:00Z); default: now, rounded down to 15 min")
+    ap.add_argument("--copy-api", type=Path, default=None, help="flood fixture: also copy its canned answers (api/) "
+                                                                "here, e.g. tests/data/floods/fixture_api")
     args = ap.parse_args(argv)
     data_dir = (args.data_dir or config.DATA_DIR).resolve()
     scenarios = []
@@ -1504,7 +2644,11 @@ def main(argv: list[str] | None = None) -> int:
         scenarios.append(east_scenario())
     for sc in scenarios:
         build_fixture(sc, data_dir, args.members, args.quicklook)
-    print(f"fixtures written to {data_dir / 'incidents'} and validated against fire3d.contracts")
+    if scenarios:
+        print(f"fixtures written to {data_dir / 'incidents'} and validated against fire3d.contracts")
+    if args.only in (None, "flood"):
+        build_flood_fixture(data_dir, _iso_ms(args.now) if args.now else None, copy_api=args.copy_api)
+        print(f"flood fixture written to {data_dir / 'floods'} and validated against fire3d.contracts")
     return 0
 
 
