@@ -5,7 +5,7 @@
   "milestones": [
     "M1 hazard foundation (af6647f)",
     "M2 fixtures, store tests, no fire data in flood mode, fetch-spy test (f912ad4)",
-    "M3 map module, list, legend, point card, search, Forensic entry, screenshots"
+    "M3 map module, list, legend, point card, search, Forensic entry, screenshots (cbf8338)"
   ],
   "files": [
     "web/scripts/shot.mjs",
@@ -110,5 +110,10 @@
     "Flood search hits are not listed in the search results popover (an exact or unique flood name opens it; river names match through the same function).",
     "The phone layout of the flood list panel is the fire panel's (no flood-specific phone layout)."
   ],
-  "notes_for_others": "See docs/redesign/contract5/web-flood-overview.md 'Notes for the next roles'. Additive store keys: resolvedFrom, detailLoading, detailError. floodController.hit() returns FloodHit {kind,id,lngLat?} and adds zoomToGroup/hoverLines. Flood evacuations land in useExtrasRuntime().evac with hazard=flood (incident_id null: do not filter with forIncident). Wording guard helpers for rendered scans: floodWordingProblems, stripVerbatim, collectStrings in ui/shell/floodCopy.ts."
+  "notes_for_others": "See docs/redesign/contract5/web-flood-overview.md 'Notes for the next roles'. Additive store keys: resolvedFrom, detailLoading, detailError. floodController.hit() returns FloodHit {kind,id,lngLat?} and adds zoomToGroup/hoverLines. Flood evacuations land in useExtrasRuntime().evac with hazard=flood (incident_id null: do not filter with forIncident). Wording guard helpers for rendered scans: floodWordingProblems, stripVerbatim, collectStrings in ui/shell/floodCopy.ts.",
+  "commits": [
+    "af6647f",
+    "f912ad4",
+    "cbf8338"
+  ]
 }
