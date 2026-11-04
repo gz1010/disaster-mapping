@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fireWeatherFor, rememberAlerts, withRememberedAlerts } from './runtime'
+import { fireMode, fireWeatherFor, rememberAlerts, withRememberedAlerts } from './runtime'
 import { FW_COOLEY_LIVE_QUIET, FW_EATON_ARCHIVE, NWS_LIVE_LOX_RFW } from './__fixtures__/samples'
 import type { FireWeatherResponse } from './types'
 
@@ -50,5 +50,14 @@ describe('officialTimeReady (fire switches)', () => {
     expect(officialTimeReady({ incidentId: 'b', manifest: null, summary: sum('b', 'building') })).toBe('present')
     expect(officialTimeReady({ incidentId: 'b', manifest: null, summary: sum('a', 'none') })).toBeNull()
     expect(officialTimeReady({ incidentId: null, manifest: null, summary: null })).toBeNull()
+  })
+})
+
+describe('brief 5: no fire weather in flood mode', () => {
+  it('fire weather is fetched and shown only while the map lists fires and no flood is open', () => {
+    expect(fireMode('fire', null)).toBe(true)
+    expect(fireMode('flood', null)).toBe(false)
+    expect(fireMode('fire', 'fixture-flood')).toBe(false)
+    expect(fireMode('flood', 'fixture-flood')).toBe(false)
   })
 })

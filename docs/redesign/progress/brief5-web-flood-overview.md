@@ -7,7 +7,7 @@ Role: web-flood-overview (builder), ports API 8752 / Vite 5212. Plan: PLAN-5 4.1
 - [x] M1 (committed 22:05 UTC; backend M1 contracts had landed, so it already uses the real flood types): tokens + floodStyle, TintLevel 'flood' + frameFlood, workspace hazard + URL, history
       (one entry per switch), selectors, views.ts five chromes + stub chromes, HazardSwitch, floodCopy.ts + guard test,
       shot.mjs --reduced-motion
-- [ ] M2 (after backend M1/M2): api/floods.ts, fixtures + edgeCases.ts, state/flood.ts, floodCatalog.ts, floodOverview.ts,
+- [x] M2 (committed ~22:25 UTC): api/floods.ts, fixtures + edgeCases.ts, state/flood.ts, floodCatalog.ts, floodOverview.ts,
       official/extras/fire-weather checks in flood mode, fetch-spy test
 - [ ] M3: map module, FloodStatus, FloodListPanel, FloodLegend, FloodPointCard, Fires-mode line, search, Forensic entry,
       phones, screenshots
@@ -24,3 +24,10 @@ Role: web-flood-overview (builder), ports API 8752 / Vite 5212. Plan: PLAN-5 4.1
   replace, 404/503), timeZone (flood zone), views (five chromes), stub flood chromes, App (chrome slot, title, bootstrap
   ?flood=, flood polling), HazardSwitch in the overview title slot, frameFlood (framing target 'flood:<id>').
 - 22:02 gates: typecheck OK, lint 55 (all src/scene), 1406 web tests pass, build OK.
+- 22:10 backend M2 fixture in git log: fixtures copied (plain cp, satellite.png left out: no web test reads it) into
+  web/src/api/__fixtures__/floods/, edgeCases.ts (every PLAN-5 §7.3 case, derived cases by the smallest change).
+- 22:15 official/runtime.ts + mapLayer.ts: no fire weather in flood mode (fetch and outlines); extras: flood
+  evacuations by the flood's bbox with hazard=flood, no cameras/imagery for floods; fetch-spy test (server render with
+  effects collected then run once; zustand hooks read current state) for the flood overview and both flood chromes.
+- 22:20 tests: api/floods, floodCatalog, floodOverview (rank, kinds, watches, health, never 0 unknown), flood store.
+- 22:22 gates: typecheck OK, lint 55 (src/scene only), 1430 tests pass, build OK.

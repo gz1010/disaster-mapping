@@ -1,0 +1,1 @@
+{"hazard":"flood","mode":"historical","updated_ms":1793815200000,"year":2026,"past_rule":"fallback","preparing":false,"floods":[],"sources":[{"id":"iem_archive","name":"Iowa Environmental Mesonet (archived NWS products)","status":"available","retrieved_ms":1793811600000,"reason":null,"stale":false}],"products_in_effect":null}
