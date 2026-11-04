@@ -6,7 +6,7 @@
   "M1 contracts": "ad49a51",
   "M2 fixture": "76cc9df",
   "M3 sources": "c079864",
-  "M4 catalog": "this commit"
+  "M4 catalog": "0264180"
  },
  "files": [
   "backend/fire3d/contracts.py",
