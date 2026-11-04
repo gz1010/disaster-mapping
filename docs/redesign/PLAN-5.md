@@ -38,10 +38,9 @@ Nov 5).
   `.env`, never printed, logged, committed or copied, count-only scans; never "FireTrace"; never commit `data/` or
   `.env`; no new dependency (none is needed: rasterio, numpy, shapely, pyproj, pillow, MapLibre, three.js are there);
   no file names in one folder that differ only by case (`web/src/lib/fileNames.test.ts`).
-- **The second secret overrides one CLAUDE.md line.** CLAUDE.md still says "The only secret is `FIRMS_MAP_KEY`". The
-  user approved `EARTHDATA_TOKEN` as a second secret in BRIEF-5 decision 2, so for brief 5 both are secrets, with the
-  same rules. Every role prompt states this override; nobody edits CLAUDE.md (frozen; the user decides, §12 U3). The
-  final check scans for both (count only).
+- **Two secrets.** CLAUDE.md names both `FIRMS_MAP_KEY` and `EARTHDATA_TOKEN` (updated by the orchestrator in commit
+  1824908 on the user's brief-5 decision 2; U3 is settled). Same rules for both. The final check scans for both (count
+  only).
 - **Gates:** `cd backend && uv run pytest -q`; `cd web && npm run typecheck && npm run lint && npm test && npm run build`.
   Lint baseline 55 warnings, all in `src/scene`: add none. Keep `SPEC.md`, `backend/fire3d/contracts.py` and
   `web/src/api/types.ts` (with its re-export of `web/src/api/floodTypes.ts`) consistent; a test checks the field names
@@ -1001,7 +1000,7 @@ order is the fastest:
 | R21 | The list build fans out (zones, product text, series) and starves fire weather calls on the shared NWS limiter (C9) | Five national requests per build, nothing per flood; SAME-county overlap offline; zone outlines, product text and series on demand or in the live loop's background budget; a request-count test |
 | R22 | Past-flood severity is not in IEM's bulk year list (measured, C29) | The role looks for a bulk severity/damage route first; else `PAST_RULE_FALLBACK` with its own note; never an unlabelled partial list |
 | R23 | Evacuation feeds built for wildfires (Oregon) answer "none" for floods (C5) | `hazard=flood` drops Oregon with `OR_EVAC_FIRE_ONLY`; Cal OES `EVENT_TYPE` verbatim; flood wording only; guard test |
-| R24 | CLAUDE.md names one secret while BRIEF-5 approved two (C30) | Every role prompt states the override; the final check scans for both; U3 asks the user whether to update CLAUDE.md |
+| R24 | (settled) CLAUDE.md names both secrets since 1824908 | The final check scans for both |
 
 ## 12. Decisions only the user can make (the build proceeds on the recommendation)
 
@@ -1022,11 +1021,10 @@ order is the fastest:
   download any one OPERA DSWx file so PO.DAAC is approved for the account, and renew the token when it expires (about
   60 days; check the date when you make it). Without it everything works; the satellite layer says
   `SAT_NOT_SET_UP_SHORT`.
-- **U3. CLAUDE.md's secrets line.** It still says "The only secret is `FIRMS_MAP_KEY`", while BRIEF-5 decision 2
-  approved `EARTHDATA_TOKEN` as a second secret. (a) **Recommended:** you (or the orchestrator, on your say-so) change
-  that one line to name both secrets, citing decision 2; (b) leave CLAUDE.md as it is: every role prompt carries the
-  override (§0) and the final check scans for both. Agents do not edit CLAUDE.md on their own. The build proceeds
-  with (b) until you answer.
+- **U3. CLAUDE.md's secrets line: settled.** CLAUDE.md already names both secrets (commit 1824908).
+
+**Orchestrator, Nov 4 21:50 UTC:** the build proceeds on **U1 (a)** and **U2 (a)**, the recommended options; the user can
+change either while the build runs (U1 is needed by backend-flood-live, U2 only sets a default).
 
 ## Appendix A. Ownership check
 
