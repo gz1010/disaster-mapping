@@ -1,0 +1,80 @@
+/* Brief 5: the national map in Floods (PLAN-5 §4.2-4.3, owner web-flood-overview). The Fires | Floods switch, the flood
+   list panel, the flood legend and the flood point card. Values from the brief-4 overview (view pill, OverviewPanel,
+   MapLegend) with the flood tokens of map-tokens.css. */
+
+/* ------------------------------------------------------------------------------------------------ the switch */
+/* the title slot: "United States · ( Fires | Floods )"; 28 px, smaller than and left of the view pill */
+.hz-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.hz-switch {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(14, 14, 14, 0.6);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(200, 200, 200, 0.18);
+  text-shadow: none;
+}
+.hz-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--m-text-2);
+  font: 400 12px / 1 var(--m-font-ui);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.hz-switch-md .hz-btn {
+  height: 28px;
+  padding: 0 12px 0 10px;
+  font-size: 13px;
+}
+.hz-btn:hover:not([aria-checked='true']) {
+  background: var(--m-hover);
+  color: var(--m-text);
+}
+.hz-btn[aria-checked='true'] {
+  background: var(--m-accent);
+  color: var(--m-accent-ink);
+  font-weight: 600;
+  cursor: default;
+}
+.hz-btn:focus-visible {
+  outline: 2px solid var(--m-accent);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+.hz-glyph {
+  flex: none;
+}
+/* on the accent the glyphs keep their own colours on a dark ring, so they still read */
+.hz-btn[aria-checked='true'] .hz-glyph {
+  filter: drop-shadow(0 0 0.5px rgba(26, 10, 3, 0.9));
+}
+@media (prefers-reduced-motion: reduce) {
+  .hz-btn {
+    transition: none;
+  }
+}
+/* phones: the switch replaces the title ("Fires | Floods" fits in 140 px) */
+@media (max-width: 760px) {
+  .hz-title-place {
+    display: none;
+  }
+}

@@ -146,8 +146,12 @@ describe('basemap styles', () => {
     expect(AERIAL_TINT.overview.saturation).toBeLessThanOrEqual(-0.8)
     expect(AERIAL_TINT.fire).toEqual({ saturation: -0.6, brightnessMax: 0.68 })
     expect(AERIAL_TINT.none).toEqual({ saturation: 0, brightnessMax: 1 })
+    // brief 5: the Public flood view's lighter tint (#333 colour blend at .25 against the fire view's .35)
+    expect(AERIAL_TINT.flood.saturation).toBeGreaterThan(AERIAL_TINT.fire.saturation)
+    expect(AERIAL_TINT.flood.saturation).toBeLessThan(AERIAL_TINT.none.saturation)
+    expect(AERIAL_TINT.flood.brightnessMax).toBeGreaterThan(AERIAL_TINT.fire.brightnessMax)
     expect(aerialTintPaint('overview')).toEqual({ 'raster-saturation': AERIAL_TINT.overview.saturation, 'raster-brightness-max': AERIAL_TINT.overview.brightnessMax })
-    for (const level of ['overview', 'fire', 'none'] as const) {
+    for (const level of ['overview', 'fire', 'flood', 'none'] as const) {
       const a = deriveAerial(base(), level)
       const img = a.style.layers.find((l) => l.id === IMAGERY_LAYER) as unknown as { paint: Record<string, number> }
       expect(img.paint).toMatchObject(aerialTintPaint(level))

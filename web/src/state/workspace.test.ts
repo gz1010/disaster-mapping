@@ -8,6 +8,7 @@ describe('workspace URL params', () => {
     const p = parseWorkspaceParams('?ws=forensic&preset=command&persp=3d&basemap=aerial&units=metric&view=-118.1,34.2,12.5,30,45&sel=34.25,-118.05')
     expect(p).toEqual({
       workspace: 'forensic',
+      hazard: null,
       preset: 'command',
       perspective: '3d',
       basemap: 'aerial',
@@ -29,6 +30,43 @@ describe('workspace URL params', () => {
     expect(u.searchParams.get('persp')).toBe('3d')
     expect(u.searchParams.get('basemap')).toBe('roads')
     expect(u.searchParams.get('units')).toBe('metric')
+  })
+
+  it('brief 5: ?hazard=flood (omitted for fires); a ?flood= link starts in Floods unless it also names a fire', () => {
+    expect(parseWorkspaceParams('?hazard=flood').hazard).toBe('flood')
+    expect(parseWorkspaceParams('?hazard=fire').hazard).toBe('fire')
+    expect(parseWorkspaceParams('?hazard=water').hazard).toBeNull()
+    expect(parseWorkspaceParams('').hazard).toBeNull()
+    expect(parseWorkspaceParams('?flood=fixture-flood').hazard).toBe('flood')
+    // a link with both opens the fire (CONTRACT §16.1)
+    expect(parseWorkspaceParams('?incident=2026-a&flood=fixture-flood').hazard).toBeNull()
+    const w = (hazard: 'fire' | 'flood' | undefined, href = 'http://x/') =>
+      writeWorkspaceParams(new URL(href), { workspace: 'map', preset: 'public', perspective: '2d', units: 'us', hazard }).searchParams.get('hazard')
+    expect(w('flood')).toBe('flood')
+    expect(w('fire', 'http://x/?hazard=flood')).toBeNull()
+    expect(w(undefined, 'http://x/?hazard=flood')).toBeNull()
+  })
+
+  it('brief 5: the switch keeps camera, selection, preset and Show details, and closes a fire card', () => {
+    const ws = useWorkspace.getState()
+    ws.setPreset('command')
+    ws.selectLocation({ lat: 36.8, lon: -108, source: 'click' })
+    ws.setView({ centerLon: -108, centerLat: 36.8, zoom: 7, bearing: 0, pitch: 0 })
+    ws.setOverviewDetails(true)
+    ws.setFireCard('2026-a')
+    const fly = useWorkspace.getState().mapFlyTo
+    ws.setHazard('flood')
+    const s = useWorkspace.getState()
+    expect(s.hazard).toBe('flood')
+    expect(s.fireCardId).toBeNull()
+    expect(s.preset).toBe('command')
+    expect(s.selection).toMatchObject({ lat: 36.8, lon: -108 })
+    expect(s.view).toMatchObject({ zoom: 7 })
+    expect(s.overviewDetails).toBe(true)
+    expect(s.mapFlyTo).toBe(fly)
+    ws.setHazard('fire')
+    expect(useWorkspace.getState().hazard).toBe('fire')
+    useWorkspace.setState({ preset: 'public', selection: null, view: null, overviewDetails: false })
   })
 
   it("writes the basemap only when the user's pick differs from the preset's default (never a fallback)", () => {

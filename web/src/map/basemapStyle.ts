@@ -81,13 +81,15 @@ export const DARK = {
 } as const
 
 /** The basemap tint (brief 4 decision j; MapActions.setTint): 'overview' (the national map, the handoff's .75 grey
- *  overlay), 'fire' (a fire view and Command, .35; today's aerial look), 'none' (the photos as published). */
-export type TintLevel = 'overview' | 'fire' | 'none'
+ *  overlay), 'fire' (a fire view and Command, .35; today's aerial look), 'flood' (brief 5: the Public flood view, the
+ *  FloodView screen's #333 colour blend at .25, lighter than a fire view's), 'none' (the photos as published). */
+export type TintLevel = 'overview' | 'fire' | 'flood' | 'none'
 
 /** Aerial photo paint per tint level: raster-saturation and raster-brightness-max of the photo layer. */
 export const AERIAL_TINT: Record<TintLevel, { saturation: number; brightnessMax: number }> = {
   overview: { saturation: -0.85, brightnessMax: 0.64 },
   fire: { saturation: -0.6, brightnessMax: 0.68 },
+  flood: { saturation: -0.43, brightnessMax: 0.77 },
   none: { saturation: 0, brightnessMax: 1 },
 }
 

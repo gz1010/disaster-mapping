@@ -86,6 +86,24 @@
   --m-alert: #ee7aa0;
   --m-aoi: rgba(230, 230, 230, 0.5); /* modeled-area boundary: dashed */
   --m-event: #f0f4f8;
+  /* brief 5 (floods; CONTRACT §16.13, mirrored in map/floodStyle.ts): water blues, the hazard circle's disc and NOAA's
+     gauge category hues tuned for the dark map. NWS flood polygons use --m-alert; model output the modeled amber
+     (#f5c060). No green in any flood colour (map/floodStyle.test.ts): NOAA's green "No Flood" is a grey hollow diamond */
+  --m-flood: #2a8ce6;
+  --m-flood-edge: #7fd4ff;
+  --m-flood-channel: #103f8a;
+  --m-flood-channel-edge: #4fb4ff;
+  --m-flood-lead: #4fc3ff;
+  --m-flood-ink: #dff4ff;
+  --m-flood-ink-2: #f2fbff;
+  --m-flood-forecast: #cfeaff;
+  --m-flood-disc: #1a221f;
+  --m-cat-action: #f2e04a;
+  --m-cat-minor: #ff9a3c;
+  --m-cat-moderate: #ff4d4d;
+  --m-cat-major: #c766ff;
+  --m-cat-below: #8a8a8a;
+  --m-cat-undefined: #8a8a8a;
 
   /* status */
   --m-ok: #8fd3a8;

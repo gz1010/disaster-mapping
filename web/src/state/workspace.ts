@@ -7,6 +7,9 @@
 // screenshots) and then dropped from the address bar, so shared links never carry a selected address or the user's view.
 // Brief 2 (CONTRACT §13 shell): the fire card (fireCardId), the overview filter, and the basemap default per preset
 // (Public aerial, Command dark) unless the user picked one; the map's own fallback never counts as a pick.
+// Brief 5 (CONTRACT §16.10): the hazard the national map lists, 'fire' (default) or 'flood' (?hazard=flood, omitted for
+// fires; a ?flood=<id> link without ?incident= starts in Floods). Switching keeps the camera, the selected point, the
+// preset and Show details, and closes a fire card.
 import { useEffect } from 'react'
 import { create } from 'zustand'
 import type { IncidentManifest, IncidentSummary } from '../api/types'
@@ -19,6 +22,8 @@ export type Preset = 'public' | 'command'
 export type Perspective = '2d' | '3d'
 export type Basemap = 'dark' | 'roads' | 'aerial'
 export type Units = 'us' | 'metric'
+/** What the national map lists (brief 5, CONTRACT §16.1): fires or floods. */
+export type Hazard = 'fire' | 'flood'
 /** Who placed the selected point. 'device' (brief 4): the browser's own location, after the user asked for it. */
 export type SelectionSource = 'click' | 'coords' | 'address' | 'event' | 'incident' | 'device'
 
@@ -132,6 +137,8 @@ export const DEFAULT_PANELS: Record<PanelKey, boolean> = { updates: true, analys
 
 export interface WorkspaceState {
   workspace: Workspace
+  /** Brief 5: what the national map lists (the Fires | Floods switch); opening a flood sets 'flood'. */
+  hazard: Hazard
   preset: Preset
   perspective: Perspective
   /** The effective basemap every reader uses: basemapFallback ?? basemapPick ?? defaultBasemap(preset). */
@@ -161,6 +168,8 @@ export interface WorkspaceState {
   device: DeviceLocation | null
 
   setWorkspace: (w: Workspace) => void
+  /** The Fires | Floods switch (brief 5): keeps the camera, selection, preset and Show details; closes a fire card. */
+  setHazard: (h: Hazard) => void
   /** Switch preset; the effective basemap follows the new preset's default unless the user picked one. */
   setPreset: (p: Preset) => void
   setPerspective: (p: Perspective) => void
@@ -208,6 +217,8 @@ export function effectiveBasemap(s: { basemapFallback?: Basemap | null; basemapP
 // ------------------------------------------------------------------------------------------------- URL state
 export interface WorkspaceUrlParams {
   workspace: Workspace | null
+  /** ?hazard=flood, or a ?flood=<id> link without ?incident= (brief 5); null = not given (fires). */
+  hazard: Hazard | null
   preset: Preset | null
   perspective: Perspective | null
   basemap: Basemap | null
@@ -238,8 +249,11 @@ export function parseWorkspaceParams(search: string): WorkspaceUrlParams {
   let selection: { lat: number; lon: number } | null = null
   const sp = q.get('sel')?.split(',').map(Number)
   if (sp && sp.length === 2 && validLat(sp[0]) && validLon(sp[1])) selection = { lat: sp[0], lon: sp[1] }
+  const hazard = pick(q.get('hazard'), ['fire', 'flood'] as const) ?? (q.get('flood') && !q.get('incident') ? 'flood' : null)
   return {
     workspace: pick(q.get('ws'), ['map', 'forensic'] as const),
+    // a link with both ?incident= and ?flood= opens the fire (CONTRACT §16.1)
+    hazard: q.get('incident') && hazard === 'flood' && !q.get('hazard') ? null : hazard,
     preset: pick(q.get('preset'), ['public', 'command'] as const),
     perspective: pick(q.get('persp'), ['2d', '3d'] as const),
     basemap: pick(q.get('basemap'), ['dark', 'roads', 'aerial'] as const),
@@ -251,13 +265,16 @@ export function parseWorkspaceParams(search: string): WorkspaceUrlParams {
 
 /** Write the workspace fields into `url` (defaults are omitted, except ws which is always explicit); drops the
  *  one-shot ?view= / ?sel= parameters. `basemap` is written only when the user's pick differs from the preset's
- *  default (a fallback is never written). Returns the same URL object. */
+ *  default (a fallback is never written). `hazard` (brief 5): ?hazard=flood in Floods, nothing for fires. Returns the
+ *  same URL object. */
 export function writeWorkspaceParams(
   url: URL,
-  s: Pick<WorkspaceState, 'workspace' | 'preset' | 'perspective' | 'units'> & { basemapPick?: Basemap | null; basemap?: Basemap },
+  s: Pick<WorkspaceState, 'workspace' | 'preset' | 'perspective' | 'units'> & { basemapPick?: Basemap | null; basemap?: Basemap; hazard?: Hazard },
 ): URL {
   const p = url.searchParams
   p.set('ws', s.workspace)
+  if (s.hazard === 'flood') p.set('hazard', 'flood')
+  else p.delete('hazard')
   if (s.preset !== 'public') p.set('preset', s.preset)
   else p.delete('preset')
   if (s.perspective !== '2d') p.set('persp', s.perspective)
@@ -296,6 +313,7 @@ export function incidentFlyTo(summary: Pick<IncidentSummary, 'lat' | 'lon'> | nu
 // ------------------------------------------------------------------------------------------------- store
 export const useWorkspace = create<WorkspaceState>()((set, get) => ({
   workspace: initialUrl.workspace ?? 'map',
+  hazard: initialUrl.hazard ?? 'fire',
   preset: initialUrl.preset ?? 'public',
   perspective: initialUrl.perspective ?? '2d',
   basemap: effectiveBasemap({ basemapPick: initialUrl.basemap, preset: initialUrl.preset ?? 'public' }),
@@ -315,6 +333,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => ({
   device: null,
 
   setWorkspace: (workspace) => set({ workspace }),
+  setHazard: (hazard) => set((s) => (s.hazard === hazard ? {} : { hazard, fireCardId: null, overviewShowAll: false })),
   setPreset: (preset) => set((s) => ({ preset, basemap: effectiveBasemap({ ...s, preset }) })),
   setPerspective: (perspective) => set({ perspective }),
   togglePerspective: () => set((s) => ({ perspective: s.perspective === '2d' ? '3d' : '2d' })),
@@ -403,7 +422,7 @@ export function useWorkspaceUrlSync(enabled: boolean): void {
       if (timer === undefined) timer = window.setTimeout(write, 300)
     }
     const unsub = useWorkspace.subscribe((s, p) => {
-      if (s.workspace !== p.workspace || s.preset !== p.preset || s.perspective !== p.perspective || s.basemapPick !== p.basemapPick || s.units !== p.units) schedule()
+      if (s.workspace !== p.workspace || s.preset !== p.preset || s.perspective !== p.perspective || s.basemapPick !== p.basemapPick || s.units !== p.units || s.hazard !== p.hazard) schedule()
     })
     schedule()
     return () => {

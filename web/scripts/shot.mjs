@@ -3,12 +3,14 @@
 //
 //   node scripts/shot.mjs <url> <out.png> [--wait 6000] [--w 1720] [--h 1080] [--dpr 1]
 //        [--eval "<js, may be async; runs after load>"] [--eval-after-wait "<js>"] [--settle 1200]
-//        [--backend auto|gpu|swiftshader] [--fail-on-error] [--shot-timeout 30000] [--quality low]
+//        [--backend auto|gpu|swiftshader] [--fail-on-error] [--shot-timeout 30000] [--quality low] [--reduced-motion]
 //
 // --shot-timeout <ms>  timeout of page.screenshot() itself (Playwright's default is 30 s; a Forensic scene under
 //                      SwiftShader needs minutes to deliver a frame).
 // --quality low        before the app's first render, sets the Forensic scene to low quality with depth of field off
 //                      (useStore quality 'low', dof false): a cheaper scene for software rendering. The map is unaffected.
+// --reduced-motion     the page sees prefers-reduced-motion: reduce (brief 5: every animation must stand still), and the
+//                      tool prints how many SVG <animate>/<animateTransform> elements and running CSS animations remain.
 //
 // It first tries the GPU (ANGLE Metal) and checks that WebGL2 really works; otherwise it falls back to SwiftShader.
 // Prints the WebGL backend, console errors/warnings and page errors, then writes the PNG.
@@ -17,10 +19,10 @@ import { mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { chromium } from 'playwright'
 
-const USAGE = 'usage: node scripts/shot.mjs <url> <out.png> [--wait ms] [--w px] [--h px] [--dpr n] [--eval js] [--eval-after-wait js] [--settle ms] [--backend auto|gpu|swiftshader] [--fail-on-error] [--shot-timeout ms] [--quality low]'
+const USAGE = 'usage: node scripts/shot.mjs <url> <out.png> [--wait ms] [--w px] [--h px] [--dpr n] [--eval js] [--eval-after-wait js] [--settle ms] [--backend auto|gpu|swiftshader] [--fail-on-error] [--shot-timeout ms] [--quality low] [--reduced-motion]'
 
 function parseArgs(argv) {
-  const opts = { wait: 6000, w: 1720, h: 1080, dpr: 1, settle: 1200, backend: 'auto', eval: null, evalAfterWait: null, failOnError: false, shotTimeout: null, quality: null }
+  const opts = { wait: 6000, w: 1720, h: 1080, dpr: 1, settle: 1200, backend: 'auto', eval: null, evalAfterWait: null, failOnError: false, shotTimeout: null, quality: null, reducedMotion: false }
   const pos = []
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -40,6 +42,7 @@ function parseArgs(argv) {
       case '--fail-on-error': opts.failOnError = true; break
       case '--shot-timeout': opts.shotTimeout = Number(next()); break
       case '--quality': opts.quality = next(); break
+      case '--reduced-motion': opts.reducedMotion = true; break
       case '-h':
       case '--help':
         console.log(USAGE)
@@ -131,7 +134,12 @@ async function main() {
   const pageErrors = []
   const failed = []
   try {
-    const context = await browser.newContext({ viewport: { width: opts.w, height: opts.h }, deviceScaleFactor: opts.dpr })
+    const context = await browser.newContext({
+      viewport: { width: opts.w, height: opts.h },
+      deviceScaleFactor: opts.dpr,
+      ...(opts.reducedMotion ? { reducedMotion: 'reduce' } : {}),
+    })
+    if (opts.reducedMotion) console.log('[shot] prefers-reduced-motion: reduce')
     if (opts.quality === 'low') {
       // The app assigns window.__store when state/store.ts loads, before anything renders: catch that assignment and
       // lower the scene settings at once (the Forensic scene is lazy and mounts later).
@@ -173,6 +181,14 @@ async function main() {
         return st ? `quality ${st.quality}, depth of field ${st.dof ? 'on' : 'off'}` : 'no store handle'
       })
       console.log(`[shot] scene settings at capture: ${q}`)
+    }
+    if (opts.reducedMotion) {
+      const m = await page.evaluate(() => ({
+        matches: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+        smil: document.querySelectorAll('animate, animateTransform, animateMotion').length,
+        css: typeof document.getAnimations === 'function' ? document.getAnimations().filter((a) => a.playState === 'running').length : null,
+      }))
+      console.log(`[shot] reduced motion: media query ${m.matches ? 'matches' : 'does NOT match'}; SVG animation elements ${m.smil}; running CSS animations ${m.css ?? 'n/a'}`)
     }
     mkdirSync(dirname(opts.out), { recursive: true })
     await page.screenshot({ path: opts.out, ...(opts.shotTimeout != null ? { timeout: opts.shotTimeout } : {}) })
