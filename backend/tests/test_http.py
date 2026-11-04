@@ -162,3 +162,82 @@ def test_stream_download(mock, tmp_path: Path) -> None:
 def test_tests_are_offline() -> None:
     with pytest.raises(Exception, match="network access in tests"):
         fhttp.get_json("https://example.test/real", ttl_s=0, retries=0)
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# Brief 5 (CONTRACT 16.1): headers=, the Authorization allow-list, and the token never leaking (fake token only)
+# ------------------------------------------------------------------------------------------------------------------
+FAKE_TOKEN = "eyJ0eXAiOiJKV1QiLCJmYWtlIjoiZWFydGhkYXRhIn0.ZmFrZS1wYXlsb2Fk.ZmFrZS1zaWc"   # not a real token
+PODAAC = "https://archive.podaac.earthdata.nasa.gov/podaac-ops-cumulus-protected/OPERA_L3_DSWX-S1_V1/x_B01_WTR.tif"
+S3_SIG, S3_TOKEN = "f00dfeedcafe0123", "IQoJb3JpZ2luFAKESESSION"
+S3 = (f"https://podaac-ops-cumulus-protected.s3.us-west-2.amazonaws.com/OPERA/x_B01_WTR.tif?X-Amz-Algorithm=AWS4"
+      f"&X-Amz-Security-Token={S3_TOKEN}&X-Amz-Signature={S3_SIG}")
+
+
+def _auth(token: str = FAKE_TOKEN) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_headers_are_sent_and_never_in_the_cache_key(mock) -> None:
+    rec = mock(httpx.Response(200, json={"ok": 1}))
+    url = "https://example.test/h"
+    assert fhttp.get_json(url, headers={"Accept": "application/geo+json"}) == {"ok": 1}
+    assert rec.calls[0].headers["accept"] == "application/geo+json"
+    assert fhttp.get_json(url, headers={"Accept": "text/plain"}) == {"ok": 1}   # same key: served from the cache
+    assert len(rec.calls) == 1
+    assert fhttp.cache_key("GET", url) == fhttp.cache_key("GET", url, None)
+
+
+@pytest.mark.parametrize("url", [
+    "https://example.test/x", "http://archive.podaac.earthdata.nasa.gov/x", "https://cmr.earthdata.nasa.gov/search",
+    "https://urs.earthdata.nasa.gov/oauth", "https://archive.podaac.earthdata.nasa.gov.evil.test/x",
+])
+def test_authorization_only_to_the_allow_list(mock, url: str, tmp_path: Path) -> None:
+    rec = mock(httpx.Response(200, json={}))
+    for call in (lambda: fhttp.get_json(url, headers=_auth()), lambda: fhttp.get_bytes(url, headers={"authorization": "x"}),
+                 lambda: fhttp.stream_download(url, tmp_path / "f.bin", headers=_auth())):
+        with pytest.raises(ValueError) as ei:
+            call()
+        assert str(ei.value).count(FAKE_TOKEN) == 0
+    assert rec.calls == []                             # refused before any request
+
+
+def test_token_reaches_podaac_only_and_never_the_presigned_redirect(mock, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                                                    caplog: pytest.LogCaptureFixture) -> None:
+    """PO.DAAC answers 303 to a pre-signed S3 address: the token goes to PO.DAAC only (header, never a URL); the
+    redirect is followed without it; no log record, error, file or cache entry holds the token or the S3 values."""
+    monkeypatch.setattr(config, "EARTHDATA_TOKEN", FAKE_TOKEN)
+    caplog.set_level(logging.DEBUG)
+    rec = mock(httpx.Response(303, headers={"Location": S3}), httpx.Response(200, content=b"II*\x00tiff"))
+    dest = fhttp.stream_download(PODAAC, tmp_path / "g.tif", headers=_auth(config.EARTHDATA_TOKEN))
+    assert dest.read_bytes() == b"II*\x00tiff"
+    assert [c.url.host for c in rec.calls] == ["archive.podaac.earthdata.nasa.gov", "podaac-ops-cumulus-protected.s3.us-west-2.amazonaws.com"]
+    assert rec.calls[0].headers.get("authorization") == f"Bearer {FAKE_TOKEN}"
+    assert "authorization" not in rec.calls[1].headers
+    assert all(str(c.url).count(FAKE_TOKEN) == 0 for c in rec.calls)
+    logged = "\n".join(r.getMessage() for r in caplog.records)
+    assert logged.count(FAKE_TOKEN) == 0 and logged.count(S3_SIG) == 0 and logged.count(S3_TOKEN) == 0
+    # the cached request path too (request(), not stream_download)
+    rec2 = mock(httpx.Response(302, headers={"Location": S3}), httpx.Response(200, content=b"II*\x00tiff2"))
+    assert fhttp.get_bytes(PODAAC, headers=_auth(config.EARTHDATA_TOKEN)) == b"II*\x00tiff2"
+    assert "authorization" not in rec2.calls[1].headers
+    cache_files = [p for p in Path(config.CACHE_DIR).rglob("*") if p.is_file()]
+    assert cache_files and all(p.read_bytes().count(FAKE_TOKEN.encode()) == 0 for p in cache_files)
+    assert all(p.read_bytes().count(S3_SIG.encode()) == 0 for p in cache_files)
+
+
+def test_presigned_values_never_reach_an_error(mock, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                               caplog: pytest.LogCaptureFixture) -> None:
+    monkeypatch.setattr(config, "EARTHDATA_TOKEN", FAKE_TOKEN)
+    caplog.set_level(logging.DEBUG)
+    mock(httpx.Response(303, headers={"Location": S3}), httpx.Response(403, text=f"denied for {S3} with Bearer {FAKE_TOKEN}"))
+    with pytest.raises(fhttp.HttpError) as ei:
+        fhttp.get_bytes(PODAAC, headers=_auth(config.EARTHDATA_TOKEN))
+    text = str(ei.value) + ei.value.message + ei.value.url
+    assert text.count(FAKE_TOKEN) == 0 and text.count(S3_SIG) == 0 and text.count(S3_TOKEN) == 0
+    with pytest.raises(fhttp.HttpError) as ei2:
+        mock(httpx.Response(303, headers={"Location": S3}), httpx.Response(401, text="no"))
+        fhttp.stream_download(PODAAC, tmp_path / "h.tif", headers=_auth(config.EARTHDATA_TOKEN))
+    assert ei2.value.status == 401 and str(ei2.value).count(FAKE_TOKEN) == 0
+    logged = "\n".join(r.getMessage() for r in caplog.records)
+    assert logged.count(FAKE_TOKEN) == 0 and logged.count(S3_SIG) == 0 and logged.count(S3_TOKEN) == 0

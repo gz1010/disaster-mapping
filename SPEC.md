@@ -174,6 +174,18 @@ CANYON" → "Devil's Canyon", "O'NEIL" → "O'Neil"); the slug is the same eithe
 `slug`: lowercase, strip, non-alphanumerics → `-`, collapse repeats, trim `-`.
 The fixture uses id `fixture-demo`.
 
+**Flood ids (brief 5, CONTRACT §16.1).** `flood-{YYYYMMDD}-{slug(name)}-{h6}` (regex
+`^flood-\d{8}-[a-z0-9-]+-[0-9a-f]{6}$`): the UTC date of the flood's `started_ms`, the slug of its name (at most 48
+characters), and the first 6 hex characters of the SHA-1 of its anchor: the primary gauge's NWSLI (upper case) for a
+river flood, else the oldest VTEC key `{office}.{phenomena}.{significance}.{etn:04d}.{year}`, else the NWSLI of a
+gauge-only flood. Example: `flood-20261104-san-juan-river-flood-3fa2c1`. A flood id never parses as a fire id
+(`catalog.parse_incident_id` → None), so every fire route answers it as "not a listed fire". Flood bundles live in
+`data/floods/{id}/` (`config.FLOODS_DIR`), never in `data/incidents/`. The registry `data/floods/registry.jsonl` keeps
+ids stable: VTEC keys are permanent, a gauge key is an episode `{NWSLI}@{first_seen_ms}` (the same gauge flooding again
+weeks later is a new flood with a new id); merged floods keep the older id and list the other in `aliases`; the last
+summary of an id that left the live list is kept in `data/floods/last_known/{id}.json`. The synthetic flood fixture is
+`fixture-flood` (bundle-only; the fixture server alone also lists `fixture-flood-<kind>` demo rows).
+
 ### 4.5 Units in the UI (match the reference)
 Area in acres (1 ac = 4046.8564224 m²), rate of spread in chains/hour (1 chain = 20.1168 m), wind in mph with a
 cardinal direction, temperature in °C, RH %, fuel moisture %, flame length in ft, elevation axis in m.
@@ -384,6 +396,27 @@ interface Aircraft {
   seen_s: number; on_ground: boolean;
 }
 ```
+
+**Flood routes (brief 5; shapes in `docs/redesign/CONTRACT.md` §16.2-16.7, `backend/fire3d/contracts.py` and
+`web/src/api/floodTypes.ts`, re-exported by `web/src/api/types.ts`).** All in `backend/fire3d/api/floods.py` (one
+`include_router` line in `api/app.py`) except the `hazard` parameter of local alerts and evacuations. Every route answers
+`fixture-flood` from its bundle's frozen files (`synthetic: true`). Official answers use their own `FloodEnvelope`
+(`kind` "flood_alerts" \| "river_gauges" \| "flood_map", `flood_id`, `synthetic`); model output
+(`ModelOutputResponse`, `model_output: true`) is never an official envelope; no fire union is widened.
+
+| Method | Path | Response |
+|---|---|---|
+| GET | `/api/floods?mode=live\|historical&year=` | `FloodListResponse` `{hazard: "flood", mode, updated_ms, year?, past_rule?, preparing?, floods: FloodSummary[], sources: FloodListSource[], products_in_effect}`. Live: NWS flood products in effect or upcoming in the lower 48 + DC (Flood Warning, Flash Flood Warning, Flood Watch, Flash Flood Watch, Flood Advisory and their statements; coastal and lakeshore products are out) and river gauges observed at minor flooding or worse, grouped per river or area (§8.8), ordered by `floodRank` (CONTRACT §16.8); watches are included (the web hides them by default). `sources[]` (`nws_alerts`, `nwps_gauges`, `rfc_forecasts`, `iem_archive` for past years): NWS down → floods from gauges only (`FLOOD_NWS_DOWN`); gauges down → from NWS products only (`FLOOD_GAUGES_DOWN`); both down → the flood bundles on disk only (`FLOOD_LISTS_DOWN`); never "no floods" for an outage. `products_in_effect` is null when NWS could not be read. Cached 5 min (60 s while degraded); a cold build makes at most 6 upstream requests. |
+| GET | `/api/floods/status` | `FloodLiveStatus` `{last_refresh_ms, next_refresh_ms, active_floods, gauges_in_flood, auto_build}`; counts null when the lists could not be read (never 0). |
+| GET | `/api/floods/{id}` | `FloodDetailResponse` `{summary, manifest: FloodManifest \| null, job: JobStatus \| null, resolved_from}`. Resolution (PLAN-5 §3.2 rule 13): the live list → the year lists → a registry alias (the canonical summary; the web replaces the URL) → the bundle's frozen summary → the registry's last-known summary → 404. 503 "The flood lists could not be reached right now; try again later." when the lists could not decide and nothing is on disk, never 404. `fixture-flood-<kind>` ids are 404 here (fixture server only). |
+| POST | `/api/floods/{id}/build?force=0\|1` | `JobStatus` (kind "build", `incident_id` = the flood id). 409 for `fixture-flood` or a flood outside the lower 48. |
+| GET | `/api/floods/{id}/files/{path}` | Flood bundle files (gzip, ETag, `Cache-Control: no-cache`, traversal-safe); 404. |
+| GET | `/api/floods/{id}/maps?kind=rfc_fim\|catfim\|nfhl&lid=&category=&at_ms=` | `FloodMapResponse`: the NWS forecast flooded area (next 5 days, experimental), NWS category flood maps (experimental), FEMA's 1 % floodplain (background, with `availability` and effective dates); past times `not_available_for_past_dates` (CatFIM answers today's library with a caveat). |
+| GET | `/api/floods/{id}/model?kind=nwm_analysis\|nwm_5day\|nwm_high_flow\|nwm_series&lid=` | `ModelOutputResponse` (National Water Model, experimental model output; `MODEL_CAVEAT` always); past times `not_available_for_past_dates`. |
+| GET | `/api/floods/{id}/satellite?at_ms=` and `/api/floods/{id}/satellite.png?granule=` | `SatelliteWaterResponse` (water seen by satellite, NASA OPERA DSWx; `login` "not_configured" \| "configured" \| "refused", never the token) and its PNG (cloud and no-data pixels drawn as "no view", never transparent). |
+| GET | `/api/official/flood-alerts?flood=<id>\|bbox=w,s,e,n&at_ms=` | `FloodAlertsResponse`: NWS flood products verbatim with issuer, own times and link (IEM archive for past times); 422 without `flood` or `bbox`. |
+| GET | `/api/official/river-gauges?flood=<id>\|bbox=\|lid=\|scope=national&min=action&series=0\|1&at_ms=` | `RiverGaugesResponse`: gauges, NWS flood categories and thresholds, USGS-measured readings (provisional), the official RFC forecast with its issue time; `bbox` and nearby gauges from the NWS `riv_gauges` map service, NWPS per `lid` only; 422 without a scope. |
+| GET | `/api/official/local-alerts?...&hazard=fire\|flood`, `/api/extras/evacuations?...&hazard=fire\|flood` | The existing answers; `hazard` defaults to `fire` (byte-for-byte as before). `flood`: local messages about flood, water, levees or dams; Oregon's wildfire-only evacuation feed answers not-available (`OR_EVAC_FIRE_ONLY`); Cal OES `event_type` verbatim. |
 
 Official endpoints (BRIEF-2; built in `backend/fire3d/api/official.py`, details in `docs/redesign/CONTRACT.md` §13). An upstream failure is not an HTTP error: they answer 200 with `status: "unavailable"` (or `"not_available_for_past_dates"` for the archive). Errors: 400 bad id, 404 unknown incident, 422 bad query, 429 Fire-3d's own request limit (NWS 30/min, IEM 30/min). JSON is `Cache-Control: no-store`.
 

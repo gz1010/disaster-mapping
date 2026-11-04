@@ -497,3 +497,6 @@ export interface AccuracyRegionsResponse {
   assignment: { by: string; split: Record<string, string[]>; fallback: string }
   regions: AccuracyRegion[] // all ten ids, always
 }
+
+// Brief 5 (floods): the flood contract types (CONTRACT section 16.2-16.6) live in floodTypes.ts.
+export * from './floodTypes'
