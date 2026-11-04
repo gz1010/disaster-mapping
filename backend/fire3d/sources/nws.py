@@ -1566,3 +1566,30 @@ def flood_phase(a: dict, now: int) -> str:
     """``upcoming`` | ``in_effect`` | ``ended`` of a live flood product (as :func:`live_phase`; a product whose end
     passed while its expiry has not is ended too)."""
     return live_phase(a, now)
+
+
+def cached_product_hvtec(alert: dict) -> dict[str, Any] | None:
+    """The H-VTEC of a river product **from caches only** (memory, then the disk cache of an earlier
+    :func:`product_hvtec`): never a request, so the flood list build stays within its request budget (C9)."""
+    awips = alert.get("_awips") or ""
+    v = alert.get("vtec") or {}
+    if len(awips) < 4 or v.get("phenomena") != "FL":
+        return None
+    key = (awips, vtec_key(v) or "")
+    with _hvtec_lock:
+        if key in _hvtec:
+            return _hvtec[key]
+    lurl = product_list_url(awips[:3], awips[3:])
+    hit = fhttp.peek_cache("GET", lurl, None, None)
+    if hit is None:
+        return None
+    try:
+        pid = pick_product_id(hit.json(), alert.get("sent_ms"))
+        prod = fhttp.peek_cache("GET", product_url(pid), None, None) if pid else None
+        hv = parse_hvtec_for(str(prod.json().get("productText") or ""), alert) if prod is not None else None
+    except (ValueError, AttributeError):
+        return None
+    if prod is not None:
+        with _hvtec_lock:
+            _hvtec[key] = hv
+    return hv

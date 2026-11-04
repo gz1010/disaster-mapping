@@ -180,7 +180,8 @@ LIVE_ENABLED = _env_flag("FIRE3D_LIVE", "1")                       # run the liv
 OPEN_METEO_DAILY_SOFT_CAP = 6000.0
 LIVE_WEATHER_REFETCH_S = 3600.0
 AUTO_BUILD_LIVE = _env_flag("FIRE3D_AUTO_BUILD_LIVE", "1")          # auto-build live incidents on startup
-# Brief 5 (CONTRACT 16.1): the flood hazard (lists, routes, the second live task) and flood auto-builds (PLAN-5 D4).
+# Brief 5 (CONTRACT 16.1): the flood live task (a second loop beside the fire one; the flood routes always answer) and
+# flood auto-builds (PLAN-5 D4).
 FLOODS_ENABLED = _env_flag("FIRE3D_FLOODS", "1")
 AUTO_BUILD_FLOODS = _env_flag("FIRE3D_AUTO_BUILD_FLOODS", "1" if AUTO_BUILD_LIVE else "0")
 

@@ -888,6 +888,55 @@ detections in the last 48 h, chosen from the whole lower-48 live list (brief 3, 
 sequentially. `LiveStatus.detections_24h` counts the feed's last 24 h inside the lower-48 state polygons
 (`detections_24h_ca`, California, stays for one release).
 
+### 8.8 Flood catalog (`fire3d/floods/catalog.py`, `grouping.py`, `naming.py`, `registry.py`; brief 5)
+
+The live flood list (`GET /api/floods`) groups NWS flood products and river gauges into floods (PLAN-5 §3.2, CONTRACT
+§16.8). **Inputs, five national requests per cold build** (at most `MAX_LIST_UPSTREAM_REQUESTS` = 6, tested): the NWS
+flood products in effect in the lower 48 + DC (`sources/nws.flood_active`: Flood / Flash Flood Warning, Flood / Flash
+Flood Watch, Flood Advisory and their statements; coastal and lakeshore products are out), the NWS `riv_gauges` map
+service layers 0 and 15 (gauges observed / forecast at action or worse), `rfc/rfc_max_forecast` (official RFC forecast
+points) and the Iowa Environmental Mesonet's current flood warnings (H-VTEC gauge ids, a join key only). Nothing per
+flood (no zone outline, product text, gauge detail or series) is requested in the list build.
+
+1. **Keep** actual products in effect or upcoming with a UGC in a lower-48 state or DC and an area touching the lower
+   48; gauges in the lower 48 + DC.
+2. **Link** gauges to river products (FL.*): a cached product-text H-VTEC, else the IEM join (office, phenomena,
+   significance, ETN), else a gauge inside the polygon + 2 km on the river the segment's `* WHERE...` line names.
+   Areal products (FA.*) link a flooding gauge inside their area on the water their text names ("along the Silver
+   Creek").
+3. **Join** (union-find) products with one VTEC key (the CAP `references` chain when NWS sends no VTEC), linked gauges,
+   river members of the same river (equal significant name words) within 25 km, and flash / areal polygons overlapping
+   30 % of the smaller or within 10 km and 12 h. River and flash products never join by distance alone; names that name
+   no river ("Tide Station") never join.
+4. **Watches** never bridge two floods: they attach to every flood they overlap (zone-based ones through their CAP SAME
+   counties and the packaged county shapes, no request), else form a flood at level `watch`.
+5. A gauge at minor or worse that no product names is a flood at level `gauge_only` ("No NWS flood product names this
+   gauge right now."); a gauge at action joins a flood but never starts one.
+6. **Fields:** primary gauge (highest observed, then forecast category, then flow); point (primary gauge, else the
+   representative point of the largest polygon); `bbox_lonlat`; state, states, county and IANA time zone from
+   `fire3d.regions` (never NWPS's POSIX zones); kind river (any FL.* or gauge) / flash (FF.W) / areal; level warning >
+   advisory > watch, else gauge_only; `max_category` over member gauges' observed and forecast categories.
+7. **Start:** the earliest of a NEW product's VTEC begin and own time, the oldest referenced message, and the
+   registry's first-seen time (`started_basis` `nws_product` / `first_seen`); a member gauge's first crossing of flood
+   stage refines it (`gauge`) only when its series is already cached.
+8. **Status:** `active` while a product is in effect or upcoming or a member gauge read minor or worse within 6 h, else
+   `inactive` (never shown as a word); a flood that left the lists stays listed (inactive) for 48 h after Fire-3d last
+   saw it.
+9. **Names:** "<River> flood", "<Place> flash flood", "<Water> flood" / "<Place> flood", "Flood watch: <first area>
+   and N more areas"; duplicates get the state, then a place-based name, then a number; never "fire".
+10. **Ids** `flood-{YYYYMMDD}-{slug}-{h6}` stay stable through `data/floods/registry.jsonl`: VTEC keys are permanent,
+    a gauge key is an episode `NWSLI@first_seen_ms` (a gauge flooding again after its flood was quiet more than 6 h
+    gets a new id); merges keep the older id (`aliases`), a split keeps it on the part with the anchor.
+11. **Sources and outages:** `sources[]` `nws_alerts`, `nwps_gauges`, `rfc_forecasts` with `status`, `retrieved_ms`,
+    `stale`, `reason`. A failed source answers from its last cached copy (`stale: true`); without one: NWS down → floods
+    from gauges only, gauges down → from products only, both down → the flood bundles on disk only. Cached 5 min, 60 s
+    while degraded.
+12. **Order:** `floodRank` (CONTRACT §16.8), then the newest update.
+13. **`GET /api/floods/{id}`** resolves: the live list → (the year lists, brief 5 live M2) → a registry alias (the
+    canonical summary) → the bundle's frozen summary → the last-known summary (`data/floods/last_known/{id}.json`) →
+    404; 503 "The flood lists could not be reached right now; try again later." when the lists could not decide and
+    nothing is on disk.
+
 ## 9. Frontend
 
 ### 9.0 Art direction (read this first)

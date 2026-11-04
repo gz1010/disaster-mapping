@@ -39,3 +39,162 @@ def rank_key(s: dict[str, Any]) -> tuple[int, int, str]:
 
 def sort_floods(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(rows, key=rank_key)
+
+
+# ----------------------------------------------------------------------------------------------------------------
+# Constants (CONTRACT 16.8)
+# ----------------------------------------------------------------------------------------------------------------
+GAUGE_EVENT_MIN = "minor"            # a gauge at minor or worse starts a flood
+GAUGE_SHOW_MIN = "action"            # a gauge at action is shown and joins a flood, never starts one (D3)
+LINK_BUFFER_KM = 2.0
+SAME_RIVER_KM = 25.0
+AREAL_OVERLAP = 0.30
+AREAL_NEAR_KM = 10.0
+AREAL_NEAR_H = 12
+GAUGE_ACTIVE_H = 6
+INACTIVE_LISTED_H = 48
+H_MS = 3_600_000
+CATEGORY_ORDER = ("action", "minor", "moderate", "major")
+LEVEL_ORDER = ("watch", "advisory", "warning")          # ascending
+_RIVER_STOP = {"river", "creek", "fork", "the", "of", "at", "near", "above", "below", "r", "cr", "ck", "bayou", "run",
+               "brook", "wash", "slough", "branch", "canal", "ditch", "draw", "stream", "and"}
+
+
+def cat_rank(cat: str | None) -> int:
+    """-1 below action / unknown, 0 action ... 3 major."""
+    return CATEGORY_ORDER.index(cat) if cat in CATEGORY_ORDER else -1
+
+
+def river_tokens(name: str | None) -> frozenset[str]:
+    """Significant lower-case words of a river name ("San Juan River" -> {"san", "juan"}; "North Fork X" keeps
+    "north")."""
+    import re as _re
+
+    return frozenset(w for w in _re.findall(r"[a-z0-9]+", (name or "").lower()) if w not in _RIVER_STOP)
+
+
+def same_river(a: str | None, b: str | None) -> bool:
+    """Two river names are the same river: equal significant words (strict, so North and South Fork differ); names
+    that name no river ("Tide Station") never match."""
+    from .naming import clean_water
+
+    a, b = clean_water(a), clean_water(b)
+    ta, tb = river_tokens(a), river_tokens(b)
+    return bool(ta) and ta == tb
+
+
+def river_matches(gauge_waterbody: str | None, text_river: str | None) -> bool:
+    """A gauge's ``waterbody`` matches a river named in NWS text: one's significant words contain the other's."""
+    ta, tb = river_tokens(gauge_waterbody), river_tokens(text_river)
+    return bool(ta) and bool(tb) and (ta <= tb or tb <= ta)
+
+
+# ----------------------------------------------------------------------------------------------------------------
+# Geometry in km (local equirectangular frame)
+# ----------------------------------------------------------------------------------------------------------------
+def _frame(lon0: float, lat0: float):
+    import math
+
+    import numpy as np
+
+    k = 111.32 * math.cos(math.radians(lat0))
+    return lambda xy: np.column_stack(((xy[:, 0] - lon0) * k, (xy[:, 1] - lat0) * 111.32))
+
+
+def to_km(geom: Any, lon0: float, lat0: float) -> Any:
+    import shapely
+
+    return shapely.transform(geom, _frame(lon0, lat0))
+
+
+def distance_km(a: Any, b: Any) -> float:
+    """Distance between two lon/lat geometries in km (0 when they touch)."""
+    c = a.representative_point()
+    return float(to_km(a, c.x, c.y).distance(to_km(b, c.x, c.y)))
+
+
+def overlap_share(a: Any, b: Any) -> float:
+    """Area of a ∩ b over the smaller of the two (0..1)."""
+    if a is None or b is None or not a.intersects(b):
+        return 0.0
+    c = a.representative_point()
+    ka, kb = to_km(a, c.x, c.y), to_km(b, c.x, c.y)
+    small = min(ka.area, kb.area)
+    return float(ka.intersection(kb).area / small) if small > 0 else 0.0
+
+
+def point_in_buffer(lon: float, lat: float, geom: Any, km: float) -> bool:
+    from shapely.geometry import Point
+
+    return to_km(geom, lon, lat).distance(Point(0.0, 0.0)) <= km
+
+
+# ----------------------------------------------------------------------------------------------------------------
+# Rule 1: keep (lower 48 + DC, actual, in effect or upcoming)
+# ----------------------------------------------------------------------------------------------------------------
+def keep_product(a: dict, phase: str, l48: set[str], geom_states: Iterable[str] | None = None) -> bool:
+    """An actual product in effect or upcoming with a UGC in a lower-48 state or DC whose area touches the lower 48."""
+    if a.get("status") != "Actual" or phase not in ("in_effect", "upcoming"):
+        return False
+    ugc_states = {u[:2] for u in a.get("ugcs") or [] if isinstance(u, str) and len(u) >= 2}
+    if not ugc_states & l48:
+        return False
+    if geom_states is not None:
+        return bool(set(geom_states) & l48)
+    return True
+
+
+def keep_gauge(row: dict, l48: set[str]) -> bool:
+    return row.get("state") in l48
+
+
+# ----------------------------------------------------------------------------------------------------------------
+# Product classes
+# ----------------------------------------------------------------------------------------------------------------
+def product_class(a: dict) -> str:
+    """"watch" (any *.A), "river" (FL.W / FL.Y), "flash" (FF.W) or "areal" (FA.W / FA.Y); by event name without VTEC."""
+    v = a.get("vtec") or {}
+    ph, sig = v.get("phenomena"), v.get("significance")
+    if not ph:
+        ev = (a.get("event") or "").lower()
+        if "watch" in ev:
+            return "watch"
+        return "flash" if ev.startswith("flash flood warning") else "areal"
+    if sig == "A":
+        return "watch"
+    return {"FL": "river", "FF": "flash"}.get(ph, "areal")
+
+
+def product_level(a: dict) -> str:
+    v = a.get("vtec") or {}
+    sig = v.get("significance")
+    if sig in ("W", "Y", "A"):
+        return {"W": "warning", "Y": "advisory", "A": "watch"}[sig]
+    ev = (a.get("event") or "").lower()
+    return "watch" if "watch" in ev else ("advisory" if "advisory" in ev else "warning")
+
+
+class UnionFind:
+    def __init__(self) -> None:
+        self.parent: dict[str, str] = {}
+
+    def add(self, x: str) -> None:
+        self.parent.setdefault(x, x)
+
+    def find(self, x: str) -> str:
+        self.add(x)
+        while self.parent[x] != x:
+            self.parent[x] = self.parent[self.parent[x]]
+            x = self.parent[x]
+        return x
+
+    def union(self, a: str, b: str) -> None:
+        ra, rb = self.find(a), self.find(b)
+        if ra != rb:
+            self.parent[max(ra, rb)] = min(ra, rb)
+
+    def groups(self) -> list[list[str]]:
+        out: dict[str, list[str]] = {}
+        for x in self.parent:
+            out.setdefault(self.find(x), []).append(x)
+        return [sorted(v) for _, v in sorted(out.items())]

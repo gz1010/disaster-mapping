@@ -124,3 +124,52 @@ def flood_fixture_data(tmp_path_factory: pytest.TempPathFactory) -> Path:
 def flood_fixture_bundle(flood_fixture_data: Path) -> Path:
     """``<flood_fixture_data>/floods/fixture-flood``."""
     return flood_fixture_data / "floods" / "fixture-flood"
+
+
+FLOOD_SAMPLES = f3config.REPO_ROOT / "backend" / "tests" / "data" / "floods"
+
+
+def recorded_flood_inputs():
+    """``floods.catalog.Inputs`` from the recorded samples of 2026-11-04 (``tests/data/floods/{nws,nwps}``), and the
+    NWS ``updated`` time of that answer (the "now" of the recording)."""
+    import orjson
+
+    from fire3d.floods import catalog as cat
+    from fire3d.sources import nwps, nws
+
+    fl = orjson.loads((FLOOD_SAMPLES / "nws" / "nws_flood_active.json").read_bytes())
+    now = nws._ms(fl["updated"])
+    alerts = [a for a in (nws.normalize_flood_alert(f) for f in fl["features"]) if a]
+
+    def rows(name: str, parse):
+        doc = orjson.loads((FLOOD_SAMPLES / "nwps" / name).read_bytes())
+        return [r for r in (parse(f) for f in doc["features"]) if r]
+
+    inp = cat.Inputs(
+        alerts=cat.SourceResult(nws.FloodNational(alerts, now, now, list(nws.national_states())), now),
+        observed=cat.SourceResult(rows("riv_gauges_observed.json", nwps.parse_riv_row), now),
+        forecast=cat.SourceResult(rows("riv_gauges_forecast.json", nwps.parse_riv_row), now),
+        rfc=cat.SourceResult(rows("rfc_max_forecast.json", nwps.parse_rfc_row), now),
+        iem=cat.SourceResult(rows("iem_current_flood_warnings.json", nwps.parse_iem_warning), now),
+    )
+    return inp, now
+
+
+@pytest.fixture
+def flood_iso(tmp_data_dir: Path):
+    """PLAN-5 section 8 isolation for flood tests: temp DATA_DIR / FLOODS_DIR / CACHE_DIR (``tmp_data_dir``), and every
+    in-memory cache cleared before and after (flood list, registries, NWS, extras, outage memories)."""
+    from fire3d.api import extras
+    from fire3d.floods import catalog as cat
+    from fire3d.sources import nws, nwps
+
+    def clear() -> None:
+        cat.reset_state()
+        nws.reset_state()
+        extras.reset_state()
+        nwps.NWPS_DOWN.reset()
+        fhttp.reset_down_memos()
+
+    clear()
+    yield tmp_data_dir
+    clear()

@@ -44,6 +44,7 @@ from ..timeutil import HOUR_MS, now_ms
 from . import jobs as jobs_mod
 from . import live
 from . import extras as extras_routes
+from . import floods as flood_routes
 from . import geocode as geocode_routes
 from . import official as official_routes
 from . import records as records_routes
@@ -442,6 +443,7 @@ app.include_router(geocode_routes.router)
 app.include_router(extras_routes.router)
 app.include_router(official_routes.router)       # BRIEF-2: CAL FIRE status history, NWS fire weather alerts
 app.include_router(records_routes.router)        # brief 3: NIFC WFIGS incident records, accuracy regions (14.4, 14.5)
+app.include_router(flood_routes.router)          # brief 5: floods (CONTRACT 16.7)
 
 
 @app.get("/api/health")

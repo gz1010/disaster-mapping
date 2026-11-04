@@ -1,0 +1,522 @@
+{
+ "recorded": "2026-11-04 (tests/data/floods/{nws,nwps}); expected groups reviewed by hand against the NWS products",
+ "now_ms": 1793830505000,
+ "products_in_effect": 31,
+ "floods": [
+  {
+   "name": "St. Johns River flood",
+   "kind": "river",
+   "level": "warning",
+   "state": "FL",
+   "max_category": "major",
+   "gauges": [
+    "COCF1",
+    "ASTF1",
+    "GENF1",
+    "SJWF1",
+    "DLAF1",
+    "SNFF1"
+   ],
+   "vtec_keys": [
+    "KMLB.FL.W.0003.2026",
+    "KMLB.FL.W.0005.2026",
+    "KMLB.FL.W.0006.2026",
+    "KMLB.FL.W.0007.2026",
+    "KMLB.FL.W.0008.2026"
+   ]
+  },
+  {
+   "name": "Peace River flood",
+   "kind": "river",
+   "level": "warning",
+   "state": "FL",
+   "max_category": "major",
+   "gauges": [
+    "ARCF1",
+    "ZFSF1"
+   ],
+   "vtec_keys": [
+    "KTBW.FL.W.0015.2026",
+    "KTBW.FL.W.0018.2026"
+   ]
+  },
+  {
+   "name": "Eastern Stump Lake flood",
+   "kind": "river",
+   "level": "gauge_only",
+   "state": "ND",
+   "max_category": "major",
+   "gauges": [
+    "ESLN8"
+   ],
+   "vtec_keys": []
+  },
+  {
+   "name": "Devils Lake flood",
+   "kind": "river",
+   "level": "gauge_only",
+   "state": "ND",
+   "max_category": "major",
+   "gauges": [
+    "DCBN8"
+   ],
+   "vtec_keys": []
+  },
+  {
+   "name": "Grand River flood",
+   "kind": "river",
+   "level": "warning",
+   "state": "MO",
+   "max_category": "moderate",
+   "gauges": [
+    "PATM7",
+    "SNZM7",
+    "CHZM7",
+    "GAZM7"
+   ],
+   "vtec_keys": [
+    "KEAX.FL.W.0218.2026",
+    "KEAX.FL.W.0219.2026",
+    "KEAX.FL.W.0220.2026",
+    "KEAX.FL.W.0221.2026"
+   ]
+  },
+  {
+   "name": "102 River flood",
+   "kind": "river",
+   "level": "warning",
+   "state": "MO",
+   "max_category": "moderate",
+   "gauges": [
+    "RSDM7",
+    "MYVM7"
+   ],
+   "vtec_keys": [
+    "KEAX.FL.W.0215.2026"
+   ]
+  },
+  {
+   "name": "Platte River flood",
+   "kind": "river",
+   "level": "warning",
+   "state": "MO",
+   "max_category": "moderate",
+   "gauges": [
+    "AGYM7",
+    "SSTM7",
+    "PLCM7"
+   ],
+   "vtec_keys": [
+    "KEAX.FL.W.0217.2026",
+    "KEAX.FL.W.0223.2026",
+    "KEAX.FL.W.0224.2026"
+   ]
+  },
+  {
+   "name": "Moenkopi Wash flood",
+   "kind": "river",
+   "level": "warning",
+   "state": "AZ",
+   "max_category": "moderate",
+   "gauges": [
+    "MOEA3"
+   ],
+   "vtec_keys": [
+    "KFGZ.FA.W.0040.2026"
+   ]
+  },
+  {
+   "name": "Joshua Creek flood",
+   "kind": "river",
+   "level": "gauge_only",
+   "state": "FL",
+   "max_category": "moderate",
+   "gauges": [
+    "NOCF1"
+   ],
+   "vtec_keys": []
+  },
+  {
+   "name": "South Fork New River flood",
+   "kind": "river",
+   "level": "gauge_only",
+   "state": "FL",
+   "max_category": "moderate",
+   "gauges": [
+    "SFRF1"
+   ],
+   "vtec_keys": []
+  },
+  {
+   "name": "Calcasieu River flood",
+   "kind": "river",
+   "level": "warning",
+   "state": "LA",
+   "max_category": "minor",
+   "gauges": [
+    "LCHL1",
+    "CGFL1",
+    "CWOL1"
+   ],
+   "vtec_keys": [
+    "KLCH.FL.W.0047.2026"
+   ]
+  },
+  {
+   "name": "Iowa River flood",
+   "kind": "river",
+   "level": "warning",
+   "state": "IA",
+   "max_category": "minor",
+   "gauges": [
+    "BPLI4",
+    "MROI4"
+   ],
+   "vtec_keys": [
+    "KDVN.FL.W.0091.2026"
+   ]
+  },
+  {
+   "name": "Alafia River flood",
+   "kind": "river",
+   "level": "warning",
+   "state": "FL",
+   "max_category": "minor",
+   "gauges": [
+    "LITF1"
+   ],
+   "vtec_keys": [
+    "KTBW.FL.W.0019.2026"
+   ]
+  },
+  {
+   "name": "Silver Creek flood",
+   "kind": "river",
+   "level": "warning",
+   "state": "NE",
+   "max_category": "minor",
+   "gauges": [
+    "SILN1"
+   ],
+   "vtec_keys": [
+    "KGID.FA.W.0019.2026"
+   ]
+  },
+  {
+   "name": "Rio Grande flood",
+   "kind": "river",
+   "level": "warning",
+   "state": "CO",
+   "max_category": "minor",
+   "gauges": [
+    "ALAC2"
+   ],
+   "vtec_keys": [
+    "KPUB.FL.W.0008.2026"
+   ]
+  },
+  {
+   "name": "Horse Creek flood",
+   "kind": "river",
+   "level": "warning",
+   "state": "FL",
+   "max_category": "minor",
+   "gauges": [
+    "ARHF1"
+   ],
+   "vtec_keys": [
+    "KTBW.FL.W.0017.2026"
+   ]
+  },
+  {
+   "name": "North Skunk River flood",
+   "kind": "river",
+   "level": "warning",
+   "state": "IA",
+   "max_category": "minor",
+   "gauges": [
+    "SIGI4"
+   ],
+   "vtec_keys": [
+    "KDVN.FL.W.0092.2026"
+   ]
+  },
+  {
+   "name": "St Lucie River flood",
+   "kind": "river",
+   "level": "gauge_only",
+   "state": "FL",
+   "max_category": "minor",
+   "gauges": [
+    "SPTF1",
+    "SLRF1"
+   ],
+   "vtec_keys": []
+  },
+  {
+   "name": "Loxahatchee River 500 ft downstream of US 1 flood",
+   "kind": "river",
+   "level": "gauge_only",
+   "state": "FL",
+   "max_category": "minor",
+   "gauges": [
+    "LRPF1"
+   ],
+   "vtec_keys": []
+  },
+  {
+   "name": "Little Colorado River flood",
+   "kind": "river",
+   "level": "gauge_only",
+   "state": "AZ",
+   "max_category": "minor",
+   "gauges": [
+    "LCWA3"
+   ],
+   "vtec_keys": []
+  },
+  {
+   "name": "Mancos River flood",
+   "kind": "river",
+   "level": "gauge_only",
+   "state": "CO",
+   "max_category": "minor",
+   "gauges": [
+    "MNRC2"
+   ],
+   "vtec_keys": []
+  },
+  {
+   "name": "Crescent Lake flood",
+   "kind": "river",
+   "level": "gauge_only",
+   "state": "FL",
+   "max_category": "minor",
+   "gauges": [
+    "CELF1"
+   ],
+   "vtec_keys": []
+  },
+  {
+   "name": "Dunns Creek State Park Boat Ramp flood",
+   "kind": "river",
+   "level": "gauge_only",
+   "state": "FL",
+   "max_category": "minor",
+   "gauges": [
+    "DCSF1"
+   ],
+   "vtec_keys": []
+  },
+  {
+   "name": "Georgetown flood",
+   "kind": "river",
+   "level": "gauge_only",
+   "state": "FL",
+   "max_category": "minor",
+   "gauges": [
+    "GTWF1"
+   ],
+   "vtec_keys": []
+  },
+  {
+   "name": "Intracoastal Waterway flood",
+   "kind": "river",
+   "level": "gauge_only",
+   "state": "FL",
+   "max_category": "minor",
+   "gauges": [
+    "IWDF1"
+   ],
+   "vtec_keys": []
+  },
+  {
+   "name": "Juno Beach Park Pier flood",
+   "kind": "river",
+   "level": "gauge_only",
+   "state": "FL",
+   "max_category": "minor",
+   "gauges": [
+    "JBPF1"
+   ],
+   "vtec_keys": []
+  },
+  {
+   "name": "Key Largo flood (FL, 2)",
+   "kind": "river",
+   "level": "gauge_only",
+   "state": "FL",
+   "max_category": "minor",
+   "gauges": [
+    "SUKF1"
+   ],
+   "vtec_keys": []
+  },
+  {
+   "name": "Key Largo flood (FL)",
+   "kind": "river",
+   "level": "gauge_only",
+   "state": "FL",
+   "max_category": "minor",
+   "gauges": [
+    "JCRF1"
+   ],
+   "vtec_keys": []
+  },
+  {
+   "name": "Middle River George English Park flood",
+   "kind": "river",
+   "level": "gauge_only",
+   "state": "FL",
+   "max_category": "minor",
+   "gauges": [
+    "MGEF1"
+   ],
+   "vtec_keys": []
+  },
+  {
+   "name": "New River flood",
+   "kind": "river",
+   "level": "gauge_only",
+   "state": "FL",
+   "max_category": "minor",
+   "gauges": [
+    "NRFF1"
+   ],
+   "vtec_keys": []
+  },
+  {
+   "name": "North Key Largo flood",
+   "kind": "river",
+   "level": "gauge_only",
+   "state": "FL",
+   "max_category": "minor",
+   "gauges": [
+    "MKLF1"
+   ],
+   "vtec_keys": []
+  },
+  {
+   "name": "Shell Bluff Park flood",
+   "kind": "river",
+   "level": "gauge_only",
+   "state": "FL",
+   "max_category": "minor",
+   "gauges": [
+    "SAKF1"
+   ],
+   "vtec_keys": []
+  },
+  {
+   "name": "Indian River flood",
+   "kind": "river",
+   "level": "gauge_only",
+   "state": "FL",
+   "max_category": "minor",
+   "gauges": [
+    "IRWF1"
+   ],
+   "vtec_keys": []
+  },
+  {
+   "name": "Salinas River flood",
+   "kind": "river",
+   "level": "gauge_only",
+   "state": "CA",
+   "max_category": "minor",
+   "gauges": [
+    "SDDC1"
+   ],
+   "vtec_keys": []
+  },
+  {
+   "name": "Salt River flood",
+   "kind": "river",
+   "level": "warning",
+   "state": "AZ",
+   "max_category": "action",
+   "gauges": [
+    "SLPA3"
+   ],
+   "vtec_keys": [
+    "KPSR.FA.W.0014.2026",
+    "KPSR.FA.W.0038.2026",
+    "KPSR.FA.W.0040.2026",
+    "KPSR.FA.W.0041.2026"
+   ]
+  },
+  {
+   "name": "San Juan River flood (NM)",
+   "kind": "river",
+   "level": "warning",
+   "state": "NM",
+   "max_category": "action",
+   "gauges": [
+    "SHRN5"
+   ],
+   "vtec_keys": [
+    "KABQ.FL.W.0025.2026"
+   ]
+  },
+  {
+   "name": "Winslow flood",
+   "kind": "areal",
+   "level": "warning",
+   "state": "AZ",
+   "max_category": null,
+   "gauges": [],
+   "vtec_keys": [
+    "KFGZ.FA.W.0038.2026"
+   ]
+  },
+  {
+   "name": "San Juan River flood (UT, 2)",
+   "kind": "areal",
+   "level": "warning",
+   "state": "UT",
+   "max_category": null,
+   "gauges": [],
+   "vtec_keys": [
+    "KSLC.FA.W.0017.2026"
+   ]
+  },
+  {
+   "name": "Conejos River flood",
+   "kind": "areal",
+   "level": "warning",
+   "state": "CO",
+   "max_category": null,
+   "gauges": [],
+   "vtec_keys": [
+    "KPUB.FA.W.0026.2026"
+   ]
+  },
+  {
+   "name": "San Juan River flood (UT)",
+   "kind": "areal",
+   "level": "warning",
+   "state": "UT",
+   "max_category": null,
+   "gauges": [],
+   "vtec_keys": [
+    "KGJT.FA.W.0030.2026"
+   ]
+  },
+  {
+   "name": "Gila River flood",
+   "kind": "river",
+   "level": "advisory",
+   "state": "AZ",
+   "max_category": "action",
+   "gauges": [
+    "GLCA3",
+    "GVRN5"
+   ],
+   "vtec_keys": [
+    "KTWC.FL.Y.0004.2026",
+    "KTWC.FL.Y.0005.2026",
+    "KTWC.FL.Y.0006.2026"
+   ]
+  }
+ ]
+}

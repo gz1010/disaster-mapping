@@ -61,6 +61,19 @@ Role `backend-flood-sources` (PLAN-5 §10.1, `plan5-roles.json`); ports API 8751
   warnings).
 - Tests: `test_floods_nws.py` (12), `test_floods_nwps.py` (11+). Full suite 1182 passed, 0 skipped.
 
-## Next
+## M4 catalog (done)
 
-- M4 catalog + routes.
+- `floods/{catalog,grouping,naming,registry,store}.py`, `api/floods.py` (+ one `include_router` line in `api/app.py`):
+  rules 1-13, SAME-county watch overlap with no request, gauge episodes, aliases, last-known summaries, stale copies,
+  outages; `GET /api/floods`, `/api/floods/status`, `/api/floods/{id}`. SPEC §8.8.
+- Real API on port 8751 (FIRE3D_LIVE=0), 2026-11-04 ~22:55 UTC: 43 lower-48 floods, 31 NWS products in effect, 5
+  upstream requests, 4.2 s cold (table in the report).
+- Tests: `test_floods_grouping.py` (17, every rule), `test_floods_registry.py`, `test_floods_catalog.py` (the recorded
+  day equals `tests/data/floods/catalog/cases.json`, reviewed by hand), `test_floods_list_cost.py` (5 requests, none
+  per flood; stale copies), `test_floods_list_api.py` (routes, rule-13 chain, 503).
+- Gates: backend 1213 passed, 0 skipped; web typecheck clean, lint 55 (all `src/scene`), 1457 tests passed, build OK.
+- Wrote `docs/redesign/contract5/backend-flood-sources.md` and `docs/redesign/reports/brief5-backend-flood-sources.json`.
+
+## Status
+
+All four milestones done. Cut line left: SPEC §10 test notes; the background H-VTEC fetch is backend-flood-live's.
