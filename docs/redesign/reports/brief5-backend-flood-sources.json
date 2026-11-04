@@ -1,12 +1,13 @@
 {
  "role": "backend-flood-sources",
  "brief": 5,
- "summary": "Flood contract triple (CONTRACT 16.2-16.6) with a Python/TS parity test; second secret EARTHDATA_TOKEN, Bearer and X-Amz masking and the Authorization allow-list (PO.DAAC only) in config/http; the synthetic fixture-flood with every bundle layer and file, canned answers for every flood route, seven list-only demo floods, edge cases and a canned build job, served by serve_fixture.py and generated into tmp_path for tests; the NWS flood family and sources/nwps.py with recorded samples; the flood catalog (rules 1-13: grouping, names, stable ids through a registry with gauge episodes and aliases, last-known summaries, outages) and GET /api/floods, /api/floods/status, /api/floods/{id}. A cold list build makes 5 upstream requests; on 2026-11-04 ~22:55 UTC the real API listed 43 lower-48 floods in 4.2 s.",
+ "summary": "Flood contract triple (CONTRACT 16.2-16.6) with a Python/TS parity test; second secret EARTHDATA_TOKEN, Bearer and X-Amz masking and the Authorization allow-list (PO.DAAC only) in config/http; the synthetic fixture-flood with every bundle layer and file, canned answers for every flood route, seven list-only demo floods, edge cases and a canned build job, served by serve_fixture.py and generated into tmp_path for tests; the NWS flood family and sources/nwps.py with recorded samples; the flood catalog (rules 1-13: grouping, names, stable ids through a registry with gauge episodes and aliases, last-known summaries, outages) and GET /api/floods, /api/floods/status, /api/floods/{id}. A cold list build makes 5 upstream requests; on 2026-11-04 ~22:55 UTC the real API listed 43 lower-48 floods in 4.2 s. Review fixes (review5-backend-flood-sources.json, all 10 findings fixed, R6 as a recorded deviation): floods that left the lists show their products 'ended'; tide and lake gauges get GAUGE_ONLY_COASTAL_CAVEAT; areal warnings link the gauge their text names; outages never claim an absence or split a flood; gauge episodes survive Fire-3d's own downtime; issue times for the areal join; strings in copy.py; IEM join credited in sources[]; plus a continuation rule for a replaced areal warning (Conejos River, found on the real list).",
  "milestones": {
   "M1 contracts": "ad49a51",
   "M2 fixture": "76cc9df",
   "M3 sources": "c079864",
-  "M4 catalog": "0264180"
+  "M4 catalog": "0264180",
+  "review fixes": "brief 5 backend-flood-sources: review fixes"
  },
  "files": [
   "backend/fire3d/contracts.py",
@@ -49,33 +50,45 @@
   "SPEC.md",
   "docs/redesign/progress/brief5-backend-flood-sources.md",
   "docs/redesign/contract5/backend-flood-sources.md",
-  "docs/redesign/reports/brief5-backend-flood-sources.json"
+  "docs/redesign/reports/brief5-backend-flood-sources.json",
+  "docs/redesign/reports/review5-backend-flood-sources.json",
+  "docs/screenshots/brief5-backend-flood-sources-list.png",
+  "backend/tests/data/floods/fixture_api/edge/list-nws-down.json",
+  "backend/tests/data/floods/fixture_api/edge/list-gauges-down.json",
+  "backend/tests/data/floods/fixture_api/edge/detail-last-known.json"
  ],
- "screenshots": [],
- "screenshots_note": "None required for this backend role; the optional JSON screenshot was not taken (the list was checked with curl and the contract tests instead).",
+ "screenshots": [
+  "docs/screenshots/brief5-backend-flood-sources-list.png"
+ ],
+ "screenshots_note": "Optional for this backend role. Taken in the review-fix step: the Public overview in Floods mode (details on) against the real API on port 8751 (fresh data folder, 42 floods), viewed. Its orange gauges line is /api/official/river-gauges?scope=national answering 404, a backend-flood-bundle-api M3 route not yet built.",
  "gates": {
-  "backend": "uv run pytest -q: 1213 passed, 0 skipped (baseline before the role: 1009 passed, 0 skipped)",
-  "web": "typecheck clean; lint 55 warnings, all in src/scene; npm test 113 files, 1457 passed, 2 skipped (pre-existing, not flood tests); build OK",
+  "backend": "uv run pytest -q: 1227 passed, 0 skipped after the review fixes (M4: 1213; baseline before the role: 1009)",
+  "web": "typecheck clean; lint 55 warnings, all in src/scene; npm test 113 files, 1469 passed, 2 skipped (pre-existing, not flood tests); build OK",
   "test_skip_count": 0
  },
- "requests_made": "recorder 13 + one live list on port 8751 (5) + connectivity checks 2; all GET, one at a time, no key or token",
+ "requests_made": "recorder 13 + one live list on port 8751 (5) + connectivity checks 2; all GET, one at a time, no key or token; review fixes: one live list on port 8751 (5) and two fresh-folder builds from the shared cache (at most 5 each), all GET, one at a time, no key or token",
  "secret_scan": "count-only: FIRMS_MAP_KEY 0 matches in the diffs and new files; EARTHDATA_TOKEN not set in this environment (token path tested with a fake token and a mock transport only)",
  "known_issues": [
   "When two or more gauges on one river qualify for a river warning and no H-VTEC is cached, all are linked; backend-flood-live's background product-text fetch (nws.product_hvtec) makes it exact.",
   "rfc_max_forecast has no last forecast step: in the list, a forecast whose minimum comes before its maximum is read as 'still rising at the end' (conservative). The detail routes (NWPS series) decide exactly.",
-  "Coastal tide gauges that NWS puts at minor are listed as river floods (PLAN-5 D1) and named after the nearest place ('Key Largo flood (FL)', 'Key Largo flood (FL, 2)').",
   "Two separate areal warnings along the same river in one state get numbered names ('San Juan River flood (UT, 2)').",
   "Past floods (mode=historical) answer an empty list with 'Fire-3d does not list past floods yet. That is not an all-clear.' until backend-flood-live M2.",
   "/api/floods/status is computed from the cached list until the flood live loop exists (backend-flood-live M1).",
   "The EARTHDATA_TOKEN path is untested with a real token (no token here): fake token + mock transport only.",
   "The fixture's canned answers keep the times of the run that wrote them; run make_fixture.py --only flood again to bring them to the present.",
-  "The list build holds the catalog lock while its five requests run (up to ~30 s each on a slow source); concurrent callers wait for it."
+  "The list build holds the catalog lock while its five requests run (up to ~30 s each on a slow source); concurrent callers wait for it.",
+  "Tide and coastal gauges NWS puts at minor stay listed as river floods (D1) and are named after the nearest place ('Key Largo flood (FL)'); their caveat says Fire-3d does not read NWS Coastal or Lakeshore Flood products (GAUGE_ONLY_COASTAL_CAVEAT). Tidal is recognised by SHEF code, datum note, waterbody words or 10 km from such a gauge: a tidal gauge with none of these keeps GAUGE_ONLY_CAVEAT.",
+  "GET /api/floods answers 200 (every source unavailable, bundles on disk) when both lists are down, not CONTRACT 16.7's 503 (recorded deviation; the integration aligns CONTRACT 16.7).",
+  "During an NWS outage a gauge-only flood whose reading at flood stage is older than 6 h is listed as inactive with caveat ALERTS_UNAVAILABLE; the web must not show its 'No NWS flood product is in effect here' meaning then (D24, note for web-flood-public).",
+  "The continuation rule compares a new product's area with the old flood's last-known bounding box (no polygon is kept): a large old areal flood can be continued by a new warning inside its box.",
+  "The main data/ folder of this container holds a registry written by the pre-fix code, so its live list still shows the two Conejos River ids made before the continuation rule existed; a fresh folder (or the user's computer) shows one.",
+  "The web fixture copies of edge/list-nws-down.json, list-gauges-down.json and detail-last-known.json are older than the backend's (web-flood-overview copies them)."
  ],
  "cut_line_left": [
   "SPEC section 10 flood test notes (cut line)",
   "The background H-VTEC product-text fetch is backend-flood-live's (nws.product_hvtec is ready; the list reads its cache)"
  ],
- "deviations": "docs/redesign/contract5/backend-flood-sources.md (fixture historical lists split out; resolved_from 'live' for the synthetic bundle; rule 2 also links gauges to areal products; forecast-only member gauges; list gauge names; generic waterbodies; dedupe; SAT_CAVEAT slot name)",
+ "deviations": "docs/redesign/contract5/backend-flood-sources.md (fixture historical lists split out; resolved_from 'live' for the synthetic bundle; rule 2 also links gauges to areal products; forecast-only member gauges; list gauge names; generic waterbodies; dedupe; SAT_CAVEAT slot name; review fixes: GET /api/floods 200 with both lists down, gauge episodes kept until 48 h quiet, rule 10 continuation, IEM join in the live sources[], new backend strings for CONTRACT 16.14)",
  "real_floods_2026_11_04": {
   "retrieved": "2026-11-04 ~22:55 UTC from the real API on port 8751 (FIRE3D_LIVE=0)",
   "products_in_effect": 31,
@@ -705,6 +718,749 @@
      "GVRN5 action"
     ],
     "id": "flood-20261103-gila-river-flood-fc0482"
+   }
+  ]
+ },
+ "review_fixes": {
+  "report": "docs/redesign/reports/review5-backend-flood-sources.json",
+  "fixed": [
+   "BFS-R1",
+   "BFS-R2",
+   "BFS-R3",
+   "BFS-R4",
+   "BFS-R5",
+   "BFS-R6 (deviation recorded)",
+   "BFS-R7",
+   "BFS-R8",
+   "BFS-R9",
+   "BFS-R10"
+  ],
+  "skipped": [],
+  "found_and_fixed": [
+   "BFS-F1 continuation of a replaced areal warning (Conejos River)"
+  ]
+ },
+ "real_floods_after_review_fixes": {
+  "retrieved": "2026-11-04 23:51 UTC",
+  "how": "catalog.build_list on the real answers (fetch_inputs through fire3d.http), after one build from the 22:15 UTC recorded samples, in an empty temporary data folder",
+  "build_s": 0.9,
+  "products_in_effect": 31,
+  "count": 45,
+  "sources": [
+   [
+    "nws_alerts",
+    "available"
+   ],
+   [
+    "nwps_gauges",
+    "available"
+   ],
+   [
+    "rfc_forecasts",
+    "available"
+   ],
+   [
+    "iem_archive",
+    "available"
+   ]
+  ],
+  "floods": [
+   {
+    "name": "St. Johns River flood",
+    "id": "flood-20261104-st-johns-river-flood-f81f2a",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "FL",
+    "max_category": "major",
+    "products": [
+     "Flood Warning KMLB.FL.W.0003.2026 (in_effect)",
+     "Flood Warning KMLB.FL.W.0005.2026 (in_effect)",
+     "Flood Warning KMLB.FL.W.0008.2026 (in_effect)",
+     "Flood Warning KMLB.FL.W.0007.2026 (in_effect)",
+     "Flood Warning KMLB.FL.W.0006.2026 (in_effect)"
+    ],
+    "gauges": [
+     "COCF1 moderate",
+     "ASTF1 moderate",
+     "GENF1 minor",
+     "SJWF1 minor",
+     "DLAF1 action",
+     "SNFF1 action"
+    ],
+    "caveat": null
+   },
+   {
+    "name": "Peace River flood",
+    "id": "flood-20261104-peace-river-flood-bd6288",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "FL",
+    "max_category": "major",
+    "products": [
+     "Flood Warning KTBW.FL.W.0018.2026 (in_effect)",
+     "Flood Warning KTBW.FL.W.0015.2026 (in_effect)"
+    ],
+    "gauges": [
+     "ARCF1 moderate",
+     "ZFSF1 minor"
+    ],
+    "caveat": null
+   },
+   {
+    "name": "Clear Creek flood",
+    "id": "flood-20261104-clear-creek-flood-96ee51",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "TX",
+    "max_category": "major",
+    "products": [],
+    "gauges": [
+     "SGET2 major"
+    ],
+    "caveat": "GAUGE_ONLY_CAVEAT"
+   },
+   {
+    "name": "Eastern Stump Lake flood",
+    "id": "flood-20261104-eastern-stump-lake-flood-374602",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "ND",
+    "max_category": "major",
+    "products": [],
+    "gauges": [
+     "ESLN8 major"
+    ],
+    "caveat": "GAUGE_ONLY_CAVEAT"
+   },
+   {
+    "name": "Devils Lake flood",
+    "id": "flood-20261104-devils-lake-flood-43e271",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "ND",
+    "max_category": "major",
+    "products": [],
+    "gauges": [
+     "DCBN8 major"
+    ],
+    "caveat": "GAUGE_ONLY_CAVEAT"
+   },
+   {
+    "name": "Grand River flood",
+    "id": "flood-20261103-grand-river-flood-670960",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "MO",
+    "max_category": "moderate",
+    "products": [
+     "Flood Warning KEAX.FL.W.0218.2026 (in_effect)",
+     "Flood Warning KEAX.FL.W.0221.2026 (in_effect)",
+     "Flood Warning KEAX.FL.W.0220.2026 (in_effect)",
+     "Flood Warning KEAX.FL.W.0219.2026 (upcoming)"
+    ],
+    "gauges": [
+     "PATM7 minor",
+     "SNZM7 action",
+     "CHZM7 action",
+     "GAZM7 action"
+    ],
+    "caveat": null
+   },
+   {
+    "name": "Moenkopi Wash flood",
+    "id": "flood-20261103-moenkopi-wash-flood-41813c",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "AZ",
+    "max_category": "moderate",
+    "products": [
+     "Flood Warning KFGZ.FA.W.0040.2026 (in_effect)"
+    ],
+    "gauges": [
+     "MOEA3 moderate"
+    ],
+    "caveat": null
+   },
+   {
+    "name": "102 River flood",
+    "id": "flood-20261103-102-river-flood-b460fb",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "MO",
+    "max_category": "moderate",
+    "products": [
+     "Flood Warning KEAX.FL.W.0215.2026 (in_effect)"
+    ],
+    "gauges": [
+     "RSDM7 moderate",
+     "MYVM7 action"
+    ],
+    "caveat": null
+   },
+   {
+    "name": "Platte River flood",
+    "id": "flood-20261103-platte-river-flood-e045bf",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "MO",
+    "max_category": "moderate",
+    "products": [
+     "Flood Warning KEAX.FL.W.0224.2026 (upcoming)",
+     "Flood Warning KEAX.FL.W.0223.2026 (upcoming)",
+     "Flood Warning KEAX.FL.W.0217.2026 (in_effect)"
+    ],
+    "gauges": [
+     "AGYM7 moderate",
+     "SSTM7 action",
+     "PLCM7 action"
+    ],
+    "caveat": null
+   },
+   {
+    "name": "South Fork New River flood",
+    "id": "flood-20261104-south-fork-new-river-flood-dea2eb",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "moderate",
+    "products": [],
+    "gauges": [
+     "SFRF1 moderate"
+    ],
+    "caveat": "GAUGE_ONLY_COASTAL_CAVEAT"
+   },
+   {
+    "name": "Joshua Creek flood",
+    "id": "flood-20261104-joshua-creek-flood-231c11",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "moderate",
+    "products": [],
+    "gauges": [
+     "NOCF1 moderate"
+    ],
+    "caveat": "GAUGE_ONLY_CAVEAT"
+   },
+   {
+    "name": "Middle River George English Park flood",
+    "id": "flood-20261104-middle-river-george-english-park-flood-91b2f6",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "moderate",
+    "products": [],
+    "gauges": [
+     "MGEF1 moderate"
+    ],
+    "caveat": "GAUGE_ONLY_COASTAL_CAVEAT"
+   },
+   {
+    "name": "New River flood",
+    "id": "flood-20261104-new-river-flood-aff701",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "moderate",
+    "products": [],
+    "gauges": [
+     "NRFF1 moderate"
+    ],
+    "caveat": "GAUGE_ONLY_COASTAL_CAVEAT"
+   },
+   {
+    "name": "Calcasieu River flood",
+    "id": "flood-20261103-calcasieu-river-flood-77edfb",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "LA",
+    "max_category": "minor",
+    "products": [
+     "Flood Warning KLCH.FL.W.0047.2026 (in_effect)",
+     "Flood Warning KLCH.FL.W.0048.2026 (upcoming)"
+    ],
+    "gauges": [
+     "LCHL1 minor",
+     "CWOL1 action",
+     "CGFL1 action"
+    ],
+    "caveat": null
+   },
+   {
+    "name": "Silver Creek flood",
+    "id": "flood-20261103-silver-creek-flood-162b7e",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "NE",
+    "max_category": "minor",
+    "products": [
+     "Flood Warning KGID.FA.W.0019.2026 (in_effect)"
+    ],
+    "gauges": [
+     "SILN1 minor"
+    ],
+    "caveat": null
+   },
+   {
+    "name": "Rio Grande flood",
+    "id": "flood-20261102-rio-grande-flood-58a10a",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "CO",
+    "max_category": "minor",
+    "products": [
+     "Flood Warning KPUB.FL.W.0008.2026 (in_effect)"
+    ],
+    "gauges": [
+     "ALAC2 minor"
+    ],
+    "caveat": null
+   },
+   {
+    "name": "Horse Creek flood",
+    "id": "flood-20261104-horse-creek-flood-b76e54",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "products": [
+     "Flood Warning KTBW.FL.W.0017.2026 (in_effect)"
+    ],
+    "gauges": [
+     "ARHF1 minor"
+    ],
+    "caveat": null
+   },
+   {
+    "name": "Iowa River flood",
+    "id": "flood-20261103-iowa-river-flood-96f5b8",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "IA",
+    "max_category": "minor",
+    "products": [
+     "Flood Warning KDVN.FL.W.0091.2026 (in_effect)"
+    ],
+    "gauges": [
+     "BPLI4 minor",
+     "MROI4 action"
+    ],
+    "caveat": null
+   },
+   {
+    "name": "Little Colorado River flood",
+    "id": "flood-20261103-little-colorado-river-flood-4b5924",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "AZ",
+    "max_category": "minor",
+    "products": [
+     "Flood Warning KFGZ.FA.W.0038.2026 (in_effect)"
+    ],
+    "gauges": [
+     "LCWA3 minor"
+    ],
+    "caveat": null
+   },
+   {
+    "name": "Alafia River flood",
+    "id": "flood-20261104-alafia-river-flood-59d45e",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "products": [
+     "Flood Warning KTBW.FL.W.0019.2026 (in_effect)"
+    ],
+    "gauges": [
+     "LITF1 minor"
+    ],
+    "caveat": null
+   },
+   {
+    "name": "North Skunk River flood",
+    "id": "flood-20261104-north-skunk-river-flood-8c8bc1",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "IA",
+    "max_category": "minor",
+    "products": [
+     "Flood Warning KDVN.FL.W.0092.2026 (upcoming)"
+    ],
+    "gauges": [
+     "SIGI4 action"
+    ],
+    "caveat": null
+   },
+   {
+    "name": "St Lucie River flood",
+    "id": "flood-20261104-st-lucie-river-flood-818a26",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "products": [],
+    "gauges": [
+     "SLRF1 minor",
+     "SPTF1 minor"
+    ],
+    "caveat": "GAUGE_ONLY_COASTAL_CAVEAT"
+   },
+   {
+    "name": "Key Largo flood (FL, 2)",
+    "id": "flood-20261104-key-largo-flood-fl-2-386d59",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "products": [],
+    "gauges": [
+     "SUKF1 minor"
+    ],
+    "caveat": "GAUGE_ONLY_COASTAL_CAVEAT"
+   },
+   {
+    "name": "Shell Bluff Park flood",
+    "id": "flood-20261104-shell-bluff-park-flood-6e4dfb",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "products": [],
+    "gauges": [
+     "SAKF1 minor"
+    ],
+    "caveat": "GAUGE_ONLY_COASTAL_CAVEAT"
+   },
+   {
+    "name": "Loxahatchee River flood",
+    "id": "flood-20261104-loxahatchee-river-flood-ae1933",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "products": [],
+    "gauges": [
+     "LXRF1 minor"
+    ],
+    "caveat": "GAUGE_ONLY_COASTAL_CAVEAT"
+   },
+   {
+    "name": "Indian River flood",
+    "id": "flood-20261104-indian-river-flood-cf14df",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "products": [],
+    "gauges": [
+     "IRWF1 minor"
+    ],
+    "caveat": "GAUGE_ONLY_COASTAL_CAVEAT"
+   },
+   {
+    "name": "Lake Worth Beach flood",
+    "id": "flood-20261104-lake-worth-beach-flood-f15a67",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "products": [],
+    "gauges": [
+     "IWBF1 minor"
+    ],
+    "caveat": "GAUGE_ONLY_COASTAL_CAVEAT"
+   },
+   {
+    "name": "Loxahatchee River 500 ft downstream of US 1 flood",
+    "id": "flood-20261104-loxahatchee-river-500-ft-downstream-of-us-1-floo-6b04a2",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "products": [],
+    "gauges": [
+     "LRPF1 minor"
+    ],
+    "caveat": "GAUGE_ONLY_COASTAL_CAVEAT"
+   },
+   {
+    "name": "Crescent Lake flood",
+    "id": "flood-20261104-crescent-lake-flood-23a12f",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "products": [],
+    "gauges": [
+     "CELF1 minor"
+    ],
+    "caveat": "GAUGE_ONLY_COASTAL_CAVEAT"
+   },
+   {
+    "name": "Dunns Creek State Park Boat Ramp flood",
+    "id": "flood-20261104-dunns-creek-state-park-boat-ramp-flood-a510e8",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "products": [],
+    "gauges": [
+     "DCSF1 minor"
+    ],
+    "caveat": "GAUGE_ONLY_COASTAL_CAVEAT"
+   },
+   {
+    "name": "Georgetown flood",
+    "id": "flood-20261104-georgetown-flood-ca0b82",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "products": [],
+    "gauges": [
+     "GTWF1 minor"
+    ],
+    "caveat": "GAUGE_ONLY_COASTAL_CAVEAT"
+   },
+   {
+    "name": "Intracoastal Waterway flood",
+    "id": "flood-20261104-intracoastal-waterway-flood-a787b1",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "products": [],
+    "gauges": [
+     "IWDF1 minor"
+    ],
+    "caveat": "GAUGE_ONLY_COASTAL_CAVEAT"
+   },
+   {
+    "name": "Juno Beach Park Pier flood",
+    "id": "flood-20261104-juno-beach-park-pier-flood-8a5eac",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "products": [],
+    "gauges": [
+     "JBPF1 minor"
+    ],
+    "caveat": "GAUGE_ONLY_COASTAL_CAVEAT"
+   },
+   {
+    "name": "Key Largo flood (FL)",
+    "id": "flood-20261104-key-largo-flood-fl-8e174b",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "products": [],
+    "gauges": [
+     "JCRF1 minor"
+    ],
+    "caveat": "GAUGE_ONLY_COASTAL_CAVEAT"
+   },
+   {
+    "name": "North Key Largo flood (FL, 2)",
+    "id": "flood-20261104-north-key-largo-flood-9b75ab",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "products": [],
+    "gauges": [
+     "MKLF1 minor"
+    ],
+    "caveat": "GAUGE_ONLY_COASTAL_CAVEAT"
+   },
+   {
+    "name": "North Key Largo flood (FL)",
+    "id": "flood-20261104-north-key-largo-flood-fl-27565a",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "products": [],
+    "gauges": [
+     "GBPF1 minor"
+    ],
+    "caveat": "GAUGE_ONLY_COASTAL_CAVEAT"
+   },
+   {
+    "name": "Port Laudania Canal flood",
+    "id": "flood-20261104-port-laudania-canal-flood-aead61",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "products": [],
+    "gauges": [
+     "PDBF1 minor"
+    ],
+    "caveat": "GAUGE_ONLY_COASTAL_CAVEAT"
+   },
+   {
+    "name": "Mancos River flood",
+    "id": "flood-20261104-mancos-river-flood-d484b2",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "inactive",
+    "state": "CO",
+    "max_category": "minor",
+    "products": [],
+    "gauges": [
+     "MNRC2 minor"
+    ],
+    "caveat": "GAUGE_ONLY_CAVEAT"
+   },
+   {
+    "name": "Salinas River flood",
+    "id": "flood-20261104-salinas-river-flood-fa0031",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "inactive",
+    "state": "CA",
+    "max_category": "minor",
+    "products": [],
+    "gauges": [
+     "SDDC1 minor"
+    ],
+    "caveat": "GAUGE_ONLY_CAVEAT"
+   },
+   {
+    "name": "Salt River flood",
+    "id": "flood-20261102-salt-river-flood-41892e",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "AZ",
+    "max_category": "action",
+    "products": [
+     "Flood Warning KPSR.FA.W.0040.2026 (in_effect)",
+     "Flood Warning KPSR.FA.W.0041.2026 (in_effect)",
+     "Flood Warning KPSR.FA.W.0038.2026 (in_effect)",
+     "Flood Warning KPSR.FA.W.0014.2026 (in_effect)"
+    ],
+    "gauges": [
+     "SLPA3 action"
+    ],
+    "caveat": null
+   },
+   {
+    "name": "Conejos River flood",
+    "id": "flood-20261102-conejos-river-flood-36f416",
+    "kind": "areal",
+    "level": "warning",
+    "status": "active",
+    "state": "CO",
+    "max_category": null,
+    "products": [
+     "Flood Warning KPUB.FA.W.0028.2026 (in_effect)"
+    ],
+    "gauges": [],
+    "caveat": null
+   },
+   {
+    "name": "San Juan River flood (NM)",
+    "id": "flood-20261104-san-juan-river-flood-nm-0d1b24",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "NM",
+    "max_category": "action",
+    "products": [
+     "Flood Warning KABQ.FL.W.0025.2026 (in_effect)"
+    ],
+    "gauges": [
+     "SHRN5 action"
+    ],
+    "caveat": null
+   },
+   {
+    "name": "San Juan River flood (UT, 2)",
+    "id": "flood-20261103-san-juan-river-flood-ut-2-bd130e",
+    "kind": "areal",
+    "level": "warning",
+    "status": "active",
+    "state": "UT",
+    "max_category": null,
+    "products": [
+     "Flood Warning KSLC.FA.W.0017.2026 (in_effect)"
+    ],
+    "gauges": [],
+    "caveat": null
+   },
+   {
+    "name": "San Juan River flood (UT)",
+    "id": "flood-20261102-san-juan-river-flood-ut-0708f8",
+    "kind": "areal",
+    "level": "warning",
+    "status": "active",
+    "state": "UT",
+    "max_category": null,
+    "products": [
+     "Flood Warning KGJT.FA.W.0030.2026 (in_effect)"
+    ],
+    "gauges": [],
+    "caveat": null
+   },
+   {
+    "name": "Gila River flood",
+    "id": "flood-20261103-gila-river-flood-fc0482",
+    "kind": "river",
+    "level": "advisory",
+    "status": "active",
+    "state": "AZ",
+    "max_category": "action",
+    "products": [
+     "Flood Advisory KTWC.FL.Y.0005.2026 (in_effect)",
+     "Flood Advisory KTWC.FL.Y.0006.2026 (in_effect)",
+     "Flood Advisory KTWC.FL.Y.0004.2026 (in_effect)"
+    ],
+    "gauges": [
+     "GLCA3 action",
+     "GVRN5 action"
+    ],
+    "caveat": null
    }
   ]
  }
