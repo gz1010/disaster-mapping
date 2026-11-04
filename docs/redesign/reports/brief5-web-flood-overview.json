@@ -5,7 +5,8 @@
   "milestones": [
     "M1 hazard foundation (af6647f)",
     "M2 fixtures, store tests, no fire data in flood mode, fetch-spy test (f912ad4)",
-    "M3 map module, list, legend, point card, search, Forensic entry, screenshots (cbf8338)"
+    "M3 map module, list, legend, point card, search, Forensic entry, screenshots (cbf8338)",
+    "review fixes WFO-R1..R13 (12 fixed, R9 skipped: not this role's file); see reports/review5-web-flood-overview.json"
   ],
   "files": [
     "web/scripts/shot.mjs",
@@ -82,7 +83,9 @@
     "web/src/styles/flood-overview.css",
     "docs/redesign/contract5/web-flood-overview.md",
     "docs/redesign/progress/brief5-web-flood-overview.md",
-    "docs/redesign/reports/brief5-web-flood-overview.json"
+    "docs/redesign/reports/brief5-web-flood-overview.json",
+    "web/src/map/floodGaugeStatus.ts",
+    "docs/redesign/reports/review5-web-flood-overview.json"
   ],
   "screenshots": [
     "docs/screenshots/brief5-web-flood-overview-public-floods.png",
@@ -91,26 +94,30 @@
     "docs/screenshots/brief5-web-flood-overview-phone-floods.png",
     "docs/screenshots/brief5-web-flood-overview-point-card.png",
     "docs/screenshots/brief5-web-flood-overview-forensic-entry.png",
-    "docs/screenshots/brief5-web-flood-overview-public-fires.png"
+    "docs/screenshots/brief5-web-flood-overview-public-fires.png",
+    "docs/screenshots/brief5-web-flood-overview-point-card-nearest.png",
+    "docs/screenshots/brief5-web-flood-overview-missing-flood.png",
+    "docs/screenshots/brief5-web-flood-overview-gauges-down.png",
+    "docs/screenshots/brief5-web-flood-overview-year-archive-down.png"
   ],
-  "screenshot_notes": "Flood screenshots use backend/scripts/serve_fixture.py (fixture-flood and the seven synthetic list-only floods, all DEMO). The fire regression (public-fires, 1440x1144 like brief4-final-public-overview-minimal) uses the real API with FIRE3D_LIVE=0 and today's live fire lists: only the title slot (the switch) differs from brief 4; the marker data is today's. A real-data flood overview was also checked (43 live floods from the backend's in-progress M4 list, groups and leaders render) but not saved.",
-  "gates": "web: typecheck OK, lint 55 warnings (all src/scene, none added), vitest 113 files / 1457 passed / 2 skipped (pre-existing skips, no flood test skipped), build OK; backend: uv run pytest -q 1213 passed (no network).",
+  "screenshot_notes": "Flood screenshots use backend/scripts/serve_fixture.py (fixture-flood and the seven synthetic list-only floods, all DEMO). The fire regression (public-fires, 1440x1144 like brief4-final-public-overview-minimal) uses the real API with FIRE3D_LIVE=0 and today's live fire lists: only the title slot (the switch) differs from brief 4; the marker data is today's. A real-data flood overview was also checked (43 live floods from the backend's in-progress M4 list, groups and leaders render) but not saved. Review fixes: missing-flood (/?flood=<dead id>), gauges-down (national gauge route answering 404, as the real API does today) and year-archive-down (the 2026 list with iem_archive unavailable, as the real API answers) were taken on the fixture server with Playwright route interception; point-card and point-card-nearest show the gauge reading time, attribution and link, and the distance note. The real API's 2026 tab was checked too (FLOOD LIST UNAVAILABLE, the backend's reason verbatim).",
+  "gates": "web: typecheck OK, lint 55 warnings (all src/scene, none added), vitest 113 files / 1469 passed / 2 skipped (pre-existing skips, no flood test skipped), build OK; backend: uv run pytest -q 1227 passed (no network).",
   "test_skips": 2,
   "known_issues": [
     "PublicFloodChrome.tsx and CommandFloodChrome.tsx are stubs (bar, product card, fixed copy, credits); web-flood-public and web-flood-command replace them.",
     "A flood open in Forensic still shows the entry page (switch + flood list) until web-flood-forensic mounts its branch in ForensicWorkspace.tsx.",
-    "The overview readout (location/CoordinateStrip.tsx, not this role's) still reads 'No fire open' in Floods.",
     "useZoneSource() reports an open flood's zone as 'place' (lib/time.ts zoneLine has no 'flood' wording; not this role's file); useEventZoneSource() has 'flood'.",
-    "National gauges: /api/official/river-gauges?scope=national answered 404 on the real API at build time (bundle-api M3); the map falls back to the listed floods' member gauges, so gauges at action stage outside a flood are missing until then.",
     "The fetch-spy test runs effects once after a server render (no DOM in the test environment): it covers mount-time requests, not later intervals or clicks.",
     "Leader labels can still overlap the selected point's own map label for a moment (pre-existing leader layout behaviour, same as fires).",
-    "Search: only an exact (or the only matching) flood name opens a flood; partial flood matches are not listed in the results popover (the place search runs instead)."
+    "Search: only an exact (or the only matching) flood name opens a flood; partial flood matches are not listed in the results popover (the place search runs instead).",
+    "The overview readout (location/CoordinateStrip.tsx, not this role's) still reads 'No fire open' in Floods (review WFO-R9, handed to the integration).",
+    "National gauges: /api/official/river-gauges?scope=national answers 404 on the real API today (bundle-api M3); the map falls back to the listed floods' member gauges and now says so in the legend, the list foot and the Layers panel (WFO-R8)."
   ],
   "cut_line_left": [
     "Flood search hits are not listed in the search results popover (an exact or unique flood name opens it; river names match through the same function).",
     "The phone layout of the flood list panel is the fire panel's (no flood-specific phone layout)."
   ],
-  "notes_for_others": "See docs/redesign/contract5/web-flood-overview.md 'Notes for the next roles'. Additive store keys: resolvedFrom, detailLoading, detailError. floodController.hit() returns FloodHit {kind,id,lngLat?} and adds zoomToGroup/hoverLines. Flood evacuations land in useExtrasRuntime().evac with hazard=flood (incident_id null: do not filter with forIncident). Wording guard helpers for rendered scans: floodWordingProblems, stripVerbatim, collectStrings in ui/shell/floodCopy.ts.",
+  "notes_for_others": "See docs/redesign/contract5/web-flood-overview.md 'Notes for the next roles'. Additive store keys: resolvedFrom, detailLoading, detailError. floodController.hit() returns FloodHit {kind,id,lngLat?} and adds zoomToGroup/hoverLines. Flood evacuations land in useExtrasRuntime().evac with hazard=flood (incident_id null: do not filter with forIncident). Wording guard helpers for rendered scans: floodWordingProblems, stripVerbatim, collectStrings in ui/shell/floodCopy.ts. Review fixes: web-flood-public must keep useMapTint('flood') in the Public flood chrome (the stub calls it); the integration should make location/CoordinateStrip.tsx say 'No flood open' when hazard is 'flood' (WFO-R9). New small store map/floodGaugeStatus.ts (useNationalGauges) says whether the national gauge layer could be read. history.ts: fromOverview is true only when no event at all was open before the push; navigationUrl(href, incident, floodOpen) and linkWithBothUrl(href).",
   "commits": [
     "af6647f",
     "f912ad4",

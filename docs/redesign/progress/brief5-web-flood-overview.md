@@ -39,3 +39,21 @@ Role: web-flood-overview (builder), ports API 8752 / Vite 5212. Plan: PLAN-5 4.1
 - 23:05 screenshots (fixture server on 8752, Vite 5212; fire regression with the real API): every one viewed.
 - 23:10 gates: typecheck OK, lint 55 (src/scene only), 1457 web tests pass, build OK, backend 1213 pass.
 - Report and as-built note written; servers stopped after the last screenshot.
+
+## Review fixes (WFO-R1..R13)
+
+- [x] Review fixes (started before a container restart; the code reached git in the work-in-progress snapshots c69c324
+      and e155020; finished and committed as "brief 5 web-flood-overview: review fixes").
+- 23:30 continued from the snapshot: R1 history (`fromOverview` only when no event was open), R2 notice mounted, R3
+  `archive_down`, R4 both-down bar, R5 `linkWithBothUrl` + stale `?flood=`, R6 distance note, R7 gauge reading time /
+  attribution / link (card and hover), R8 `floodGaugeStatus.ts` outage line, R10 28 px pill, R11 h1, R13 strings moved.
+- 23:35 R12: the stub calls `useMapTint('flood')`; R11 reordered (hidden hazard word before the `aria-hidden` dot); R13
+  also the tab tips, peek bar and legend prose. Typecheck OK.
+- 23:38-23:42 Playwright probes on the fixture server (8752 / 5212): R1 both directions PASS, R2 404 and 503 PASS, R3
+  PASS (route interception), R4 PASS, R5 PASS (start, Back, reload), R8 PASS, R10 28 px, R11 h1 text, R7 gauge hover
+  shows "reading Nov 4, 3:00 PM MST (2 h ago)", R12 tint 'flood' in the stub and null elsewhere.
+- 23:43-23:47 gates: typecheck OK, lint 55 (src/scene only), 1469 web tests pass, build OK, backend 1225 pass.
+- 23:47-23:53 screenshots retaken and viewed (fixture server; public-fires and the real 2026 tab on the real API with
+  FIRE3D_LIVE=0); servers stopped.
+- 23:53 R8 refined: the outage line also on the year tabs (the map draws today's gauges there), not on Forensic's entry
+  page; test extended. Reports and the as-built note updated (R9 skipped: CoordinateStrip.tsx is the integration's).

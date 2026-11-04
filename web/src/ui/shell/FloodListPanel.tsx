@@ -213,7 +213,9 @@ export function FloodList({ onPick }: { onPick: (f: FloodSummary) => void }) {
   // the national gauge layer could not be read: the map shows the listed floods' own gauges only (WFO-R8)
   const nationalDown = useNationalGauges(nationalGaugesDown)
   const gaugesOn = useFlood((st) => st.layers.gauges)
-  const gaugesDown = nationalDown && gaugesOn && !past
+  // (every tab: the map draws today's gauges on the past tabs too; only on the map, not on Forensic's entry page)
+  const onMap = useWorkspace((st) => st.workspace === 'map')
+  const gaugesDown = nationalDown && gaugesOn && onMap
   return (
     <>
       <div className="ov-filters fxo-filters">

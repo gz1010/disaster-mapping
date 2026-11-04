@@ -43,7 +43,7 @@ export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant 
   const watches = useFlood((s) => s.showWatches)
   const gaugesOn = useFlood((s) => s.layers.gauges)
   // the national gauge layer could not be read: only the listed floods' own gauges are drawn (WFO-R8)
-  const gaugesDown = useNationalGauges(nationalGaugesDown) && gaugesOn && !floodOpen && !past
+  const gaugesDown = useNationalGauges(nationalGaugesDown) && gaugesOn && !floodOpen
   const compact = (
     <ul className="fxm-legend-row fxo-legend-row" aria-label="Legend">
       {!past && <Row sw="flood-large">{FLOOD_OVERVIEW.legendLarge}</Row>}

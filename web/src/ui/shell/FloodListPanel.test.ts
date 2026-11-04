@@ -120,6 +120,15 @@ describe('flood list panel', () => {
     ssrState(useNationalGauges, { status: 'unavailable' })
     const { text } = render(LIST())
     expect(text).toContain(FLOOD_OVERVIEW.nationalGaugesDown)
+    // the map draws today's gauges on the past tabs too
+    expect(render(LIST_2026(), { year: 2026 }).text).toContain(FLOOD_OVERVIEW.nationalGaugesDown)
+    // with the gauges layer off, or on Forensic's entry page (no map), there is nothing to say
+    ssrState(useFlood, { layers: { ...useFlood.getState().layers, gauges: false } })
+    expect(renderToStaticMarkup(createElement(FloodListPanel))).not.toContain(FLOOD_OVERVIEW.nationalGaugesDown)
+    ssrState(useFlood, { layers: { ...useFlood.getState().layers, gauges: true } })
+    ssrState(useWorkspace, { workspace: 'forensic' })
+    expect(renderToStaticMarkup(createElement(FloodListPanel))).not.toContain(FLOOD_OVERVIEW.nationalGaugesDown)
+    ssrState(useWorkspace, { workspace: 'map' })
     ssrState(useNationalGauges, { status: 'available' })
     expect(render(LIST()).text).not.toContain(FLOOD_OVERVIEW.nationalGaugesDown)
   })
