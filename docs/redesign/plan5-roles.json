@@ -2,16 +2,16 @@
   "brief": "BRIEF-5 (floods across the lower 48), decisions 1-4",
   "plan": "docs/redesign/PLAN-5.md",
   "contract": "docs/redesign/CONTRACT.md section 16",
-  "planned": "2026-11-04 by the planner, on claude/cool-mayer-ki7to6 at f80d846",
+  "planned": "2026-11-04 by the planner, on claude/cool-mayer-ki7to6 at f80d846; revised 21:15-22:20 UTC after the critique (PLAN-5 'Critique log'): seven build roles (backend-flood-live split from backend-flood-bundle-api), re-estimated hours, dependency-based concurrency",
   "notes": [
-    "At most 2 agents build, review or fix at once (4 CPUs). A free slot goes, in order, to (1) a pending fix, (2) a pending review, (3) the next role whose depends_on roles are built, reviewed and fixed (PLAN-5 10.3). Waves are the default order.",
-    "Ownership: within one wave the 'owns' lists are disjoint (PLAN-5 appendix A checks it against git ls-files plus 'planned_new'). A path may be owned by roles of different waves; the later role starts only after the earlier one is reviewed and fixed, so the hand-off is sequential. Roles never edit 'shared_frozen' paths; a needed change goes through the orchestrator.",
-    "Milestone waits inside a wave: web-flood-overview imports flood types only after the commit 'brief 5 backend-flood-sources: M1 contracts' is in git log, and copies the web fixtures after '...: M2 fixture'. web-flood-forensic mounts the dock hydrograph after 'brief 5 web-flood-command: M1 hydrograph'. Web roles use backend/scripts/serve_fixture.py until the real routes they need are in git log (PLAN-5 7.2).",
+    "At most 2 agents build, review or fix at once (4 CPUs). A free slot goes, in order, to (1) a pending fix, (2) a pending review, (3) the next role whose depends_on roles are built, reviewed and fixed, ties broken by 'order' (PLAN-5 10.3); then integration part 1 once its depends_on are fixed, part 2 when everything is fixed, then final-check. 'waves' is the default order only.",
+    "Ownership: any two roles (or integration part 1) that depends_on does not order, directly or through other roles, may run at the same time, so their 'owns' must be disjoint. PLAN-5 appendix A checks every such pair against git ls-files plus 'planned_new'. A path owned by two ordered roles is handed over in order (the later role starts after the earlier one is reviewed and fixed). Roles never edit 'shared_frozen' paths; a needed change goes through the orchestrator. The integration may edit README.md and CONTRACT.md 16.16 only among the frozen paths.",
+    "Milestone waits: web-flood-overview imports flood types only after 'brief 5 backend-flood-sources: M1 contracts' is in git log and copies the web fixtures after '...: M2 fixture'. web-flood-public tests manifest loading, startFloodBuild and job polling against the real route after 'brief 5 backend-flood-bundle-api: M2 bundle' (before that, the fixture server's canned build job). web-flood-forensic uses the real build/files routes after '...bundle-api: M2 bundle' and mounts the dock hydrograph after 'brief 5 web-flood-command: M1 hydrograph' (if that is not in git log by Forensic's last milestone, it leaves a placeholder and the integration mounts it). Web roles use backend/scripts/serve_fixture.py until the real routes they need are in git log (PLAN-5 7.2).",
     "Commits: 'brief 5 <role>: M<n> <what>' with a pathspec (git add <own paths>; git commit -m \"...\" -- <own paths>), ending with the two attribution lines; push after each milestone (git push origin claude/cool-mayer-ki7to6; on rejection git pull --no-rebase origin claude/cool-mayer-ki7to6, then push; on index.lock wait 10 s and retry). Never force-push, never commit data/ or .env.",
-    "Each build role writes docs/redesign/progress/brief5-<role>.md, docs/redesign/reports/brief5-<role>.json (summary, files, screenshots, known_issues, cut_line_left), docs/redesign/contract5/<role>.md (as-built notes; only the integration edits CONTRACT.md) and docs/screenshots/brief5-<role>-*.png (view every one).",
+    "Each build role writes docs/redesign/progress/brief5-<role>.md, docs/redesign/reports/brief5-<role>.json (summary, files, screenshots, known_issues, cut_line_left, test skip count), docs/redesign/contract5/<role>.md (as-built notes; only the integration edits CONTRACT.md) and docs/screenshots/brief5-<role>-*.png (view every one).",
     "Reviews: one reviewer per build role, two lenses (design and contract fidelity; behaviour and safety), in a clean worktree, on ports 8757/5217 (8758/5218 when two reviews run at once), writing docs/redesign/reports/review5-<role>.json, docs/redesign/progress/review5-<role>.md and docs/screenshots/review5-<role>-*.png. The fixer owns the role's paths and its own ports and commits 'brief 5 <role>: review fixes'.",
-    "Gates for every role before its last commit: cd backend && uv run pytest -q; cd web && npm run typecheck && npm run lint && npm test && npm run build (lint 55 warnings, all in src/scene; add none). A gate failure confined to another role's file is recorded and rerun after that role's next commit.",
-    "Secrets: FIRMS_MAP_KEY and EARTHDATA_TOKEN only from the environment or .env; never printed, logged, committed or copied; leak scans are count-only. There is no EARTHDATA_TOKEN in the cloud session: the token path is tested with a fake token and a mock transport only.",
+    "Gates for every role before its last commit: cd backend && uv run pytest -q; cd web && npm run typecheck && npm run lint && npm test && npm run build (lint 55 warnings, all in src/scene; add none). Record the pytest skip count in the report; no flood test may skip (the flood tests generate fixture-flood into tmp_path). A gate failure confined to another role's file is recorded and rerun after that role's next commit.",
+    "Secrets (override of one CLAUDE.md line, stated in every role prompt): CLAUDE.md still says 'The only secret is FIRMS_MAP_KEY'; the user approved EARTHDATA_TOKEN as a second secret in BRIEF-5 decision 2. Both come only from the environment or .env; never printed, logged, committed or copied; leak scans are count-only. Nobody edits CLAUDE.md (PLAN-5 12 U3). There is no EARTHDATA_TOKEN in the cloud session: the token path is tested with a fake token and a mock transport only.",
     "Ports: never 8000, 8710, 5173, 5180. Stop every server you start. One Chrome at a time per agent; iterate with npx vitest run <files>.",
     "Glob syntax: '*' stays inside one folder, '**' crosses folders, '[!x]' excludes a first character, '[Ff]' matches either case."
   ],
@@ -19,15 +19,16 @@
     {
       "id": "backend-flood-sources",
       "wave": 1,
+      "order": 1,
       "depends_on": [],
-      "summary": "Contracts triple for every flood type and route (M1); config, secret masking and HTTP header plumbing for EARTHDATA_TOKEN (M1); the synthetic fixture-flood with canned answers for every flood route, served by scripts/serve_fixture.py (M2); NWS flood family in sources/nws.py and the new sources/nwps.py (riv_gauges observed and forecast, rfc_max_forecast, NWPS gauge detail, stageflow, reach streamflow) with a recorder and recorded samples (M3); the flood catalog (grouping, naming, start/end/status, registry and aliases, lower-48 filter, sources and outages) and GET /api/floods, /api/floods/status, /api/floods/{id} (M4). PLAN-5 3.1, 3.2, 7.1-7.2; CONTRACT 16.1-16.9.",
+      "summary": "Contracts triple for every flood type and route, including the revision's fields (resolved_from, crest_at_end, NFHL availability and effective dates, past_rule, preparing, the new reason strings) (M1); config, secret masking (both secrets, 'Authorization: Bearer', X-Amz-* values) and HTTP header plumbing with the allow-list archive.podaac.earthdata.nasa.gov only (M1); the synthetic fixture-flood with fictional issuers, the seven list-only floods with detail answers (two full detail cases: fixture-flood-flash, fixture-flood-watch), edge-case answers, a canned build job, served by scripts/serve_fixture.py, and a tmp_path pytest fixture (M2); NWS flood family in sources/nws.py and the new sources/nwps.py (riv_gauges observed, forecast and envelope, rfc_max_forecast, IEM current_flood_warnings join, NWPS gauge detail, stageflow and reach streamflow per gauge with a 20 s timeout and one retry) with a recorder and recorded samples (M3); the flood catalog (grouping with SAME-county watch overlap and gauge episodes, naming, start/end/status, registry with aliases and last-known summaries, lower-48 filter, sources and outages; at most 6 upstream requests per cold build) and GET /api/floods, /api/floods/status, /api/floods/{id} (rule 13 chain without the year step) (M4). PLAN-5 3.1, 3.2, 7.1-7.2; CONTRACT 16.1-16.9.",
       "milestones": [
-        "M1 contracts (target <= 1 h): contracts.py flood models, web/src/api/floodTypes.ts + re-export in web/src/api/types.ts, SPEC.md 4.4 and 6 rows, tests/test_flood_contracts.py; config.py FLOODS_DIR, EARTHDATA_TOKEN, FLOODS_ENABLED, AUTO_BUILD_FLOODS, mask_secrets for both secrets and 'Authorization: Bearer'; http.py headers= with the NASA host allow-list",
-        "M2 fixture (target <= 2 h): make_fixture.py --only flood [--now], data/floods/fixture-flood/ incl. api/ canned answers, serve_fixture.py flood routes, backend/tests/data/floods/fixture_api/ (--now 2026-11-04T18:00:00Z), tests",
-        "M3 sources: nws.py flood family (fire defaults), product H-VTEC, local_in_scope hazard; sources/nwps.py; scripts/record_test_samples_floods.py; backend/tests/data/floods/{nws,nwps}/ with PROVENANCE.md; unit tests",
-        "M4 catalog: floods/{catalog,grouping,naming,registry,store,copy}.py; api/floods.py list/status/detail + include_router in api/app.py; SPEC 8.8; tests on recorded answers; a table of today's real floods (name, kind, level, members) in the report"
+        "M1 contracts (target <= 1 h): contracts.py flood models (all of CONTRACT 16.2-16.7 as revised), web/src/api/floodTypes.ts + re-export in web/src/api/types.ts, SPEC.md 4.4 and 6 rows, tests/test_flood_contracts.py; config.py FLOODS_DIR, EARTHDATA_TOKEN, FLOODS_ENABLED, AUTO_BUILD_FLOODS, EARTHDATA_AUTH_HOSTS = ('archive.podaac.earthdata.nasa.gov',), mask_secrets for both secrets, 'Authorization: Bearer' and X-Amz-(Security-Token|Signature|Credential) values; http.py headers= with the allow-list",
+        "M2 fixture (target <= 2 h): make_fixture.py --only flood [--now] per PLAN-5 7.1 as revised (fictional issuers KZZZ / ZZRFC, ZZRF2 crest_at_end, warning ending 8 h after now, no-data strip and image edge, member-reach RFC FIM stats, NFHL availability and effective dates, seven list-only floods fixture-flood-<kind> with detail/alerts/gauges/maps answers, api/edge/ unavailable answers, canned build job); serve_fixture.py flood routes incl. ?edge=; backend/tests/data/floods/fixture_api/ (--now 2026-11-04T18:00:00Z); a session pytest fixture that generates fixture-flood into tmp_path; tests",
+        "M3 sources: nws.py flood family (fire defaults), product H-VTEC (per flood, cached), local_in_scope hazard; sources/nwps.py incl. riv_gauges envelope query and the IEM current_flood_warnings join; per-gauge NWPS timeout 20 s, one retry, DownMemo; scripts/record_test_samples_floods.py; backend/tests/data/floods/{nws,nwps}/ with PROVENANCE.md; unit tests",
+        "M4 catalog: floods/{catalog,grouping,naming,registry,store,copy}.py (rules 1-13, gauge episodes, SAME-county watch overlap, last-known summaries); api/floods.py list/status/detail + include_router in api/app.py; SPEC 8.8; tests on recorded answers incl. the cold-build request count; a table of today's real floods (name, kind, level, members) in the report"
       ],
-      "cut_line": "Below the cut line (to backend-flood-bundle-api if not done): the IEM current_flood_warnings fallback for H-VTEC (product text is the primary route); SPEC 10 test notes.",
+      "cut_line": "Below the cut line (to the integration if not done): SPEC 10 test notes; the background H-VTEC product-text fetch is backend-flood-live's (the IEM bulk join is the list's primary route).",
       "owns": [
         "backend/fire3d/contracts.py",
         "backend/fire3d/config.py",
@@ -95,25 +96,29 @@
         "docs/redesign/progress/brief5-backend-flood-sources.md",
         "docs/redesign/reports/brief5-backend-flood-sources.json",
         "docs/redesign/contract5/backend-flood-sources.md",
-        "docs/screenshots/brief5-backend-flood-sources-list.png"
+        "docs/screenshots/brief5-backend-flood-sources-list.png",
+        "backend/tests/data/floods/fixture_api/edge/alerts-unavailable.json",
+        "backend/tests/data/floods/fixture_api/detail-fixture-flood-flash.json",
+        "backend/tests/data/floods/fixture_api/detail-fixture-flood-watch.json",
+        "backend/tests/test_floods_list_cost.py"
       ],
       "acceptance": [
-        "uv run pytest -q green; the fire suite count is unchanged or higher and no fire test was weakened; tests/test_endpoint_contracts.py untouched",
-        "contracts.py, floodTypes.ts (re-exported by api/types.ts) and SPEC.md match CONTRACT 16.2-16.7 exactly; tests/test_flood_contracts.py checks field names, optionality and union literals",
-        "make_fixture.py --only flood writes data/floods/fixture-flood/ (every layer, file and canned answer of PLAN-5 7.1) that validates strictly; serve_fixture.py answers every flood route of CONTRACT 16.7 with contract-valid JSON (tested), fire routes unchanged",
-        "With FIRE3D_LIVE=0 on port 8751, GET /api/floods returns today's real lower-48 floods with sources[]; GET /api/floods/{id} answers a listed id, 404 for an unknown id when the lists answered, 503 FLOOD_LISTS_503 when they did not; the report lists every flood (name, kind, level, products, gauges)",
-        "Grouping rules 1-12 of PLAN-5 3.2 are named constants, each covered by a test on recorded or hand-made inputs (lower-48 filter, gauge link incl. two gauges on one river, joins, watches never bridging, gauge-only, names, start basis, active/inactive edges at 6 h and 48 h, ids stable through a merge and a split, each source down, both down)",
+        "uv run pytest -q green with no flood test skipped (skip count in the report); the fire suite count is unchanged or higher and no fire test was weakened; tests/test_endpoint_contracts.py untouched",
+        "contracts.py, floodTypes.ts (re-exported by api/types.ts) and SPEC.md match CONTRACT 16.2-16.7 as revised exactly; tests/test_flood_contracts.py checks field names, optionality and union literals",
+        "make_fixture.py --only flood writes data/floods/fixture-flood/ (every layer, file and canned answer of PLAN-5 7.1, the seven list-only floods' detail answers and the edge cases) that validates strictly; issuers are fictional (no real office name in any synthetic product); serve_fixture.py answers every flood route of CONTRACT 16.7 with contract-valid JSON (tested), fire routes unchanged",
+        "With FIRE3D_LIVE=0 on port 8751, GET /api/floods returns today's real lower-48 floods with sources[]; a cold list build makes at most 6 upstream requests (test on recorded inputs) and no zone, product-text or series request; GET /api/floods/{id} follows the rule-13 chain (alias -> canonical summary, bundle summary, last-known summary), 404 only at its end, 503 FLOOD_LISTS_503 when the lists could not decide; the report lists every flood (name, kind, level, products, gauges)",
+        "Grouping rules 1-13 of PLAN-5 3.2 are named constants, each covered by a test on recorded or hand-made inputs (lower-48 filter, gauge link incl. two gauges on one river, joins incl. the gauge join's time overlap, watches never bridging and grouped by SAME counties with no request, gauge-only, names, start basis, active/inactive edges at 6 h and 48 h, ids stable through a merge and a split, one gauge flooding twice 30 days apart gives two ids, each source down, both down)",
         "No request in tests reaches the network (conftest guard); recorded samples have PROVENANCE.md; the recorder made at most about 20 polite requests",
-        "mask_secrets masks FIRMS_MAP_KEY, EARTHDATA_TOKEN and 'Authorization: Bearer ...'; an Authorization header is only sent to the NASA allow-list and never enters a cache key, log or error (tests with a fake token); count-only scan of the tree, the diffs and the commit messages finds 0 of either secret",
-        "Backend fixed strings in floods/copy.py equal PLAN-5 section 5 (B) and CONTRACT 16.14; test_floods_copy.py bans the section 5.1 patterns"
+        "mask_secrets masks FIRMS_MAP_KEY, EARTHDATA_TOKEN, 'Authorization: Bearer ...' and X-Amz-* values; an Authorization header is only sent to archive.podaac.earthdata.nasa.gov and never enters a cache key, log or error (tests with a fake token); count-only scan of the tree, the diffs and the commit messages finds 0 of either secret",
+        "Backend fixed strings in floods/copy.py equal PLAN-5 section 5 (B) and CONTRACT 16.14 as revised; test_floods_copy.py bans the section 5.1 patterns with word boundaries"
       ],
       "screenshots": [
         "none required (backend role); optional brief5-backend-flood-sources-list.png of the fixture server's /api/floods JSON rendered in a browser"
       ],
-      "est_hours": 4.5,
+      "est_hours": 5,
       "est_range_hours": [
-        3.5,
-        6
+        4,
+        6.5
       ],
       "review": {
         "est_hours": 0.5,
@@ -133,16 +138,17 @@
     {
       "id": "web-flood-overview",
       "wave": 1,
+      "order": 2,
       "depends_on": [],
       "waits_for_milestones": [
         "brief 5 backend-flood-sources: M1 contracts",
         "brief 5 backend-flood-sources: M2 fixture"
       ],
-      "summary": "The hazard dimension in the web app and the national map in Floods: hazard state, ?hazard= and ?flood= URL and history, one event at a time, selectors at the shell checks, the five chromes (stubs for public-flood and command-flood), the Fires | Floods switch, flood markers and groups, national gauges, leader labels, bar status, list panel, legend, point card, search hits, Forensic entry list, the flood API client, web fixtures, flood tokens, floodCopy.ts with its guard test, credits and shot.mjs --reduced-motion. PLAN-5 4.1-4.3, 4.9, 5, 7.3; CONTRACT 16.10-16.13.",
+      "summary": "The hazard dimension in the web app and the national map in Floods: hazard state, ?hazard= and ?flood= URL and history (one entry per switch, canonical-id replace), one event at a time, selectors at the shell checks, the five chromes (stubs for public-flood and command-flood), TintLevel 'flood' and frameFlood(), the Fires | Floods switch, flood markers and groups with DEMO tags, national gauges, leader labels, bar status (watches hidden count), list panel (WATCHES_HIDDEN), legend, point card (every product at the point, watches included; NO_GAUGE_NEAR and NO_PRODUCT only for available answers) and the Fires-mode flood line, search hits, Forensic entry list, the flood API client, the flood store (startFloodBuild as a typed stub), web fixtures with the revision's edge cases, flood tokens, floodCopy.ts with its guard test, credits and shot.mjs --reduced-motion. PLAN-5 4.1-4.3, 4.9, 5, 7.3; CONTRACT 16.10-16.13.",
       "milestones": [
-        "M1 (before backend M1): map-tokens.css flood tokens + map/floodStyle.ts; workspace hazard + URL; history; selectors; views.ts five chromes with stub flood chromes; HazardSwitch; floodCopy.ts with every PLAN-5 section 5 web string + guard test; shot.mjs --reduced-motion",
-        "M2 (after backend M1/M2): api/floods.ts client, web fixtures copied, state/flood.ts, floodCatalog.ts, floodOverview.ts; official/extras/fire-weather checks in flood mode; fetch-spy test",
-        "M3: map module (floodController, floodLayers, floodProfile) for markers, groups, gauges, labels, clicks; FloodStatus, FloodListPanel, FloodLegend, FloodPointCard, search hits, Forensic entry list, phones; screenshots"
+        "M1 (before backend M1): map-tokens.css flood tokens + map/floodStyle.ts; basemapStyle.ts TintLevel 'flood' and mapStore/framing frameFlood(); workspace hazard + URL; history (module flag: one entry per switch; navigationUrl drops the other parameter); selectors; views.ts five chromes with stub flood chromes; HazardSwitch; floodCopy.ts with every PLAN-5 section 5 web string + guard test (word boundaries, *.test.ts excluded, data-verbatim stripped, planted-word test); shot.mjs --reduced-motion",
+        "M2 (after backend M1/M2): api/floods.ts client, web fixtures copied (+ edgeCases.ts with the revision's cases), state/flood.ts (startFloodBuild typed stub), floodCatalog.ts, floodOverview.ts; official/extras/fire-weather checks in flood mode; fetch-spy test",
+        "M3: map module (floodController, floodLayers, floodProfile) for markers, groups, gauges, labels, clicks, DEMO tags; FloodStatus, FloodListPanel (WATCHES_HIDDEN), FloodLegend, FloodPointCard (all products at the point; envelope-status rule), the Fires-mode flood line in LocationCard, search hits, Forensic entry list, phones; screenshots"
       ],
       "cut_line": "Below the cut line (to the integration if not done): search hits for river names (flood names stay); the phone layout of the flood list panel beyond the fire panel's.",
       "owns": [
@@ -256,11 +262,12 @@
       "acceptance": [
         "Gates green; lint 55 (none added); every existing fire test green (tests at risk of PLAN-5 8 updated deliberately in the same commit)",
         "The switch sits in the title slot ('United States · Fires | Floods') in the Public and Command overviews and on Forensic's entry page; radiogroup with keyboard; ?hazard=flood round-trips through reload and Back; switching keeps camera, selected point, preset and Show details",
-        "Floods overview: markers by the rank rules (large/active/small/other), groups 'N FLOODS' sized 10 + 4.2*sqrt(n) (max 36), category diamonds from z5 with no green anywhere (floodStyle.test.ts), leader labels 'Name' / 'MAJOR · 24.1 FT', bar status never shows 0 when a list is unknown, list panel with OFFICIAL NOW block, tabs, Show watches (default from U2), absence line FLOOD_LIST_ABSENCE",
-        "Click on a flood: Public opens public-flood (one history push), Command opens command-flood (D14), group zooms in; ?flood=<id> deep link works; 404 shows FLOOD_NOT_LISTED, 503 shows FLOOD_LISTS_503; opening a flood closes an open fire and back",
+        "Floods overview: markers by the rank rules (large/active/small/other), groups 'N FLOODS' sized 10 + 4.2*sqrt(n) (max 36), category diamonds from z5 with no green anywhere (floodStyle.test.ts), leader labels 'Name' / 'MAJOR · 24.1 FT', a DEMO tag on every synthetic row, marker label and card, bar status never shows 0 when a list is unknown, list panel with OFFICIAL NOW block, tabs, Show watches (default from U2) and WATCHES_HIDDEN while hidden, absence line FLOOD_LIST_ABSENCE",
+        "Click on a flood: Public opens public-flood (one history push), Command opens command-flood (D14), group zooms in; ?flood=<id> deep link works; an alias answer replaces the URL with the canonical id; 404 shows FLOOD_NOT_LISTED, 503 shows FLOOD_LISTS_503; opening a flood closes an open fire and back; fire -> flood -> Back and flood -> fire -> Back each take one history entry (history.test.ts)",
+        "Point card in Floods lists every NWS product at the point (watches included whatever Show watches says); NO_PRODUCT and NO_GAUGE_NEAR only when their answer is 'available', else ALERTS_UNAVAILABLE / GAUGES_UNAVAILABLE (test). In Fires, the fire point card adds FLOOD_HERE_IN_FIRES only when the point's flood-alerts query returns a product",
         "With Floods picked or a flood open: no fire marker, chip, zoom focus or Red Flag outline; a fetch-spy test proves no request to a fire-only endpoint while the flood chromes are mounted",
-        "floodCopy.ts holds every web string of PLAN-5 section 5 verbatim; floodCopy.test.ts globs every *[Ff]lood*[Cc]opy*.ts and bans the 5.1 patterns",
-        "Fire overview screenshots (Public minimal and details, Command) unchanged against docs/screenshots/brief4-final-*.png"
+        "floodCopy.ts holds every web string of PLAN-5 section 5 verbatim; floodCopy.test.ts globs every *[Ff]lood*[Cc]opy*.ts except *.test.ts, bans the 5.1 patterns with word boundaries, strips data-verbatim text from rendered output, and fails on a planted banned word",
+        "Fire overview screenshots (Public minimal and details, Command) unchanged against docs/screenshots/brief4-final-*.png except the title slot (the switch) and the document title"
       ],
       "screenshots": [
         "brief5-web-flood-overview-public-floods.png (/?hazard=flood, 1440x1000)",
@@ -269,12 +276,12 @@
         "brief5-web-flood-overview-phone-floods.png (390x844 @2x)",
         "brief5-web-flood-overview-point-card.png (a selected point in Floods)",
         "brief5-web-flood-overview-forensic-entry.png (/?hazard=flood&ws=forensic)",
-        "brief5-web-flood-overview-public-fires.png (regression: the fire overview unchanged)"
+        "brief5-web-flood-overview-public-fires.png (regression: the fire overview unchanged except the title slot and the document title)"
       ],
-      "est_hours": 3.5,
+      "est_hours": 4.5,
       "est_range_hours": [
-        2.5,
-        4.5
+        3.5,
+        5.5
       ],
       "review": {
         "est_hours": 0.5,
@@ -294,18 +301,17 @@
     {
       "id": "backend-flood-bundle-api",
       "wave": 2,
+      "order": 3,
       "depends_on": [
         "backend-flood-sources"
       ],
-      "summary": "Everything the flood views read beyond the list: sources/water_maps.py (RFC FIM, CatFIM, NWM layers, flowlines; ArcGIS paging with oid), sources/nfhl.py (SFHA and 0.2% only, retries, 30-day cache), sources/opera.py + floods/satellite.py (Earthdata GIS measured DSWx-HLS without login, locked granule, PNG + stats; GIBS fallback; token path for DSWx-S1 and newest HLS via PO.DAAC), sources/usgs_water.py (v1, no key); routes build, files, maps, model (incl. nwm_series), satellite, official flood-alerts and river-gauges, local-alerts hazard=flood; the flood bundle builder; the second live loop with auto-build of 4; CLI and check_bundle --hazard flood; past floods (cut line, U1). PLAN-5 3.3-3.8; CONTRACT 16.3-16.9.",
+      "summary": "Everything the flood views read beyond the list (live loop and past floods moved to backend-flood-live, C11): sources/water_maps.py (RFC FIM with the layer-3 reach join for member-reach stats, CatFIM, NWM layers, flowlines; ArcGIS paging with oid), sources/nfhl.py (layer 0 availability, layer 3 effective dates, layer 28 SFHA and 0.2% only; retries, 30-day cache; min_zoom null), sources/opera.py + floods/satellite.py (Earthdata GIS measured DSWx-HLS without login, locked granule, PNG with clouds and no data hatched + stats, absolute times only; GIBS fallback; token path for DSWx-S1 and newest HLS via PO.DAAC), sources/usgs_water.py (v1, no key); the flood bundle builder; routes build, files, maps, model (incl. nwm_series), satellite, official flood-alerts (zone outlines on demand, at most 20, then counties) and river-gauges (bbox and nearby from riv_gauges by envelope; NWPS per lid), local-alerts hazard=flood, evacuations hazard=flood (Oregon not-available, Cal OES event_type verbatim). PLAN-5 3.3-3.4, 3.7-3.8; CONTRACT 16.3-16.7.",
       "milestones": [
-        "M1 sources: water_maps.py, nfhl.py, opera.py (+ token path behind a fake-token mock transport), usgs_water.py; recorder record_test_samples_flood_maps.py + backend/tests/data/floods/{maps,nfhl,opera,usgs,iem}/",
-        "M2 bundle: floods/build.py (AOI, terrain, rasterised layers, vectors, frozen copies, layer_status, manifest, locks), POST build, files route; fixture-flood served from its bundle by the real API",
-        "M3 routes: maps, model (incl. nwm_series), satellite (+ .png), flood-alerts, river-gauges (flood, bbox, lid, scope=national), local-alerts hazard=flood; tests/test_flood_endpoint_contracts.py isolated (empty CACHE_DIR, temp FLOODS_DIR and registry, caches cleared)",
-        "M4 live: floods/live.py second task in lifespan, refresh of ready bundles, auto-build of the 4 most severe, /api/floods/status from the loop; CLI catalog --hazard flood, build-flood; check_bundle --hazard flood; SPEC 5.3, 8.9",
-        "M5 (cut line) past floods: mode=historical&year= with PAST_RULE, IEM archive alerts at past times, USGS observations"
+        "M1 sources: water_maps.py (incl. the layer-3 reach join), nfhl.py (availability, effective dates), opera.py (+ token path behind a fake-token mock transport; allow-list PO.DAAC only; X-Amz values never logged), usgs_water.py; recorder record_test_samples_flood_maps.py + backend/tests/data/floods/{maps,nfhl,opera,usgs}/",
+        "M2 bundle: floods/build.py (AOI, terrain, rasterised layers incl. water_satellite with 255 outside the image, vectors, frozen copies with absolute times only, layer_status, manifest, locks), POST build, files route; fixture-flood served from its bundle by the real API",
+        "M3 routes: maps (stats from member reaches, crest_at_end where relevant), model (incl. nwm_series), satellite (+ .png palette test: 253 and 255 never transparent), flood-alerts (zones on demand, ZONES_AS_COUNTIES), river-gauges (flood, bbox and nearby via riv_gauges envelope, lid, scope=national), local-alerts hazard=flood, evacuations hazard=flood in api/extras.py (OR_EVAC_FIRE_ONLY); tests/test_flood_endpoint_contracts.py isolated (empty CACHE_DIR, fixture-flood generated into tmp_path, temp registry, caches cleared); SPEC 5.3"
       ],
-      "cut_line": "M5 (past floods) is below the cut line; if not done it goes to the integration only when U1 = (a) or (b), else it is dropped and the year tabs say 'Past floods come later'.",
+      "cut_line": "Below the cut line (to the integration): the NWM high-flow layer (analysis and 5-day maps stay); the CatFIM 'today's library for past dates' caveat path.",
       "owns": [
         "backend/fire3d/contracts.py",
         "backend/fire3d/config.py",
@@ -321,8 +327,6 @@
         "backend/fire3d/api/app.py",
         "backend/fire3d/api/official.py",
         "backend/fire3d/api/extras.py",
-        "backend/fire3d/cli.py",
-        "backend/scripts/check_bundle.py",
         "backend/scripts/make_fixture.py",
         "backend/scripts/serve_fixture.py",
         "backend/scripts/record_test_samples_floods.py",
@@ -331,8 +335,6 @@
         "backend/tests/test_flood_*.py",
         "backend/tests/test_floods_*.py",
         "backend/tests/test_api.py",
-        "backend/tests/test_api_live.py",
-        "backend/tests/test_api_cli.py",
         "backend/tests/test_extras.py",
         "backend/tests/test_serve_fixture.py",
         "backend/tests/test_http.py",
@@ -354,46 +356,45 @@
         "backend/fire3d/sources/opera.py",
         "backend/fire3d/sources/usgs_water.py",
         "backend/fire3d/floods/build.py",
-        "backend/fire3d/floods/live.py",
         "backend/fire3d/floods/satellite.py",
         "backend/fire3d/floods/maps.py",
-        "backend/fire3d/floods/history.py",
+        "backend/fire3d/floods/zones.py",
         "backend/scripts/record_test_samples_flood_maps.py",
         "backend/tests/test_flood_endpoint_contracts.py",
         "backend/tests/test_floods_build.py",
-        "backend/tests/test_floods_live.py",
         "backend/tests/test_floods_opera.py",
         "backend/tests/test_floods_maps.py",
         "backend/tests/test_floods_api.py",
-        "backend/tests/test_floods_history.py",
+        "backend/tests/test_floods_evacuations.py",
         "backend/tests/data/floods/maps/PROVENANCE.md",
         "backend/tests/data/floods/nfhl/PROVENANCE.md",
         "backend/tests/data/floods/opera/PROVENANCE.md",
         "backend/tests/data/floods/usgs/PROVENANCE.md",
-        "backend/tests/data/floods/iem/PROVENANCE.md",
         "docs/redesign/progress/brief5-backend-flood-bundle-api.md",
         "docs/redesign/reports/brief5-backend-flood-bundle-api.json",
         "docs/redesign/contract5/backend-flood-bundle-api.md",
         "docs/screenshots/brief5-backend-flood-bundle-api-satellite.png"
       ],
       "acceptance": [
-        "uv run pytest -q green; fire suite unchanged or higher; tests/test_endpoint_contracts.py untouched; the new isolated tests/test_flood_endpoint_contracts.py gives the same answers whatever is in data/cache",
+        "uv run pytest -q green with no flood test skipped; fire suite unchanged or higher; tests/test_endpoint_contracts.py untouched; the new isolated tests/test_flood_endpoint_contracts.py gives the same answers whatever is in data/cache and whether or not data/floods/fixture-flood exists",
         "Every route of CONTRACT 16.7 answers contract-valid JSON for fixture-flood and for one real live flood (FIRE3D_LIVE=0, port 8753); fixture-flood POST build answers 409",
-        "One real live flood bundle built with cli build-flood in <= 3 minutes, <= 20 MB, every layer or an honest layer_status reason; check_bundle --hazard flood passes; data/ not committed",
-        "Satellite without a token: measured DSWx-HLS from Earthdata GIS locked to one granule, exact image time, cloud share, PNG with lon/lat bounds, login 'not_configured' with SAT_NOT_SET_UP; Earthdata GIS down -> GIBS picture (measured false, no area); both down -> SAT_UNAVAILABLE",
-        "Token path (fake token, mock transport): Authorization only to the NASA allow-list, never in a URL, cache key, log record, error or response body; cross-host redirect drops it; 401/403 -> login 'refused' with SAT_LOGIN_REFUSED; count-only scans find 0",
-        "FEMA: only SFHA, floodway and the 0.2% band (never zone X 'minimal'); 4 tries with backoff; failure -> layer_status 'unavailable' + NFHL_DOWN, the bundle still ready",
+        "One real live flood bundle built through POST /api/floods/{id}/build in <= 3 minutes, <= 20 MB, every layer or an honest layer_status reason; data/ not committed",
+        "Satellite without a token: measured DSWx-HLS from Earthdata GIS locked to one granule, exact image time, cloud and no-data shares, PNG with lon/lat bounds where 253 and 255 are hatched and never transparent (palette test), satellite.json with absolute times only, login 'not_configured' with SAT_NOT_SET_UP; Earthdata GIS down -> GIBS picture (measured false, no area); both down -> SAT_UNAVAILABLE",
+        "Token path (fake token, mock transport): Authorization only to archive.podaac.earthdata.nasa.gov, never in a URL, cache key, log record, error or response body; cross-host redirect drops it; the pre-signed redirect's X-Amz-* values never reach a log record or an error; 401/403 or a redirect to URS -> login 'refused' with SAT_LOGIN_REFUSED; count-only scans find 0",
+        "FEMA: only SFHA, floodway and the 0.2% band (never zone X 'minimal'); availability from layer 0 and effective dates from layer 3; NFHL_OUTSIDE only where availability is 'mapped'; min_zoom null; 4 tries with backoff; failure -> layer_status 'unavailable' + NFHL_DOWN, the bundle still ready",
+        "RFC FIM stats.area_km2 only from polygons on member gauges' reaches (layer-3 join), null when the join fails (test); each official answer sends its own unavailable reason (ALERTS_UNAVAILABLE, GAUGES_UNAVAILABLE, RFC_FIM_UNAVAILABLE, CATFIM_UNAVAILABLE) and never NO_PRODUCT while unavailable",
         "Model output only under /api/floods/{id}/model with model_output true, MODEL_LABEL and MODEL_CAVEAT; never inside an official envelope; recur_cat read as AEP percent",
-        "Live loop: a second task, off with FIRE3D_FLOODS=0, cannot stop the fire loop (test); one real cycle run with FIRE3D_LIVE=1 FIRE3D_AUTO_BUILD_LIVE=0 recorded in the report; status counts null when the lists fail",
+        "Evacuations: hazard default fire is byte-for-byte unchanged; hazard=flood answers Oregon not-available with OR_EVAC_FIRE_ONLY and keeps Cal OES event_type verbatim (tests)",
+        "river-gauges never calls NWPS for a bbox or nearby list (riv_gauges envelope only); NWPS per lid with a 20 s timeout, one retry and an outage memory (test)",
         "Every new source credited in SPEC 2 with its terms URL and date; README left to the integration"
       ],
       "screenshots": [
-        "brief5-backend-flood-bundle-api-satellite.png (the satellite PNG of one real flood, opened in a browser)"
+        "brief5-backend-flood-bundle-api-satellite.png (the satellite PNG of one real flood, opened in a browser, with its no-view hatch)"
       ],
-      "est_hours": 5,
+      "est_hours": 5.5,
       "est_range_hours": [
-        4,
-        6.5
+        4.5,
+        7
       ],
       "review": {
         "est_hours": 0.5,
@@ -413,14 +414,15 @@
     {
       "id": "web-flood-public",
       "wave": 2,
+      "order": 4,
       "depends_on": [
         "web-flood-overview"
       ],
-      "summary": "The Public flood view of the design (PLAN-5 4.4): PublicFloodChrome; HazardDisc split with the verbatim WaterTexture, FloodHazardCircle, FloodTitle, the distance maths in lib/areaDistance.ts, FloodFacts (seven rows), FloodKey; the flood map area layers (warnings, NWS forecast flooded area, satellite water image or GIBS picture, main channel, member gauges with the leader to the primary gauge); FloodPointCard flood-view variant and location/floodCheck.ts; the official flood web (official/floodModel.ts, floodHooks.ts, ui/feed/FloodOfficialNow.tsx, OfficialNow exports); FloodLayersPanel (public variant); phones and reduced motion.",
+      "summary": "The Public flood view of the design (PLAN-5 4.4): PublicFloodChrome; HazardDisc split with the verbatim WaterTexture, FloodHazardCircle (status words and one meaning template per status), FloodTitle, the flood-only distance maths in lib/areaDistance.ts (fireView.ts untouched), FloodFacts per kind (river: Mapped / Not mapped, stage, crest or forecast high; flash and areal: detection, damage threat, member gauge or NO_MEMBER_GAUGE; watch), FloodKey (ages at render, no-view hatch, image edge, FEMA when on); the flood map area layers (warnings, NWS forecast flooded area, satellite water image with the no-view hatch and edge or GIBS picture, main channel, member gauges, the leader to the primary member gauge or the polygon point, FEMA toggle off by default); FloodPointCard flood-view variant and location/floodCheck.ts; manifest loading, startFloodBuild and job polling in state/flood.ts (C10); the official flood web (official/floodModel.ts, floodHooks.ts, ui/feed/FloodOfficialNow.tsx, ui/feed/FloodEvacRows.tsx, OfficialNow exports); FloodLayersPanel (public variant); phones and reduced motion.",
       "milestones": [
-        "M1: HazardDisc split (fire view unchanged, SSR snapshots equal), WaterTexture verbatim, FloodHazardCircle, FloodTitle, status words",
-        "M2: official/floodModel.ts + floodHooks.ts, FloodFacts, FloodKey, areaDistance + DistanceChip props",
-        "M3: map area layers + profile, leader to the primary gauge, FloodPointCard variant + floodCheck.ts, FloodOfficialNow, FloodLayersPanel public, phones, screenshots"
+        "M1: HazardDisc split (fire view unchanged, SSR snapshots equal), WaterTexture verbatim, FloodHazardCircle, FloodTitle, status words and meanings",
+        "M2: official/floodModel.ts + floodHooks.ts (envelope-status rule), FloodEvacRows, FloodFacts per kind, FloodKey, areaDistance + DistanceChip props; manifest loading, startFloodBuild and job polling (against the canned job, then the real route after bundle-api M2)",
+        "M3: map area layers + profile (no-view hatch, image edge, FEMA toggle), leader (gauge or polygon point), FloodPointCard variant + floodCheck.ts, FloodOfficialNow, FloodLayersPanel public, phones, screenshots incl. fixture-flood-flash and fixture-flood-watch"
       ],
       "cut_line": "Below the cut line (to the integration): the GIBS picture fallback drawing (the measured PNG is the default); the 1024 px layout pass beyond the fire view's.",
       "owns": [
@@ -463,7 +465,9 @@
         "docs/redesign/progress/brief5-web-flood-public.md",
         "docs/redesign/reports/brief5-web-flood-public.json",
         "docs/redesign/contract5/web-flood-public.md",
-        "docs/screenshots/brief5-web-flood-public-*.png"
+        "docs/screenshots/brief5-web-flood-public-*.png",
+        "web/src/ui/feed/FloodEvacRows.tsx",
+        "web/src/ui/feed/FloodEvacRows.test.ts"
       ],
       "planned_new": [
         "web/src/ui/shell/FloodLayersPanel.tsx",
@@ -488,30 +492,37 @@
         "docs/redesign/progress/brief5-web-flood-public.md",
         "docs/redesign/reports/brief5-web-flood-public.json",
         "docs/redesign/contract5/web-flood-public.md",
-        "docs/screenshots/brief5-web-flood-public-fixture.png"
+        "docs/screenshots/brief5-web-flood-public-fixture.png",
+        "web/src/ui/feed/FloodEvacRows.tsx",
+        "web/src/ui/feed/FloodEvacRows.test.ts"
       ],
       "acceptance": [
-        "Gates green; lint 55; the Public fire view (fixture-live, a real past fire) looks the same as docs/screenshots/brief4-final-public-fire-*.png and its SSR tests are unchanged",
-        "Side by side with handoff-4/renders/FloodView.jpg at 1440x1000 on fixture-flood: layout, circle (texture verbatim, 312 px, colours), title, chip, facts, key, foot bar match within reason; the four departures of PLAN-5 D5, D8, D10, D11 are the only ones",
-        "Seven facts from official answers only, each with issuer, own time and link; FORECAST FLOODED AREA from the NWS map stats only, 'Not mapped here' with RFC_FIM_OUTSIDE where none; no satellite mi², no model output anywhere in Public (floodProfile.test.ts)",
-        "Key items each with source and own time; satellite older than 3 days amber; no token -> SAT_NOT_SET_UP_SHORT in legend details; picture-only and unavailable states covered by fixtures",
-        "Status words per PLAN-5 5.2 for every fixture case (emergency, warning, advisory, watch, gauge only, no product now, past, demo); never ACTIVE/ENDED/OVER/CLEAR",
+        "Gates green; lint 55; the Public fire view (fixture-live, a real past fire) looks the same as docs/screenshots/brief4-final-public-fire-*.png and its SSR tests are unchanged; fireView.ts untouched",
+        "Side by side with handoff-4/renders/FloodView.jpg at 1440x1000 on fixture-flood: layout, circle (texture verbatim, 312 px, colours), title, chip, facts, key, foot bar match within reason; the departures of PLAN-5 D5, D8, D10, D11 are the only ones",
+        "Facts per kind (PLAN-5 4.4 table) from official answers and member gauges only, each with issuer, own time and link; FORECAST FLOODED AREA shows 'Mapped' or 'Not mapped here' (only when available) and never a number; no satellite mi², no model and no CatFIM anywhere in Public (floodProfile.test.ts); fixture-flood-flash shows detection, damage threat and NO_MEMBER_GAUGE (never the nearby below-stage gauge) and its leader ends at the polygon point",
+        "NO_PRODUCT, RFC_FIM_NONE, GAUGE_BELOW_STAGE and NO_GAUGE_NEAR never render when their answer is unavailable (test over the edge cases); the unavailable strings show instead",
+        "Key items each with source and own time; ages computed at render (a bundle built 7 days earlier shows 7+ days); satellite older than 3 days amber; no-view hatch and image edge in map and key; no token -> SAT_NOT_SET_UP_SHORT in legend details; picture-only and unavailable states covered by fixtures",
+        "Evacuation rows use flood wording (EVAC_NONE_LISTED, OR_EVAC_FIRE_ONLY); no flood view renders 'fire' in an evacuation row (test)",
+        "Status words per PLAN-5 5.2 for every fixture case (emergency, warning, advisory, watch, gauge only, no product now, past, demo), each with its meaning template; never ACTIVE/ENDED/OVER/CLEAR",
+        "Prepare: startFloodBuild starts the real build job for a listed flood, polls it with progress and loads the manifest when ready (tested against the real route once bundle-api M2 is in git log)",
         "Under prefers-reduced-motion no <animate>/<animateTransform> renders and no CSS or Web Animation runs; paused when the tab is hidden",
-        "floodModel: NWS text verbatim with sender and the issuer's own zone; Emergency first and open; a model answer can never produce an official row (test)"
+        "floodModel: NWS text verbatim (inside data-verbatim) with sender and the issuer's own zone; Emergency first and open; a model answer can never produce an official row (test)"
       ],
       "screenshots": [
         "brief5-web-flood-public-fixture.png (/?flood=fixture-flood)",
         "brief5-web-flood-public-fixture-vs-render.png (side by side with FloodView.jpg)",
+        "brief5-web-flood-public-flash.png (/?flood=fixture-flood-flash, fixture server)",
+        "brief5-web-flood-public-watch.png (/?flood=fixture-flood-watch, fixture server)",
         "brief5-web-flood-public-chip.png (device location set)",
         "brief5-web-flood-public-reduced-motion.png (--reduced-motion)",
         "brief5-web-flood-public-phone.png (390x844 @2x)",
         "brief5-web-flood-public-real.png (a real live flood, when the real routes are in)",
         "brief5-web-flood-public-fire-regression.png (/?incident=fixture-live)"
       ],
-      "est_hours": 3.5,
+      "est_hours": 4.5,
       "est_range_hours": [
-        2.5,
-        4.5
+        3.5,
+        5.5
       ],
       "review": {
         "est_hours": 0.5,
@@ -526,110 +537,28 @@
       "ports": {
         "api": 8754,
         "vite": 5214
-      }
-    },
-    {
-      "id": "web-flood-command",
-      "wave": 3,
-      "depends_on": [
-        "web-flood-public"
-      ],
-      "summary": "M1 the hydrograph (ui/timeline/hydrographModel.ts + Hydrograph.tsx, slim and dock variants, NWM on the flow axis only); the Command flood view (PLAN-5 4.5): CommandFloodChrome, FloodReadout (point checks per layer, nearest gauge, event rows, satellite area with its caveat), FloodOfficialNow mounted, legend chips, FloodLayersPanel command variant (FEMA floodplain and NWM model off by default), model and floodplain map layers, gauge picker and highlight, phones.",
-      "milestones": [
-        "M1 hydrograph (target <= 1.25 h): model + tests (scales, thresholds pinned, series split, NWM flow only, stale at 3 h, cursor readout, crest, product ticks, empty states, DST ticks, metric) and component (slim, dock)",
-        "M2: CommandFloodChrome, FloodReadout, legend chips, Official now",
-        "M3: layers drawer command variant, model and floodplain layers (amber dotted MODEL, faint stipple), gauge picker, phones, screenshots"
-      ],
-      "cut_line": "Below the cut line (to the integration): metric units in the hydrograph tooltip; small multiples in the dock variant (Forensic shows one gauge until then).",
-      "owns": [
-        "web/src/ui/shell/CommandFloodChrome.tsx",
-        "web/src/ui/shell/FloodLayersPanel.tsx",
-        "web/src/ui/shell/floodCopy.ts",
-        "web/src/ui/shell/floodCopy.test.ts",
-        "web/src/ui/timeline/[Hh]ydrograph*",
-        "web/src/location/FloodReadout.tsx",
-        "web/src/location/FloodReadout.test.ts",
-        "web/src/location/floodCheck.ts",
-        "web/src/location/floodCheck.test.ts",
-        "web/src/ui/feed/FloodOfficialNow.tsx",
-        "web/src/ui/feed/FloodOfficialNow.test.ts",
-        "web/src/map/[Ff]lood*",
-        "web/src/map/mapController.ts",
-        "web/src/state/flood*",
-        "web/src/api/floods.ts",
-        "web/src/api/floods.test.ts",
-        "web/src/styles/view-flood-command.css",
-        "web/src/styles/view-command.css",
-        "docs/redesign/progress/brief5-web-flood-command.md",
-        "docs/redesign/reports/brief5-web-flood-command.json",
-        "docs/redesign/contract5/web-flood-command.md",
-        "docs/screenshots/brief5-web-flood-command-*.png"
-      ],
-      "planned_new": [
-        "web/src/ui/timeline/hydrographModel.ts",
-        "web/src/ui/timeline/hydrographModel.test.ts",
-        "web/src/ui/timeline/Hydrograph.tsx",
-        "web/src/ui/timeline/hydrograph.css",
-        "web/src/location/FloodReadout.tsx",
-        "web/src/location/FloodReadout.test.ts",
-        "web/src/styles/view-flood-command.css",
-        "docs/redesign/progress/brief5-web-flood-command.md",
-        "docs/redesign/reports/brief5-web-flood-command.json",
-        "docs/redesign/contract5/web-flood-command.md",
-        "docs/screenshots/brief5-web-flood-command-fixture.png"
-      ],
-      "acceptance": [
-        "Gates green; lint 55; Command in a fire unchanged against docs/screenshots/brief4-final-command-fire-fixture-live.png",
-        "Hydrograph: observed solid, RFC forecast dashed with issuer and issue time, NWM dotted amber with 'MODEL · NWM · EXPERIMENTAL' on the flow axis only (never on stage, test), flood-stage lines labelled and pinned when out of range, LATEST tick amber + STALE after 3 h, crest caret, pink product ticks, keyboard slider (arrows 1 h, Shift 6 h, Home/End), no play button; every empty state of PLAN-5 5.5",
-        "Moving the handle changes the NWS products drawn on the map to those in effect at that time; the label reads observed or forecast with its source",
-        "Readout: one line per flood layer at the point with outlined tags and own times; NOTHING_COVERS when none; nearest gauge picked among the flood's rivers first with GAUGE_OTHER_STREAM; satellite area only with SAT_AREA_COMMAND's caveat",
-        "Official now: NWS products verbatim (headline, description, instructions, sender, own zone, link), Emergency first and open, river forecast row, evacuations and local alerts by the flood's bbox, NO_PRODUCT when none, foot MODEL_SEPARATE; no model output in this block (test)",
-        "Layers: FEMA floodplain and NWM off by default; when on, legend chips and readout lines appear with their labels; the model never shares a colour or layer with official or satellite water"
-      ],
-      "screenshots": [
-        "brief5-web-flood-command-fixture.png (/?flood=fixture-flood&preset=command&sel=36.80,-108.05)",
-        "brief5-web-flood-command-forecast-cursor.png (cursor 30 h ahead)",
-        "brief5-web-flood-command-model-on.png (model layer on)",
-        "brief5-web-flood-command-real.png (a real live flood)",
-        "brief5-web-flood-command-past.png (a past flood, when U1 lists them)",
-        "brief5-web-flood-command-phone.png (390x844 @2x)",
-        "brief5-web-flood-command-fire-regression.png (/?incident=fixture-live&preset=command&sel=36.215,-121.43)"
-      ],
-      "est_hours": 3.5,
-      "est_range_hours": [
-        2.5,
-        4.5
-      ],
-      "review": {
-        "est_hours": 0.5,
-        "lenses": [
-          "design fidelity (Command fire layout, PLAN-5 4.5-4.6, tokens)",
-          "behaviour and safety (model never merged, forecast labelled, gauges never an all-clear, keyboard)"
-        ]
       },
-      "fix": {
-        "est_hours": 0.75
-      },
-      "ports": {
-        "api": 8755,
-        "vite": 5215
-      }
+      "waits_for_milestones": [
+        "brief 5 backend-flood-bundle-api: M2 bundle (for the real build route; before it, the fixture server's canned build job)"
+      ]
     },
     {
       "id": "web-flood-forensic",
       "wave": 3,
+      "order": 5,
       "depends_on": [
         "web-flood-overview",
-        "backend-flood-bundle-api"
+        "web-flood-public"
       ],
       "waits_for_milestones": [
-        "brief 5 web-flood-command: M1 hydrograph"
+        "brief 5 backend-flood-bundle-api: M2 bundle (real build and files routes)",
+        "brief 5 web-flood-command: M1 hydrograph (dock; else a placeholder and the integration mounts it)"
       ],
-      "summary": "The Forensic 3D flood view (PLAN-5 4.7): FloodForensic branch in ForensicWorkspace; scene/flood assets (IncidentAssets shape, grid.fire = render); terrain drapes (uFloodPack, uSatWater; clouds hatched, never dry; model amber dotted, off by default); NWS warning lines; gauge bars with category ticks and labels; FloodHeader, FloodRightPanel (Layers, Analysis, Evidence, Notes; Flood overview and River gauges cards); the dock hydrograph; Prepare 3D data; hand-off of the flood grid.",
+      "summary": "The Forensic 3D flood view (PLAN-5 4.7): FloodForensic branch in ForensicWorkspace (FixedCopy kept on the branch and the entry page, phones included); ui/forensic-flood/forensicFloodState.ts for its own toggles (never new keys in state/flood.ts); scene assets typed SceneManifest (CONTRACT 16.12; no cast) with scene/frame.ts and scene/overlays/SceneOverlays.tsx handling a flood; terrain drapes (uFloodPack, uSatWater; cloud and no data the same hatch, never transparent or land; CatFIM and model off by default and labelled); NWS warning lines following productsAt; gauge bars with category ticks and labels; FloodHeader, FloodRightPanel (Layers incl. CatFIM, Analysis, Evidence, Notes; Flood overview and River gauges cards); the dock hydrograph; Prepare 3D data through useFlood.startFloodBuild; hand-off of the flood grid.",
       "milestones": [
-        "M1: branch, unprepared state + Prepare, floodAssets, drapes, warning lines",
-        "M2: gauge bars, header, entry controls, right panel and tabs, evidence",
-        "M3: dock hydrograph (after web-flood-command M1), hand-off, screenshots"
+        "M1: branch (FixedCopy kept), unprepared state + Prepare (useFlood.startFloodBuild), forensicFloodState.ts, SceneManifest assets, frame.ts and SceneOverlays for floods, drapes (class-to-colour test: 253 and 255 hatched), warning lines with productsAt",
+        "M2: gauge bars, header, entry controls, right panel and tabs (CatFIM toggle), evidence",
+        "M3: dock hydrograph (after web-flood-command M1, else a placeholder), hand-off, screenshots"
       ],
       "cut_line": "Below the cut line (to the integration): Analysis tab small multiples; telemetry labels for gauges in the Parametric group.",
       "owns": [
@@ -637,6 +566,8 @@
         "web/src/scene/flood/**",
         "web/src/scene/Scene.tsx",
         "web/src/scene/assets.ts",
+        "web/src/scene/frame.ts",
+        "web/src/scene/overlays/SceneOverlays.tsx",
         "web/src/scene/terrain/**",
         "web/src/ui/shell/ForensicWorkspace.tsx",
         "web/src/ui/shell/ForensicWorkspace.test.ts",
@@ -665,13 +596,19 @@
         "docs/redesign/progress/brief5-web-flood-forensic.md",
         "docs/redesign/reports/brief5-web-flood-forensic.json",
         "docs/redesign/contract5/web-flood-forensic.md",
-        "docs/screenshots/brief5-web-flood-forensic-fixture.png"
+        "docs/screenshots/brief5-web-flood-forensic-fixture.png",
+        "web/src/ui/forensic-flood/forensicFloodState.ts",
+        "web/src/ui/forensic-flood/forensicFloodState.test.ts",
+        "web/src/scene/flood/satClasses.ts",
+        "web/src/scene/flood/satClasses.test.ts"
       ],
       "acceptance": [
-        "Gates green; lint stays 55 with every warning in src/scene (none added by the drapes or gauge bars)",
+        "Gates green; lint stays 55 with every warning in src/scene (none added by the drapes or gauge bars); no cast of a flood manifest to IncidentManifest (SceneManifest, or a SceneAssets base type if the frozen scene/fx does not typecheck)",
         "Forensic with a fire (fixture-live, a real past fire) unchanged against docs/screenshots/brief4-final-forensic-fixture-live.png; no fire effect runs for a flood",
-        "fixture-flood in 3D: terrain, satellite water with the cloud hatch (never drawn as land), NWS forecast area hatch, warning lines, gauge bars with ticks and labels, legend line 'Bar height: river stage at the gauge (scaled), not water depth'; FEMA and model off by default, model amber dotted with MODEL · EXPERIMENTAL when on",
-        "A listed flood without a bundle shows the unprepared state; Prepare 3D data starts the build job with progress and loads the scene when ready",
+        "FixedCopy (PROTOTYPE_LINE and NOT_ALL_CLEAR) visible in the flood branch and on the entry page, phones included",
+        "fixture-flood in 3D: terrain, satellite water with cloud and no-data hatch (never transparent, never drawn as land; satClasses test), NWS forecast area hatch, warning lines, gauge bars with ticks and labels, legend line 'Bar height: river stage at the gauge (scaled), not water depth'; FEMA, CatFIM and model off by default, model amber dotted with MODEL · EXPERIMENTAL when on",
+        "With the dock handle after now, the warning lines and drapes keep the products in effect now (productsAt)",
+        "A listed flood without a bundle shows the unprepared state; Prepare 3D data starts the build job through useFlood.startFloodBuild with progress and loads the scene when ready",
         "Evidence tab: every NWS product version verbatim from warnings.json with sender, own times and link; archived copies labelled",
         "Under reduced motion nothing animates (labels and bars static); camera hand-off map <-> Forensic keeps the heading",
         "Wording of floodForensicCopy.ts passes the guard test"
@@ -683,9 +620,9 @@
         "brief5-web-flood-forensic-real.png (a real flood bundle built by backend-flood-bundle-api)",
         "brief5-web-flood-forensic-fire-regression.png (/?incident=fixture-live&ws=forensic)"
       ],
-      "est_hours": 3.5,
+      "est_hours": 4,
       "est_range_hours": [
-        2.5,
+        3,
         5
       ],
       "review": {
@@ -704,18 +641,186 @@
       }
     },
     {
-      "id": "integration",
+      "id": "web-flood-command",
+      "wave": 3,
+      "order": 6,
+      "depends_on": [
+        "web-flood-public"
+      ],
+      "summary": "M1 the hydrograph (ui/timeline/hydrographModel.ts with productsAt (products after now stay those in effect now), crest or forecast high at the end, flow-mode labels with NWS and NWM on separate lines and no NWM without reach_id; Hydrograph.tsx slim and dock variants, NWM on the flow axis only); the Command flood view (PLAN-5 4.5): CommandFloodChrome, FloodReadout (point checks per layer with productsAt, nearest gauge with NO_GAUGE_NEAR only for available answers, event rows, RFC_FIM_AREA_COMMAND and SAT_AREA_COMMAND with their caveats), FloodOfficialNow mounted with the flood evacuation rows, legend chips, FloodLayersPanel command variant (CatFIM, FEMA floodplain with its effective date and the NWM model off by default), model, CatFIM and floodplain map layers, gauge picker and highlight, phones. From wave 3 on state/flood.ts changes only additively, announced in contract5.",
+      "milestones": [
+        "M1 hydrograph (target <= 1.25 h): model + tests (scales, thresholds pinned, series split, NWM flow only and hidden without reach_id, flow-mode label lines, stale at 3 h, cursor readout, productsAt on both sides of now, crest and forecast high at the end, product ticks, empty states, DST ticks, metric) and component (slim, dock)",
+        "M2: CommandFloodChrome, FloodReadout, legend chips, Official now (flood evacuation rows)",
+        "M3: layers drawer command variant (CatFIM, FEMA, model), model, CatFIM and floodplain layers (amber dotted MODEL, faint stipple, category hatch), gauge picker, phones, screenshots"
+      ],
+      "cut_line": "Below the cut line (to the integration): metric units in the hydrograph tooltip; small multiples in the dock variant (Forensic shows one gauge until then).",
+      "owns": [
+        "web/src/ui/shell/CommandFloodChrome.tsx",
+        "web/src/ui/shell/FloodLayersPanel.tsx",
+        "web/src/ui/shell/floodCopy.ts",
+        "web/src/ui/shell/floodCopy.test.ts",
+        "web/src/ui/timeline/[Hh]ydrograph*",
+        "web/src/location/FloodReadout.tsx",
+        "web/src/location/FloodReadout.test.ts",
+        "web/src/location/floodCheck.ts",
+        "web/src/location/floodCheck.test.ts",
+        "web/src/ui/feed/FloodOfficialNow.tsx",
+        "web/src/ui/feed/FloodOfficialNow.test.ts",
+        "web/src/ui/feed/FloodEvacRows.tsx",
+        "web/src/ui/feed/FloodEvacRows.test.ts",
+        "web/src/map/[Ff]lood*",
+        "web/src/map/mapController.ts",
+        "web/src/state/flood*",
+        "web/src/api/floods.ts",
+        "web/src/api/floods.test.ts",
+        "web/src/styles/view-flood-command.css",
+        "web/src/styles/view-command.css",
+        "docs/redesign/progress/brief5-web-flood-command.md",
+        "docs/redesign/reports/brief5-web-flood-command.json",
+        "docs/redesign/contract5/web-flood-command.md",
+        "docs/screenshots/brief5-web-flood-command-*.png"
+      ],
+      "planned_new": [
+        "web/src/ui/timeline/hydrographModel.ts",
+        "web/src/ui/timeline/hydrographModel.test.ts",
+        "web/src/ui/timeline/Hydrograph.tsx",
+        "web/src/ui/timeline/hydrograph.css",
+        "web/src/location/FloodReadout.tsx",
+        "web/src/location/FloodReadout.test.ts",
+        "web/src/styles/view-flood-command.css",
+        "docs/redesign/progress/brief5-web-flood-command.md",
+        "docs/redesign/reports/brief5-web-flood-command.json",
+        "docs/redesign/contract5/web-flood-command.md",
+        "docs/screenshots/brief5-web-flood-command-fixture.png"
+      ],
+      "acceptance": [
+        "Gates green; lint 55; Command in a fire unchanged against docs/screenshots/brief4-final-command-fire-fixture-live.png",
+        "Hydrograph: observed solid, RFC forecast dashed with issuer and issue time, NWM dotted amber with 'MODEL · NWM · EXPERIMENTAL' on the flow axis only (never on stage, test) and never without reach_id, flood-stage lines labelled and pinned when out of range, LATEST tick amber + STALE after 3 h, crest caret or 'HIGH … AT END · STILL RISING' when crest_at_end, pink product ticks, keyboard slider (arrows 1 h, Shift 6 h, Home/End), no play button; every empty state of PLAN-5 5.5; in flow mode NWS and NWM values sit on separate lines",
+        "Handle at or before now: the map, readout and point check use the NWS products in effect at that time; after now they keep the products in effect now with CURSOR_FUTURE_PRODUCTS and 'until {time}' lines (productsAt tests); the forecast-cursor screenshot still shows the Flood Warning outline",
+        "Readout: one line per flood layer at the point with outlined tags and own times; NOTHING_COVERS when none; nearest gauge picked among the flood's rivers first with GAUGE_OTHER_STREAM, NO_GAUGE_NEAR only when the gauge answer is available; category words from the PLAN-5 5.3 table (never a raw value); RFC_FIM_AREA_COMMAND only when stats exist and SAT_AREA_COMMAND, each with its caveat",
+        "Official now: NWS products verbatim (headline, description, instructions, sender, own zone, link), Emergency first and open, river forecast row (or FORECAST_HIGH_LINE), flood evacuation rows and local alerts by the flood's bbox, NO_PRODUCT only when available else ALERTS_UNAVAILABLE, foot MODEL_SEPARATE; no model output in this block (test)",
+        "Layers: CatFIM, FEMA floodplain and NWM off by default; when on, legend chips and readout lines appear with their labels (FEMA with its effective date, CatFIM 'experimental'); the model never shares a colour or layer with official or satellite water"
+      ],
+      "screenshots": [
+        "brief5-web-flood-command-fixture.png (/?flood=fixture-flood&preset=command&sel=36.80,-108.05)",
+        "brief5-web-flood-command-forecast-cursor.png (cursor 30 h ahead)",
+        "brief5-web-flood-command-model-on.png (model layer on)",
+        "brief5-web-flood-command-real.png (a real live flood)",
+        "brief5-web-flood-command-past.png (a past flood, when U1 lists them)",
+        "brief5-web-flood-command-phone.png (390x844 @2x)",
+        "brief5-web-flood-command-fire-regression.png (/?incident=fixture-live&preset=command&sel=36.215,-121.43)"
+      ],
+      "est_hours": 4.5,
+      "est_range_hours": [
+        3.5,
+        5.5
+      ],
+      "review": {
+        "est_hours": 0.5,
+        "lenses": [
+          "design fidelity (Command fire layout, PLAN-5 4.5-4.6, tokens)",
+          "behaviour and safety (model never merged, forecast labelled, gauges never an all-clear, keyboard)"
+        ]
+      },
+      "fix": {
+        "est_hours": 0.75
+      },
+      "ports": {
+        "api": 8755,
+        "vite": 5215
+      }
+    },
+    {
+      "id": "backend-flood-live",
       "wave": 4,
+      "order": 7,
+      "depends_on": [
+        "backend-flood-bundle-api"
+      ],
+      "summary": "Split from backend-flood-bundle-api (critique C11). The second live loop (floods/live.py: a second asyncio task in the lifespan, off with FIRE3D_FLOODS=0, cannot stop the fire loop; list refresh; append new NWS product versions and gauge readings to ready bundles; refresh jobs; background prefetch of product text H-VTEC, member gauge series and zone outlines within <= 20 requests a cycle; auto-build of the 4 most severe floods), /api/floods/status from the loop, CLI catalog --hazard flood and build-flood, scripts/check_bundle.py --hazard flood, SPEC 8.9; past floods below the cut line (floods/history.py: year lists built once in the background from IEM vtec_events_bystate (49 requests a year) + emergencies, PAST_RULE or PAST_RULE_FALLBACK, registry lookup by VTEC key so 2026 ids equal live ids, mode=historical&year=, the detail chain's year step, IEM archive alerts at past times, USGS observations, THRESHOLDS_TODAY). PLAN-5 3.5-3.6; CONTRACT 16.2, 16.7-16.8.",
+      "milestones": [
+        "M1 live: floods/live.py second task in lifespan (api/app.py), refresh of ready bundles, background prefetch budget, auto-build of the 4 most severe, /api/floods/status from the loop; CLI catalog --hazard flood, build-flood; check_bundle --hazard flood; SPEC 8.9; tests (two tasks, flood task off, a flood failure cannot stop the fire loop, status counts null when lists fail)",
+        "M2 (cut line, U1) past floods: floods/history.py (bulk severity/damage route searched with <= 10 requests first; else PAST_RULE_FALLBACK), mode=historical&year= with past_rule and preparing, the detail chain's year step, IEM archive alerts at past times, USGS observations; scripts/record_test_samples_flood_history.py + backend/tests/data/floods/iem/; tests incl. one gauge flooding twice 30 days apart in the year list and 2026 ids equal to live ids"
+      ],
+      "cut_line": "M2 (past floods) is below the cut line; if not done it goes to the integration only when U1 = (a) or (b), else it is dropped and the year tabs say 'Past floods come later'.",
+      "owns": [
+        "backend/fire3d/floods/live.py",
+        "backend/fire3d/floods/history.py",
+        "backend/fire3d/api/floods.py",
+        "backend/fire3d/api/app.py",
+        "backend/fire3d/contracts.py",
+        "backend/fire3d/cli.py",
+        "backend/scripts/check_bundle.py",
+        "backend/scripts/record_test_samples_flood_history.py",
+        "backend/tests/test_api_live.py",
+        "backend/tests/test_api_cli.py",
+        "backend/tests/test_floods_live.py",
+        "backend/tests/test_floods_history.py",
+        "backend/tests/data/floods/iem/**",
+        "web/src/api/types.ts",
+        "web/src/api/floodTypes.ts",
+        "SPEC.md",
+        "docs/redesign/progress/brief5-backend-flood-live.md",
+        "docs/redesign/reports/brief5-backend-flood-live.json",
+        "docs/redesign/contract5/backend-flood-live.md"
+      ],
+      "planned_new": [
+        "backend/fire3d/floods/live.py",
+        "backend/fire3d/floods/history.py",
+        "backend/scripts/record_test_samples_flood_history.py",
+        "backend/tests/test_floods_live.py",
+        "backend/tests/test_floods_history.py",
+        "backend/tests/data/floods/iem/PROVENANCE.md",
+        "docs/redesign/progress/brief5-backend-flood-live.md",
+        "docs/redesign/reports/brief5-backend-flood-live.json",
+        "docs/redesign/contract5/backend-flood-live.md"
+      ],
+      "acceptance": [
+        "uv run pytest -q green with no flood test skipped; fire suite unchanged or higher; the fire live loop unchanged (its tests untouched and green)",
+        "Live loop: a second task, off with FIRE3D_FLOODS=0, cannot stop the fire loop (test); background prefetch stays within its budget and on NWS_LIMITER; one real cycle run with FIRE3D_LIVE=1 FIRE3D_AUTO_BUILD_LIVE=0 on port 8760 recorded in the report; status counts null when the lists fail",
+        "cli build-flood builds one real live flood bundle in <= 3 minutes; check_bundle --hazard flood passes on it and on fixture-flood; data/ not committed",
+        "Past floods (if built): the year list follows PAST_RULE or, when no bulk severity route exists, PAST_RULE_FALLBACK with past_rule set so the web shows the matching note; built once in the background at <= 30 IEM requests a minute and cached for good for 2025; 2026 entries seen live keep their live ids; one gauge flooding twice 30 days apart gives two entries; RFC forecasts, NWS maps and NWM answer not_available_for_past_dates; thresholds carry THRESHOLDS_TODAY",
+        "GET /api/floods/{id} gains the year step of the rule-13 chain (test)",
+        "Count-only scans find 0 of either secret in the tree, the diffs and the commit messages"
+      ],
+      "screenshots": [
+        "none required (backend role)"
+      ],
+      "est_hours": 3,
+      "est_range_hours": [
+        2,
+        4
+      ],
+      "review": {
+        "est_hours": 0.5,
+        "lenses": [
+          "contract fidelity (status, historical lists, SPEC 8.9)",
+          "behaviour and safety (fire loop untouched, request budgets, past-rule labelling, secrets)"
+        ]
+      },
+      "fix": {
+        "est_hours": 0.75
+      },
+      "ports": {
+        "api": 8760,
+        "vite": 5220
+      }
+    },
+    {
+      "id": "integration",
+      "wave": 5,
+      "order": 8,
       "depends_on": [
         "backend-flood-sources",
         "web-flood-overview",
         "backend-flood-bundle-api",
         "web-flood-public",
+        "web-flood-forensic",
         "web-flood-command",
-        "web-flood-forensic"
+        "backend-flood-live"
       ],
       "owns_all": true,
-      "summary": "Part 1 (may start once the five non-Forensic roles are fixed; touches backend and non-Forensic web only until Forensic is fixed): real data end to end on the real API: the live flood list's names and groups checked against the NWS products (table in the report), two real flood bundles built, every view on a real flood and on fixture-flood, cross-role fixes, cut-line leftovers. Part 2 (after Forensic is fixed): fold docs/redesign/contract5/*.md into CONTRACT 16.16 'As built', README (floods section, the three views, sources and credits with terms, the optional EARTHDATA_TOKEN set-up, fixture-flood), SPEC consistency check.",
+      "summary": "Part 1 (once sources, overview, bundle-api, public and command are fixed; may run beside web-flood-forensic or backend-flood-live with the explicit owns of 'parts'): real data end to end on the real API: the live flood list's names and groups checked against the NWS products (table in the report), two real flood bundles built, every view on a real flood and on fixture-flood, cross-role fixes, cut-line leftovers, README (floods section, the three views, sources and credits with terms, the optional EARTHDATA_TOKEN set-up, fixture-flood) and CONTRACT 16.16 for the roles already fixed. Part 2 (after every role is fixed): the live loop and past floods end to end, the remaining contract5 notes into CONTRACT 16.16, the Forensic dock if it was left as a placeholder, SPEC consistency check.",
       "owns": [
         "**"
       ],
@@ -744,16 +849,56 @@
       "ports": {
         "api": 8759,
         "vite": 5219
-      }
+      },
+      "parts": [
+        {
+          "part": 1,
+          "depends_on": [
+            "backend-flood-sources",
+            "web-flood-overview",
+            "backend-flood-bundle-api",
+            "web-flood-public",
+            "web-flood-command"
+          ],
+          "owns_all_except_roles": [
+            "web-flood-forensic",
+            "backend-flood-live"
+          ],
+          "owns_except": [
+            "web/src/state/flood*",
+            "web/src/api/floods.ts",
+            "web/src/ui/timeline/[Hh]ydrograph*",
+            "web/src/scene/**"
+          ],
+          "note": "The exceptions apply only while the named roles are not yet fixed; after that part 1 owns everything.",
+          "est_hours": 2.25
+        },
+        {
+          "part": 2,
+          "depends_on": [
+            "backend-flood-sources",
+            "web-flood-overview",
+            "backend-flood-bundle-api",
+            "web-flood-public",
+            "web-flood-forensic",
+            "web-flood-command",
+            "backend-flood-live",
+            "integration#1"
+          ],
+          "owns_all": true,
+          "est_hours": 0.5
+        }
+      ]
     },
     {
       "id": "final-check",
-      "wave": 5,
+      "wave": 6,
+      "order": 9,
       "depends_on": [
         "integration"
       ],
       "owns_all": true,
-      "summary": "Final check: gates; the screenshot set of PLAN-5 section 9 (floods: overviews, Public, Command, Forensic, unprepared, phones, reduced motion, a real flood; fires: the brief-4 final set re-shot and compared); smoke run of the switch, URL/history and keyboard; reduced-motion run (no running animation on every flood view); safety words on screen (PROTOTYPE_LINE and NOT_ALL_CLEAR visible, no banned pattern, no 'FireTrace'); count-only scans for FIRMS_MAP_KEY and EARTHDATA_TOKEN over the tree, the brief-5 diffs and commit messages; small fixes; CONTRACT 16.16 'Final check' note; report.",
+      "summary": "Final check: gates (no flood test skipped); the screenshot set of PLAN-5 section 9 (floods: overviews, Public incl. flash and watch, Command incl. the forecast cursor still showing the warning outline, Forensic, unprepared, phones, reduced motion, a real flood; fires: the brief-4 final set re-shot and compared, unchanged except the overview's title slot and the document title); smoke run of the switch, URL/history (one entry per switch) and keyboard; reduced-motion run (no running animation on every flood view); safety words on screen (PROTOTYPE_LINE and NOT_ALL_CLEAR visible on every flood view incl. Forensic, no banned pattern outside data-verbatim, no 'FireTrace'); count-only scans for FIRMS_MAP_KEY and EARTHDATA_TOKEN (both secrets, BRIEF-5 decision 2) over the tree, the brief-5 diffs and commit messages; small fixes; CONTRACT 16.16 'Final check' note; report.",
       "owns": [
         "**"
       ],
@@ -763,13 +908,13 @@
         "docs/screenshots/brief5-final-public-flood-fixture.png"
       ],
       "acceptance": [
-        "Gates green (uv run pytest -q; typecheck, lint 55 all in src/scene, npm test, build)",
-        "Every screenshot viewed; fire screenshots equal the brief-4 set within reason; no console error on any view",
-        "Scans: both secrets 0 (count only), 'FireTrace' 0 in code and UI, banned safety words 0 in UI strings",
-        "Report final-verification-5.json with summary, gates, screenshots, known_issues and the finish time"
+        "Gates green (uv run pytest -q with 0 flood tests skipped; typecheck, lint 55 all in src/scene, npm test, build)",
+        "Every screenshot viewed; fire screenshots equal the brief-4 set within reason except the overview's title slot and the document title; no console error on any view",
+        "Scans: both secrets 0 (count only), 'FireTrace' 0 in code and UI, banned safety words 0 in UI strings outside data-verbatim text",
+        "Report final-verification-5.json with summary, gates, skip counts, screenshots, known_issues and the finish time"
       ],
       "screenshots": [
-        "brief5-final-*.png: public-overview-floods, public-overview-floods-details, command-overview-floods, public-flood-fixture, public-flood-real, command-flood-fixture, command-flood-real, forensic-flood-fixture, forensic-flood-unprepared, phone-public-flood, phone-command-flood, phone-overview-floods, reduced-motion-public-flood, plus the brief-4 fire set re-shot"
+        "brief5-final-*.png: public-overview-floods, public-overview-floods-details, command-overview-floods, public-flood-fixture, public-flood-flash, public-flood-real, command-flood-fixture, command-flood-forecast-cursor, command-flood-real, forensic-flood-fixture, forensic-flood-unprepared, phone-public-flood, phone-command-flood, phone-overview-floods, reduced-motion-public-flood, plus the brief-4 fire set re-shot"
       ],
       "est_hours": 1.5,
       "est_range_hours": [
@@ -794,11 +939,15 @@
       "web-flood-public"
     ],
     [
-      "web-flood-command",
-      "web-flood-forensic"
+      "web-flood-forensic",
+      "web-flood-command"
     ],
     [
-      "integration"
+      "backend-flood-live",
+      "integration (part 1)"
+    ],
+    [
+      "integration (part 2)"
     ],
     [
       "final-check"
@@ -815,20 +964,20 @@
     }
   ],
   "schedule": {
-    "build_start_utc": "2026-11-04T21:45:00Z",
-    "rule": "PLAN-5 10.3: at most 2 agents at once; fixes, then reviews, then the next ready role",
+    "build_start_utc": "2026-11-04T22:30:00Z",
+    "rule": "PLAN-5 10.3: at most 2 agents at once; fixes, then reviews, then the next ready role in 'order'; integration part 1 once its five roles are fixed, part 2 when everything is fixed",
     "simulated_without_pauses": [
-      "slot A: backend-flood-sources 21:45-02:15, review -02:45, fix -03:30; backend-flood-bundle-api 03:30-08:30, review -09:00, fix -09:45; web-flood-forensic 09:45-13:15, review -13:45, fix -14:30; integration part 2 14:30-15:30; final-check 15:30-17:00",
-      "slot B: web-flood-overview 21:45-01:15, review -01:45, fix -02:30; web-flood-public 02:30-06:00, review -06:30, fix -07:15; web-flood-command 07:15-10:45, review -11:15, fix -12:00; integration part 1 12:00-13:45"
+      "slot A: backend-flood-sources 22:30-03:30; web-flood-overview fix 03:30-04:15; web-flood-public 04:15-08:45, review -09:15, fix -10:00; web-flood-forensic 10:00-14:00, review -14:30, fix -15:15; backend-flood-live 15:15-18:15, review -18:45, fix -19:30; integration part 2 19:30-20:00; final-check 20:00-21:30",
+      "slot B: web-flood-overview 22:30-03:00, review -03:30; backend-flood-sources review 03:30-04:00, fix -04:45; backend-flood-bundle-api 04:45-10:15, review -10:45, fix -11:30; web-flood-command 11:30-16:00, review -16:30, fix -17:15; integration part 1 17:15-19:30"
     ],
-    "finish_without_pauses_utc": "2026-11-05T17:00:00Z",
-    "finish_most_likely_utc": "2026-11-05T20:00:00Z",
+    "finish_without_pauses_utc": "2026-11-05T21:30:00Z",
+    "finish_most_likely_utc": "2026-11-06T00:30:00Z",
     "finish_range_utc": [
-      "2026-11-05T13:00:00Z",
-      "2026-11-06T05:00:00Z"
+      "2026-11-05T18:00:00Z",
+      "2026-11-06T09:15:00Z"
     ],
-    "finish_most_likely_pacific": "Thursday Nov 5, 12 PM PST",
-    "calibration": "Brief 3 wave-1 roles planned at about 5 h took 1.0-1.8 h each; reviews 0.3-0.5 h; fix rounds 0.4-1 h; brief 4 view steps 1-3 h. Brief 3 had three usage-limit pauses (about 5 h in all)."
+    "finish_most_likely_pacific": "Thursday Nov 5, 4:30 PM PST",
+    "calibration": "Brief 3 wave-1 roles planned at about 5 h took 1.0-1.8 h each; reviews 0.3-0.5 h; fix rounds 0.4-1 h; brief 4 view steps 1-3 h (the Public fire view restyle alone 3 h). Web roles combine two or three audit parts each (web audit 6.1, calibrated on brief 4), so they are set at 4.5 h. Brief 3 had three usage-limit pauses (about 5 h in all). The range is the same simulation with -20 % and +35 % on every step, plus up to 5 h of pauses at the late end."
   },
   "shared_frozen": [
     "CLAUDE.md",
