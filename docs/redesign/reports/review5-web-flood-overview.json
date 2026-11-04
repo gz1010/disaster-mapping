@@ -139,5 +139,9 @@
   "known_issues": [
     "WFO-R9 is left to the integration: the overview readout (location/CoordinateStrip.tsx) still says 'No fire open' in Floods."
   ],
-  "commits": []
+  "commits": [
+    "c69c324 work-in-progress snapshot (most fix code)",
+    "e155020 work-in-progress snapshot (fix code, screenshots)",
+    "658805a review fixes (last change, reports, notes)"
+  ]
 }
