@@ -2,7 +2,7 @@
   "brief": "BRIEF-5 (floods across the lower 48), decisions 1-4",
   "plan": "docs/redesign/PLAN-5.md",
   "contract": "docs/redesign/CONTRACT.md section 16",
-  "planned": "2026-11-04 by the planner, on claude/cool-mayer-ki7to6 at f80d846; revised 21:15-22:20 UTC after the critique (PLAN-5 'Critique log'): seven build roles (backend-flood-live split from backend-flood-bundle-api), re-estimated hours, dependency-based concurrency",
+  "planned": "2026-11-04 by the planner, on claude/cool-mayer-ki7to6 at f80d846; revised 21:15-21:40 UTC after the critique (PLAN-5 'Critique log'): seven build roles (backend-flood-live split from backend-flood-bundle-api), re-estimated hours, dependency-based concurrency",
   "notes": [
     "At most 2 agents build, review or fix at once (4 CPUs). A free slot goes, in order, to (1) a pending fix, (2) a pending review, (3) the next role whose depends_on roles are built, reviewed and fixed, ties broken by 'order' (PLAN-5 10.3); then integration part 1 once its depends_on are fixed, part 2 when everything is fixed, then final-check. 'waves' is the default order only.",
     "Ownership: any two roles (or integration part 1) that depends_on does not order, directly or through other roles, may run at the same time, so their 'owns' must be disjoint. PLAN-5 appendix A checks every such pair against git ls-files plus 'planned_new'. A path owned by two ordered roles is handed over in order (the later role starts after the earlier one is reviewed and fixed). Roles never edit 'shared_frozen' paths; a needed change goes through the orchestrator. The integration may edit README.md and CONTRACT.md 16.16 only among the frozen paths.",

@@ -1,6 +1,6 @@
 # Brief 5 build plan: floods across the lower 48 (PLAN-5)
 
-Planner, 2026-11-04 (20:30-21:30 UTC), on branch `claude/cool-mayer-ki7to6` at f80d846; **revised 21:15-22:20 UTC after an
+Planner, 2026-11-04 (20:30-21:30 UTC), on branch `claude/cool-mayer-ki7to6` at f80d846; **revised 21:15-21:40 UTC after an
 independent critique (30 problems, all handled: see the Critique log at the end)**. Inputs: `BRIEF-5.md` (the
 authority: request, four decisions, standing rules), the three audits in `docs/redesign/audit-5/` (`sources.md`,
 `backend.md`, `web.md`; where `sources.md` and `backend.md` differ, `sources.md` has the newer measurement), the design
@@ -1094,7 +1094,7 @@ print(f'{len(units)} units, {pairs} pairs that may overlap, {bad} problems')
 sys.exit(1 if bad else 0)
 ```
 
-## Critique log (revision of 2026-11-04, 21:15-22:20 UTC)
+## Critique log (revision of 2026-11-04, 21:15-21:40 UTC)
 
 An independent critic raised 30 problems (C1-C30). All were accepted; four were accepted with a different detail than
 the critic proposed (C9, C11, C12, C30), each said below. No app code was changed. Two polite IEM requests were made
