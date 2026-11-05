@@ -169,5 +169,9 @@
     "The chart's in-plot notes (for example 'NWS flood levels for this gauge are river stages; see the stage view' in flow mode) sit over the lower left of the plot and can cross the observed line.",
     "Fixture-flood was generated at 05:07 UTC, so its screenshots show its readings 2-4 h old (amber, STALE) and its Flood Warning ending sooner than 8 h; regenerate with make_fixture.py --only flood for fresh times."
   ],
-  "commits": []
+  "commits": [
+    "7e6b0e9 brief 5 part 2: work-in-progress snapshot (Command fixer and reviewers mid-step) [orchestrator snapshot holding most of the fix code]",
+    "8e756a7 brief 5 part 2: work-in-progress snapshot after a usage-limit pause [orchestrator snapshot holding the rest of the fix code, tests and screenshots]",
+    "d5df10f brief 5 web-flood-command: review fixes"
+  ]
 }

@@ -99,7 +99,10 @@
   "commits": [
     "74258f8 brief 5 web-flood-command: M1 hydrograph",
     "3d9370c brief 5 web-flood-command: M2 Command flood chrome, readout, legend chips, Official now",
-    "546895f brief 5 web-flood-command: M3 layers drawer, model, high-flow and CatFIM layers, gauge picker, past floods, phones, screenshots"
+    "546895f brief 5 web-flood-command: M3 layers drawer, model, high-flow and CatFIM layers, gauge picker, past floods, phones, screenshots",
+    "7e6b0e9 brief 5 part 2: work-in-progress snapshot (Command fixer and reviewers mid-step) [orchestrator snapshot holding most of the fix code]",
+    "8e756a7 brief 5 part 2: work-in-progress snapshot after a usage-limit pause [orchestrator snapshot holding the rest of the fix code, tests and screenshots]",
+    "d5df10f brief 5 web-flood-command: review fixes"
   ],
   "secret_scan": "count-only scan of this role's diff for FIRMS_MAP_KEY / EARTHDATA_TOKEN values and Bearer credentials: 0; 'FireTrace': 0"
 }
