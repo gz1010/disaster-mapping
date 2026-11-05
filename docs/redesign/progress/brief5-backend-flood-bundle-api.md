@@ -41,3 +41,27 @@ file, no milestone commit, no uncommitted edit in this role's paths).
   build: Peace River 15-24 s warm, St. Johns River 36 s cold, 17.7 MB. Screenshot of the St. Johns satellite PNG.
   Past gauge queries now answer not_available_for_past_dates (never today's readings for a past time).
 - Gates: backend 1322+ passed, 0 skipped; web typecheck clean, lint 55 (src/scene), 1573 passed + 2 old skips, build OK.
+
+## Review fixes (review5-backend-flood-bundle-api, R1-R11)
+
+Started 2026-11-05 ~03:30 UTC from HEAD d3870c1; no earlier fix attempt (no review report, no fix commit, no
+uncommitted edit). An orchestrator snapshot (331bc5a) committed the half-done source edits mid-step.
+
+- [x] R1 data_sources credit every source by credit line (= layer_status.source); test
+- [x] R2 a raising gauge step is an outage (GAUGES_UNAVAILABLE); test
+- [x] R3 GIBS picture dated by passes over the area (Earthdata GIS rows not rejected, CMR); else no picture; tests
+- [x] R4 CatFIM not_covered -> CATFIM_NOT_COVERED + CATFIM_NOTE_ANY; tests
+- [x] R5 SAT_CAVEAT_NO_CLOUD_SHARE, SAT_CAVEAT_RADAR (no "?"); tests
+- [x] R6 OPERA credit exact (route before the Copernicus clause); tests
+- [x] R7 NFHL_AVAILABILITY_UNKNOWN vs measured NFHL_PARTLY_MAPPED; tests
+- [x] R8 saved satellite image only in an outage, with SAT_SAVED_COPY; test
+- [x] R9 MODEL_NO_GAUGE; test
+- [x] R10 ?lid= waterbody (riv_gauges envelope) and real retrieved_ms; test
+- [x] R11 SPEC 5.3 after 5.1
+- [x] Route test fixtures pinned to the recording's clock (they would have failed after Nov 8)
+- [x] Real data on 8753: Platte River (picture Oct 30, not Oct 31), Conejos River (CatFIM, nwm_series), ?lid=AGYM7,
+      St. Johns River rebuilt (19 s, 17 MB, 13 credits) and Platte River built (13 s, 11 MB); servers stopped
+- [x] Screenshots: brief5-backend-flood-bundle-api-stjohns-public.png, brief5-backend-flood-bundle-api-platte-public.png
+- [x] Gates: backend 1340 passed, 0 skipped; web typecheck clean, lint 55 (src/scene), 1573 passed + 2 old skips
+      (one transient failure in one of three runs while another role worked), build OK; count-only secret scan 0
+- [x] review5 report, role report, as-built note

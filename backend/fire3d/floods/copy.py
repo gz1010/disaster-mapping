@@ -227,9 +227,10 @@ USGS_OBSERVATIONS = "Observations courtesy of U.S. Geological Survey"
 
 
 def opera_credit(product: str, route: str) -> str:
-    """The OPERA credit line (CONTRACT 16.15, PLAN-5 2 exact) with its route before the Copernicus clause: "Water seen by
-    satellite: NASA JPL OPERA DSWx-HLS (PO.DAAC, doi:10.5067/OPDSW-PL3V1) via NASA Earthdata GIS; contains modified
-    Copernicus Sentinel data" (Earthdata GIS), "... via NASA GIBS; ..." (GIBS picture), no route for PO.DAAC."""
+    """The OPERA credit line (CONTRACT 16.15, PLAN-5 2 exact) with its route before the Copernicus clause: "Water
+    seen by satellite: NASA JPL OPERA DSWx-HLS (PO.DAAC, doi:10.5067/OPDSW-PL3V1) via NASA Earthdata GIS; contains
+    modified Copernicus Sentinel data" (Earthdata GIS), "... via NASA GIBS; ..." (GIBS picture), no route for
+    PO.DAAC."""
     base = CREDIT_OPERA_S1_BASE if product == "DSWx-S1" else CREDIT_OPERA_HLS_BASE
     return f"{base}{OPERA_ROUTE_VIA.get(route, '')}; {CREDIT_COPERNICUS}"
 

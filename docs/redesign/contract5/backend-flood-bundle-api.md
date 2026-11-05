@@ -23,9 +23,12 @@ Role `backend-flood-bundle-api` (PLAN-5 §10.1). Milestones M1 sources, M2 bundl
   `SFHA_TF='T' OR ZONE_SUBTY LIKE '0.2%'`; `parse_zone` drops anything else, never zone X "minimal"),
   `zone_code(props)` (1 band, 2 SFHA, 3 floodway, 0 not shown), `availability(bbox) -> ("mapped" | "no_digital_map" |
   "unknown", fetched)` (layer 0; `mapped` only when the availability polygons cover ≥ 98 % of the area),
+  `coverage(bbox) -> ("mapped" | "partial" | "none" | "unknown", fetched)` (review R7; `availability()` maps it to the
+  contract values: partial → unknown, none → no_digital_map),
   `effective_dates(bbox) -> (min_ms, max_ms, fetched)` (layer 3 `EFF_DATE`), `nfhl(bbox) -> NfhlResult(features,
   availability, effective_min_ms, effective_max_ms, fetched_ms, notes)` (zones required; availability and dates fall
-  back to `unknown` / null with a note; `notes` has "truncated" when FEMA had more zones than Fire-3d pages).
+  back to `unknown` / null with a note; `notes`: "partly mapped" (measured), "availability unknown" (layer 0 not read
+  or not joinable, or zones without an availability polygon), "effective dates unknown", "truncated").
 - `sources/opera.py` (NASA): `egis_granules(bbox, end_ms, days=10, *, now_ms)` (Earthdata GIS catalog, `category=1`,
   footprints), `group_passes(granules) -> list[Pass]` (tiles of one pass: product, sensor, sensing minute),
   `egis_export(pass, bbox, w, h, sr=4326) -> np.ndarray` (locked `esriMosaicLockRaster`, `rasterFunction: None`, nearest,
@@ -34,7 +37,9 @@ Role `backend-flood-bundle-api` (PLAN-5 §10.1). Milestones M1 sources, M2 bundl
   of a GeoTIFF → `LoginRefused` and `login_state()` "refused" for 10 min; files `CACHE_DIR/opera/<granule>_B01_WTR.tif`),
   `READER` (injectable; default `read_window(path, bounds, crs, w, h)` reprojects nearest, 255 outside),
   `podaac_pass(...)`, `s1_classes(arr)` (DSWx-S1: 0, 1, 2, 254, 255 kept; 3 inundated vegetation → 2; HAND / layover /
-  shadow masks → 255), `gibs_latest(end_ms) -> (date, fetched)`, `gibs_template(layer, date)`, `token()`,
+  shadow masks → 255), `gibs_dates(end_ms) -> (dates, fetched)` (the layer's dates worldwide), `gibs_latest(end_ms) ->
+  (date, fetched)` (newest of them; no longer used by the flood answers, review R3), `utc_day(ms)`,
+  `gibs_template(layer, date)`, `token()`,
   `login_state()`, `px_size(bbox, 30 m, max_px)`, `parse_name(name)` (image time from the granule name).
 - `sources/usgs_water.py` (USGS v1, no key): `continuous(site, parameter, start_ms, end_ms) -> UsgsSeries` (paged by the
   `next` link; 429 → `UsgsBusy` with `USGS_429` and a 10-min hold), `observed_series(site, start, end) -> {observed,
@@ -56,15 +61,32 @@ Role `backend-flood-bundle-api` (PLAN-5 §10.1). Milestones M1 sources, M2 bundl
   catalog 0.05 terrain 0.35 maps 0.20 gauges 0.15 satellite 0.20 finish 0.05 (`pipeline.BuildProgress`); terrain
   required (else `RuntimeError` with `TERRAIN_DOWN`, the earlier bundle kept); `.staging/` swapped in at the end,
   manifest last, `validate_strict(FloodManifest, …)`; `compact_fc(fc, grid)` for the bundle's GeoJSON copies;
-  `rasterize(features, grid, value)`.
+  `rasterize(features, grid, value)`. `manifest.data_sources` (review R1): one `DataSource` per step that wrote a file
+  or a layer, **named by its credit line** (the same text as that layer's `layer_status.source`), `detail` = what the
+  bundle holds from it (absolute UTC times), `fetched_ms` = when it was fetched: `Terrain: USGS 3D Elevation Program
+  (3DEP)`, `Aerial photo: USDA NAIP via USGS The National Map`, `NOAA/NWS National Water Center (experimental)` (RFC FIM;
+  CatFIM when written), `Flood zones: FEMA National Flood Hazard Layer (effective)`, `NOAA/NWS National Water Center,
+  National Water Model (experimental model output)` (analysis map; series), `National Weather Service`
+  (warnings.json; plus `Boundaries: U.S. Census Bureau TIGERweb` when zones are drawn as counties), `NOAA National
+  Water Prediction Service (NWS)` (gauges.json) plus each data attribution NWPS names ("Observations courtesy of U.S.
+  Geological Survey", "Courtesy of FDEP", ...) and each RFC forecast's issuer (`copy.rfc_credit`), and the OPERA credit
+  of `satellite.json` (route included). A gauge step that raises writes an unavailable `gauges.json`
+  (`GAUGES_UNAVAILABLE`, `upstream_error`) and layer_status `unavailable` (review R2).
 - `maps.flood_area(summary) -> FloodArea(center_lon, center_lat, extent_m, bbox, note)` (pad 3 km, 8-60 km, cut around
   the primary gauge else the point; note `AOI_CUT_NOTE`), `maps.default_catfim(summary)`, `maps.map_answer(kind,
   summary, *, now, lid, category, at_ms, area)`, `rfc_fim_answer`, `catfim_answer`, `nfhl_answer`,
   `maps.model_answer(kind, summary, *, now, lid, at_ms, area)` (`nwm_series`: NWPS gauge → `reachId` →
-  analysis_assimilation, short_range, medium_range_blend).
+  analysis_assimilation, short_range, medium_range_blend; no gauge → `MODEL_NO_GAUGE`, a gauge without a reach →
+  `MODEL_NO_REACH`). `catfim_answer`: nothing to map (no gauge with a flood category, an id or category the library
+  cannot take) → `unavailable` / `not_covered` / `CATFIM_NOT_COVERED` with `coverage_note` `CATFIM_NOTE_ANY`;
+  `CATFIM_UNAVAILABLE` only for `upstream_error` (review R4). `nfhl_answer`: `NFHL_PARTLY_MAPPED` only for measured
+  partial coverage, else `NFHL_AVAILABILITY_UNKNOWN` (review R7).
 - `satellite.flood_satellite(flood_id, bbox, *, now, time_zone, at_ms=None, grid=None) -> SatResult(answer, png,
-  grid_classes, key)`; `choose_egis(passes, bbox)` (probe up to 4 newest passes at 160 px: the newest that saw ≥ 50 % of
-  the area clearly, else the one that saw most; a pass that saw < 5 % is not usable), `palette_rgba(cls, outside)`,
+  grid_classes, key)`; `choose_egis(passes, bbox, rejected=None)` (probe up to 4 newest passes at 160 px: the newest
+  that saw ≥ 50 % of the area clearly, else the one that saw most; a pass that saw < 5 % is not usable and its key goes
+  into `rejected`), `picture_days(bbox, ref, passes, rejected) -> (days, cmr_ok)` (review R3: UTC days of DSWx-HLS
+  passes that touch the area, from the Earthdata GIS catalog rows and NASA's CMR search, no login; never a rejected
+  pass), `palette_rgba(cls, outside)`,
   `stats_of(cls, bbox)`, `date_time_text(ms, tz)`, `cached_answer(...)` (routes: 30 min in memory, PNG in
   `CACHE_DIR/floods/satellite/<id>/<pass key>.png`).
 - `zones.flood_alerts(summary, *, now, at_ms)`, `zones.bbox_alerts(bbox, *, now, at_ms)`, `zones.zone_features(alerts)`
@@ -84,10 +106,10 @@ Role `backend-flood-bundle-api` (PLAN-5 §10.1). Milestones M1 sources, M2 bundl
 | `GET /api/floods/{id}/files/{path}` | gzip except JPEG / PNG, weak ETag + 304, no-cache; `.geojson` → `application/geo+json`; dotfiles, `.staging/`, the lock and the fixture's `api/` are 404. |
 | `GET /api/floods/{id}/maps?kind=&lid=&category=&at_ms=` | `FloodMapResponse` over the flood's area (its ready bundle's grid when there is one, else `flood_area`). |
 | `GET /api/floods/{id}/model?kind=&lid=&at_ms=` | `ModelOutputResponse`; `nwm_series` defaults to the primary gauge. |
-| `GET /api/floods/{id}/satellite?at_ms=` | `SatelliteWaterResponse`; when NASA cannot be read now, a ready bundle's frozen measured answer is served (absolute times; login fields of now). |
+| `GET /api/floods/{id}/satellite?at_ms=` | `SatelliteWaterResponse`. Only in an outage (status `unavailable`, or the picture fallback with `reason_code` `upstream_error`) and only without `at_ms`, a ready bundle's frozen measured answer is served (absolute times; login fields of now; `SAT_SAVED_COPY` appended to `caveats`, `caveats[0]` stays the image's own caveat). A `no_image` answer is served as NASA gave it, never replaced by an older saved image (review R8). |
 | `GET /api/floods/{id}/satellite.png?granule=<pass key>` | the route cache's PNG, else the bundle's (when the key or a granule id matches), else recomputed; 404 `SATELLITE_IMAGE_GONE`. |
 | `GET /api/official/flood-alerts?flood=\|bbox=&at_ms=` | `FloodAlertsResponse`; `bbox` with w = e and s = n is a point (`covers_point`); max 4° box; 422 without a scope. |
-| `GET /api/official/river-gauges?flood=\|lid=\|scope=national\|bbox=&min=&series=&at_ms=` | priority flood, lid, scope, bbox; 422 without one; 404 unknown lid; `ZZ…` lids from synthetic bundles. |
+| `GET /api/official/river-gauges?flood=\|lid=\|scope=national\|bbox=&min=&series=&at_ms=` | priority flood, lid, scope, bbox; 422 without one; 404 unknown lid; `ZZ…` lids from synthetic bundles. `retrieved_ms` is when NOAA sent the oldest part of the answer (cached copies keep their time; `gauges.nwps_river_gauge_fetched`), never simply now. `?lid=` fills `waterbody` from one small `riv_gauges` envelope around the gauge (`gauges.waterbody_of`, ±1 km, cached 5 min; null when it cannot be read) (review R10). |
 | `GET /api/official/local-alerts?bbox=&hazard=flood` | `official._flood_local_alerts`: `NationalAnswer.local_flood` now, `past_local(..., hazard="flood")` up to 7 days back, FEMA archive `not_checked`; `incident` with `hazard=flood` is 400. |
 | `GET /api/extras/evacuations?bbox=&hazard=flood` | `extras.evacuations_payload(ctx, hazard)`; `FIRE_ONLY_FEEDS = {"or_oem_evacuations"}`: never asked for floods; its state `availability: "not_available"`, `checked: false`, `note: OR_EVAC_FIRE_ONLY`; its source entry `unavailable` with `OR_EVAC_FIRE_ONLY`; an Oregon-only area answers `unavailable` / `state_not_available` / `OR_EVAC_FIRE_ONLY`; a mixed area adds the caveat. `hazard=fire` (default) takes the unchanged code path. |
 
@@ -103,7 +125,25 @@ canned `api/<name>.json` answers (as `serve_fixture.py`), else the frozen files 
 `GAUGES_PAST_NOT_YET`,
 `BUILD_SYNTHETIC`, `BUILD_OUTSIDE_L48`, `FLOOD_ROUTE_NOT_LISTED`, `GAUGE_NOT_FOUND`, `SATELLITE_IMAGE_GONE`,
 `TERRAIN_DOWN`, `NAIP_DOWN`, `GAUGES_NONE`, `LOCAL_FLOOD_CAVEAT`, `LOCAL_FLOOD_ARCHIVE_REASON`, `LOCAL_FLOOD_NWS_DOWN`
-(texts in `copy.py`, all under `test_floods_copy.py`'s guard). `maps.AOI_CUT_NOTE` ("Cut to {km} km around the
+(texts in `copy.py`, all under `test_floods_copy.py`'s guard).
+
+Added by the review fixes (review5-backend-flood-bundle-api; exact texts, for CONTRACT 16.14):
+
+| Name | Text | Sent |
+|---|---|---|
+| `SAT_CAVEAT_NO_CLOUD_SHARE` | Water seen by satellite (NASA OPERA), {date_time}. It includes the river's normal water. Clouds, trees, buildings and the days between passes hide water: dry pixels do not mean no flooding. | `caveats[0]` when the cloud share is unknown (the GIBS picture); replaces the old "Clouds (?% of this area)" (R5) |
+| `SAT_CAVEAT_RADAR` | Water seen by radar satellite (NASA OPERA), {date_time}. It includes the river's normal water. Trees, buildings, steep slopes and the days between passes hide water: dry pixels do not mean no flooding. | `caveats[0]` of a DSWx-S1 (radar) image (R5) |
+| `SAT_PICTURE_REASON` | Fire-3d could not load a measured satellite water image of this area from the last 10 days; NASA's picture of {date} is not measured here. That is not an all-clear. | `reason` of a GIBS picture answer (R3); `{date}` "Oct 30, 2026" |
+| `SAT_SAVED_COPY` | NASA's satellite water service could not be reached right now; this is the image Fire-3d saved when it prepared this flood. | last of `caveats` when the route serves the bundle's saved image (R8) |
+| `CATFIM_NOT_COVERED` | No NWS category flood map for this flood (no river gauge with a flood category). | CatFIM `reason` with `not_covered` (R4) |
+| `CATFIM_NOTE_ANY` | What NWS maps for each flood category at a river gauge (experimental map library). Not a forecast. | CatFIM `coverage_note` when there is no category (R4) |
+| `NFHL_AVAILABILITY_UNKNOWN` | Whether FEMA has a digital flood map for all of this area could not be checked right now. | NFHL caveat (and the bundle's floodplain reason) when availability is unknown but not measured partial (R7) |
+| `MODEL_NO_GAUGE` | This flood has no river gauge, so there is no model series for it. | `nwm_series` `reason` without a gauge (R9) |
+
+`SAT_CAVEAT` itself (CONTRACT 16.14) is unchanged and is sent only with a measured cloud share
+(`copy.sat_caveat(date_time, cloud_pct, *, radar=False)` picks the variant). Credit helpers: `copy.opera_credit(product,
+route)` (R6), `CREDIT_3DEP`, `CREDIT_NAIP`, `CREDIT_TIGERWEB_COUNTIES`, `CREDIT_COPERNICUS`, `CREDIT_OPERA_HLS_BASE`,
+`CREDIT_OPERA_S1_BASE` (`CREDIT_OPERA_HLS` / `CREDIT_OPERA_S1` keep their values). `maps.AOI_CUT_NOTE` ("Cut to {km} km around the
 {what}: this flood's NWS areas reach farther.") is the manifest's `aoi_note`.
 
 ## Deviations and interpretations
@@ -111,12 +151,17 @@ canned `api/<name>.json` answers (as `serve_fixture.py`), else the frozen files 
 1. **Satellite window.** Earthdata GIS is often more than a day behind and Landsat swaths leave tiles half empty: in the
    recorded box the only pass of the last 10 days had no pixels there. The pass is therefore chosen by small probes
    (above); when no pass in 10 days saw ≥ 5 % of the area, the answer is the GIBS picture (`measured: false`,
-   `reason_code: "no_image"`, `reason: SAT_NO_IMAGE`). The window stays 10 days (PLAN-5 3.7); no older image is shown.
+   `reason_code: "no_image"`, `reason: SAT_PICTURE_REASON`) **of the newest day whose passes touch the area** (Earthdata
+   GIS rows not rejected by a probe, or CMR; review R3), or, when there is no such day (or GIBS has not published it),
+   no picture (`tiles: null`, `reason: SAT_NO_IMAGE`, `caveats: []`). Earthdata GIS down: the same rule with CMR
+   (`reason_code: "upstream_error"`); Earthdata GIS and CMR down, or GIBS down: `SAT_UNAVAILABLE`. The window stays 10
+   days (PLAN-5 3.7); no older image is shown, and the route's saved bundle image appears only in an outage (R8).
 2. **Outside the image vs no data.** "The image" is the chosen pass's tile footprints: outside them the PNG is
    transparent and `image.bounds_lonlat` is cropped to them; inside a tile, pixels the swath missed are 255 (no data) and
    hatched like clouds (D25). The bundle grid has 255 in both cases. Stats count both as no data.
-3. **`SAT_CAVEAT` for radar and pictures:** DSWx-S1 and GIBS pictures have no cloud share, so the slot reads "?"
-   ("Clouds (?% of this area)", the existing `copy.sat_caveat` behaviour); the GIBS caveat carries the date only.
+3. **`SAT_CAVEAT` for radar and pictures** (changed by review R5): a GIBS picture has no measured cloud share, so it
+   gets `SAT_CAVEAT_NO_CLOUD_SHARE` (no parenthesis; the date only); DSWx-S1 radar sees through clouds, so it gets
+   `SAT_CAVEAT_RADAR`. No answer carries a "?" slot.
 4. **Nearby gauges' forecasts** come from `rfc_max_forecast` when listed there (its `crest_at_end` is conservative);
    otherwise `forecast` is null and `is_forecast_point` says whether NWS forecasts the gauge (`?lid=` reads NWPS for the
    exact forecast). The web should not show `NO_RFC_FORECAST` when `is_forecast_point` is true.
@@ -139,6 +184,17 @@ canned `api/<name>.json` answers (as `serve_fixture.py`), else the frozen files 
 10. **`flood_iso` (tests)** also resets the flood rate limiters and the new modules' states: one test's mocked
     requests used up `NWS_LIMITER` and made later tests fail.
 
+11. **The OPERA credit line** (review R6) is PLAN-5 2's exact line with the route before the Copernicus clause:
+    "Water seen by satellite: NASA JPL OPERA DSWx-HLS (PO.DAAC, doi:10.5067/OPDSW-PL3V1) via NASA Earthdata GIS;
+    contains modified Copernicus Sentinel data"; the GIBS picture uses the same line with "via NASA GIBS" (PLAN-5 2's
+    shorter picture credit "NASA JPL OPERA DSWx via NASA GIBS" would drop the Copernicus clause that HLS data needs).
+    CONTRACT 16.15's OPERA row ("(+ "via NASA Earthdata GIS" or "via NASA GIBS")") should say where the route goes.
+12. **SPEC 5.3** (review R11) now sits after 5.1 (SPEC has no 5.2; the number is the one PLAN-5 cites).
+13. **The FEMA caveat for `unknown` availability** (review R7) distinguishes measured partial coverage
+    (`NFHL_PARTLY_MAPPED`) from "could not be checked" (`NFHL_AVAILABILITY_UNKNOWN`).
+14. **Route tests run at the recording's time** (found in the review fix step): the endpoint and API test fixtures pin
+    `api.floods._now` and `floods.build.now_ms`, so they keep passing after the recorded passes leave the 10-day window.
+
 ## For the next roles
 
 - **web-flood-public / web-flood-forensic:** the real build and files routes are live (M2). A build of a 60 km flood
@@ -150,6 +206,12 @@ canned `api/<name>.json` answers (as `serve_fixture.py`), else the frozen files 
   `usgs_water.observed_series` for past gauge readings; queue a `refresh` (re-`build_flood(force=True)`) when
   `satellite.cached_answer` reports a newer pass key than the bundle's `satellite.json` or RFC FIM's `reference_ms`
   changed; `nws.product_hvtec` for the background H-VTEC prefetch.
-- **integration:** CONTRACT 16.14 additions (list above); CONTRACT 16.7 rows: local-alerts `hazard=flood` takes `bbox`
+- **web roles (review fixes):** a GIBS picture answer has `reason` `SAT_PICTURE_REASON` (not `SAT_NO_IMAGE`); a
+  no-image answer has `tiles` null and `caveats` []; a served saved image has `SAT_SAVED_COPY` last in `caveats`.
+  Flood Forensic: `manifest.data_sources` names are credit lines, ready to list as the bundle's credits.
+- **integration:** the fixture's list-only demo floods keep their own CatFIM not-covered sentence ("This flood has no
+  NWS forecast gauge, so no category flood map applies.", `scripts/make_fixture.py`), since changing it changes the
+  committed `fixture_api` copy the web copies verbatim; align it with `CATFIM_NOT_COVERED` in both copies if wanted.
+- **integration:** CONTRACT 16.14 additions (lists above); CONTRACT 16.7 rows: local-alerts `hazard=flood` takes `bbox`
   only (400 with `incident`); `flood-alerts` and `river-gauges` `bbox` max 4°; README credits (SPEC §2 rows written
   for RFC FIM, CatFIM, NWM, FEMA NFHL, OPERA via Earthdata GIS / PO.DAAC / GIBS, USGS v1).

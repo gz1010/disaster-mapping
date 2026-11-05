@@ -93,7 +93,7 @@ def nwps_river_gauge(lid: str, *, member: bool, with_series: bool, waterbody: st
 
 def nwps_river_gauge_fetched(lid: str, *, member: bool, with_series: bool,
                              waterbody: str | None = None) -> tuple[dict, int]:
-    """(:func:`nwps_river_gauge`, when NWPS sent the oldest part of it: detail is cached up to 6 h, the series 10 min)."""
+    """(:func:`nwps_river_gauge`, when NWPS sent its oldest part: detail is cached up to 6 h, the series 10 min)."""
     detail, fetched = nwps.gauge(lid)
     try:
         sf, sf_fetched = nwps.stageflow(lid)
@@ -229,7 +229,8 @@ def flood_gauges(summary: dict, *, now: int, with_series: bool, include_nearby: 
                 "gauges": [], "area_bbox": list(area)}
     obs = [g["observed"]["valid_ms"] for g in rows if g["observed"].get("valid_ms")]
     # retrieved_ms: when the oldest part of this answer was fetched from NOAA (cached copies keep their own time)
-    return {**envelope("river_gauges", now=now, flood_id=fid, bbox=area, retrieved_ms=min(retrieved) if retrieved else now,
+    fetched_at = min(retrieved) if retrieved else now
+    return {**envelope("river_gauges", now=now, flood_id=fid, bbox=area, retrieved_ms=fetched_at,
                        source_updated_ms=max(obs) if obs else None, at_ms=at_ms, caveats=caveats),
             "gauges": rows + (near if include_nearby else []), "area_bbox": list(area)}
 

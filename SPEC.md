@@ -91,9 +91,9 @@ in California CAL FIRE stays the record and WFIGS adds only the fires CAL FIRE d
 | NWS category flood maps, CatFIM (brief 5; no key) | `https://maps.water.noaa.gov/server/rest/services/fim_libs/static_stage_based_catfim/MapServer/{3\|6\|9\|12\|13}/query?where=ahps_lid='<lid lower case>'` (action, minor, moderate, major, record thresholds) | A static experimental library: what each NWS flood category would cover near a gauge; not a forecast and not an observation. Cached 30 days. NWS disclaimer. Credit: "NOAA/NWS National Water Center (experimental)". |
 | National Water Model maps (brief 5; no key; **model output**) | `https://maps.water.noaa.gov/server/rest/services/nwm/{ana_inundation_extent,mrf_gfs_5day_max_inundation_extent,ana_high_flow_magnitude}/MapServer/0/query` by envelope; river lines `reference/static_nwm_flowlines/MapServer/0` | Experimental model output, never official, never merged with NWS layers: analysis flooded area (hourly, cached 1 h), 5-day flooded area (every 6 h, cached 6 h), reaches above their high-water threshold with `recur_cat` verbatim (an annual exceedance probability in percent; ">50" = above the high-water threshold but more likely than 1 in 2). River lines cached 30 days. https://water.noaa.gov/about/api ("not an official forecast product", read 2026-11-04). Credit: "NOAA/NWS National Water Center, National Water Model (experimental model output)"; river lines "River lines: NOAA/NWS National Water Center (NWM)". |
 | FEMA National Flood Hazard Layer (brief 5; no key; background only) | `https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/{0\|3\|28}/query` by envelope, `f=geojson` | Layer 28 with `SFHA_TF='T' OR ZONE_SUBTY LIKE '0.2%'` only (the 1 % floodplain with floodway, and the 0.2 % band; zone X "AREA OF MINIMAL FLOOD HAZARD" is never requested or kept); layer 0 availability decides `mapped` / `no_digital_map` / `unknown`; layer 3 FIRM panels give the effective dates (`EFF_DATE`). FEMA resets connections often: 4 tries with backoff, an outage memory, cached 30 days; a failure leaves the bundle ready with `NFHL_DOWN`. Insurance map, not current flooding. "As is", the user assumes all risk; no FEMA logo or endorsement (https://www.arcgis.com/home/item.html?id=ae38b6f94eaf4abf97f986fa01921e13 and https://hazards.fema.gov/femaportal/wps/portal/NFHLWMS, read 2026-11-04). Credit: "Flood zones: FEMA National Flood Hazard Layer (effective)". |
-| NASA OPERA DSWx-HLS via NASA Earthdata GIS (brief 5; no key, no login: the default satellite water) | `https://gis.earthdata.nasa.gov/portal/rest/services/C2617126679-POCLOUD/OPERA_L3_DSWX-HLS_V1_B01_WTR/ImageServer/{query\|exportImage}` | Catalog `query` (`where=category=1`, `time=<10-day window>`, footprints) cached 6 h; `exportImage` of one locked pass (`mosaicMethod: esriMosaicLockRaster`), raw classes (`renderingRule {"rasterFunction":"None"}`, nearest, `noData=255`), cached 30 days. Classes 0 not water, 1 open water, 2 partial water, 252 snow/ice, 253 cloud, 254 ocean, 255 no data; image times from the granule names (the service's own time metadata is stale). About one day behind NASA's archive; every image is days old. NASA open data, CC0, cite (https://www.earthdata.nasa.gov/engage/open-data-services-software-policies/data-use-guidance; https://podaac.jpl.nasa.gov/CitingPODAAC, read 2026-11-04). Credit: "Water seen by satellite: NASA JPL OPERA DSWx-HLS (PO.DAAC, doi:10.5067/OPDSW-PL3V1); contains modified Copernicus Sentinel data" + "via NASA Earthdata GIS". |
+| NASA OPERA DSWx-HLS via NASA Earthdata GIS (brief 5; no key, no login: the default satellite water) | `https://gis.earthdata.nasa.gov/portal/rest/services/C2617126679-POCLOUD/OPERA_L3_DSWX-HLS_V1_B01_WTR/ImageServer/{query\|exportImage}` | Catalog `query` (`where=category=1`, `time=<10-day window>`, footprints) cached 6 h; `exportImage` of one locked pass (`mosaicMethod: esriMosaicLockRaster`), raw classes (`renderingRule {"rasterFunction":"None"}`, nearest, `noData=255`), cached 30 days. Classes 0 not water, 1 open water, 2 partial water, 252 snow/ice, 253 cloud, 254 ocean, 255 no data; image times from the granule names (the service's own time metadata is stale). About one day behind NASA's archive; every image is days old. NASA open data, CC0, cite (https://www.earthdata.nasa.gov/engage/open-data-services-software-policies/data-use-guidance; https://podaac.jpl.nasa.gov/CitingPODAAC, read 2026-11-04). Credit (exact, PLAN-5 §2): "Water seen by satellite: NASA JPL OPERA DSWx-HLS (PO.DAAC, doi:10.5067/OPDSW-PL3V1) via NASA Earthdata GIS; contains modified Copernicus Sentinel data". |
 | NASA OPERA DSWx-S1 and DSWx-HLS via CMR and PO.DAAC (brief 5; optional `EARTHDATA_TOKEN`) | `GET https://cmr.earthdata.nasa.gov/search/granules.json?short_name={OPERA_L3_DSWX-S1_V1\|OPERA_L3_DSWX-HLS_V1}&bounding_box=&temporal=` (no login); `GET https://archive.podaac.earthdata.nasa.gov/podaac-ops-cumulus-protected/…_B01_WTR.tif` with `Authorization: Bearer <EARTHDATA_TOKEN>` | Only with the token (the second secret, BRIEF-5 decision 2): radar water (sees through clouds) and the newest optical day. The header goes only to `archive.podaac.earthdata.nasa.gov` (`config.EARTHDATA_AUTH_HOSTS`); the pre-signed S3 redirect is followed without it and its `X-Amz-*` values are masked in logs. 401 / 403 or a redirect to the login page → `login: "refused"`. Files cached under `CACHE_DIR/opera/`. Untested with a real token (mock transport only). Terms as above. Credit: "NASA JPL OPERA DSWx-S1 (PO.DAAC); contains modified Copernicus Sentinel data". |
-| NASA GIBS OPERA picture (brief 5; no key; fallback) | `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/OPERA_L3_Dynamic_Surface_Water_Extent-HLS/default/{date}/GoogleMapsCompatible_Level12/{z}/{y}/{x}.png`; dates from `/1.0.0/<layer>/default/<matrix>/all/<start>--<end>.xml` | A daily picture, not a measurement (`measured: false`, no area, no stats), used when Earthdata GIS cannot be read or has no usable image. Terms as above. Credit: the OPERA line + "via NASA GIBS". |
+| NASA GIBS OPERA picture (brief 5; no key; fallback) | `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/OPERA_L3_Dynamic_Surface_Water_Extent-HLS/default/{date}/GoogleMapsCompatible_Level12/{z}/{y}/{x}.png`; dates from `/1.0.0/<layer>/default/<matrix>/all/<start>--<end>.xml` | A daily picture, not a measurement (`measured: false`, no area, no stats), used when Earthdata GIS cannot be read or has no usable image; its date is the newest day whose passes touch the flood's area (Earthdata GIS catalog or CMR, never a pass a probe found with no view of the area), never the layer's newest day worldwide; no such day → no picture. Terms as above. Credit: "Water seen by satellite: NASA JPL OPERA DSWx-HLS (PO.DAAC, doi:10.5067/OPDSW-PL3V1) via NASA GIBS; contains modified Copernicus Sentinel data" (the route before the Copernicus clause, which HLS's licence requires). |
 | USGS water data, OGC API v1 (brief 5; no key) | `GET https://api.waterdata.usgs.gov/ogcapi/v1/collections/continuous/items?monitoring_location_id=USGS-<site>&parameter_code={00065\|00060}&time=<start>/<end>` | Measured gage height (ft) and discharge (ft³/s), every 15 min, provisional unless USGS says "Approved"; paged by the `next` link. No key (a key would be a third secret): an HTTP 429 answers `USGS_429` and USGS is not asked again for 10 min. Past windows cached 30 days, recent 10 min. Legacy WaterServices (shut down Feb 22, 2027) is never used. U.S. Public Domain; provisional-data statement (https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits; https://waterdata.usgs.gov/provisional-data-statement/, read 2026-11-04). Credit: "U.S. Geological Survey (provisional data)". |
 | Satellite passes (NASA CMR, no key; added 2026-10-17) | `GET https://cmr.earthdata.nasa.gov/search/granules.json?short_name={SN}&version={V}&point={lon},{lat}&temporal={iso},{iso}&sort_key=-start_date&page_size=200` (header `Client-Id: fire3d`) | Granules of the active-fire products FIRMS is made from. Live (LANCE NRT): `VNP14IMG_NRT` v2 (Suomi NPP), `VJ114IMG_NRT` v2 (NOAA-20), `VJ214IMG_NRT` v2 (NOAA-21), `MOD14` v6.1NRT (Terra), `MYD14` v6.1NRT (Aqua). Archive: `VNP14IMG`/`VJ114IMG`/`VJ214IMG` v002, `MOD14`/`MYD14` v061. Fields used: `time_start`/`time_end` (6-min VIIRS, 5-min MODIS granules; FIRMS `acq_time` falls inside), `day_night_flag`, `updated` (publication, 0.75–3 h after acquisition). A granule containing the fire's point is a pass over it (§8.3). |
 
@@ -223,44 +223,6 @@ data/incidents/{id}/
   detections.json  perimeters.json  timeseries.json  events.json  weather.json
   forecasts/{run_id}/forecast.json + arrival_p10.bin arrival_p50.bin arrival_p90.bin burn_probability.bin flame_length_p50.bin   (fire grid)
 ```
-
-### 5.3 Flood bundle (brief 5, CONTRACT §16.3; `backend/fire3d/floods/build.py`)
-
-Light: no fuels, detections, weather or simulation. Built by `POST /api/floods/{id}/build` as a background job (kind
-"build", 30-90 s; about 17-18 MB for a 60 km area). Flood bundles live beside fire bundles, never in `data/incidents/`.
-
-```
-data/floods/{id}/
-  manifest.json                FloodManifest (grid = ManifestGrid with fire = render; summary frozen at build)
-  layers/elevation.bin         render  float32  m (USGS 3DEP)
-  layers/sky_view.bin          render  uint8    0-255
-  layers/naip.jpg              image   JPEG ≤ 2048 px, optional ("Aerial photo (USGS NAIP), taken before this flood")
-  layers/water_forecast.bin    render  uint8    0/255 NWS forecast flooded area, next 5 days (RFC FIM, experimental)
-  layers/floodplain.bin        render  uint8    0 none, 1 0.2 % band, 2 SFHA, 3 floodway (FEMA NFHL, background)
-  layers/water_satellite.bin   render  uint8    OPERA DSWx WTR classes 0, 1, 2, 252, 253, 254, 255; 255 outside the image
-  layers/water_model.bin       render  uint8    0/255 National Water Model analysis flooded area (model output, separate)
-  warnings.json                FloodAlertsResponse (the flood's NWS products, verbatim)
-  gauges.json                  RiverGaugesResponse (member gauges with 30-day series and the RFC forecast; nearby gauges)
-  satellite.json + satellite.png   SatelliteWaterResponse (absolute times only) and its PNG (clouds and no data hatched)
-  maps/rfc_fim.geojson  maps/catfim_<lid>_<category>.geojson  maps/nfhl.geojson  model/nwm_analysis.geojson
-  model/nwm_series_<lid>.json  ModelOutputResponse per member forecast point with an NWM reach
-```
-
-- **Area:** the flood's NWS polygons and member gauges, padded 3 km, square, 8-60 km; longer floods are cut to 60 km
-  around the primary gauge (else the flood's point) and `aoi_note` says so. 1024² UTM render grid (59 m at 60 km).
-- **Steps** (weights): catalog 0.05, terrain 0.35, maps 0.20, gauges 0.15, satellite 0.20, finish 0.05, the network
-  steps in parallel. Terrain is required (a failure fails the job and keeps any earlier bundle); every other step that
-  fails writes its `layer_status` entry (`unavailable` + a reason: `NFHL_DOWN`, `RFC_FIM_UNAVAILABLE`, `NAIP_DOWN`, ...)
-  and a manifest warning, and the bundle is still `ready`.
-- **Gate:** the flood resolves (live list, alias, bundle, last-known) and its state is lower 48 or DC; `fixture-flood`
-  (synthetic) answers 409, an unknown id 404, lists that cannot decide 503.
-- **Swap:** the build writes into `.staging/` (hidden from the files route) and swaps the files in at the end, the
-  manifest last; a rebuild never shows a half-written bundle and drops files the new build did not write. One build per
-  flood (`.build.lock`; the summary's `bundle_status` reads `building` while it runs).
-- **Vector copies are compact:** polygons smaller than one render cell are left out of the bundle's GeoJSON files
-  (the rasters are made from the full answers), geometries are simplified to ¾ of a cell and rounded to 4 decimals. The
-  2D routes keep serving the full answers.
-- **Frozen files carry absolute times only** (no relative age; C16).
 
 ### 5.1 TypeScript shapes
 The pydantic and TS mirrors must match these.
@@ -403,6 +365,49 @@ interface ForecastManifest {
 **Arrival-quantile semantics:** `arrival_pK` is the K-th percentile, across members, of each pixel's arrival time,
 counting members that never reach the pixel as +∞ (stored as NEVER).
 So `P(burned by t) ≥ K%` ⇔ `arrival_pK ≤ t`. `burn_probability` = fraction of members burned by `start + horizon`.
+
+### 5.3 Flood bundle (brief 5, CONTRACT §16.3; `backend/fire3d/floods/build.py`)
+
+Light: no fuels, detections, weather or simulation. Built by `POST /api/floods/{id}/build` as a background job (kind
+"build", 30-90 s; about 17-18 MB for a 60 km area). Flood bundles live beside fire bundles, never in `data/incidents/`.
+
+```
+data/floods/{id}/
+  manifest.json                FloodManifest (grid = ManifestGrid with fire = render; summary frozen at build)
+  layers/elevation.bin         render  float32  m (USGS 3DEP)
+  layers/sky_view.bin          render  uint8    0-255
+  layers/naip.jpg              image   JPEG ≤ 2048 px, optional ("Aerial photo (USGS NAIP), taken before this flood")
+  layers/water_forecast.bin    render  uint8    0/255 NWS forecast flooded area, next 5 days (RFC FIM, experimental)
+  layers/floodplain.bin        render  uint8    0 none, 1 0.2 % band, 2 SFHA, 3 floodway (FEMA NFHL, background)
+  layers/water_satellite.bin   render  uint8    OPERA DSWx WTR classes 0, 1, 2, 252, 253, 254, 255; 255 outside the image
+  layers/water_model.bin       render  uint8    0/255 National Water Model analysis flooded area (model output, separate)
+  warnings.json                FloodAlertsResponse (the flood's NWS products, verbatim)
+  gauges.json                  RiverGaugesResponse (member gauges with 30-day series and the RFC forecast; nearby gauges)
+  satellite.json + satellite.png   SatelliteWaterResponse (absolute times only) and its PNG (clouds and no data hatched)
+  maps/rfc_fim.geojson  maps/catfim_<lid>_<category>.geojson  maps/nfhl.geojson  model/nwm_analysis.geojson
+  model/nwm_series_<lid>.json  ModelOutputResponse per member forecast point with an NWM reach
+```
+
+- **Area:** the flood's NWS polygons and member gauges, padded 3 km, square, 8-60 km; longer floods are cut to 60 km
+  around the primary gauge (else the flood's point) and `aoi_note` says so. 1024² UTM render grid (59 m at 60 km).
+- **Steps** (weights): catalog 0.05, terrain 0.35, maps 0.20, gauges 0.15, satellite 0.20, finish 0.05, the network
+  steps in parallel. Terrain is required (a failure fails the job and keeps any earlier bundle); every other step that
+  fails writes its `layer_status` entry (`unavailable` + a reason: `NFHL_DOWN`, `RFC_FIM_UNAVAILABLE`, `NAIP_DOWN`, ...)
+  and a manifest warning, and the bundle is still `ready`.
+- **Gate:** the flood resolves (live list, alias, bundle, last-known) and its state is lower 48 or DC; `fixture-flood`
+  (synthetic) answers 409, an unknown id 404, lists that cannot decide 503.
+- **Swap:** the build writes into `.staging/` (hidden from the files route) and swaps the files in at the end, the
+  manifest last; a rebuild never shows a half-written bundle and drops files the new build did not write. One build per
+  flood (`.build.lock`; the summary's `bundle_status` reads `building` while it runs).
+- **Vector copies are compact:** polygons smaller than one render cell are left out of the bundle's GeoJSON files
+  (the rasters are made from the full answers), geometries are simplified to ¾ of a cell and rounded to 4 decimals. The
+  2D routes keep serving the full answers.
+- **Frozen files carry absolute times only** (no relative age; C16).
+- **Credits:** `data_sources` names every source a step wrote a file or layer from, by its credit line (CONTRACT
+  §16.15, the same text as the layer's `layer_status.source`): 3DEP, NAIP, the NWS forecast flooded area and
+  category maps (NOAA/NWS National Water Center, experimental), FEMA NFHL, the National Water Model (analysis and
+  series), the National Weather Service (products; TIGERweb when zones are drawn as counties), NOAA NWPS with each
+  gauge's data attribution and each RFC forecast's issuer, and NASA OPERA with its route and Copernicus clause.
 
 ## 6. HTTP API (Contract)
 

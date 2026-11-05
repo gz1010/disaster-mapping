@@ -133,6 +133,9 @@ def _routes(nfhl_down: bool = False) -> list:
         ("gis.earthdata.nasa.gov", r"/ImageServer/query$", OPERA / "egis_query.json"),
         ("gis.earthdata.nasa.gov", r"/ImageServer/exportImage$", _tiff_of),
         ("gibs.earthdata.nasa.gov", r"\.xml$", OPERA / "gibs_domain.xml"),
+        ("cmr.earthdata.nasa.gov", r"/granules\.json$",
+         lambda r: httpx.Response(200, content=(OPERA / ("cmr_s1.json" if "S1" in r.url.params["short_name"]
+                                                          else "cmr_hls.json")).read_bytes())),
     ]
 
 
@@ -277,3 +280,57 @@ def test_gate(monkeypatch, flood_iso):
     with pytest.raises(build.BuildRefused) as ei:
         build.gate("flood-20261104-x-flood-abcdef")
     assert ei.value.status == 409 and ei.value.detail == fcopy.BUILD_OUTSIDE_L48
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Credits (review R1) and a failed gauge step (review R2)
+# ---------------------------------------------------------------------------------------------------------------
+def test_every_source_used_is_credited(recorded_flood):
+    """Every layer_status entry that is ``ok`` has a data_sources entry with the same credit line, and every file the
+    build wrote from a source is credited: NWS (warnings.json), NWPS with the gauges' data attribution and the RFC
+    forecast's issuer (gauges.json), NASA OPERA with its route before the Copernicus clause (satellite.json), the
+    National Water Model (analysis and series) and CatFIM. Times in the details are absolute."""
+    summary, now, _ = recorded_flood
+    m = build.build_flood(summary["id"], now=now)
+    names = [d["name"] for d in m["data_sources"]]
+    for key, st in m["layer_status"].items():
+        if st["status"] == "ok":
+            assert st["source"] in names, key
+    assert fcopy.CREDIT_NWS in names and fcopy.CREDIT_NWPS in names and fcopy.CREDIT_3DEP in names
+    assert fcopy.USGS_OBSERVATIONS in names                                   # AGYM7's NWPS data attribution
+    assert any(n.startswith("NWS ") and "issued by NWS" in n for n in names)   # the RFC forecast's issuer
+    sat = fcopy.opera_credit("DSWx-HLS", "earthdata_gis")
+    assert sat == ("Water seen by satellite: NASA JPL OPERA DSWx-HLS (PO.DAAC, doi:10.5067/OPDSW-PL3V1) via NASA "
+                   "Earthdata GIS; contains modified Copernicus Sentinel data") and sat in names
+    assert m["layer_status"]["water_satellite"]["source"] == sat
+    by_detail = {d["detail"]: d["name"] for d in m["data_sources"]}
+    assert any("catfim" in d.lower() and n == fcopy.CREDIT_NWC_EXPERIMENTAL for d, n in by_detail.items())
+    assert sum(n == fcopy.CREDIT_NWM for n in names) == 2                     # the analysis map and the series
+    assert any("warnings.json" in d and n == fcopy.CREDIT_NWS for d, n in by_detail.items())
+    assert all(isinstance(d["fetched_ms"], int) and d["fetched_ms"] > 0 for d in m["data_sources"])
+    assert " ago" not in json.dumps(m["data_sources"])
+    assert fcopy.CREDIT_NAIP not in names                                     # NAIP failed here: not credited
+
+
+def test_gauge_step_failure_is_an_outage_not_no_gauge(recorded_flood, monkeypatch):
+    """Review R2: when the gauge step raises, gauges.json says the gauges could not be loaded (never "available"
+    with no gauge, which the views read as "No river gauge in this flood"), layer_status says so with
+    GAUGES_UNAVAILABLE, and the manifest warns."""
+    from fire3d.contracts import RiverGaugesResponse
+    from fire3d.floods import gauges as gauges_mod
+
+    summary, now, _ = recorded_flood
+
+    def boom(*a, **k):
+        raise RuntimeError("unexpected parse error")
+
+    monkeypatch.setattr(gauges_mod, "flood_gauges", boom)
+    m = build.build_flood(summary["id"], now=now)
+    gz = json.loads((store.flood_dir(summary["id"]) / "gauges.json").read_text())
+    validate_strict(RiverGaugesResponse, gz)
+    assert gz["status"] == "unavailable" and gz["reason"] == fcopy.GAUGES_UNAVAILABLE
+    assert gz["reason_code"] == "upstream_error" and gz["gauges"] == [] and fcopy.GAUGE_NOT_ALL_CLEAR in gz["caveats"]
+    assert m["layer_status"]["gauges"] == {"status": "unavailable", "reason": fcopy.GAUGES_UNAVAILABLE,
+                                           "source": fcopy.CREDIT_NWPS, "time_ms": None}
+    assert fcopy.GAUGES_UNAVAILABLE in m["warnings"] and m["status"] == "ready"
+    assert fcopy.CREDIT_NWPS not in [d["name"] for d in m["data_sources"]]

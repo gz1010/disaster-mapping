@@ -232,7 +232,8 @@ def _source(product: str, route: str) -> dict:
     """The OPERA source with its exact credit line (route before the Copernicus clause, PLAN-5 2)."""
     base = dict(fcopy.SOURCE_OPERA_HLS)
     if product == "DSWx-S1":
-        base.update(name="NASA JPL OPERA DSWx-S1 (water seen by radar satellite)", url="https://podaac.jpl.nasa.gov/OPERA")
+        base.update(name="NASA JPL OPERA DSWx-S1 (water seen by radar satellite)",
+                    url="https://podaac.jpl.nasa.gov/OPERA")
     base["credit"] = fcopy.opera_credit(product, route)
     return base
 

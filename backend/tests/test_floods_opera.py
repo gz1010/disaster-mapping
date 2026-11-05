@@ -304,7 +304,9 @@ def test_satellite_with_token_prefers_the_newer_radar_pass(monkeypatch, flood_is
     assert a["login"] == "configured" and a["login_note"] is None and a["measured"]
     assert a["granules"][0]["product"] == "DSWx-S1" and a["granules"][0]["route"] == "podaac"
     assert a["granules"][0]["cloud_pct"] is None and a["source"]["credit"] == fcopy.CREDIT_OPERA_S1
-    assert "Clouds (?% of this area)" in a["caveats"][0]                      # radar: no cloud share
+    # radar: no cloud share and no "clouds hide water" (review R5); never a "?" slot
+    assert a["caveats"][0].startswith("Water seen by radar satellite (NASA OPERA), ") and "?" not in a["caveats"][0]
+    assert "Clouds" not in a["caveats"][0] and "dry pixels do not mean no flooding" in a["caveats"][0]
     text = orjson.dumps(a).decode() + caplog.text + (res.png or b"").decode("latin-1")
     assert _count_secrets(text) == 0
     assert all("authorization" not in r.headers for r in seen if r.url.host != opera.PODAAC_HOST)
@@ -333,3 +335,103 @@ def test_satellite_without_token_says_not_set_up(monkeypatch, flood_iso):
     a = satellite.flood_satellite("flood-20261104-x-flood-abcdef", BOX, now=RECORDED_MS, time_zone="America/Chicago").answer
     assert a["login"] == "not_configured" and a["login_note"] == fcopy.SAT_NOT_SET_UP and a["measured"]
     assert not any(r.url.host in (opera.PODAAC_HOST, "cmr.earthdata.nasa.gov") for r in seen)
+    # the measured image's credit: the route before the Copernicus clause (PLAN-5 2, exact; review R6)
+    assert a["source"]["credit"] == ("Water seen by satellite: NASA JPL OPERA DSWx-HLS (PO.DAAC, doi:10.5067/OPDSW-PL3V1) "
+                                     "via NASA Earthdata GIS; contains modified Copernicus Sentinel data")
+    assert a["caveats"][0].count("% of this area)") == 1 and "?" not in a["caveats"][0]
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# The picture fallback is dated by passes over the area, never by NASA's newest day worldwide (review R3)
+# ---------------------------------------------------------------------------------------------------------------
+def _cmr(entries: list[str] | None):
+    """CMR answers: the recorded HLS search limited to ``entries`` (granule titles; None = all), the S1 one as is."""
+    def answer(r: httpx.Request) -> httpx.Response:
+        if "S1" in r.url.params["short_name"]:
+            return httpx.Response(200, content=(OPERA / "cmr_s1.json").read_bytes())
+        doc = orjson.loads((OPERA / "cmr_hls.json").read_bytes())
+        if entries is not None:
+            doc["feed"]["entry"] = [e for e in doc["feed"]["entry"] if e["title"] in entries]
+        return httpx.Response(200, content=orjson.dumps(doc))
+    return answer
+
+
+def _picture_routes(cmr, *, egis=True, gibs=True):
+    """The recorded day over BOX: the Earthdata GIS catalog has one pass in the 10 days (Oct 29, Landsat 8) and its
+    probe saw nothing of the box (all no data, egis_probe_0.tif); CMR also lists the Oct 30 Landsat 9 pass, which
+    Earthdata GIS had not loaded yet; GIBS has pictures for Oct 27-31 (worldwide)."""
+    def down(req):
+        raise httpx.ConnectError("down", request=req)
+
+    probe0 = lambda r: httpx.Response(200, content=(OPERA / "egis_probe_0.tif").read_bytes(),  # noqa: E731
+                                      headers={"content-type": "image/tiff"})
+    return [(EGIS, r"/ImageServer/query$", OPERA / "egis_query.json" if egis else down),
+            (EGIS, r"/exportImage$", probe0 if egis else down),
+            ("cmr.earthdata.nasa.gov", r"/granules\.json$", cmr),
+            ("gibs.earthdata.nasa.gov", r"\.xml$", OPERA / "gibs_domain.xml" if gibs else down)]
+
+
+OCT29_L8 = "OPERA_L3_DSWx-HLS_T15TUE_20261029T170629Z_20261031T145515Z_L8_30_v1.1"
+OCT30_L9 = ("OPERA_L3_DSWx-HLS_T15SUD_20261030T170017Z_20261101T014032Z_L9_30_v1.1",
+            "OPERA_L3_DSWx-HLS_T15TUE_20261030T170017Z_20261101T014046Z_L9_30_v1.1")
+
+
+def _sat(monkeypatch, routes):
+    from fire3d.floods import satellite
+
+    monkeypatch.setattr(config, "EARTHDATA_TOKEN", None)
+    monkeypatch.setattr(fhttp, "_transport", route_transport(routes))
+    return satellite.flood_satellite("flood-20261104-x-flood-abcdef", BOX, now=RECORDED_MS, time_zone="America/Chicago")
+
+
+def test_picture_of_the_newest_day_with_a_pass_over_the_area(monkeypatch, flood_iso):
+    from fire3d.floods import copy as fcopy
+
+    a = _sat(monkeypatch, _picture_routes(_cmr(None))).answer
+    # not Oct 31 (GIBS's newest day worldwide), not Oct 29 (its pass saw nothing here): Oct 30, a pass over the box
+    assert a["status"] == "available" and a["measured"] is False and a["reason_code"] == "no_image"
+    assert a["tiles"]["date"] == "2026-10-30" and "/2026-10-30/" in a["tiles"]["url_template"]
+    assert a["reason"] == fcopy.sat_picture_reason("Oct 30, 2026") and a["reason"] != fcopy.SAT_NO_IMAGE
+    assert a["caveats"] == [fcopy.sat_caveat("Oct 30, 2026", None)] and "?" not in a["caveats"][0]
+    assert a["source"]["credit"] == ("Water seen by satellite: NASA JPL OPERA DSWx-HLS (PO.DAAC, doi:10.5067/OPDSW-PL3V1) "
+                                     "via NASA GIBS; contains modified Copernicus Sentinel data")
+    assert a["image"] is None and a["stats"] is None
+
+
+def test_no_pass_over_the_area_means_no_picture_and_no_date(monkeypatch, flood_iso):
+    """The reviewer's Platte River case: Earthdata GIS's only pass saw nothing of the area and NASA's catalogue knows no
+    other: no picture (tiles null), SAT_NO_IMAGE, and no date anywhere in the answer's own sentences."""
+    from fire3d.floods import copy as fcopy
+
+    a = _sat(monkeypatch, _picture_routes(_cmr([OCT29_L8]))).answer
+    assert a["status"] == "available" and a["tiles"] is None and a["measured"] is False
+    assert a["reason_code"] == "no_image" and a["reason"] == fcopy.SAT_NO_IMAGE and a["caveats"] == []
+    assert "2026-10-31" not in orjson.dumps(a).decode()
+
+
+def test_picture_day_not_yet_in_gibs_is_not_shown(monkeypatch, flood_iso):
+    from fire3d.floods import copy as fcopy
+
+    xml = (OPERA / "gibs_domain.xml").read_text().replace("2026-10-27/2026-10-31/P1D", "2026-10-31")
+    routes = _picture_routes(_cmr(None))
+    routes[-1] = ("gibs.earthdata.nasa.gov", r"\.xml$", xml.encode())
+    a = _sat(monkeypatch, routes).answer
+    assert a["tiles"] is None and a["reason"] == fcopy.SAT_NO_IMAGE
+
+
+def test_earthdata_gis_down_dates_the_picture_from_cmr(monkeypatch, flood_iso):
+    from fire3d.floods import copy as fcopy
+
+    a = _sat(monkeypatch, _picture_routes(_cmr(None), egis=False)).answer
+    assert a["status"] == "available" and a["reason_code"] == "upstream_error" and a["tiles"]["date"] == "2026-10-30"
+    assert a["reason"] == fcopy.sat_picture_reason("Oct 30, 2026")
+
+
+def test_earthdata_gis_and_cmr_down_is_unavailable(monkeypatch, flood_iso):
+    from fire3d.floods import copy as fcopy
+
+    def down(req):
+        raise httpx.ConnectError("down", request=req)
+
+    a = _sat(monkeypatch, _picture_routes(down, egis=False)).answer
+    assert a["status"] == "unavailable" and a["reason"] == fcopy.SAT_UNAVAILABLE and a["tiles"] is None
