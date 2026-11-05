@@ -104,6 +104,51 @@ LIST_STRINGS: dict[str, str] = {
 }
 
 
+# ----------------------------------------------------------------------------------------------------------------
+# Backend-sent strings of the bundle and the per-flood routes (backend-flood-bundle-api; not yet in CONTRACT 16.14:
+# the integration adds them from docs/redesign/contract5/backend-flood-bundle-api.md). Same guard as above.
+# ----------------------------------------------------------------------------------------------------------------
+# RiverGaugesResponse.caveats
+GAUGE_DETAIL_DOWN = ("NOAA's gauge detail service could not be reached right now; this gauge shows the NWS gauge map's "
+                     "reading only (no forecast, no impacts). That is not an all-clear.")
+NEARBY_GAUGES_DOWN = "Gauges near this flood could not be loaded right now. That is not an all-clear."
+# SatelliteWaterResponse.reason
+SAT_NO_IMAGE = ("NASA has no usable satellite water image of this area from the last 10 days (no pass, or no view of "
+                "it). That is not an all-clear.")
+SAT_BEFORE_ARCHIVE = "NASA's satellite water images start in 2023; none exists for this date."
+# FloodMapResponse / ModelOutputResponse reasons for past dates and outages
+RFC_FIM_PAST = "NWS forecast flooded-area maps are not kept for past dates."
+CATFIM_TODAY = ("NWS category flood maps are a static library: this is today's map, not one made at that time. "
+                "Not a forecast.")
+MODEL_PAST = "National Water Model output is not kept here for past dates."
+MODEL_DOWN = "National Water Model output could not be loaded right now."
+MODEL_NO_REACH = "This gauge has no National Water Model reach, so there is no model series for it."
+NFHL_PARTLY_MAPPED = ("FEMA's digital flood map covers only part of this area; outside it, FEMA's floodplain is not "
+                      "shown.")
+ALERTS_PAST_NOT_YET = ("Past NWS flood products are not served yet (the archive comes with a later step). That is not "
+                       "an all-clear: follow local officials.")
+# HTTP error details of the build and per-flood routes
+BUILD_SYNTHETIC = "This is a synthetic bundle (test data); it cannot be rebuilt."
+BUILD_OUTSIDE_L48 = "Fire-3d prepares floods in the lower 48 states and DC only."
+FLOOD_ROUTE_NOT_LISTED = "This flood is not listed."
+GAUGE_NOT_FOUND = "NOAA has no river gauge with this id."
+SATELLITE_IMAGE_GONE = "This satellite image is no longer kept; reload the flood to get the newest one."
+# FloodLayerStatus.reason of bundle layers
+TERRAIN_DOWN = "Terrain (USGS 3DEP) could not be loaded; the 3D view needs it."
+NAIP_DOWN = "The aerial photo (USGS NAIP) could not be loaded for this area."
+GAUGES_NONE = "This flood has no river gauge."
+BUNDLE_STRINGS: dict[str, str] = {
+    "GAUGE_DETAIL_DOWN": GAUGE_DETAIL_DOWN, "NEARBY_GAUGES_DOWN": NEARBY_GAUGES_DOWN, "SAT_NO_IMAGE": SAT_NO_IMAGE,
+    "SAT_BEFORE_ARCHIVE": SAT_BEFORE_ARCHIVE, "RFC_FIM_PAST": RFC_FIM_PAST, "CATFIM_TODAY": CATFIM_TODAY,
+    "MODEL_PAST": MODEL_PAST, "MODEL_DOWN": MODEL_DOWN, "MODEL_NO_REACH": MODEL_NO_REACH,
+    "NFHL_PARTLY_MAPPED": NFHL_PARTLY_MAPPED, "ALERTS_PAST_NOT_YET": ALERTS_PAST_NOT_YET,
+    "BUILD_SYNTHETIC": BUILD_SYNTHETIC, "BUILD_OUTSIDE_L48": BUILD_OUTSIDE_L48,
+    "FLOOD_ROUTE_NOT_LISTED": FLOOD_ROUTE_NOT_LISTED, "GAUGE_NOT_FOUND": GAUGE_NOT_FOUND,
+    "SATELLITE_IMAGE_GONE": SATELLITE_IMAGE_GONE, "TERRAIN_DOWN": TERRAIN_DOWN, "NAIP_DOWN": NAIP_DOWN,
+    "GAUGES_NONE": GAUGES_NONE,
+}
+
+
 def catfim_note(category: str) -> str:
     """CATFIM_NOTE for a category ("moderate")."""
     return CATFIM_NOTE.format(category=category)

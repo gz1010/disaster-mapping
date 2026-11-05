@@ -201,13 +201,22 @@ def flood_iso(tmp_data_dir: Path):
     from fire3d.floods import catalog as cat
     from fire3d.sources import nfhl, nws, nwps, opera, usgs_water, water_maps
 
+    limiters = [nws.NWS_LIMITER, nws.IEM_LIMITER, nwps.NOAA_MAPS_LIMITER, nwps.NWPS_LIMITER,
+                water_maps.NOAA_WATER_LIMITER, nfhl.NFHL_LIMITER, opera.EGIS_LIMITER, opera.CMR_LIMITER,
+                opera.PODAAC_LIMITER, opera.GIBS_LIMITER, usgs_water.USGS_LIMITER]
+
     def clear() -> None:
+        from fire3d.floods import satellite
+
         cat.reset_state()
         nws.reset_state()
         extras.reset_state()
         nwps.NWPS_DOWN.reset()
-        for mod in (water_maps, nfhl, opera, usgs_water):
+        for mod in (water_maps, nfhl, opera, usgs_water, satellite):
             mod.reset_state()
+        for lim in limiters:                 # process-wide request limits: one test's requests never starve the next
+            with lim._lock:
+                lim._times.clear()
         fhttp.reset_down_memos()
 
     clear()

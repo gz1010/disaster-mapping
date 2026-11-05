@@ -5,6 +5,8 @@ on a flood folder as they are."""
 
 from __future__ import annotations
 
+import fcntl
+import os
 import re
 from pathlib import Path
 
@@ -13,6 +15,7 @@ from .. import bundle, config
 FIXTURE_ID = "fixture-flood"
 _ID_RE = re.compile(r"^(flood-\d{8}-[a-z0-9-]+-[0-9a-f]{6}|fixture-flood(-[a-z]+)?)$")
 REGISTRY_NAME = "registry.jsonl"
+BUILD_LOCK_NAME = ".build.lock"           # = build.pipeline.BUILD_LOCK_NAME (the flood builder takes the same lock)
 LAST_KNOWN_DIR = "last_known"
 
 
@@ -51,13 +54,37 @@ def load_flood_manifest(flood_id: str) -> dict | None:
     return m if isinstance(m, dict) and m.get("hazard") == "flood" else None
 
 
+def build_in_progress(flood_id: str) -> bool:
+    """True while a build of this flood holds its exclusive lock (``floods.build``; a rebuild keeps the old files
+    readable until it swaps the new ones in)."""
+    try:
+        d = flood_dir(flood_id)
+        fd = os.open(d / BUILD_LOCK_NAME, os.O_RDONLY)
+    except (ValueError, OSError):
+        return False
+    try:
+        fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+    except BlockingIOError:
+        return True
+    else:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        return False
+    finally:
+        os.close(fd)
+
+
 def bundle_state(flood_id: str) -> tuple[str, int | None]:
-    """(``FloodBundleStatus``, built_ms) from the folder: ready / building / error, or none."""
+    """(``FloodBundleStatus``, built_ms) from the folder and the build lock: building while a build runs, else
+    ready / error from the manifest, or none. A "building" manifest left by a stopped process reads as error."""
+    if build_in_progress(flood_id):
+        return "building", None
     m = load_flood_manifest(flood_id)
     if m is None:
         return "none", None
     st = m.get("status")
-    return (st if st in ("building", "ready", "error") else "none"), (m.get("built_ms") if st == "ready" else None)
+    if st == "building":
+        return "error", None
+    return (st if st in ("ready", "error") else "none"), (m.get("built_ms") if st == "ready" else None)
 
 
 def list_flood_bundles() -> list[dict]:

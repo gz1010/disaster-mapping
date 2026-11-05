@@ -317,6 +317,15 @@ def riv_gauges_in_bbox(bbox: BBox) -> tuple[list[dict], int]:
     return [r for r in (parse_riv_row(f) for f in feats) if r], fetched
 
 
+def riv_gauges_forecast_in_bbox(bbox: BBox) -> tuple[list[dict], int]:
+    """Every forecast point in ``bbox`` (w, s, e, n), any forecast status (``riv_gauges`` layer 15 envelope query):
+    which nearby gauges have an NWS forecast (backend-flood-bundle-api)."""
+    url, params = riv_gauges_query(FORECAST_LAYER, "1=1", bbox=tuple(float(v) for v in bbox))  # type: ignore[arg-type]
+    feats, fetched = _features(url, params, ttl_s=RIV_TTL_S, limiter=NOAA_MAPS_LIMITER, name=_MAPS_NAME,
+                               timeout=MAPS_TIMEOUT_S, retries=MAPS_RETRIES)
+    return [r for r in (parse_riv_row(f) for f in feats) if r], fetched
+
+
 def rfc_max_forecast() -> tuple[list[dict], int]:
     """Official RFC forecast points at action or above, nationally (``rfc_max_forecast`` layer 0)."""
     url, params = rfc_max_forecast_query()
