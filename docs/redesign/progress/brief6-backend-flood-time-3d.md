@@ -37,3 +37,7 @@ time history and the 3D terrain products, their routes in `api/floods.py`, `floo
   `tests/test_floods_terrain3d.py` (17; HAND checked against the fixture valley's known heights, FwDET against a
   bathtub of known depth). HAND cut-off raised from 5 to 10 km after a visible circle on the Calcasieu plain.
   Gates: backend 1458 passed; web typecheck, lint (55 warnings, all src/scene), 1809 tests, build.
+- 2026-11-05: **Final.** Report `docs/redesign/reports/brief6-backend-flood-time-3d.json` (JSON samples of
+  `/timeline` for Calcasieu River and the fixture, the pass PNG route, a bundle pass, `manifest.terrain3d` and the
+  `hand` layer of St Johns River), as-built note `docs/redesign/contract6/backend-flood-time-3d.md`. Count-only scans:
+  0 secret hits, no "FireTrace". API on 8762 stopped.
