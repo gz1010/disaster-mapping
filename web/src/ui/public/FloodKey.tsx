@@ -12,6 +12,7 @@ import { DRAW_SAT_PICTURE } from '../../map/floodAreaLayers'
 import { FloodLegend } from '../../map/FloodLegend'
 import { ScaleBar } from '../../map/MapAttribution'
 import { openFloodSummary, useFlood } from '../../state/flood'
+import { gaugeCategoryRank } from '../../state/floodOverview'
 import { useTimeFormatFor } from '../../state/timeZone'
 import { useNow } from '../hooks'
 import { FLOOD_PUBLIC } from '../shell/floodCopy'
@@ -65,6 +66,8 @@ export function FloodKey({ details = true }: { details?: boolean }) {
           <FloodLegend variant="key" />
         </span>
       )}
+      {/* the drawn layers' own credits (the map's credits in the foot bar name the list's NWS and NOAA gauges) */}
+      <FloodLayerCredits />
     </div>
   )
 }
@@ -108,11 +111,13 @@ export function FloodLayerCredits() {
   if (layers.forecastArea && off.fim?.status === 'available' && off.fim.features.features.length) add('fim', off.fim.source)
   if (layers.satellite && off.satellite?.status === 'available' && (off.satellite.image || (DRAW_SAT_PICTURE && off.satellite.tiles))) add('sat', off.satellite.source)
   if (layers.floodplain && off.nfhl?.status === 'available') add('nfhl', off.nfhl.source)
-  const usgs = off.gauges?.status === 'available' ? off.gauges.gauges.flatMap((g) => g.data_attribution).find((d) => /U\.?S\.? Geological Survey|USGS/i.test(d.text)) : null
+  // the gauges the map draws: every member gauge, nearby ones at action stage or above (map/floodController.ts)
+  const drawn = off.gauges?.status === 'available' && layers.gauges ? off.gauges.gauges.filter((g) => g.member || gaugeCategoryRank(g.observed.category) >= 1) : []
+  const usgs = drawn.flatMap((g) => g.data_attribution).find((d) => /U\.?S\.? Geological Survey|USGS/i.test(d.text))
   if (usgs) items.push({ id: 'usgs', text: 'Gauge readings: U.S. Geological Survey (provisional data)', href: 'https://waterdata.usgs.gov/provisional-data-statement/' })
   if (!items.length) return null
   return (
-    <span className="ffv-credits">
+    <span className="ffv-credits" aria-label="Sources of the flood layers">
       {items.map((a, i) => (
         <span key={a.id}>
           {i > 0 && ' · '}

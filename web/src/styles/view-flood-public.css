@@ -200,7 +200,8 @@
    and a link under most rows, so the column is 440 px from 1280 px: each of those lines stays on one line and the
    circle keeps the design's 312 px at 1440 × 1000 */
 @media (min-width: 1280px) {
-  .mw[data-view='public-flood'] {
+  /* doubled class: this file can load before view-public.css (location/FloodPointCard.tsx imports it too) */
+  .mw.mw[data-view='public-flood'] {
     --pfv-col-w: 440px;
   }
 }
@@ -334,27 +335,15 @@
   }
 }
 
-/* ------------------------------------------------------------------------------------------------ foot credits */
-/* the flood layers' own credits before the map's credits (one block, right-aligned, wrapping) */
-.mw[data-view='public-flood'] .ffv-foot-credits {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  align-items: center;
-  column-gap: 8px;
-}
-.mw[data-view='public-flood'] .ffv-credits {
-  font: 400 10.5px / 14px var(--m-font-mono);
+/* ------------------------------------------------------------------------------------------------ layer credits */
+/* the drawn flood layers' own credits: the key's last line (the foot bar keeps the map's credits) */
+.ffk .ffv-credits {
+  flex: 1 0 100%;
+  font: 400 10px / 14px var(--m-font-mono);
   color: var(--m-text-4);
-  text-align: right;
 }
-.mw[data-view='public-flood'] .ffv-credits a {
+.ffk .ffv-credits a {
   color: inherit;
-}
-.mw[data-view='public-flood'] .ffv-foot-credits .mw-footer {
-  flex: 0 1 auto;
 }
 
 /* the flood facts carry an issuer and an own time under most rows: a little less padding than the fire view's 11 px,
@@ -364,4 +353,27 @@
 }
 .mw[data-view='public-flood'] .pfv-facts .ro-sub {
   line-height: 1.4;
+}
+.mw[data-view='public-flood'] .pfv-left.is-snug:not(.is-tight) {
+  gap: 20px;
+}
+.mw[data-view='public-flood'] .pfv-left.is-snug:not(.is-tight) .pfv-facts .ro-row {
+  padding: 6px 0;
+}
+
+/* the design's 312 px water circle keeps its status on one line ("FLOOD · WARNING"); the fire circle's container rule
+   (two lines below 300 px of content) applies from here on down only */
+@container pfv-circle (min-width: 250px) {
+  .pfv-circle.is-water:not(.is-compact) .pfv-circle-status {
+    display: block;
+    max-width: 100%;
+    white-space: nowrap;
+    letter-spacing: 0.18em;
+  }
+  .pfv-circle.is-water:not(.is-compact) .pfv-circle-status .pfv-circle-dot {
+    display: inline;
+  }
+  .pfv-circle.is-water:not(.is-compact) .pfv-circle-part {
+    white-space: nowrap;
+  }
 }

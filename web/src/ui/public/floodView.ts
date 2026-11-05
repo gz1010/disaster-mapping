@@ -219,11 +219,12 @@ export interface FloodFactsInput {
   units: Units
 }
 
-/** A gauge's reading time in its own zone with its age: "reading Nov 4, 10:00 AM MST (25 min ago)". */
-function readingText(ms: number | null | undefined, tz: string | null | undefined, tf: TimeFmt, nowMs: number): string | null {
+/** A gauge's reading time in its own zone with its age: "Nov 4, 10:00 AM MST (25 min ago)" (the row's label says it is
+ *  the river stage; `long` adds "reading"). */
+function readingText(ms: number | null | undefined, tz: string | null | undefined, tf: TimeFmt, nowMs: number, long = false): string | null {
   if (!num(ms)) return null
   const gtf = timeFmt(tz || tf.tz, tf.clock)
-  return fillCopy(FLOOD_PUBLIC.reading, { time: fmtAt(ms, gtf, { zone: true, year: 'auto', refMs: nowMs }), age: fmtRelative(ms, nowMs) })
+  return fillCopy(long ? FLOOD_PUBLIC.reading : FLOOD_PUBLIC.readingShort, { time: fmtAt(ms, gtf, { zone: true, year: 'auto', refMs: nowMs }), age: fmtRelative(ms, nowMs) })
 }
 
 /** The stage row of a member gauge (river kind row 2; flash / watch "River gauges"). Never a nearby gauge (C4). */
@@ -449,9 +450,9 @@ export function floodFacts(i: FloodFactsInput): FloodFactRow[] {
       value: fmtDayDate(s.started_ms, i.tf.tz, { year: 'auto', refMs: i.nowMs }),
       unit: fmtClock(s.started_ms, i.tf, { zone: true }),
       size: 26,
-      // the label says Fire-3d's first sight; a gauge start says so; an NWS product start is in the tooltip
-      sub: s.started_basis === 'gauge' ? FLOOD_PUBLIC.startedGauge : null,
-      tip: seen ? FLOOD_PUBLIC.startedFirstSeen : s.started_basis === 'gauge' ? null : FLOOD_PUBLIC.startedNws,
+      // the label says Fire-3d's first sight; what else started it (an NWS product, a gauge's first reading at flood
+      // stage) is the row's tooltip
+      tip: seen ? FLOOD_PUBLIC.startedFirstSeen : s.started_basis === 'gauge' ? FLOOD_PUBLIC.startedGauge : FLOOD_PUBLIC.startedNws,
     })
   }
   rows.push(productRow(i))

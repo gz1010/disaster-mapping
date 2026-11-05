@@ -368,6 +368,7 @@ export const FLOOD_PUBLIC = {
   until: 'until {time}',
   sent: 'sent {time}',
   reading: 'reading {time} ({age})',
+  readingShort: '{time} ({age})',
   issued: 'issued {time}',
   startedNws: 'first NWS product of this flood',
   startedGauge: 'first reading at flood stage at a member gauge',
@@ -379,7 +380,7 @@ export const FLOOD_PUBLIC = {
   // the facts' foot
   sourcesLine: 'NWS · USGS · checked {age}',
   sourcesLineNoCheck: 'NWS · USGS',
-  demoLine: 'Demo data: a simulated flood, not an NWS product or gauge reading',
+  demoLine: 'Simulated data for testing, not from NWS or USGS',
   waterLink: 'NWS water',
   waterUrl: 'https://water.noaa.gov',
   // the circle
