@@ -377,3 +377,12 @@
     white-space: nowrap;
   }
 }
+/* the smallest desktop circles (1024 px windows): "MORE IN COMMAND" tighter so it stays inside the round edge */
+@container pfv-circle (max-width: 200px) {
+  .pfv-circle.is-water .pfv-circle-more {
+    letter-spacing: 0.04em;
+  }
+  .pfv-circle.is-water .pfv-circle-more svg {
+    display: none;
+  }
+}
