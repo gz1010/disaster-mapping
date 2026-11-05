@@ -651,19 +651,27 @@
   }
   .hg-play {
     flex-wrap: wrap;
-    gap: 2px 8px;
+    gap: 3px 8px;
   }
+  /* line 1: the buttons and the step's label (it fills the rest of the line, so what follows wraps) */
   .hg-step {
+    flex: 1 1 calc(100% - 100px);
     font-size: 10.5px;
     line-height: 13px;
   }
-  /* the gap note and the "now" note move to their own line (short), so the image's date is never cut (WFP-R5) */
+  /* line 2: "NWS · n" and the gap note's short form: the gap note and the "now" note leave the label's two lines, so
+     the image's date is never cut (WFP-R5) */
   .hg-step .hg-step-gap,
   .hg-step .hg-step-now {
     display: none;
   }
+  .hg-nws-btn {
+    height: 18px;
+    padding: 0 6px;
+  }
   .hg-step-line {
     display: block;
+    flex: 1 1 0;
   }
 }
 @media (forced-colors: active) {

@@ -169,7 +169,9 @@ export function PlayRow({ view, variant }: { view: PlaybackView; variant: 'slim'
       {words.past && <NwsAtHandle />}
       {/* phones: the image's date on a line of its own, never cut by the label's clamp (review WFP-R5) */}
       {phoneLine && (
-        <p className="hg-step-line">{phoneLine}</p>
+        <p className="hg-step-line" title={phoneLine}>
+          {phoneLine}
+        </p>
       )}
       <span className="hg-sr">{PLAYBACK.keysHelp}</span>
     </div>

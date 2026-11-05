@@ -14,12 +14,18 @@ and Forensic (dock), the 2D map following the handle, and the words for the gaps
 | `web/src/state/floodTimeline.testutil.ts` | Test builders (`testPass`, `versionBuilder(now)`, `testTimeline`, `SQUARE`) |
 | `web/src/ui/timeline/floodPlaybackCopy.ts` | Every new string (`PLAYBACK`), under the flood wording guard |
 | `web/src/ui/timeline/floodPlayback.ts` | Store `useFloodPlayback` (`playing`, `engaged`), `moveHandle`, `setPlaying`, `playPress`, `playTick`, `playbackAxisStart` |
-| `web/src/ui/timeline/hydrographPlaybackView.ts` | `usePlaybackView(floodId, nowMs, past, tf)` → `PlaybackView`; `stepWords(view, cursorMs)` |
-| `web/src/ui/timeline/HydrographPlayback.tsx` | `PlayRow` (buttons, step label, gap note, keys, Play timer), `PassMarks` (SVG marks on the plot) |
+| `web/src/ui/timeline/hydrographPlaybackView.ts` | `usePlaybackView(floodId, nowMs, past, tf)` → `PlaybackView`; `stepWords(view, cursorMs)` → `StepWords { label, gap, gapShort, note, onStep, past }` |
+| `web/src/ui/timeline/HydrographPlayback.tsx` | `PlayRow` (buttons, step label, gap note, keys, Play timer; review: "NWS · n" list, phone line, "now" note), `PassMarks` (SVG marks on the plot), `NwsVersion` (one NWS version, exported for tests) |
 | `web/src/ui/timeline/Hydrograph.tsx`, `hydrographModel.ts`, `hydrograph.css` | Mounts the row in both variants (also with no gauge); `HydrographInput.startMs` / `.ticks` |
 | `web/src/map/floodAreaLayers.ts` | `satelliteAtHandle`, `warningsAtHandle` (pure, tested) |
 | `web/src/map/floodController.ts` | **Declared edit** (no brief-6 owner): image, image edge and warning areas at the handle; redraw on a new timeline |
-| `web/src/map/FloodLegend.tsx` | **Declared edit** (no brief-6 owner): the satellite chip and key read `useSatelliteAtHandle` (the pass's own date) |
+| `web/src/map/FloodLegend.tsx` | **Declared edit** (no brief-6 owner): the satellite chip and key read `useSatelliteAtHandle` (the pass's own date); at a past step the "now" chips (review WFP-R6) |
+| `web/src/location/FloodReadout.tsx`, `location/FloodPointCard.tsx` | **Declared edits** (review WFP-R2): the point lines and area figures at the handle (`useProductsAtHandle`, `useSatelliteAtHandle`, `useSatClassAt(lon, lat, satAt)`) |
+| `web/src/location/floodCheck.ts` | **Declared edit** (WFP-R2): `FloodPointInput.shown?: ShownProducts<FloodAlert>` (the products already picked at the handle) |
+| `web/src/official/floodHooks.ts` | **Declared edit** (WFP-R2): `useSatClassAt(lon, lat, satAt?)` samples the answer shown at the handle |
+| `web/src/ui/shell/CommandFloodChrome.tsx` | **Declared edit** (WFP-R3, WFP-R4): foot credits of the pass at the handle and of the IEM archive while its copies are drawn |
+| `web/src/ui/Tooltip.tsx` | **Declared edit** (WFP-R8): a shown tip follows its element's `data-tip` (closes when it goes) |
+| `web/src/ui/shell/FloodListPanel.test.ts` | **Declared edit** (WFP-R10): the App-import test has a 20 s limit |
 
 ## Shared helper (`state/floodTimeline.ts`)
 
@@ -47,6 +53,7 @@ export function playStart(frames, cursorMs, nowMs): { cursorMs: number | null } 
 export interface StepLabel { text: string; event: string | null } // event: NWS's own words inside text
 export function keyframeLabel(f, tf, nowMs, past?): StepLabel; passLabel(p, tf, nowMs, past?): string
 export function changeLabel(c, tf, nowMs): StepLabel; gapNote(at, cursorMs, tf, nowMs): string | null
+export function gapNoteShort(at, cursorMs, tf, nowMs): string | null // phones (review WFP-R5)
 export function playSummary(frames, tf, nowMs): string; beforeNowText(ms, nowMs); spanText(ms); hiddenPct(p)
 ```
 
@@ -96,6 +103,54 @@ satellite answer the 2D views show at the handle. Dev handle: `window.__floodTim
   never drawn as water; `.is-current` outlined); the NWS changes are the chart's ticks (`HydrographInput.ticks`,
   labelled with `changeLabel`) instead of the live answer's send times when the timeline is there.
 
+## The handle each view follows (review WFP-R1)
+
+`state/floodTimelineData.ts`:
+
+```ts
+export const isPublicView: (s: Pick<WorkspaceState, 'workspace' | 'preset'>) => boolean // workspace 'map' && preset 'public'
+export function handleFor(publicView: boolean, cursorMs: number | null): number | null  // Public: always null (now)
+export function useFloodHandleMs(): number | null                                        // handleFor for the view on screen
+export function useSatelliteAtHandle(base): SatelliteWaterResponse | null                // uses useFloodHandleMs
+export function useProductsAtHandle(live: FloodAlertsResponse | null | undefined): ProductsAtHandleZones & { timeline }
+```
+
+- **Public has no time handle** (BRIEF-6 decision 2): `ui/timeline/floodPlayback.ts` `leavePlaybackForPublic()` runs
+  when the Public map view comes on screen (`useWorkspace` subscription: `isPublicView` turns true): Play stops, the
+  axis returns to 72 h and `useFlood.cursorMs` goes back to null. Forensic keeps the preset it came from, so Forensic
+  with the Public preset is not Public: its dock's handle stays. On top of that the readers use `handleFor` /
+  `useFloodHandleMs` (the map's `syncAreas`, the legend, the point card), so Public draws now even if a handle is left.
+- Command and Forensic follow `useFlood.cursorMs` as before.
+
+## Point checks at the handle (review WFP-R2)
+
+The readout (`FloodReadout` `PointLayers`, `AreaRows`) and the point card (`FloodViewBlock`) judge a spot by exactly
+what the map draws at the handle:
+- NWS: `useProductsAtHandle(alerts answer)` → `checkPoint({ alerts: r.alerts, shown: r, zones: r.zones, alertsStatus:
+  r.source === 'timeline' ? 'available' : <live answer's state> })`; before now the timeline's versions (archived
+  ones included) from their issue time, so a spot inside the archived NEW polygon reads "Inside the NWS Flood Warning
+  area (until …)" at that step.
+- Satellite: `satelliteAtHandle` (the pass at the handle) as `satellite`, its class from `useSatClassAt(lon, lat,
+  satAt)` (the pass's PNG; the bundle's `water_satellite.bin` only when its time is the pass's), the line's date and
+  tag age are the pass's; before the first pass its `reason` ("No satellite image at or before this time …").
+- Area figures: `areaFigures(fim, satAt)`: a past pass has `stats: null`, so no satellite figure of another day.
+
+## NWS versions at a past step (review WFP-R3)
+
+- Row button `.hg-nws-btn` "NWS · {n}" (only while the handle is before now and `productsAt(...).source ===
+  'timeline'` with at least one version drawn; `aria-haspopup="dialog"`, `aria-label` `PLAYBACK.nwsButtonLabel`).
+  Its popover (`.hg-nws-pop`, `Popover`, title `PLAYBACK.nwsTitle`) lists each version (`orderAlerts`): NWS's event
+  (`<strong data-verbatim>`) · `sender_name` verbatim; "issued {sent} · until {ends ?? expires}" in the product's own
+  zone; the headline verbatim; for an IEM copy `ARCHIVED_COPY` and the link "Archived copy of the NWS product", else
+  "NWS product" (https `url` only); then `PLAYBACK.nwsNote` and the archive's credit with its terms link.
+- `map/floodAreaLayers.ts`:
+  `productsAtHandle(live, liveAlerts, tl, cursorMs, nowMs): ProductsAtHandleZones` (productsAt + the zones of its
+  source; `warningsAtHandle` draws it) and `archiveCreditAtHandle(r, tl): { text, href } | null` (the timeline's
+  `products.archive_source` credit and terms link, else `ARCHIVED_COPY`, only while a shown version has `archived`).
+- Command's foot credits (`#mw-credits`) add the archive credit while the warning layer draws an archived copy, and
+  the satellite credit of the pass at the handle (`useSatelliteAtHandle`; review WFP-R4): a DSWx-S1 or PO.DAAC pass gets
+  its own `passes.sources` line; nothing for the satellite layer before the first pass.
+
 ## 2D map (`floodAreaLayers.ts`)
 
 - `satelliteAtHandle(base, tl, cursorMs, nowMs): SatelliteWaterResponse | null`: at and after now (or without the
@@ -128,7 +183,16 @@ satellite answer the 2D views show at the handle. Dev handle: `window.__floodTim
 | `upgraded` | NWS upgraded the {event} {time} |
 | `until` | End time of the NWS {event}: {time} · not an all-clear |
 | `moreOne` / `moreMany` | (+1 more NWS change by {time}) / (+{n} more NWS changes by {time}) |
-| `mapImage` | Map: satellite image of {time} ({age} before the handle) |
+| `mapImage` | Shown: satellite image of {time} ({age} before the handle) (neutral for 2D and 3D; review WFP-R9) |
+| `mapImageShort` / `gapBeforeShort` / `gapNoneShort` | Image shown: {date} ({age} before) / No satellite image before {to} / No usable satellite image (phones, WFP-R5) |
+| `nowLayers` / `nowLayersShort` | As of now, not this time: {layers} / Now: {layers} (WFP-R6; slim chart at a past step) |
+| `nowForecast` / `nowFloodplain` / `nowCatfim` / `nowModel` | NWS forecast area / FEMA floodplain / NWS category map / model |
+| `chipNow` / `chipNowIssued` | now / now, issued {time} (Command legend chips at a past step) |
+| `nwsButton` / `nwsButtonLabel` / `nwsButtonTip` | NWS · {n} / NWS products on the map at this time: {n}. Each with its issuer, its own times and a link / The NWS products the map draws at this time: issuer, own times, words and link |
+| `nwsTitle` | NWS products on the map at this time |
+| `nwsIssued` / `nwsUntil` | issued {time} / until {time} |
+| `nwsLink` / `nwsLinkArchived` | NWS product / Archived copy of the NWS product |
+| `nwsNote` | Each NWS product is shown from the time NWS issued it until its own end time or NWS’s next version of it. Its end is not an all-clear. Follow local officials. |
 | `gapBetween` | No satellite image between {from} and {to} |
 | `gapAfter` | No satellite image after {from} yet |
 | `gapBefore` | No satellite image before {to} |
@@ -156,7 +220,14 @@ product's own `time_zone`. Gap dates are days (`fmtDayDate`).
   comma and full stop) move the time handle from satellite pass to NWS product change; the map shows each pass's own
   image and date and the NWS warning areas of that time; nothing is drawn between two passes." Screenshots:
   `docs/screenshots/brief6-web-flood-playback-*.png`.
-- **Known gaps (not in my files):** the readout's point lines (`location/FloodReadout.tsx`, `floodCheck.ts`,
-  `official/floodHooks.ts` `useSatClassAt`) keep the satellite route's pass and the live NWS answer (with brief 5's
-  rule at the handle), so at a past step they can name another image than the map; the NWS forecast flooded area,
-  FEMA, CatFIM and the model layers do not follow the handle (they are "now" products).
+- **Review fixes (review6):** the readout's and point card's lines follow the handle (WFP-R2, above). The NWS forecast
+  flooded area, FEMA, CatFIM and the model layers stay "now" products: at a past step their Command chips say "now"
+  (the forecast area with its issue day) and the slim chart's row says "As of now, not this time: …" (WFP-R6).
+- **Phones (≤ 760 px, WFP-R5):** the row wraps in two lines: the buttons and the step's label (two-line clamp), then
+  "NWS · n" and `.hg-step-line` with the short gap note and the "now" note (`gapNoteShort`), so the image's date and
+  age stay visible.
+- **Ticks (WFP-R7):** `PlaybackView.ticks` is null unless the timeline's products block is `available`, so the live
+  answer's send times stay the chart's ticks when NWS's feed and the IEM archive are both down.
+- **For web-forensic-flood-3d / final-check:** the Forensic dock carries the "NWS · n" list (with the IEM credit) but
+  Forensic's own foot credits do not add the IEM archive while its 3D warning lines draw archived versions; a one-line
+  addition there (`archiveCreditAtHandle(productsAt…, tl)`) would credit it as Command's foot does.

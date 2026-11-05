@@ -1,0 +1,149 @@
+{
+  "role": "web-flood-playback (review fixes)",
+  "brief": "BRIEF-6",
+  "commit_subject": "brief 6 web-flood-playback: review fixes",
+  "summary": "All ten findings verified against the code and fixed. WFP-R1 (blocker): Public never shows a past step any more: entering the Public map view stops Play and puts the handle back at now (floodPlayback.ts leavePlaybackForPublic on a useWorkspace subscription; Forensic, which keeps the preset it came from, is not Public), and the map, legend and point card read the handle through handleFor / useFloodHandleMs, which is always now in Public. WFP-R2 (blocker): the readout and the point card judge a spot by exactly what the map draws at the handle: the timeline's NWS versions (productsAtHandle; checkPoint takes them as `shown`), the pass at the handle and its own class sampler (useSatClassAt(lon, lat, satAt)), and no satellite area figure of another day. WFP-R3 (major): at a past step the row's 'NWS · n' button lists each NWS version the map draws with its event and issuer verbatim, its own issue and end times in its own zone, its headline, a link, and for IEM copies the 'Archived copy (Iowa Environmental Mesonet)' tag; Command's foot credits add the IEM archive's credit while one of its copies is drawn. WFP-R4..R10: credits follow the pass on the map; phones keep the image's date on a second row line; 'now' layers say so on their chips and in the row; ticks fall back to the live answer when the timeline's products block is down; the tooltip follows a changing data-tip; 'Shown:' replaces 'Map:'; the App-import test has a 20 s limit.",
+  "findings": [
+    {
+      "id": "WFP-R1",
+      "severity": "blocker",
+      "outcome": "fixed",
+      "verified": "Real: map/floodController.ts syncAreas passed useFlood.cursorMs to satelliteAtHandle / warningsAtHandle in every chrome, FloodLegend's useSatelliteAtHandle read the same handle, and nothing reset it when Public came on screen (the cursor is only set by the chart). Reproduced on Calcasieu in the old build per the finding.",
+      "fix": "state/floodTimelineData.ts: isPublicView (workspace 'map' and preset 'public'), handleFor(publicView, cursorMs) (null in Public), useFloodHandleMs(); useSatelliteAtHandle uses it. ui/timeline/floodPlayback.ts: leavePlaybackForPublic() on a useWorkspace subscription when the Public map view comes on screen (Play off, axis back to 72 h, cursor null); Forensic with the Public preset keeps its dock's handle. map/floodController.ts syncAreas uses handleFor(isPublicView(...), cursorMs). location/FloodPointCard.tsx uses useFloodHandleMs. Tests: floodAreaLayers.test.ts (a past handle in Public draws the route's own image and the live products; Command and Forensic follow the handle), floodPlayback.test.ts (entering Public resets; Forensic with the Public preset does not).",
+      "screenshots": [
+        "docs/screenshots/brief6-web-flood-playback-review-public-after-step.png"
+      ],
+      "checked_live": "Calcasieu, Command: comma x4 (Oct 25 step, cursor 1792946672000), then Public: cursor null, map draws the Oct 29 image with the NWS Flood Warning polygon; key and top chip 'Oct 29' as the image shown."
+    },
+    {
+      "id": "WFP-R2",
+      "severity": "blocker",
+      "outcome": "fixed",
+      "verified": "Real: location/FloodReadout.tsx and FloodPointCard.tsx passed the live alerts answer and off.satellite to checkPoint, which applied productsShown on the live answer (the Calcasieu EXT, onset Nov 5 06:00Z, is not in effect at the Nov 4 22:30Z step) and named the route's Oct 29 pass at the Oct 25 step; AreaRows used off.satellite's stats.",
+      "fix": "map/floodAreaLayers.ts productsAtHandle(live, liveAlerts, tl, cursorMs, nowMs) (productsAt + the zones of its source; warningsAtHandle draws it). location/floodCheck.ts FloodPointInput.shown (declared edit): the products already picked at the handle, else productsShown as before. Readout PointLayers and point card FloodViewBlock: useProductsAtHandle (alerts, shown, zones; alertsStatus 'available' for the timeline's block), satellite = useSatelliteAtHandle(...), satClass = useSatClassAt(lon, lat, satAt) (official/floodHooks.ts, declared edit: optional third argument), lineTag with the pass's answer. AreaRows: areaFigures(fim, satAt) (a past pass has stats null: no figure). Test: floodAreaLayers.test.ts (a timeline-only archived version covers the spot at a past cursor: 'Inside the NWS Flood Warning area (until …)', never NOTHING_COVERS; the satellite line names the pass at the handle; at now the live EXT reads 'starting …').",
+      "screenshots": [
+        "docs/screenshots/brief6-web-flood-playback-real-step2.png",
+        "docs/screenshots/brief6-web-flood-playback-real-step1.png"
+      ],
+      "checked_live": "Calcasieu, point 30.28066 N 93.16600 W: Nov 4 step 'OFFICIAL Inside the NWS Flood Warning area (until Nov 6, 18:00 CST)' with the archived polygon drawn; Oct 25 step 'SATELLITE · 11 D AGO The Oct 25 satellite pass shows no water at this spot (or did not check it there) …' and no NWS line (none drawn then)."
+    },
+    {
+      "id": "WFP-R3",
+      "severity": "major",
+      "outcome": "fixed",
+      "verified": "Real: no playback code read products.archive_source or ARCHIVED_COPY; the step label had no issuer, end time or link; the foot credits had no IEM line.",
+      "fix": "ui/timeline/HydrographPlayback.tsx: at a past step with the timeline's versions drawn, 'NWS · n' (.hg-nws-btn) opens a popover 'NWS products on the map at this time' listing each version (NwsVersion): event and sender_name inside data-verbatim, 'issued … · until …' in the product's own zone, the headline verbatim, ARCHIVED_COPY for an IEM copy, a link ('NWS product' / 'Archived copy of the NWS product'), PLAYBACK.nwsNote and the archive's credit with its terms link. In Command and in Forensic's dock. map/floodAreaLayers.ts archiveCreditAtHandle(r, tl). ui/shell/CommandFloodChrome.tsx (declared edit) FloodLayerFootCredits adds the archive's credit while the warning layer draws an archived copy. Tests: HydrographPlayback.test.ts (button only at a past step with versions drawn; NwsVersion's verbatim parts, own times, link, archived tag), floodAreaLayers.test.ts (credit only while an archived copy is drawn).",
+      "screenshots": [
+        "docs/screenshots/brief6-web-flood-playback-review-command-nws-list.png",
+        "docs/screenshots/brief6-web-flood-playback-forensic-dock.png"
+      ],
+      "checked_live": "Calcasieu Nov 4 step: 'Flood Warning · NWS Lake Charles LA · issued Nov 4, 16:30 CST · until Nov 6, 18:00 CST · ...FLOOD WARNING IN EFFECT FROM FRIDAY MORNING TO FRIDAY EVENING... · Archived copy (Iowa Environmental Mesonet) · Archived copy of the NWS product ↗', then the note and 'National Weather Service, archived copy via the Iowa Environmental Mesonet (Iowa State University)'; the same credit in the foot credits.",
+      "not_done": "Forensic's own foot credits (not this role's files) do not add the IEM credit while its 3D warning lines draw archived versions; the dock's list carries it. Noted for web-forensic-flood-3d / final-check in contract6/web-flood-playback.md."
+    },
+    {
+      "id": "WFP-R4",
+      "severity": "minor",
+      "outcome": "fixed",
+      "verified": "Real: FloodLayerFootCredits passed off.satellite (now) to floodLayerCreditsFor.",
+      "fix": "FloodLayerFootCredits uses useSatelliteAtHandle(off.satellite): the pass's own passes.sources credit (DSWx-S1, PO.DAAC), and no satellite credit before the first pass. Test floodAreaLayers.test.ts (S1 pass credited with its own line; none before the first pass; the route's at now)."
+    },
+    {
+      "id": "WFP-R5",
+      "severity": "minor",
+      "outcome": "fixed",
+      "verified": "Real: at 390 px .hg-step's 2-line clamp cut the gap note after the label.",
+      "fix": "state/floodTimeline.ts gapNoteShort ('Image shown: Oct 29 (6 days before)', 'No satellite image before {to}', 'No usable satellite image'); stepWords returns gapShort; the row renders .hg-step-line (shown only at ≤ 760 px). Phones: the row wraps in two lines: buttons + label (two-line clamp), then 'NWS · n' + the short gap note (and 'Now: …'). Tests floodTimeline.test.ts, HydrographPlayback.test.ts.",
+      "screenshots": [
+        "docs/screenshots/brief6-web-flood-playback-review-phone.png"
+      ],
+      "checked_live": "390 px, Calcasieu Nov 4 step: line 1 'NWS Flood Warning issued Nov 4, 16:30 CST', line 2 'NWS · 1 · Image shown: Oct 29 (6 days before) · …'."
+    },
+    {
+      "id": "WFP-R6",
+      "severity": "minor",
+      "outcome": "fixed",
+      "verified": "Real: at a past step the forecast area, FEMA, CatFIM and model layers stayed drawn with no time on their Command chips.",
+      "fix": "Tagged rather than faded (fading would hide official information): map/FloodLegend.tsx (declared edit) at a past step: 'NWS forecast flooded area · now, issued Nov 5', and ' · now' on the FEMA, category map, model and high-flow chips. The slim chart's row adds 'As of now, not this time: NWS forecast area, …' (phones: 'Now: …') for the drawn ones (not in Forensic's dock, whose 3D layers are web-forensic-flood-3d's). Test HydrographPlayback.test.ts.",
+      "screenshots": [
+        "docs/screenshots/brief6-web-flood-playback-real-step1.png"
+      ]
+    },
+    {
+      "id": "WFP-R7",
+      "severity": "minor",
+      "outcome": "fixed",
+      "verified": "Real: ticks were [] (not null) when the timeline arrived without an available products block.",
+      "fix": "hydrographPlaybackView.ts: ticks only when t.data.products.status === 'available', else null (brief 5's live ticks). Test HydrographPlayback.test.ts."
+    },
+    {
+      "id": "WFP-R8",
+      "severity": "nit",
+      "outcome": "fixed",
+      "verified": "Real: ui/Tooltip.tsx read data-tip once when showing.",
+      "fix": "ui/Tooltip.tsx (declared edit): while a tip is shown, a MutationObserver on its element's data-tip updates the text (or closes the tip when the attribute goes); disconnected on hide or a new element.",
+      "checked_live": "Calcasieu, Play from the Oct 26 step with the pointer on the button: 'Pause (Space)' while playing, then 'Play: the satellite passes and NWS product changes, one step at a time, to the latest step (Space)' after Play stopped (aria-pressed false)."
+    },
+    {
+      "id": "WFP-R9",
+      "severity": "nit",
+      "outcome": "fixed",
+      "verified": "Real: PLAYBACK.mapImage started 'Map:' and the Forensic dock and 3D key showed it.",
+      "fix": "PLAYBACK.mapImage = 'Shown: satellite image of {time} ({age} before the handle)' (the 3D key reads the same string). Tests updated deliberately (floodTimeline.test.ts, HydrographPlayback.test.ts).",
+      "screenshots": [
+        "docs/screenshots/brief6-web-flood-playback-forensic-dock.png"
+      ]
+    },
+    {
+      "id": "WFP-R10",
+      "severity": "nit",
+      "outcome": "fixed",
+      "verified": "Plausible under load: the only App-import test (FloodListPanel.test.ts) had the default 5 s limit.",
+      "fix": "ui/shell/FloodListPanel.test.ts (declared edit): that test's limit is 20 000 ms; the test itself is unchanged."
+    }
+  ],
+  "files": [
+    "web/src/state/floodTimelineData.ts",
+    "web/src/state/floodTimeline.ts",
+    "web/src/state/floodTimeline.test.ts",
+    "web/src/ui/timeline/floodPlayback.ts",
+    "web/src/ui/timeline/floodPlayback.test.ts",
+    "web/src/ui/timeline/floodPlaybackCopy.ts",
+    "web/src/ui/timeline/hydrographPlaybackView.ts",
+    "web/src/ui/timeline/HydrographPlayback.tsx",
+    "web/src/ui/timeline/HydrographPlayback.test.ts",
+    "web/src/ui/timeline/hydrograph.css",
+    "web/src/map/floodAreaLayers.ts",
+    "web/src/map/floodAreaLayers.test.ts",
+    "web/src/map/floodController.ts (declared edit)",
+    "web/src/map/FloodLegend.tsx (declared edit)",
+    "web/src/location/FloodReadout.tsx (declared edit)",
+    "web/src/location/FloodPointCard.tsx (declared edit)",
+    "web/src/location/floodCheck.ts (declared edit)",
+    "web/src/official/floodHooks.ts (declared edit)",
+    "web/src/ui/shell/CommandFloodChrome.tsx (declared edit)",
+    "web/src/ui/Tooltip.tsx (declared edit)",
+    "web/src/ui/shell/FloodListPanel.test.ts (declared edit)",
+    "docs/redesign/contract6/web-flood-playback.md",
+    "docs/redesign/reports/brief6-web-flood-playback.json",
+    "docs/redesign/progress/brief6-web-flood-playback.md"
+  ],
+  "screenshots": [
+    "docs/screenshots/brief6-web-flood-playback-review-public-after-step.png (Calcasieu: Command step then Public: now, the route's Oct 29 image and the NWS warning polygon)",
+    "docs/screenshots/brief6-web-flood-playback-review-command-nws-list.png (Calcasieu Nov 4 step: readout inside the warning, 'NWS · 1' list with issuer, own times, archived tag, link, IEM credit; foot credit)",
+    "docs/screenshots/brief6-web-flood-playback-real-step2.png (Calcasieu Nov 4 step, retaken: 'Shown:' wording, readout inside the archived warning, 'now, issued Nov 5' chip)",
+    "docs/screenshots/brief6-web-flood-playback-real-step1.png (Calcasieu Oct 25 step, retaken: readout names the Oct 25 pass, 'As of now, not this time: NWS forecast area')",
+    "docs/screenshots/brief6-web-flood-playback-review-phone.png (390 px: the image's date on the row's second line)",
+    "docs/screenshots/brief6-web-flood-playback-forensic-dock.png (fixture in Forensic, retaken: 'Shown: satellite image of Nov 1 …', 'NWS · 2')"
+  ],
+  "known_issues": [
+    "Forensic's own foot credits (web-forensic-flood-3d's files) do not add the IEM archive's credit while the 3D warning lines draw archived versions; the dock's 'NWS · n' list carries it (tag, link and credit).",
+    "Entering Public puts the handle back at now, so a step chosen in Command is not kept when the user returns to Command from Public (Forensic keeps it).",
+    "On phones the second row line is one line with an ellipsis: the image's date and age always fit; a long 'Now: …' list after them can be cut (its full text is in the line's title).",
+    "The 'NWS · n' list shows only the timeline's versions at a past step; at now 'Official now' lists the products as before."
+  ],
+  "gates": {
+    "backend": "uv run pytest -q: 1466 passed",
+    "web": "typecheck: clean in this role's files (at the final run one error in web/src/scene/flood/productsOnScreen.test.ts, the parallel web-forensic-flood-3d review's uncommitted work, 'node:fs' types); lint: 0 errors, 55 warnings, all in src/scene (none added); vitest: 151 files, 1917 passed, 2 skipped; vite build: ok",
+    "scans": "count-only: FIRMS_MAP_KEY's value in 0 changed files (EARTHDATA_TOKEN not set in this session); no 'FireTrace', 'safe' or 'low risk' in the new strings; new strings pass the flood wording guard (floodCopy.test.ts reads floodPlaybackCopy.ts; rendered rows and NwsVersion checked with data-verbatim stripped)"
+  }
+}

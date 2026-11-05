@@ -149,14 +149,14 @@ describe('flood time steps on the chart', () => {
 
   it('phones: the image’s date on its own line; the slim chart says which drawn layers show now (review WFP-R5, WFP-R6)', () => {
     const html = render({ engaged: true, cursorMs: WARNING.shown_from_ms })
-    expect(html).toContain('<p class="hg-step-line">Image shown: Nov 2 (28 hours before)</p>')
+    expect(html).toContain('<p class="hg-step-line" title="Image shown: Nov 2 (28 hours before)">Image shown: Nov 2 (28 hours before)</p>')
     ssrState(useFlood, { layers: { ...useFlood.getState().layers, model: true } })
     const detail = DETAIL()
     const withModel = renderToStaticMarkup(createElement(Hydrograph, { variant: 'slim', floodId: detail.summary.id, lid: null, widthPx: 1000 }))
-    expect(withModel).toContain('Shown as of now, not this time: model')
+    expect(withModel).toContain('As of now, not this time: model')
     expect(withModel).toContain('Image shown: Nov 2 (28 hours before) · Now: model')
     const dock = renderToStaticMarkup(createElement(Hydrograph, { variant: 'dock', floodId: detail.summary.id, lid: null, widthPx: 1000 }))
-    expect(dock).not.toContain('Shown as of now')
+    expect(dock).not.toContain('As of now, not this time')
     // at now nothing of the kind
     expect(render()).not.toContain('hg-step-line')
   })

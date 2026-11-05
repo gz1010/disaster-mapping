@@ -66,7 +66,7 @@ export const PLAYBACK = {
 
   // ---------------------------------------------------------------------------------------------- "now" layers at a past step
   /** Layers that are products of now stay drawn at a past step: said with their own time (review WFP-R6). */
-  nowLayers: 'Shown as of now, not this time: {layers}',
+  nowLayers: 'As of now, not this time: {layers}',
   nowLayersShort: 'Now: {layers}',
   nowForecast: 'NWS forecast area',
   nowFloodplain: 'FEMA floodplain',

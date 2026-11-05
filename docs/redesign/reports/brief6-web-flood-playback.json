@@ -6,7 +6,8 @@
     "M1": "0d8b0c6 brief 6 web-flood-playback: M1 floodTimeline (state/floodTimeline.ts, state/floodTimelineData.ts, ui/timeline/floodPlaybackCopy.ts, tests)",
     "M2": "f8aa42b brief 6 web-flood-playback: M2 Play and step controls on the river-level chart (part of the files were in the orchestrator's wave-2 snapshot ee6ac13)",
     "M3": "9e70372 brief 6 web-flood-playback: M3 2D map follows the handle (floodAreaLayers satelliteAtHandle / warningsAtHandle; declared edits in floodController.ts and FloodLegend.tsx were in snapshot ee6ac13)",
-    "final": "446e634 brief 6 web-flood-playback: final (same-polygon fix, report, as-built note, CONTRACT 17 pointer)"
+    "final": "446e634 brief 6 web-flood-playback: final (same-polygon fix, report, as-built note, CONTRACT 17 pointer)",
+    "review": "f41d647 brief 6 web-flood-playback: review fixes (code); the docs, screenshots and report follow in the next \"review fixes\" commit. Findings and outcomes: docs/redesign/reports/review6-web-flood-playback.json"
   },
   "files": [
     "web/src/state/floodTimeline.ts",
@@ -30,14 +31,25 @@
     "web/src/map/FloodLegend.tsx (declared edit, no brief-6 owner)",
     "docs/redesign/contract6/web-flood-playback.md",
     "docs/redesign/CONTRACT.md (§17 pointer)",
-    "docs/redesign/progress/brief6-web-flood-playback.md"
+    "docs/redesign/progress/brief6-web-flood-playback.md",
+    "web/src/location/FloodReadout.tsx (declared edit, review WFP-R2)",
+    "web/src/location/FloodPointCard.tsx (declared edit, review WFP-R1/R2)",
+    "web/src/location/floodCheck.ts (declared edit, review WFP-R2)",
+    "web/src/official/floodHooks.ts (declared edit, review WFP-R2)",
+    "web/src/ui/shell/CommandFloodChrome.tsx (declared edit, review WFP-R3/R4)",
+    "web/src/ui/Tooltip.tsx (declared edit, review WFP-R8)",
+    "web/src/ui/shell/FloodListPanel.test.ts (declared edit, review WFP-R10)",
+    "docs/redesign/reports/review6-web-flood-playback.json"
   ],
   "screenshots": [
     "docs/screenshots/brief6-web-flood-playback-fixture-step1.png (fixture, first step: Oct 23 pass, the river before the flood)",
     "docs/screenshots/brief6-web-flood-playback-fixture-step2.png (fixture, second step: Oct 30 pass, no view of 65%)",
-    "docs/screenshots/brief6-web-flood-playback-real-step1.png (Calcasieu River, first step: Oct 25 pass; no NWS warning yet)",
-    "docs/screenshots/brief6-web-flood-playback-real-step2.png (Calcasieu River: NWS Flood Warning issued Nov 4, 16:30 CST; map keeps the Oct 29 image with its date and the gap note)",
-    "docs/screenshots/brief6-web-flood-playback-forensic-dock.png (Forensic, fixture: the dock's controls at the Oct 30 step)"
+    "docs/screenshots/brief6-web-flood-playback-real-step1.png (Calcasieu River, first step: Oct 25 pass; readout names that pass; 'As of now, not this time: NWS forecast area'; retaken in the review)",
+    "docs/screenshots/brief6-web-flood-playback-real-step2.png (Calcasieu River: NWS Flood Warning issued Nov 4, 16:30 CST; map keeps the Oct 29 image ('Shown: …'); readout inside the archived warning; retaken in the review)",
+    "docs/screenshots/brief6-web-flood-playback-forensic-dock.png (Forensic, fixture: the dock's controls at the NWS Flood Watch step, 'Shown: satellite image of Nov 1 …', 'NWS · 2'; retaken in the review)",
+    "docs/screenshots/brief6-web-flood-playback-review-command-nws-list.png (the 'NWS · 1' list: issuer, own times, archived tag, link, IEM credit)",
+    "docs/screenshots/brief6-web-flood-playback-review-public-after-step.png (a Command step, then Public: now)",
+    "docs/screenshots/brief6-web-flood-playback-review-phone.png (390 px: the image's date on the row's second line)"
   ],
   "gates": {
     "backend": "uv run pytest -q: 1466 passed",
@@ -50,13 +62,14 @@
     "St Johns River": "17 usable-pass steps over 40 days; 102 NWS versions (CONs every 12 h with the same area) reduce to 5 'issued' steps; axis Sep 26 - Nov 10 while stepping"
   },
   "known_issues": [
-    "The readout's point lines (location/FloodReadout.tsx, location/floodCheck.ts, official/floodHooks.ts useSatClassAt; not my files) keep the satellite route's pass and the live NWS answer (brief 5's rule at the handle), so at a past step a selected point's satellite line can name another image than the one on the map. Fix: pass useSatelliteAtHandle(...) and a class sampler of that image into checkPoint, and the timeline's productsAt alerts.",
-    "The NWS forecast flooded area, FEMA, NWS category maps and the model layers do not follow the handle: they are products of now and stay drawn at a past step (labelled as before).",
+    "Review fixes (review6): the readout and point card now follow the handle (NWS versions and the pass the map draws); Public always shows now (entering Public puts the handle back at now); see review6-web-flood-playback.json.",
+    "The NWS forecast flooded area, FEMA, NWS category maps and the model layers are products of now: at a past step they stay drawn, and their Command chips say 'now' (the forecast area with its issue day) and the slim chart's row says 'As of now, not this time: …'.",
+    "Forensic's own foot credits (not this role's files) do not add the IEM archive's credit while its 3D warning lines draw archived versions; the dock's 'NWS · n' list carries the tag, link and credit.",
     "'Official now' (right column) lists the products in effect now, by design; the NWS versions of a past step are on the map and in the step label only.",
     "Play stops at the latest step, not at now: Next (or NOW) returns to now, where the chart's axis goes back to 72 h.",
     "While stepping, the axis can span up to 45 days (St Johns: 40 days), so the recent 72 h take less width; it returns to 72 h at now.",
     "NASA's catalogue lists passes 2-4 days after the overpass (backend note), so the newest days of a live flood often have no step yet; the gap note says 'No satellite image after <date> yet'.",
     "The orchestrator's wave-2 snapshot commit ee6ac13 carried part of M2 and M3 mid-step; the milestone commits contain the rest."
   ],
-  "notes_for_others": "web-forensic-flood-3d: use passAt(passesOf(timelineFor(useFloodTimeline.getState(), id)), cursorMs) for the drapes and productsAt(...) for the NWS versions at the handle; the dock's controls come with Hydrograph. final-check: README Command / Forensic flood paragraphs and Keyboard line can describe Play / step (Space, comma, full stop), the pass's own image and date on the map, the warning areas of that time, 'nothing is drawn between two passes'; screenshots docs/screenshots/brief6-web-flood-playback-*.png; the readout gap above is a candidate for a small follow-up. As-built: docs/redesign/contract6/web-flood-playback.md."
+  "notes_for_others": "web-forensic-flood-3d: use passAt(passesOf(timelineFor(useFloodTimeline.getState(), id)), cursorMs) for the drapes and productsAt(...) for the NWS versions at the handle; the dock's controls come with Hydrograph. final-check: README Command / Forensic flood paragraphs and Keyboard line can describe Play / step (Space, comma, full stop), the pass's own image and date on the map, the warning areas of that time, 'nothing is drawn between two passes'; screenshots docs/screenshots/brief6-web-flood-playback-*.png; the readout gap above is a candidate for a small follow-up. As-built: docs/redesign/contract6/web-flood-playback.md. Review fixes: use state/floodTimelineData.ts useFloodHandleMs / useProductsAtHandle / useSatelliteAtHandle for anything that shows the flood at the handle (Public is always now); map/floodAreaLayers.ts productsAtHandle and archiveCreditAtHandle (Forensic's foot credits could add the IEM line with it)."
 }

@@ -51,3 +51,14 @@ store), `ui/timeline/floodPlaybackCopy.ts` (strings, under the flood wording gua
   its class sampler, area figures), R3 "NWS at this time" list (issuer, own times, link, archived tag) + IEM credit,
   R4 credits at the handle, R5 phone gap line, R6 "now" tags on chips, R7 ticks, R8 tooltip text refresh, R9 neutral
   word, R10 test timeouts.
+- 2026-11-05: review fixes coded and committed (f41d647): Public follows now (`handleFor` / `isPublicView` /
+  `useFloodHandleMs`, cursor reset on entering Public in `floodPlayback.ts`), point checks at the handle
+  (`productsAtHandle`, `checkPoint` `shown`, `useSatClassAt(lon, lat, satAt)`, area figures), "NWS · n" list +
+  `archiveCreditAtHandle` (foot credits), credits at the handle, phone line (`gapNoteShort`), "now" tags and note, ticks
+  null without the products block, tooltip follows `data-tip`, "Shown:" wording, App-import test 20 s. Gates: typecheck,
+  lint 55 (src/scene), 1899 tests, build. Next: screenshots (API 8783, Vite 5243).
+- 2026-11-05: review screenshots (viewed): Calcasieu Command Nov 4 step with the "NWS · 1" list, Oct 25 step, Public
+  after a Command step (now), phone 390 px (two-line row), fixture Forensic dock ("Shown:" wording). Phone row changed
+  to two lines (buttons + label; "NWS · n" + short gap). Tooltip checked live after Play stops. "Now" note reworded
+  "As of now, not this time: …". Review report `docs/redesign/reports/review6-web-flood-playback.json`; as-built note and
+  role report updated.
