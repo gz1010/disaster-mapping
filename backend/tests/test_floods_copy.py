@@ -34,13 +34,36 @@ def guard(text: str) -> list[str]:
     return [p for p in BANNED if re.search(p, t, flags=re.IGNORECASE)]
 
 
-def _contract_table() -> dict[str, str]:
-    text = CONTRACT.read_text()
-    sec = text[text.index("### 16.14"):text.index("### 16.15")]
+AS_BUILT = "**As built: more backend-sent strings**"
+
+
+def _rows(sec: str) -> dict[str, str]:
     out = {}
     for m in re.finditer(r"^\| `([A-Z0-9_]+)` \| (.+?) \|$", sec, flags=re.MULTILINE):
         out[m.group(1)] = m.group(2).strip()
     return out
+
+
+def _contract_table() -> dict[str, str]:
+    """CONTRACT 16.14's planned table (the rows before the integration's as-built table)."""
+    text = CONTRACT.read_text()
+    sec = text[text.index("### 16.14"):text.index("### 16.15")]
+    return _rows(sec.split(AS_BUILT)[0])
+
+
+def test_as_built_strings_equal_the_code() -> None:
+    """The integration's as-built table in 16.14 (copy.py LIST_STRINGS / BUNDLE_STRINGS, history.PAST_STRINGS,
+    live.REFRESH_KEPT): every single-name row is the code's text word for word."""
+    from fire3d.floods import history, live
+
+    text = CONTRACT.read_text()
+    sec = text[text.index("### 16.14"):text.index("### 16.15")]
+    rows = _rows(sec.split(AS_BUILT)[1])
+    code = {**fcopy.LIST_STRINGS, **fcopy.BUNDLE_STRINGS, **history.PAST_STRINGS, "REFRESH_KEPT": live.REFRESH_KEPT}
+    assert len(rows) >= 20
+    for name, row in rows.items():
+        assert name in code, name
+        assert code[name] == row, name
 
 
 def test_strings_equal_contract_16_14() -> None:

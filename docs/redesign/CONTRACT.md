@@ -4214,6 +4214,7 @@ export interface FloodManifest {
   data_sources: DataSource[]
   warnings: string[]
   built_ms: number                 // also the cache-buster (?v=built_ms)
+  refreshed_ms?: number | null     // as built (backend-flood-live): when the live loop last appended to warnings / gauges
 }
 ```
 
@@ -4763,6 +4764,59 @@ any flood colour (`floodStyle.test.ts`: hue 75°-165° with saturation above 25 
 | `MODEL_LABEL` | Model output (NOAA National Water Model) · experimental |
 | `MODEL_CAVEAT` | Experimental model output (NOAA National Water Model). It is not an NWS forecast and not advice on when to evacuate. Follow local officials. |
 
+**As built: more backend-sent strings** (exact texts in `backend/fire3d/floods/copy.py` `LIST_STRINGS` and
+`BUNDLE_STRINGS`, `floods/history.py` `PAST_STRINGS` and `floods/live.py` `REFRESH_KEPT`, a manifest warning; all under
+the §5.1 guard; `test_floods_copy.py` checks every single-name row below against the code). The `SAT_CAVEAT` slot is
+written `{date_time}` in `copy.py`. `PAST_NOT_YET`, `ALERTS_PAST_NOT_YET` and `GAUGES_PAST_NOT_YET` are no longer sent
+by the real API since backend-flood-live M2 (the fixture server keeps its canned answers).
+
+| Name | Text |
+|---|---|
+| `GAUGE_ONLY_COASTAL_CAVEAT` | No NWS Flood or Flash Flood product names this gauge right now. It may measure tidal or lake water: Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products, which may be in effect here. |
+| `RFC_DOWN` | NWS river forecast points could not be reached right now; forecast flood categories may be missing. |
+| `STALE_NWS` / `STALE_GAUGES` / `STALE_RFC` | NWS flood products / River gauges / NWS river forecasts could not be refreshed right now; an earlier copy is shown. |
+| `STALE_IEM` | IEM's copy of NWS flood warnings could not be refreshed right now; an earlier copy links the gauges. |
+| `IEM_JOIN_DOWN` | IEM's copy of NWS flood warnings could not be reached right now; some river gauges may not be linked to their NWS warning. |
+| `IEM_JOIN_NAME` | Iowa Environmental Mesonet (copy of NWS flood warnings, used to link river gauges) |
+| `PAST_NOT_YET` | Fire-3d does not list past floods yet. That is not an all-clear. |
+| `FLOOD_NOT_LISTED_DETAIL`, `FLOOD_ROUTE_NOT_LISTED` | This flood is not listed. |
+| `GAUGE_DETAIL_DOWN` | NOAA's gauge detail service could not be reached right now; this gauge shows the NWS gauge map's reading only (no forecast, no impacts). That is not an all-clear. |
+| `NEARBY_GAUGES_DOWN` | Gauges near this flood could not be loaded right now. That is not an all-clear. |
+| `SAT_NO_IMAGE` | NASA has no usable satellite water image of this area from the last 10 days (no pass, or no view of it). That is not an all-clear. |
+| `SAT_BEFORE_ARCHIVE` | NASA's satellite water images start in 2023; none exists for this date. |
+| `SAT_CAVEAT_NO_CLOUD_SHARE` | Water seen by satellite (NASA OPERA), {date_time}. It includes the river's normal water. Clouds, trees, buildings and the days between passes hide water: dry pixels do not mean no flooding. |
+| `SAT_CAVEAT_RADAR` | Water seen by radar satellite (NASA OPERA), {date_time}. It includes the river's normal water. Trees, buildings, steep slopes and the days between passes hide water: dry pixels do not mean no flooding. |
+| `SAT_PICTURE_REASON` | Fire-3d could not load a measured satellite water image of this area from the last 10 days; NASA's picture of {date} is not measured here. That is not an all-clear. |
+| `SAT_SAVED_COPY` | NASA's satellite water service could not be reached right now; this is the image Fire-3d saved when it prepared this flood. |
+| `SATELLITE_IMAGE_GONE` | This satellite image is no longer kept; reload the flood to get the newest one. |
+| `RFC_FIM_PAST` | NWS forecast flooded-area maps are not kept for past dates. |
+| `CATFIM_TODAY` | NWS category flood maps are a static library: this is today's map, not one made at that time. Not a forecast. |
+| `CATFIM_NOT_COVERED` | No NWS category flood map for this flood (no river gauge with a flood category). |
+| `CATFIM_NOTE_ANY` | What NWS maps for each flood category at a river gauge (experimental map library). Not a forecast. |
+| `MODEL_PAST` / `MODEL_DOWN` | National Water Model output is not kept here for past dates. / National Water Model output could not be loaded right now. |
+| `MODEL_NO_REACH` / `MODEL_NO_GAUGE` | This gauge has no National Water Model reach, so there is no model series for it. / This flood has no river gauge, so there is no model series for it. |
+| `NFHL_PARTLY_MAPPED` | FEMA's digital flood map covers only part of this area; outside it, FEMA's floodplain is not shown. |
+| `NFHL_AVAILABILITY_UNKNOWN` | Whether FEMA has a digital flood map for all of this area could not be checked right now. |
+| `NFHL_TRUNCATED` | FEMA's map has more flood zones in this area than Fire-3d draws; some of the floodplain may be missing here. |
+| `ALERTS_PAST_NOT_YET` / `GAUGES_PAST_NOT_YET` | Past NWS flood products / river gauge readings are not served yet (…). |
+| `BUILD_SYNTHETIC` | This is a synthetic bundle (test data); it cannot be rebuilt. |
+| `BUILD_OUTSIDE_L48` | Fire-3d prepares floods in the lower 48 states and DC only. |
+| `GAUGE_NOT_FOUND` | NOAA has no river gauge with this id. |
+| `TERRAIN_DOWN` / `NAIP_DOWN` | Terrain (USGS 3DEP) could not be loaded; the 3D view needs it. / The aerial photo (USGS NAIP) could not be loaded for this area. |
+| `GAUGES_NONE` | This flood has no river gauge. |
+| `LOCAL_FLOOD_CAVEAT` | Fire-3d lists only the local officials' alerts the National Weather Service relays; most are not relayed. No alert here is not an all-clear: follow local officials. |
+| `LOCAL_FLOOD_ARCHIVE_REASON` | FEMA's archive of local alerts is not checked for floods in this version. |
+| `LOCAL_FLOOD_NWS_DOWN` | Local officials' alerts relayed by NWS are not shown; that does not mean there are none. Follow local officials. |
+| `ARCHIVE_DOWN`, `ARCHIVE_PARTIAL`, `YEAR_NOT_KEPT`, `PAST_AREA_ALERTS`, `PAST_AREA_GAUGES`, `PAST_ALERTS_DOWN`, `NO_USGS_SITE`, `PAST_GAUGE_NOT_KEPT`, `PAST_BEFORE_FLOOD`, `PAST_NO_BUNDLE` | past floods (`history.PAST_STRINGS`; texts in `contract5/backend-flood-live.md`) |
+| `REFRESH_KEPT` | The refresh of {time} could not load {what} again; the earlier copy is kept, with its own time. |
+
+New **web** strings since PLAN-5 §5 (in `ui/shell/floodCopy.ts`, guard-tested): `FLOOD_OVERVIEW.*`, `FLOOD_PUBLIC.*`,
+`CIRCLE_MEANING_UPCOMING`, `CIRCLE_MEANING_WATCH_TAIL`, `EVAC_UNAVAILABLE`, `HYDRO.*`, `FLOOD_COMMAND.*`,
+`INSIDE_WARNING_UPCOMING`, `CURSOR_FUTURE_ISSUED`, `NOTHING_COVERS_OFFICIAL` (the roles' notes); integration:
+`CIRCLE_MEANING.gaugeWatch`, `GAUGE_ONLY_COASTAL_CAVEAT` (copy of the backend's), `PAST_NO_BUNDLE` (copy),
+`FLOOD_COMMAND.highestPassedSub`, `highestPassedVerdict`, `HYDRO.highestPassedTip`, `FLOOD_PUBLIC.labelHighestForecast`,
+and `PAST_RULE_NOTE` now reads "… river floods that reached or were forecast to reach moderate or major flood stage …".
+
 `{…}` slots are filled by the backend in the issuer's or the flood's own zone (`SAT_CAVEAT` dates in the flood's zone),
 always as absolute times: no backend string and no bundle file carries a relative age ("4 d ago"); the web adds ages at
 render time (C16). The web's own strings are in PLAN-5 §5 (including the gauge category table, `CURSOR_FUTURE_PRODUCTS`,
@@ -4781,12 +4835,203 @@ render time (C16). The web's own strings are in PLAN-5 §5 (including the gauge 
 | RFC FIM, CatFIM, flowlines | NOAA/NWS National Water Center (experimental) | https://www.weather.gov/disclaimer |
 | National Water Model | NOAA/NWS National Water Center, National Water Model (experimental model output) | https://water.noaa.gov/about/api |
 | FEMA NFHL | Flood zones: FEMA National Flood Hazard Layer (effective) | https://www.arcgis.com/home/item.html?id=ae38b6f94eaf4abf97f986fa01921e13; https://hazards.fema.gov/femaportal/wps/portal/NFHLWMS |
-| OPERA DSWx-HLS | Water seen by satellite: NASA JPL OPERA DSWx-HLS (PO.DAAC, doi:10.5067/OPDSW-PL3V1); contains modified Copernicus Sentinel data (+ "via NASA Earthdata GIS" or "via NASA GIBS") | https://www.earthdata.nasa.gov/engage/open-data-services-software-policies/data-use-guidance; https://podaac.jpl.nasa.gov/CitingPODAAC |
+| OPERA DSWx-HLS | Water seen by satellite: NASA JPL OPERA DSWx-HLS (PO.DAAC, doi:10.5067/OPDSW-PL3V1) via NASA Earthdata GIS; contains modified Copernicus Sentinel data (as built, `copy.opera_credit`: the route sits before the Copernicus clause; the GIBS picture says "via NASA GIBS") | https://www.earthdata.nasa.gov/engage/open-data-services-software-policies/data-use-guidance; https://podaac.jpl.nasa.gov/CitingPODAAC |
 | OPERA DSWx-S1 | NASA JPL OPERA DSWx-S1 (PO.DAAC); contains modified Copernicus Sentinel data | as above |
 | USGS water data | U.S. Geological Survey (provisional data) | https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits; https://waterdata.usgs.gov/provisional-data-statement/ |
 
 ### 16.16 As built
 
-Filled by the integration from `docs/redesign/contract5/<role>.md`, one sub-heading per role (`backend-flood-sources`,
-`web-flood-overview`, `backend-flood-bundle-api`, `web-flood-public`, `web-flood-forensic`, `web-flood-command`,
-`backend-flood-live`), then "Integration" and "Final check".
+Folded by the integration (part 1, 2026-11-05) from `docs/redesign/contract5/<role>.md`, one sub-heading per role. Each
+note stays the full record (real names, signatures, measurements); this section lists what a reader of §16 needs: the
+real entry points and every deviation, with how it was resolved. Every role was built, reviewed (two lenses) and fixed.
+
+#### backend-flood-sources (M1 contracts, M2 fixture, M3 sources, M4 catalog; review BFS-R1..R10)
+
+- **Triple:** `contracts.py` "Brief 5: floods" has every §16.2-16.6 type; inline TS objects are named Python models
+  (`FloodTimeRange`, `FloodManifestFiles`, `GaugeImpact`, `GaugeAttribution`, `FloodMapStats`, `SatelliteImage`,
+  `SatelliteTiles`, `SatelliteStats`; aliases `ResolvedFrom`, `PastRule`, `NfhlAvailability`). `floodTypes.ts` is §16.2-16.6
+  verbatim, re-exported by `types.ts`. `tests/test_flood_contracts.py` checks names, optionality and every literal.
+- **Config, secrets, HTTP:** `FLOODS_ENABLED` governs the flood live task only (the routes always answer);
+  `mask_secrets` also masks `Bearer%20…`, dict reprs and the `X-Amz-*` values in `=`, `%3D` and `:` forms;
+  `fire3d.http.check_auth_headers(url, headers)` refuses an `Authorization` header to anything but https on
+  `EARTHDATA_AUTH_HOSTS` before any request. Tested with a fake token and a mock transport (count-only).
+- **Fixture:** `make_fixture.py --only flood [--now ISO] [--copy-api DIR]`; `list.json` is the live list
+  (fixture-flood + six demo floods); the 2025 demo flood is in `list-2025.json` (deviation from 16.9's single list);
+  synthetic answers credit "Synthetic data for testing; not from: <credit>"; `serve_fixture.py` answers local-alerts and
+  evacuations only with `hazard=flood`. Pytest: `conftest.flood_fixture_data` / `flood_fixture_bundle` / `flood_iso`.
+- **Sources:** `sources/nws.py` flood family (`normalize_flood_alert`, `flood_active`, `product_hvtec`,
+  `cached_product_hvtec`, `local_in_scope(..., hazard=)`, …); `sources/nwps.py` (`riv_gauges_*`, `rfc_max_forecast`,
+  `iem_current_flood_warnings`, `gauge`, `stageflow`, `reach_streamflow`, `river_gauge`); measured: `riv_gauges.obstime`
+  is UTC; IEM rows have no year (joined on office, phenomena, significance, ETN); `rfc_max_forecast` has no last step
+  (its `crest_at_end` is conservative).
+- **Catalog:** `floods/catalog.py` (`fetch_inputs`, `build_list`, `flood_list`, `resolve`, `as_left`, `continuations`,
+  `nws_down_row`, `gauges_down_row`), `grouping.py`, `naming.py`, `registry.py`, `store.py`; interpretations: rule 2 for
+  areal products (FA.* links a gauge on the water its text names; the flood is kind river), forecast-only members
+  (`observed_category: "unknown"`), list gauge names "<location> (<waterbody>)", waterbodies that name no river never
+  join or name, duplicate names state → place → number, gauge episodes judged from the last-known summary (BFS-R5),
+  last-known summaries, `resolved_from: "live"` for the synthetic bundle, stale copies (`stale: true`), watches never
+  registered to a flood; rule 8 `as_left` ("ended" products), outage rows (BFS-R4), tide / lake caveat (BFS-R2),
+  "* WHERE…from A to B" (BFS-R3), issue time for the areal join (BFS-R7), **continuation** of a replaced flash / areal
+  warning, the IEM join as a credited fourth source (`iem_archive`, BFS-R10).
+- **Deviation resolved (BFS-R6):** `GET /api/floods` always answers 200 (16.7 updated): with both lists down, the ready
+  real bundles as they left the lists and every source `unavailable` with `FLOOD_LISTS_DOWN`. `GET /api/floods/{id}`
+  keeps its 503 `FLOOD_LISTS_503`.
+
+#### web-flood-overview (wave 1; review WFO-R1..R13)
+
+- **State:** `state/workspace.ts` `hazard` / `setHazard`; `state/flood.ts` per 16.10 plus `resolvedFrom`,
+  `detailLoading`, `detailError`; `pickFlood`, `goToFloodOverview`, `openFloodSummary`; `state/floodNav.ts`
+  (`crossingHazard`, `replacingHistory`); `state/floodCatalog.ts`, `state/floodOverview.ts` (`floodRank`,
+  `floodMarkerKind`, `floodListHealth`, `knownFloodCount` never 0 for unknown); `state/history.ts` (one entry per hazard
+  switch, `fromOverview` only when no event was open, `linkWithBothUrl`, `floodNavigationUrl`); `state/selectors.ts`
+  (`noEventOpen`, `openEventKind`, `eventKindOf`, `floodArea`, `currentArea`); `state/runtime.ts useFloodPolling`;
+  `state/timeZone.ts` (`EventZoneSource` with `'flood'`; `useZoneSource()` reports a flood as `'place'`, whose wording
+  "local time at this place" stays correct for a flood: kept by the integration).
+- **Chromes and switch:** `views.ts` five chromes; `App.tsx` mounts `FloodMissingNotice`; `HazardSwitch` (28 px pill,
+  radiogroup); the fire overview differs from brief 4 only in the title slot and the document title.
+- **Map:** `map/floodStyle.ts` (tokens 16.13, no green, `floodStyle.test.ts`), `TintLevel 'flood'`, `frameFlood()`,
+  `overviewLayers.ts` options, `map/floodLayers.ts`, `map/floodController.ts` (**16.11 deviation:** `hit()` returns
+  `FloodHit { kind, id, lngLat? }`, plus `zoomToGroup` and `hoverLines`; folded into 16.11), `map/floodGaugeStatus.ts`
+  (national gauges outage), `map/FloodLegend.tsx`, `lib/dataCredits.ts floodCredits(floodMode)`.
+- **Lists and cards:** `FloodStatus`, `FloodListPanel` (tabs, watches hidden line, DEMO tags, `FLOOD_LIST_ABSENCE`),
+  `floodOverviewText.ts`, `location/FloodPointCard.tsx` (every product at the point verbatim, watches included;
+  nearest gauge with its own time, attribution and link; the nearest floods' distance note), `FloodHereInFires`,
+  `location/search.ts searchFloods`.
+- **Copy and tests:** `ui/shell/floodCopy.ts` (every PLAN-5 §5 string, `fillCopy`, the guard `floodWordingProblems`,
+  `stripVerbatim`); `shot.mjs --reduced-motion`; web fixtures are plain copies of `backend/tests/data/floods/fixture_api`
+  (+ `edgeCases.ts`); fetch-spy test `state/floodFetchSpy.test.ts`.
+- **Left to the integration and done:** `location/CoordinateStrip.tsx` says "No flood open" in Floods (WFO-R9).
+
+#### backend-flood-bundle-api (M1 sources, M2 bundle, M3 routes; review R1..R11)
+
+- **Sources:** `sources/water_maps.py` (`rfc_fim`, `rfc_reaches`, `member_reaches`, `member_area_km2`, `catfim`,
+  `nwm_layer`, `flowlines`; ArcGIS 200-with-error is a `SourceError`), `sources/nfhl.py` (`zones`, `availability`,
+  `coverage`, `effective_dates`, `nfhl`), `sources/opera.py` (`egis_granules`, `group_passes`, `egis_export`,
+  `cmr_granules`, `podaac_download` with the token to PO.DAAC only, `READER`, `s1_classes`, `gibs_dates`,
+  `login_state`), `sources/usgs_water.py` (`continuous`, `observed_series`; 429 → `USGS_429`).
+- **Bundle:** `floods/build.py` (`gate`, `build_flood`, 1024² grid, 4-thread steps, terrain required,
+  `.staging/` swap, `manifest.data_sources` named by credit lines, R1), `floods/maps.py` (`flood_area` 8-60 km,
+  `AOI_CUT_NOTE`), `floods/satellite.py` (pass chosen by small probes; GIBS picture dated by passes that touch the area,
+  R3; `palette_rgba` 253 / 255 never transparent), `floods/zones.py`, `floods/gauges.py`.
+- **Routes as built** (16.7 updated): build 404 / 409 / 503 from `build.gate`; files gzip except JPEG / PNG, weak ETag;
+  maps / model over the flood's area; satellite serves the bundle's saved image only in an outage (`SAT_SAVED_COPY`,
+  R8); flood-alerts and river-gauges `bbox` ≤ 4°, point queries set `covers_point`; river-gauges scope priority flood,
+  lid, national, bbox, `retrieved_ms` = the oldest part's NOAA time; local-alerts `hazard=flood` bbox only (400 with
+  `incident`); evacuations `hazard=flood` (`FIRE_ONLY_FEEDS` Oregon → `OR_EVAC_FIRE_ONLY`).
+- **Deviations kept:** the satellite window (probes; GIBS picture or no picture), "outside the image" vs no data (255
+  inside the pass's tiles), `SAT_CAVEAT_NO_CLOUD_SHARE` / `SAT_CAVEAT_RADAR` (no "?" cloud share), nearby gauges'
+  forecasts only from `rfc_max_forecast` (the web never says `NO_RFC_FORECAST` when `is_forecast_point`), point queries
+  never mix synthetic data with real answers (the demo's point check uses `?flood=fixture-flood`), compact bundle
+  GeoJSON (rasters full), `nwm_5day` / `nwm_high_flow` route-only, past times (now served by backend-flood-live M2),
+  list rows' bundle state per request, the OPERA credit's route before the Copernicus clause (16.15 updated), FEMA
+  partial vs unknown availability.
+
+#### web-flood-public (wave 2; review WFP-R1..R12)
+
+- **View:** `ui/shell/PublicFloodChrome.tsx` (keeps `useMapTint('flood')`, mounts `useFloodOfficialSync()`;
+  `FLOOD_LAST_KNOWN` for bundle / last-known), `view-public.css` scoped to both public views, `view-flood-public.css`.
+- **Splits (16.12 deviations, folded):** `HazardDisc` (+ `label`, `tipName`, `rain`, `ref`, tone `'unknown'`; the fire
+  circle byte-identical), `WaterTexture` (+ `rain`, `svgRef`), `TitleBlock`, `DistanceChipView`, `OfficialNow` exports
+  `Row`, `SourceLink`, `RowProps`, `CommandRows`.
+- **Components:** `FloodHazardCircle`, `FloodTitle`, `FloodDistanceChip`, `FloodFacts` (`FloodMapData` not shown in
+  Public: D14), `FloodKey`, `FloodSatStatus`, `FloodLayerCredits` (the layers' credit lines: key's last line, or
+  portalled into the foot's `#mw-credits` when the key is hidden), `FloodLayersPanel` (public / command),
+  `FloodEvacRows`, `FloodOfficialNow`, `FloodPointCard`'s "Flood layers at this spot", `map/FloodLeader.tsx`.
+- **Pure modules:** `ui/public/floodView.ts` (`floodCircleStatus`, `floodFacts` per kind, `floodKeyItems` with ages at
+  render, …), `official/floodModel.ts` (`productsAt` lives here, re-exported by `hydrographModel.ts`; `productsDrawn`
+  now only picks the zone outlines to ask for; `withNewerReading` / `primaryGaugeReading`: one reading per gauge),
+  `location/floodCheck.ts` (`checkPoint` with the extra optional inputs folded into 16.12), `lib/areaDistance.ts`
+  (`… | null`), `map/floodAreaLayers.ts`, `state/floodBuild.ts`.
+- **Stores:** `useFloodOfficial` (`official/floodHooks.ts`), `useFlood.buildError`; `startFloodBuild` implemented and
+  tested on the real route.
+- **Decisions kept:** no "Prepare map data" in Public (D14); NASA's GIBS picture is not drawn (`DRAW_SAT_PICTURE =
+  false`: its colour map shows clouds and snow in bright colours that read like a hazard map; the key and point card say
+  "no usable image" with the backend's reason). The integration keeps this decision.
+
+#### web-flood-command (wave 3; review WFC-R1..R15)
+
+- **Chart:** `ui/timeline/hydrographModel.ts` (`buildHydrograph` + `modelLoading`, `clock`, `past`; `cursorReadout`,
+  `stepCursor`, `forecastFalling`, `productsShown`, `futureProductsNote`), `ui/timeline/Hydrograph.tsx` (+ `products`,
+  `gauges`, `atMs`, `initialAxis`, `widthPx`, `className`; `GaugeList`, `Diamond`), `ui/timeline/hydrographData.ts`
+  (`useHydroData`, `newestReading`, `withChartReading`, `usePointGauges`, `gaugeLineParts`), `hydrograph.css`.
+- **View:** `ui/shell/CommandFloodChrome.tsx`, `location/FloodReadout.tsx` (CommandReadout stays fire-only),
+  `state/floodLayerData.ts` (`useFloodLayerData`: NWM analysis, high flow, CatFIM, each only while on),
+  `map/floodCommandLayers.ts` (CatFIM hatch, model amber dotted, labels spread along the flood), `map/floodLayerCredits.ts`
+  (portalled into `#mw-credits`), `view-command.css` broadened with `:is([data-view='command-fire'],
+  [data-view='command-flood'])` (fire pixel-identical), `view-flood-command.css`.
+- **Store (16.10):** `FloodLayerKey` + `'modelHighFlow'` (Public false, Command toggle).
+- **Deviation resolved (WFC-R1):** `productsShown` extends `productsAt` (16.12 updated): at now it keeps issued
+  products still to start; after now it keeps those whose own period covers the handle, with `CURSOR_FUTURE_ISSUED`.
+- **Plan gap closed (WFC-R14):** a forecast whose highest value is its first step below the latest reading reads
+  "Highest NWS forecast", not "crest" (the integration extends it to a highest value whose time has passed, below).
+
+#### web-flood-forensic (wave 3; review WFF-R1..R14)
+
+- **Branch:** `ForensicWorkspace` → `FloodForensic` (unprepared card with "Prepare 3D data (about 1 min)", progress,
+  failure + "Prepare again"; `FixedCopy` pill on every state, phones included); `safeArea.ts`.
+- **Scene (16.12):** `SceneManifest` typechecks with the frozen `scene/fx/**`: **no `SceneAssets` base type, no cast**;
+  `IncidentAssets.flood?` additive; `useSceneAssets()`; `scene/flood/floodAssets.ts`, `floodGeo.ts` (`warningsAt` =
+  per product the newest version at the handle, then `productsShown`), `satClasses.ts` (252, 253, 255 and unknown values
+  the grey no-view hatch, never transparent or land), `FloodFx.tsx`, `GaugeBars.tsx` + `gaugeBarMath.ts`
+  (`placeBarLabel`), `floodProbe.ts` (hover rows), `floodOverlayRects.ts`; terrain uniforms additive (all 0 for a fire);
+  `frame.ts` frames a flood's box; `SceneFx` not mounted for a flood.
+- **Panels:** `forensicFloodState.ts` (`useForensicFlood`; no key added to `state/flood.ts`), `floodForensicCopy.ts`,
+  `floodForensicView.ts` (`sceneKeyItems` with notes and "About these layers", `layerNote`, `floodplainEffective`,
+  `dockNoProduct`, `overviewProduct`), `FloodHeader`, `FloodRightPanel` (Layers, Analysis, Evidence, Notes),
+  `FloodLayersTab`, `FloodEvidenceTab`, `FloodDock` (the real `Hydrograph variant="dock"`), `forensic-flood.css`;
+  hand-off `openEventGrid()`.
+- **Below the cut line, left:** small multiples in the Analysis tab (each gauge has a "Chart" button that shows it in
+  the dock).
+
+#### backend-flood-live (M1 live loop, M2 past floods; review BFL-R1..R10)
+
+- **Contract (additive):** `FloodManifest.refreshed_ms?` (when the loop last appended product versions or gauge
+  readings; `built_ms` unchanged). `past_rule` is always `"moderate_or_worse"` (a bulk IEM severity route exists:
+  `watchwarn.py` + `sbw_interval.geojson`); `PAST_RULE_FALLBACK` is unused; `preparing` while a year builds.
+- **Live loop:** a second lifespan task `fire3d-flood-live-refresh` (`LIVE_ENABLED and FLOODS_ENABLED`), `REFRESH_S`
+  900; per cycle the list, the year lists' warm-up, a background prefetch (H-VTEC, zone outlines, member series) and
+  the bundle appends share **one budget** `PREFETCH_MAX` 20 (`APPEND_SHARE` 8, `PREFETCH_CAPS` 6 / 3 / 3); refreshes
+  (`satellite`, `rfc_fim`, `retry`) run outside the job workers after a paced NWPS warm-up (`NWPS_RESERVE` 10), rebuild
+  the bundle and keep what the rebuild lost (`REFRESH_KEPT`); first cycle auto-builds the 4 most severe floods
+  (`AUTO_BUILD_FLOODS`). `/api/floods/status` from the loop (counts null when the lists could not decide).
+  `data/floods/live_state.json` keeps the satellite passes tried.
+- **Past floods:** `floods/history.py`: year lists 2026 / 2025 built once in the background (disk copies
+  `data/floods/years/{year}.json`, `SCHEMA` 2), PAST_RULE rows, ids agreeing with live ids through the registry; the
+  detail chain's year step (live → year → alias of a year row → catalog.resolve); past answers: archived products from
+  IEM (`vtec_event.py`), USGS readings (`observed_series`) with `THRESHOLDS_TODAY`, `PAST_NO_FORECAST`; a past flood's
+  per-flood routes default to its last product's time; **build of a past flood: 409 `PAST_NO_BUNDLE`** (16.7).
+- **CLI and checks:** `catalog --hazard flood [--mode] [--year] [--refresh]`, `build-flood <id-or-name> [--force]`,
+  `scripts/check_bundle.py --hazard flood <id>`.
+- **Deviations kept:** a refresh re-runs the whole flood build (terrain from the HTTP cache); past years use one gauge
+  per river flood; a past reading's category is `unknown`.
+
+#### Integration (part 1, 2026-11-05; `contract5/integration.md`)
+
+Checked end to end on the real API (`FIRE3D_LIVE=0`, port 8759): the live list (39-58 floods) against the 37 NWS flood
+product events in effect and the 34-38 gauges at minor or worse (every product and every lower-48 gauge in a flood;
+the table is in `reports/brief5-integration.json`), real bundles built and checked (Rio Grande at Alamosa with its WGRFC
+forecast; the Ducktown flash flood), and every view on a real flood (`docs/screenshots/brief5-integration-*.png`).
+Changes:
+
+- **Catalog (`catalog.py`, `naming.py`; SPEC 8.8, 16.8):** a gauge-only flood lists the non-watch NWS products whose
+  area holds its gauge (attached, never its own key; found at Copperhill, TN, where the Ocoee River gauge read major
+  under NWS Morristown's **Flash Flood Emergency for Copperhill** while its flood said "No NWS flood product here right
+  now"); `gauges_down_row(s, own_keys)`; an areal product joins river members of the water its text names within
+  `SAME_RIVER_KM` (two "San Juan River flood (UT)" warnings 3 km apart); a gauge at flood stage under only a watch stays
+  `gauge_only`; names drop a waterbody's state and position notes and a state suffix that no longer separates two
+  floods; **ids:** a split part that lost the id to its anchor part gets a new id whose keys are reassigned to it (it
+  changed id with every NWS update before), and a live part's id is never aliased to another (the old code aliased
+  the anchor part's live id to the split part's new one). `tests/data/floods/catalog/cases.json` re-reviewed.
+- **Web:** the circle meaning of a gauge-only flood follows its backend caveat (`ALERTS_UNAVAILABLE` during an NWS
+  outage, the tide / lake caveat: never "No NWS flood product …" then; a watch over a gauge in flood:
+  `CIRCLE_MEANING.gaugeWatch`); NWS's highest forecast value for a time that has passed reads "Highest NWS forecast"
+  (`forecastPassed` in `official/floodModel.ts`; Public facts, Command readout, Official now, the chart's mark and tip),
+  and Public's crest row also follows WFC-R14's "below the latest reading"; `CoordinateStrip` "No flood open"; the
+  chart's level-label gutter 92 px (the dock cut "MODERATE 17.0"); Forensic says `PAST_NO_BUNDLE` up front for a past
+  flood; `PAST_RULE_NOTE` "reached or were forecast to reach" (BFL-R9).
+- **Docs:** README "Floods (brief 5)", the optional `EARTHDATA_TOKEN` set-up, flood CLI and routes, "Flood data" credits
+  with terms; this section, 16.7, 16.8, 16.10-16.12, 16.14, 16.15; SPEC 8.8.
+
+#### Final check
+
+(to be filled by the final check)

@@ -7,11 +7,17 @@ api/floods.py, cli.py, floods/history.py, floods/live.py and their tests): its o
 contracts.py, web/src/api/types.ts, floodTypes.ts) are not touched by this part.
 
 ## Steps
-- [ ] (1) real data end to end: live list table vs NWS, two real bundles, screenshots
-- [ ] (2) cross-role fixes
-- [ ] (3) CONTRACT 16 alignment (16.16 + deviations), triple consistency check
-- [ ] (4) README floods section
-- [ ] (5) gates, report, as-built note, commit, push
+- [x] (1) real data end to end: live list table vs NWS (09:38 and 10:03 UTC), bundles Rio Grande (river + WGRFC
+  forecast) and Ducktown (flash), screenshots brief5-integration-*.png (viewed)
+- [x] (2) cross-role fixes: gauge-only floods list products over their gauge (Copperhill Flash Flood Emergency),
+  areal same-river join, watch + gauge stays gauge_only, names, stable split ids, circle meaning by caveat, passed
+  crest, No flood open, chart gutter, past-flood prepare text and rule wording
+- [x] (3) CONTRACT 16 (16.2, 16.3, 16.7, 16.8, 16.10-16.12, 16.14-16.16) and SPEC 8.8; parity test green
+- [x] (4) README floods section, Earthdata token, CLI, routes, credits
+- [x] (5) gates (backend 1405 passed / 0 skipped; web typecheck, lint 55 in src/scene, 1786 passed + 2 skipped, build),
+  report, as-built note, commit, push; servers on 8759 / 5219 stopped
+- Milestone commit f63e25c "brief 5 integration: M1 real data (...)" pushed.
+- backend-flood-live was fixed at 6fbbf9d during this step, so its paths (SPEC, triple) became the integration's.
 
 ## Incident (09:53 UTC): data/floods wiped by an unisolated debug test (mine)
 - A throw-away debug test that imported the grouping tests' helpers without their autouse isolation fixture ran

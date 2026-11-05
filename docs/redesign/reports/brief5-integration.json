@@ -1,0 +1,862 @@
+{
+ "role": "integration",
+ "part": 1,
+ "summary": "Integration part 1 for brief 5. I ran the app end to end on real data (real API, live loop off, port 8759; Vite 5219). (1) The live flood list was checked one by one against the NWS flood products in effect (37 events: every one is in a listed flood) and the river gauges at minor or worse (every lower-48 one is in a flood; Puerto Rico's tide gauge is out by rule 1). The table, with a check note per flood, is live_list_table below. Two real bundles were built and checked (Rio Grande at Alamosa, CO: river gauge ALAC2 with a West Gulf RFC forecast; Ducktown flash flood: NWS Morristown and Peachtree City Flash Flood Warnings), and the Public overview (Fires and Floods, same camera), the Public flood view, the Command flood view and Forensic were shown on real floods, at 1440x1000, 1024x768 and on a phone. (2) Real data found real problems, fixed with tests: the gauge-only flood at Copperhill, TN (Ocoee River gauge at major) said 'No NWS flood product here right now' while NWS Morristown's Flash Flood Emergency for Copperhill covered the gauge (now a gauge-only flood lists the products over its gauge, attached like a watch); two 'San Juan River flood (UT)' entries 3 km apart (areal warnings now join by the river they name); a flood's id changed with each NWS update after a split, and a live id could be aliased to another (fixed in assign_ids); a gauge in flood under only a watch would be hidden as watch-only; waterbody state and position notes in names; a forecast crest whose time had passed was shown as 'FORECAST CREST' (now 'Highest NWS forecast' in Public, Command, Official now and the chart); the gauge-only circle meaning ignored the backend's outage and tide-gauge caveats; 'No fire open' in Floods; the dock chart cut 'MODERATE 11.0'; a past flood's Forensic card offered a build that answers 409. (3) CONTRACT section 16 now carries every as-built note (16.16 per role, including backend-flood-live, which was fixed during this step) and the resolved deviations (GET /api/floods answers 200 with both lists down; 16.7 route limits; 16.8 rules; 16.10-16.12 signatures; 16.14 all new backend and web strings, now tested against the code; 16.15 OPERA credit). SPEC 8.8 follows the catalog changes; the contract triple's parity test is green. (4) README has a Floods section, the optional EARTHDATA_TOKEN set-up, flood CLI and routes, and a Flood data credits table with terms. Incident: a throw-away debug test of mine ran without the isolation fixture and removed the real data/floods at 09:53 UTC; I moved the remains aside, regenerated fixture-flood and rebuilt the 8 real bundles (all check_bundle 0 problems); the registry history is lost, so some flood ids differ from earlier reports.",
+ "files": [
+  "backend/fire3d/floods/catalog.py",
+  "backend/fire3d/floods/naming.py",
+  "backend/tests/test_floods_grouping.py",
+  "backend/tests/test_floods_catalog.py",
+  "backend/tests/test_floods_copy.py",
+  "backend/tests/data/floods/catalog/cases.json",
+  "web/src/ui/public/floodView.ts",
+  "web/src/ui/public/floodView.test.ts",
+  "web/src/ui/shell/floodCopy.ts",
+  "web/src/official/floodModel.ts",
+  "web/src/location/floodCheck.ts",
+  "web/src/location/FloodReadout.test.ts",
+  "web/src/ui/feed/FloodOfficialNow.tsx",
+  "web/src/ui/timeline/hydrographModel.ts",
+  "web/src/ui/timeline/hydrographModel.test.ts",
+  "web/src/ui/timeline/Hydrograph.tsx",
+  "web/src/ui/forensic-flood/FloodForensic.tsx",
+  "web/src/location/CoordinateStrip.tsx",
+  "web/src/location/CoordinateStrip.test.ts",
+  "README.md",
+  "SPEC.md",
+  "docs/redesign/CONTRACT.md",
+  "docs/redesign/contract5/integration.md",
+  "docs/redesign/progress/brief5-integration.md",
+  "docs/redesign/reports/brief5-integration.json"
+ ],
+ "screenshots": [
+  "docs/screenshots/brief5-integration-switch-floods.png",
+  "docs/screenshots/brief5-integration-switch-fires.png",
+  "docs/screenshots/brief5-integration-real-public.png",
+  "docs/screenshots/brief5-integration-real-public-gauge-under-warning.png",
+  "docs/screenshots/brief5-integration-real-public-1024.png",
+  "docs/screenshots/brief5-integration-real-command.png",
+  "docs/screenshots/brief5-integration-real-forensic.png",
+  "docs/screenshots/brief5-integration-phone-overview.png",
+  "docs/screenshots/brief5-integration-phone-public.png",
+  "docs/screenshots/brief5-integration-phone-command.png"
+ ],
+ "live_list_table": {
+  "seen_at_utc": "2026-11-05T10:03:42.381000+00:00",
+  "floods": 39,
+  "products_in_effect": 35,
+  "sources": [
+   [
+    "nws_alerts",
+    "available"
+   ],
+   [
+    "nwps_gauges",
+    "available"
+   ],
+   [
+    "rfc_forecasts",
+    "available"
+   ],
+   [
+    "iem_archive",
+    "available"
+   ]
+  ],
+  "nws_flood_product_events": 37,
+  "events_not_in_any_flood": [],
+  "gauges_minor_plus": 38,
+  "gauges_not_listed": [
+   [
+    "SJNP4",
+    "PR"
+   ]
+  ],
+  "forecast_minor_plus_not_members": [
+   [
+    "BFFU1",
+    "UT",
+    "minor"
+   ],
+   [
+    "BOWD1",
+    "DE",
+    "minor"
+   ],
+   [
+    "DESI4",
+    "IA",
+    "minor"
+   ],
+   [
+    "PLMF1",
+    "FL",
+    "minor"
+   ]
+  ],
+  "rows": [
+   {
+    "name": "Toccoa River / Ocoee River flood",
+    "id": "flood-20261105-toccoa-river-ocoee-river-flood-b13cea",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "TN",
+    "max_category": "major",
+    "emergency": true,
+    "products": [
+     "Flash Flood Warning KMRX.FF.W.0083.2026 (in_effect)",
+     "Flash Flood Warning KMRX.FF.W.0082.2026 (in_effect)",
+     "Flood Warning KMRX.FA.W.0002.2026 (in_effect)"
+    ],
+    "gauges": [
+     "CPHT1 Toccoa River (GA) / Ocoee River (TN) major 14.1 ft"
+    ],
+    "caveat": null,
+    "check": "CPHT1 (Copperhill, TN) at major. NWS Morristown's Flash Flood Warning KMRX.FF.W.0083 (FLASH FLOOD EMERGENCY for Copperhill; 'The Ocoee River has risen to Major Flood Stage') and FF.W.0082 / FA.W.0002 cover the gauge but name no gauge. Before the integration this was a gauge-only flood whose facts said 'No NWS flood product here right now'; it now lists the three products over its gauge (attached). Same event as 'Ducktown flash flood' (listed twice; see known issues)."
+   },
+   {
+    "name": "Ducktown flash flood",
+    "id": "flood-20261105-ducktown-flash-flood-d2ad9d",
+    "kind": "flash",
+    "level": "warning",
+    "status": "active",
+    "state": "GA",
+    "max_category": null,
+    "emergency": true,
+    "products": [
+     "Flash Flood Warning KMRX.FF.W.0083.2026 (in_effect)",
+     "Flash Flood Warning KFFC.FF.W.0081.2026 (in_effect)",
+     "Flash Flood Warning KMRX.FF.W.0082.2026 (in_effect)",
+     "Flood Warning KMRX.FA.W.0002.2026 (in_effect)"
+    ],
+    "gauges": [],
+    "caveat": null,
+    "check": "KFFC.FF.W.0081 (Fannin, Gilmer, Murray, Union GA) + KMRX.FF.W.0082 (Cherokee NC, Polk TN) + 0083 (Polk TN, Emergency) + KMRX.FA.W.0002 (Polk TN), joined by overlap / proximity within 12 h; named from NWS Morristown's 'Some locations ... include Ducktown'; its point and county (Fannin County, GA) come from the largest polygon (the GA warning). Correct by the rules."
+   },
+   {
+    "name": "St. Johns River flood",
+    "id": "flood-20261006-st-johns-river-flood-f81f2a",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "FL",
+    "max_category": "major",
+    "emergency": false,
+    "products": [
+     "Flood Warning KMLB.FL.W.0003.2026 (in_effect)",
+     "Flood Warning KMLB.FL.W.0005.2026 (in_effect)",
+     "Flood Warning KMLB.FL.W.0008.2026 (in_effect)",
+     "Flood Warning KMLB.FL.W.0007.2026 (in_effect)",
+     "Flood Warning KMLB.FL.W.0006.2026 (in_effect)"
+    ],
+    "gauges": [
+     "COCF1 St. Johns River moderate 16.84 ft",
+     "ASTF1 St. Johns River moderate 3.25 ft",
+     "GENF1 St. Johns River minor 8.74 ft",
+     "SJWF1 St Johns River minor 1.57 ft",
+     "DLAF1 St. Johns River action 3.99 ft",
+     "SNFF1 St. Johns River action 5.13 ft",
+     "PALF1 St. Johns River action 1.07 ft"
+    ],
+    "caveat": null,
+    "check": "KMLB FL.W 0003/0005/0006/0007/0008 along the St. Johns River (Lake, Volusia, Brevard, Seminole); 7 member gauges on the river. Correct."
+   },
+   {
+    "name": "Peace River flood",
+    "id": "flood-20261102-peace-river-flood-bd6288",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "FL",
+    "max_category": "major",
+    "emergency": false,
+    "products": [
+     "Flood Warning KTBW.FL.W.0018.2026 (in_effect)",
+     "Flood Warning KTBW.FL.W.0015.2026 (in_effect)"
+    ],
+    "gauges": [
+     "ARCF1 Peace River major 16.12 ft",
+     "ZFSF1 Peace River minor 16.14 ft"
+    ],
+    "caveat": null,
+    "check": "KTBW FL.W 0015 (DeSoto) + 0018 (Hardee); ARCF1 major, ZFSF1 minor. Correct."
+   },
+   {
+    "name": "Clear Creek flood",
+    "id": "flood-20261105-clear-creek-flood-96ee51",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "TX",
+    "max_category": "major",
+    "emergency": false,
+    "products": [],
+    "gauges": [
+     "SGET2 Clear Creek major 634.0 ft"
+    ],
+    "caveat": "No NWS flood product names this gauge right now.",
+    "check": "SGET2 Sanger (Clear Creek), Denton County TX, at major (634.0 ft, NWS's own value); no NWS product names it. Gauge-only, GAUGE_ONLY_CAVEAT. Correct by D2."
+   },
+   {
+    "name": "Eastern Stump Lake flood",
+    "id": "flood-20261006-eastern-stump-lake-flood-374602",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "ND",
+    "max_category": "major",
+    "emergency": false,
+    "products": [],
+    "gauges": [
+     "ESLN8 Eastern Stump Lake major 49.85 ft"
+    ],
+    "caveat": "No NWS flood product names this gauge right now.",
+    "check": "ESLN8 lake gauge at major, no NWS product (ND chronic lake levels). Gauge-only. Correct by D2."
+   },
+   {
+    "name": "Devils Lake flood",
+    "id": "flood-20261006-devils-lake-flood-43e271",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "ND",
+    "max_category": "major",
+    "emergency": false,
+    "products": [],
+    "gauges": [
+     "DCBN8 Devils Lake major 49.93 ft"
+    ],
+    "caveat": "No NWS flood product names this gauge right now.",
+    "check": "DCBN8 lake gauge at major, no NWS product. Gauge-only. Correct by D2."
+   },
+   {
+    "name": "Grand River flood",
+    "id": "flood-20261104-grand-river-flood-1b2d20",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "MO",
+    "max_category": "moderate",
+    "emergency": false,
+    "products": [
+     "Flood Warning KEAX.FL.W.0221.2026 (in_effect)",
+     "Flood Warning KEAX.FL.W.0220.2026 (in_effect)",
+     "Flood Warning KEAX.FL.W.0219.2026 (in_effect)"
+    ],
+    "gauges": [
+     "SNZM7 Grand River moderate 29.26 ft",
+     "CHZM7 Grand River minor 25.86 ft",
+     "GAZM7 Grand River action 25.63 ft",
+     "PATM7 Grand River action 23.72 ft"
+    ],
+    "caveat": null,
+    "check": "KEAX FL.W 0219/0220/0221 (Grand River segments: Carroll, Chariton, Linn, Livingston, Daviess); 4 gauges on the Grand River. Correct."
+   },
+   {
+    "name": "Platte River flood",
+    "id": "flood-20261103-platte-river-flood-e045bf",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "MO",
+    "max_category": "moderate",
+    "emergency": false,
+    "products": [
+     "Flood Warning KEAX.FL.W.0217.2026 (in_effect)",
+     "Flood Warning KEAX.FL.W.0224.2026 (in_effect)",
+     "Flood Warning KEAX.FL.W.0223.2026 (upcoming)"
+    ],
+    "gauges": [
+     "AGYM7 Platte River moderate 26.72 ft",
+     "PLCM7 Platte River minor 20.15 ft",
+     "SSTM7 Platte River action 25.89 ft"
+    ],
+    "caveat": null,
+    "check": "KEAX FL.W 0217 (Buchanan) + 0223 (upcoming) + 0224 (Platte); AGYM7, PLCM7, SSTM7. Correct (the 102 River segment stays apart, as tested)."
+   },
+   {
+    "name": "Joshua Creek flood",
+    "id": "flood-20261103-joshua-creek-flood-231c11",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "FL",
+    "max_category": "moderate",
+    "emergency": false,
+    "products": [
+     "Flood Warning KTBW.FL.W.0015.2026 (in_effect)"
+    ],
+    "gauges": [
+     "NOCF1 Joshua Creek moderate 14.79 ft"
+    ],
+    "caveat": null,
+    "check": "NOCF1 (Nocatee, Joshua Creek) at moderate; no product names it, but NWS Tampa Bay's Peace River Flood Warning (KTBW.FL.W.0015) covers the gauge, so it is listed with it (integration). Correct."
+   },
+   {
+    "name": "Mountaintown Creek flood",
+    "id": "flood-20261105-mountaintown-creek-flood-133287",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "GA",
+    "max_category": "minor",
+    "emergency": false,
+    "products": [
+     "Flood Warning KFFC.FL.W.0033.2026 (in_effect)"
+    ],
+    "gauges": [
+     "MNCG1 Mountaintown Creek minor 12.69 ft"
+    ],
+    "caveat": null,
+    "check": "KFFC.FL.W.0033 (Gilmer GA), MNCG1. Correct (river product; never joined to the flash warning by distance)."
+   },
+   {
+    "name": "Alafia River flood",
+    "id": "flood-20261104-alafia-river-flood-59d45e",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "emergency": false,
+    "products": [
+     "Flood Warning KTBW.FL.W.0019.2026 (in_effect)"
+    ],
+    "gauges": [
+     "LITF1 Alafia River minor 13.02 ft"
+    ],
+    "caveat": null,
+    "check": "KTBW.FL.W.0019 (Hillsborough), LITF1. Correct."
+   },
+   {
+    "name": "Iowa River flood",
+    "id": "flood-20261104-iowa-river-flood-96f5b8",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "IA",
+    "max_category": "minor",
+    "emergency": false,
+    "products": [
+     "Flood Warning KDVN.FL.W.0091.2026 (in_effect)"
+    ],
+    "gauges": [
+     "BPLI4 Iowa River minor 15.46 ft",
+     "MROI4 Iowa River action 14.96 ft"
+    ],
+    "caveat": null,
+    "check": "KDVN.FL.W.0091 (Benton, Iowa), BPLI4 minor + MROI4 action. Correct."
+   },
+   {
+    "name": "Moenkopi Wash flood",
+    "id": "flood-20261102-moenkopi-wash-flood-41813c",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "AZ",
+    "max_category": "minor",
+    "emergency": false,
+    "products": [
+     "Flood Warning KFGZ.FA.W.0040.2026 (in_effect)"
+    ],
+    "gauges": [
+     "MOEA3 Moenkopi Wash minor 27.99 ft"
+    ],
+    "caveat": null,
+    "check": "KFGZ.FA.W.0040 (Coconino) names Moenkopi Wash; MOEA3 linked by rule 2 (areal). Correct."
+   },
+   {
+    "name": "Silver Creek flood",
+    "id": "flood-20261104-silver-creek-flood-162b7e",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "NE",
+    "max_category": "minor",
+    "emergency": false,
+    "products": [
+     "Flood Warning KGID.FA.W.0019.2026 (in_effect)"
+    ],
+    "gauges": [
+     "SILN1 Silver Creek minor 9.5 ft"
+    ],
+    "caveat": null,
+    "check": "KGID.FA.W.0019 (Merrick NE) 'along the Silver Creek'; SILN1 linked. Correct."
+   },
+   {
+    "name": "Horse Creek flood",
+    "id": "flood-20261102-horse-creek-flood-b76e54",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "emergency": false,
+    "products": [
+     "Flood Warning KTBW.FL.W.0017.2026 (in_effect)"
+    ],
+    "gauges": [
+     "ARHF1 Horse Creek minor 13.16 ft"
+    ],
+    "caveat": null,
+    "check": "KTBW.FL.W.0017 (DeSoto), ARHF1. Correct."
+   },
+   {
+    "name": "Rio Grande flood",
+    "id": "flood-20261104-rio-grande-flood-58a10a",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "CO",
+    "max_category": "minor",
+    "emergency": false,
+    "products": [
+     "Flood Warning KPUB.FL.W.0008.2026 (in_effect)"
+    ],
+    "gauges": [
+     "ALAC2 Rio Grande minor 9.38 ft"
+    ],
+    "caveat": null,
+    "check": "KPUB.FL.W.0008 (Alamosa CO), ALAC2 minor, WGRFC forecast. Correct. (Bundle built and checked.)"
+   },
+   {
+    "name": "Calcasieu River flood",
+    "id": "flood-20261104-calcasieu-river-flood-77edfb",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "LA",
+    "max_category": "minor",
+    "emergency": false,
+    "products": [
+     "Flood Warning KLCH.FL.W.0048.2026 (in_effect)"
+    ],
+    "gauges": [
+     "LCHL1 Calcasieu River minor 4.2 ft",
+     "CGFL1 Calcasieu River action 1.29 ft"
+    ],
+    "caveat": null,
+    "check": "KLCH.FL.W.0048 (Calcasieu LA); LCHL1 minor, CGFL1 action. Correct."
+   },
+   {
+    "name": "North Skunk River flood",
+    "id": "flood-20261104-north-skunk-river-flood-8c8bc1",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "IA",
+    "max_category": "minor",
+    "emergency": false,
+    "products": [
+     "Flood Warning KDVN.FL.W.0092.2026 (upcoming)"
+    ],
+    "gauges": [
+     "SIGI4 North Skunk River action 15.03 ft"
+    ],
+    "caveat": null,
+    "check": "KDVN.FL.W.0092 (Keokuk IA, upcoming), SIGI4 forecast minor. Correct."
+   },
+   {
+    "name": "Loxahatchee River flood",
+    "id": "flood-20261105-loxahatchee-river-flood-6b04a2",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "emergency": false,
+    "products": [],
+    "gauges": [
+     "LRPF1 Loxahatchee River 500 ft downstream of US 1 minor 1.45 ft",
+     "LXRF1 Loxahatchee River action 1.26 ft"
+    ],
+    "caveat": "No NWS Flood or Flash Flood product names this gauge right now. It may measure tidal or lake water: Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products, which may be in effect here.",
+    "check": "Two tide gauges on the Loxahatchee River (LXRF1, LRPF1 '... 500 ft downstream of US 1'): one flood after the position-note fix; GAUGE_ONLY_COASTAL_CAVEAT. Correct."
+   },
+   {
+    "name": "Tusquittee Creek flood",
+    "id": "flood-20261105-tusquittee-creek-flood-10a3e0",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "NC",
+    "max_category": "minor",
+    "emergency": false,
+    "products": [],
+    "gauges": [
+     "TQCN7 Tusquittee Creek minor 7.1 ft"
+    ],
+    "caveat": "No NWS flood product names this gauge right now.",
+    "check": "TQCN7 (NC) at minor, no product. Gauge-only. Correct by D2."
+   },
+   {
+    "name": "Key Largo flood (FL)",
+    "id": "flood-20261019-key-largo-flood-fl-8e174b",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "emergency": false,
+    "products": [],
+    "gauges": [
+     "JCRF1 Tide Station minor 1.15 ft"
+    ],
+    "caveat": "No NWS Flood or Flash Flood product names this gauge right now. It may measure tidal or lake water: Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products, which may be in effect here.",
+    "check": "Florida tide / canal gauge at minor with no NWS Flood product; GAUGE_ONLY_COASTAL_CAVEAT (Fire-3d does not read Coastal Flood products). Named after the gauge's place or water (D1, BFS-R2). Correct by the rules."
+   },
+   {
+    "name": "Shell Bluff Park flood",
+    "id": "flood-20261021-shell-bluff-park-flood-6e4dfb",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "emergency": false,
+    "products": [],
+    "gauges": [
+     "SAKF1 Shell Bluff Park (in NAVD88) minor 1.92 ft"
+    ],
+    "caveat": "No NWS Flood or Flash Flood product names this gauge right now. It may measure tidal or lake water: Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products, which may be in effect here.",
+    "check": "Florida tide / canal gauge at minor with no NWS Flood product; GAUGE_ONLY_COASTAL_CAVEAT (Fire-3d does not read Coastal Flood products). Named after the gauge's place or water (D1, BFS-R2). Correct by the rules."
+   },
+   {
+    "name": "Dunns Creek State Park Boat Ramp flood",
+    "id": "flood-20261024-dunns-creek-state-park-boat-ramp-flood-a510e8",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "emergency": false,
+    "products": [],
+    "gauges": [
+     "DCSF1 Dunns Creek State Park Boat Ramp (in MHHW) minor 1.53 ft"
+    ],
+    "caveat": "No NWS Flood or Flash Flood product names this gauge right now. It may measure tidal or lake water: Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products, which may be in effect here.",
+    "check": "Florida tide / canal gauge at minor with no NWS Flood product; GAUGE_ONLY_COASTAL_CAVEAT (Fire-3d does not read Coastal Flood products). Named after the gauge's place or water (D1, BFS-R2). Correct by the rules."
+   },
+   {
+    "name": "Key Largo flood (FL, 2)",
+    "id": "flood-20261102-key-largo-flood-fl-2-386d59",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "emergency": false,
+    "products": [],
+    "gauges": [
+     "SUKF1 Tide Station minor 1.21 ft"
+    ],
+    "caveat": "No NWS Flood or Flash Flood product names this gauge right now. It may measure tidal or lake water: Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products, which may be in effect here.",
+    "check": "Florida tide / canal gauge at minor with no NWS Flood product; GAUGE_ONLY_COASTAL_CAVEAT (Fire-3d does not read Coastal Flood products). Named after the gauge's place or water (D1, BFS-R2). Correct by the rules."
+   },
+   {
+    "name": "Juno Beach Park Pier flood",
+    "id": "flood-20261105-juno-beach-park-pier-flood-8a5eac",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "emergency": false,
+    "products": [],
+    "gauges": [
+     "JBPF1 Juno Beach Park Pier (in MHHW) minor 1.41 ft"
+    ],
+    "caveat": "No NWS Flood or Flash Flood product names this gauge right now. It may measure tidal or lake water: Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products, which may be in effect here.",
+    "check": "Florida tide / canal gauge at minor with no NWS Flood product; GAUGE_ONLY_COASTAL_CAVEAT (Fire-3d does not read Coastal Flood products). Named after the gauge's place or water (D1, BFS-R2). Correct by the rules."
+   },
+   {
+    "name": "New River flood",
+    "id": "flood-20261105-new-river-flood-aff701",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "emergency": false,
+    "products": [],
+    "gauges": [
+     "NRFF1 New River minor 1.41 ft"
+    ],
+    "caveat": "No NWS Flood or Flash Flood product names this gauge right now. It may measure tidal or lake water: Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products, which may be in effect here.",
+    "check": "Florida tide / canal gauge at minor with no NWS Flood product; GAUGE_ONLY_COASTAL_CAVEAT (Fire-3d does not read Coastal Flood products). Named after the gauge's place or water (D1, BFS-R2). Correct by the rules."
+   },
+   {
+    "name": "Georgetown flood",
+    "id": "flood-20261019-georgetown-flood-ca0b82",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "emergency": false,
+    "products": [],
+    "gauges": [
+     "GTWF1 Georgetown (in NAVD88) minor 2.26 ft"
+    ],
+    "caveat": "No NWS Flood or Flash Flood product names this gauge right now. It may measure tidal or lake water: Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products, which may be in effect here.",
+    "check": "Florida tide / canal gauge at minor with no NWS Flood product; GAUGE_ONLY_COASTAL_CAVEAT (Fire-3d does not read Coastal Flood products). Named after the gauge's place or water (D1, BFS-R2). Correct by the rules."
+   },
+   {
+    "name": "Crescent Lake flood",
+    "id": "flood-20261021-crescent-lake-flood-23a12f",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "emergency": false,
+    "products": [],
+    "gauges": [
+     "CELF1 Crescent Lake minor 1.91 ft"
+    ],
+    "caveat": "No NWS Flood or Flash Flood product names this gauge right now. It may measure tidal or lake water: Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products, which may be in effect here.",
+    "check": "Florida tide / canal gauge at minor with no NWS Flood product; GAUGE_ONLY_COASTAL_CAVEAT (Fire-3d does not read Coastal Flood products). Named after the gauge's place or water (D1, BFS-R2). Correct by the rules."
+   },
+   {
+    "name": "Middle River George English Park flood",
+    "id": "flood-20261105-middle-river-george-english-park-flood-91b2f6",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "emergency": false,
+    "products": [],
+    "gauges": [
+     "MGEF1 Middle River George English Park minor 1.44 ft"
+    ],
+    "caveat": "No NWS Flood or Flash Flood product names this gauge right now. It may measure tidal or lake water: Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products, which may be in effect here.",
+    "check": "Florida tide / canal gauge at minor with no NWS Flood product; GAUGE_ONLY_COASTAL_CAVEAT (Fire-3d does not read Coastal Flood products). Named after the gauge's place or water (D1, BFS-R2). Correct by the rules."
+   },
+   {
+    "name": "South Fork New River flood",
+    "id": "flood-20261105-south-fork-new-river-flood-dea2eb",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "emergency": false,
+    "products": [],
+    "gauges": [
+     "SFRF1 South Fork New River minor 1.48 ft"
+    ],
+    "caveat": "No NWS Flood or Flash Flood product names this gauge right now. It may measure tidal or lake water: Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products, which may be in effect here.",
+    "check": "Florida tide / canal gauge at minor with no NWS Flood product; GAUGE_ONLY_COASTAL_CAVEAT (Fire-3d does not read Coastal Flood products). Named after the gauge's place or water (D1, BFS-R2). Correct by the rules."
+   },
+   {
+    "name": "Indian River flood",
+    "id": "flood-20261104-indian-river-flood-cf14df",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "FL",
+    "max_category": "minor",
+    "emergency": false,
+    "products": [],
+    "gauges": [
+     "IRWF1 Indian River minor 2.06 ft"
+    ],
+    "caveat": "No NWS Flood or Flash Flood product names this gauge right now. It may measure tidal or lake water: Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products, which may be in effect here.",
+    "check": "Florida tide / canal gauge at minor with no NWS Flood product; GAUGE_ONLY_COASTAL_CAVEAT (Fire-3d does not read Coastal Flood products). Named after the gauge's place or water (D1, BFS-R2). Correct by the rules."
+   },
+   {
+    "name": "Buttrick Creek flood",
+    "id": "flood-20261105-buttrick-creek-flood-8c8219",
+    "kind": "river",
+    "level": "gauge_only",
+    "status": "active",
+    "state": "IA",
+    "max_category": "minor",
+    "emergency": false,
+    "products": [],
+    "gauges": [
+     "GJTI4 Buttrick Creek minor 13.17 ft"
+    ],
+    "caveat": "No NWS flood product names this gauge right now.",
+    "check": "Gauge-only flood (D2). Correct by the rules."
+   },
+   {
+    "name": "Little Colorado River flood",
+    "id": "flood-20261104-little-colorado-river-flood-4b5924",
+    "kind": "river",
+    "level": "warning",
+    "status": "active",
+    "state": "AZ",
+    "max_category": "action",
+    "emergency": false,
+    "products": [
+     "Flood Warning KFGZ.FA.W.0038.2026 (in_effect)"
+    ],
+    "gauges": [
+     "LCWA3 Little Colorado River action 17.21 ft"
+    ],
+    "caveat": null,
+    "check": "KFGZ.FA.W.0038 (Coconino, Navajo) 'Little Colorado River from Winslow to Leupp'; LCWA3 linked (BFS-R3). Correct."
+   },
+   {
+    "name": "Salt River flood",
+    "id": "flood-20261102-salt-river-flood-29a162",
+    "kind": "areal",
+    "level": "warning",
+    "status": "active",
+    "state": "AZ",
+    "max_category": null,
+    "emergency": false,
+    "products": [
+     "Flood Warning KPSR.FA.W.0041.2026 (in_effect)",
+     "Flood Warning KPSR.FA.W.0042.2026 (in_effect)",
+     "Flood Warning KPSR.FA.W.0040.2026 (in_effect)",
+     "Flood Warning KPSR.FA.W.0038.2026 (in_effect)",
+     "Flood Warning KPSR.FA.W.0014.2026 (in_effect)"
+    ],
+    "gauges": [],
+    "caveat": null,
+    "check": "KPSR FA.W 0014/0038/0041/0042 (Salt River, Maricopa) + 0040 (Verde River) adjacent and issued within 12 h; one flood after the areal same-river join (was 'Salt River flood (AZ)' and 'Rio Verde flood (AZ)'). Correct."
+   },
+   {
+    "name": "Conejos River flood",
+    "id": "flood-20261104-conejos-river-flood-281e0d",
+    "kind": "areal",
+    "level": "warning",
+    "status": "active",
+    "state": "CO",
+    "max_category": null,
+    "emergency": false,
+    "products": [
+     "Flood Warning KPUB.FA.W.0028.2026 (in_effect)"
+    ],
+    "gauges": [],
+    "caveat": null,
+    "check": "KPUB.FA.W.0028 (Alamosa, Conejos, Costilla CO), areal 'Conejos River'. Correct."
+   },
+   {
+    "name": "San Juan River flood",
+    "id": "flood-20261102-san-juan-river-flood-0708f8",
+    "kind": "areal",
+    "level": "warning",
+    "status": "active",
+    "state": "UT",
+    "max_category": null,
+    "emergency": false,
+    "products": [
+     "Flood Warning KSLC.FA.W.0017.2026 (in_effect)",
+     "Flood Warning KGJT.FA.W.0030.2026 (in_effect)"
+    ],
+    "gauges": [],
+    "caveat": null,
+    "check": "KGJT.FA.W.0030 (Montezuma CO, San Juan UT) + KSLC.FA.W.0017 (San Juan UT), both 'along the San Juan River', 3 km apart: one flood after the integration (was '(UT)' and '(UT, 2)'). Correct."
+   },
+   {
+    "name": "Gila River flood",
+    "id": "flood-20261104-gila-river-flood-fc0482",
+    "kind": "river",
+    "level": "advisory",
+    "status": "active",
+    "state": "AZ",
+    "max_category": "action",
+    "emergency": false,
+    "products": [
+     "Flood Advisory KTWC.FL.Y.0005.2026 (in_effect)"
+    ],
+    "gauges": [
+     "GLCA3 Gila River action 15.87 ft"
+    ],
+    "caveat": null,
+    "check": "KTWC.FL.Y.0005 Flood Advisory (Graham AZ), GLCA3 action. Correct."
+   },
+   {
+    "name": "La Joya flood",
+    "id": "flood-20261105-la-joya-flood-e7c3a5",
+    "kind": "areal",
+    "level": "advisory",
+    "status": "active",
+    "state": "NM",
+    "max_category": null,
+    "emergency": false,
+    "products": [
+     "Flood Advisory KABQ.FA.Y.0366.2026 (in_effect)"
+    ],
+    "gauges": [],
+    "caveat": null,
+    "check": "KABQ.FA.Y.0366 Flood Advisory (Socorro NM), named from the largest place in the polygon. Correct."
+   }
+  ],
+  "note": "Checked one by one on the real API (FIRE3D_LIVE=0, port 8759) against the raw NWS flood products in effect (nws.flood_active, the same cached answer the list was built from) and the riv_gauges gauges at minor or worse; first at 09:38 UTC (58 floods with carry-overs, before the fixes) and again at 10:03 UTC after the fixes (39 floods: the registry and last-known summaries were lost in the incident, so no carry-overs). Every NWS product event is in a flood; every lower-48 gauge at minor or worse is in a flood.",
+  "changes_made": [
+   "Toccoa River / Ocoee River flood (CPHT1, Copperhill TN): lists the NWS Morristown Flash Flood Emergency and warnings over its gauge (was: 'No NWS flood product here right now').",
+   "Joshua Creek flood (NOCF1): lists the Peace River Flood Warning that covers its gauge (recorded day and live).",
+   "San Juan River flood (UT) + (UT, 2) -> one 'San Juan River flood' (areal warnings naming the same river, 3 km apart).",
+   "Salt River flood (AZ) + Rio Verde flood (AZ) -> one 'Salt River flood' (adjacent areal warnings, one naming the Salt River).",
+   "Toccoa River (GA) / Ocoee River (TN) flood -> Toccoa River / Ocoee River flood (state notes dropped).",
+   "Loxahatchee River 500 ft downstream of US 1 flood + Loxahatchee River flood -> one Loxahatchee River flood (position note dropped).",
+   "Ducktown flash flood: its id no longer changes with each NWS update (split ids reassigned; a live id is never aliased)."
+  ]
+ },
+ "bundles_built": [
+  {
+   "id": "flood-20261104-rio-grande-flood-58a10a",
+   "kind": "river",
+   "gauge": "ALAC2 (Rio Grande at Alamosa, minor 9.4 ft)",
+   "forecast": "NWS West Gulf River Forecast Center, 20 steps, issued Nov 4 18:00 MST",
+   "build_s": 31,
+   "check_bundle": "0 problems",
+   "size_mb": 12.1
+  },
+  {
+   "id": "flood-20261105-ducktown-flash-flood-d2ad9d",
+   "kind": "flash",
+   "products": "KFFC.FF.W.0081, KMRX.FF.W.0082, KMRX.FF.W.0083 (Flash Flood Emergency), KMRX.FA.W.0002",
+   "build_s": 42,
+   "check_bundle": "0 problems",
+   "size_mb": 12.1
+  },
+  {
+   "rebuilt_after_incident": [
+    "flood-20261103-platte-river-flood-e045bf",
+    "flood-20261104-grand-river-flood-1b2d20",
+    "flood-20261006-st-johns-river-flood-f81f2a",
+    "flood-20261102-peace-river-flood-bd6288",
+    "flood-20261104-calcasieu-river-flood-77edfb",
+    "flood-20261102-moenkopi-wash-flood-41813c",
+    "fixture-flood"
+   ],
+   "check_bundle": "0 problems each"
+  }
+ ],
+ "known_issues": [
+  "Copperhill, TN: the Ocoee River gauge flood ('Toccoa River / Ocoee River flood') and the 'Ducktown flash flood' are one event listed twice (river and flash products never join by distance). Both show the Flash Flood Emergency. Linking a gauge to a Flash Flood Warning whose text names its river would make one river flood, but its Public facts would then show river rows instead of detection and damage threat: a decision for the user.",
+  "Gauge-only floods inside another flood's NWS product now take that product's level and circle (e.g. Joshua Creek under the Peace River Flood Warning); the product is the other river's, named verbatim in the product row.",
+  "Four gauges forecast to reach minor flood stage with no NWS product (BFFU1 UT, BOWD1 DE, DESI4 IA, PLMF1 FL) are not floods: D2 starts floods from observed readings only. They show as diamonds on the map.",
+  "The 'Ducktown flash flood' is named after NWS Morristown's first listed place (TN) while its point and county come from the largest polygon (Fannin County, GA).",
+  "Floods that left the lists are not carried over in this container until seen again (last-known summaries were lost in the incident); older flood ids that only the lost registry knew answer 404 here (data/ is local and gitignored).",
+  "Command, past floods (from backend-flood-live's note): the model chip says 'could not be loaded' for a not_available_for_past_dates answer; the slim chart labels a past reading with today's category and its age against now.",
+  "The fixture server answers every demo flood's evacuations with the New Mexico fixture (older test-tooling issue).",
+  "Phones, Command flood view: the map controls take two rows under the title bar (the same layout as Command fire).",
+  "The national flood list can name two tide-gauge floods by one place ('Key Largo flood (FL)' and '(FL, 2)').",
+  "EARTHDATA_TOKEN path still tested only with a fake token and a mock transport (no real token here)."
+ ],
+ "cut_line_left": [
+  "Analysis-tab small multiples in Forensic (each gauge has a 'Chart' button that shows it in the dock).",
+  "Data-status block in Command's Official now (there is no flood updates feed).",
+  "Flood layers' credit lines stay as the key's last line / the foot portal; not folded into lib/dataCredits.ts (they already reach the foot bar).",
+  "NASA GIBS picture stays undrawn (web-flood-public's reason: its colours read like a hazard map); the key says 'no usable image' with the backend's reason.",
+  "Part 2: live loop and past floods end to end, the Command past-flood seams above, final SPEC check."
+ ],
+ "gates": "backend: uv run pytest -q -> 1405 passed, 0 skipped (no network). web: typecheck clean; lint 55 warnings, all in src/scene (exit 0); npm test 136 files, 1786 passed, 2 skipped (older fire tests; no flood test skipped); build ok. Contract parity test (test_flood_contracts.py) 77 passed; test_floods_copy.py now also checks CONTRACT 16.14's as-built string table against the code. Count-only scans of the diff since 6fbbf9d: 0 FIRMS key value, EARTHDATA_TOKEN unset (n/a), 0 Bearer credentials, 0 'FireTrace'. Every real bundle: check_bundle --hazard flood 0 problems.",
+ "test_skips": {
+  "backend": 0,
+  "web": "2 (older fire tests; no flood test skipped)"
+ },
+ "servers": "API 8759 and Vite 5219, stopped at the end",
+ "commits": [
+  "f63e25c brief 5 integration: M1 real data (...)",
+  "brief 5 integration: part 1 report, as-built note, CONTRACT 16.14-16.16, string-table test"
+ ]
+}
