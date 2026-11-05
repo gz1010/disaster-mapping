@@ -10,6 +10,7 @@ import {
   beforeNowText,
   floodKeyframes,
   gapNote,
+  gapNoteShort,
   hiddenPct,
   isUsablePass,
   keyframeIndexAt,
@@ -255,14 +256,24 @@ describe('labels', () => {
     const all = Object.values(P)
     const t = NOW - 9 * DAY_MS
     expect(gapNote(passAt(all, t), t, TF, NOW)).toBe(
-      'Map: satellite image of Oct 23, 11:00 EDT (4 days before the handle) · No satellite image between Oct 23 and Oct 30 · 1 pass in between saw no view (clouds or no data)',
+      'Shown: satellite image of Oct 23, 11:00 EDT (4 days before the handle) · No satellite image between Oct 23 and Oct 30 · 1 pass in between saw no view (clouds or no data)',
     )
     expect(gapNote(passAt(all, P.partly.acquired_ms), P.partly.acquired_ms, TF, NOW)).toBeNull()
     const early = NOW - 14 * DAY_MS
     expect(gapNote(passAt(all, early), early, TF, NOW)).toBe('No satellite image before Oct 23')
     const late = NOW - 2 * DAY_MS
-    expect(gapNote(passAt(all, late), late, TF, NOW)).toBe('Map: satellite image of Nov 1, 10:00 EST (2 days before the handle) · No satellite image after Nov 1 yet')
+    expect(gapNote(passAt(all, late), late, TF, NOW)).toBe('Shown: satellite image of Nov 1, 10:00 EST (2 days before the handle) · No satellite image after Nov 1 yet')
     expect(gapNote(passAt([P.cloud], late), late, TF, NOW)).toBe('No usable satellite image in this flood’s window · 1 pass in between saw no view (clouds or no data)')
+  })
+
+  it('the short gap note for phones keeps the image’s date and age (review WFP-R5)', () => {
+    const all = Object.values(P)
+    const t = NOW - 9 * DAY_MS
+    expect(gapNoteShort(passAt(all, t), t, TF, NOW)).toBe('Image shown: Oct 23 (4 days before)')
+    expect(gapNoteShort(passAt(all, P.partly.acquired_ms), P.partly.acquired_ms, TF, NOW)).toBeNull()
+    const early = NOW - 14 * DAY_MS
+    expect(gapNoteShort(passAt(all, early), early, TF, NOW)).toBe('No satellite image before Oct 23')
+    expect(gapNoteShort(passAt([P.cloud], t), t, TF, NOW)).toBe('No usable satellite image')
   })
 
   it('the summary at now counts the steps', () => {

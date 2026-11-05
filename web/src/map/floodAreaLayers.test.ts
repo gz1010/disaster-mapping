@@ -7,6 +7,8 @@ import { productsAt } from '../official/floodModel'
 import { SQUARE, testPass, testTimeline, versionBuilder } from '../state/floodTimeline.testutil'
 import { fmtDayDate } from '../lib/time'
 import { checkPoint } from '../location/floodCheck'
+import { useFlood } from '../state/flood'
+import { floodLayerCreditsFor } from './floodLayerCredits'
 import { handleFor, isPublicView } from '../state/floodTimelineData'
 import { ARCHIVED_COPY, NOTHING_COVERS } from '../ui/shell/floodCopy'
 import {
@@ -208,6 +210,23 @@ describe('the Public view and the point checks at the handle (review WFP-R1, WFP
     const c = check(null)
     const inside = c.lines.find((l) => l.inside && l.kind === 'official')
     expect(inside?.text).toMatch(/starting/i)
+  })
+
+  it('the satellite credit follows the pass on the map, never the route’s now answer (review WFP-R4)', () => {
+    const s1 = testPass('DSWx-S1_20261025T1200_S1A', NOW - 11 * 24 * H, 'clear', { product: 'DSWx-S1' as never, platform: 'Sentinel-1A' })
+    const t = testTimeline(NOW, [s1], [], 'fixture-flood')
+    t.passes.sources = [
+      { name: 'NASA JPL OPERA DSWx-HLS', url: 'https://www.jpl.nasa.gov/go/opera', credit: 'HLS credit line' },
+      { name: 'NASA JPL OPERA DSWx-S1', url: 'https://www.jpl.nasa.gov/go/opera', credit: 'S1 credit line', terms_url: 'https://podaac.jpl.nasa.gov/CitingPODAAC' },
+    ]
+    const layers = { ...useFlood.getState().layers, satellite: true }
+    const credits = (sat: ReturnType<typeof satelliteAtHandle>) =>
+      floodLayerCreditsFor({ chrome: 'command-flood', layers, fim: null, satellite: sat, nfhl: null, gauges: null, model: null, highFlow: null, catfim: null }).map((c) => c.text)
+    expect(credits(satelliteAtHandle(SATELLITE(), t, PAST, NOW))).toEqual(['S1 credit line'])
+    // before the first pass nothing is drawn, so nothing is credited for the satellite layer
+    expect(credits(satelliteAtHandle(SATELLITE(), t, NOW - 20 * 24 * H, NOW))).toEqual([])
+    // at now the route's own answer and its credit, as in brief 5
+    expect(credits(satelliteAtHandle(SATELLITE(), t, null, NOW))).toEqual(credits(SATELLITE()))
   })
 
   it('the IEM archive is credited only while one of its copies is drawn at the handle (review WFP-R3)', () => {

@@ -144,5 +144,7 @@ describe('flood list panel', () => {
     const down = stripVerbatim(renderToStaticMarkup(createElement(App)))
     expect(down).toContain('The flood lists could not be reached right now; try again later.')
     expect(down).not.toMatch(/not found/i)
-  })
+    // importing the whole app takes a few seconds on a loaded machine: a generous limit keeps the gate steady (review
+    // WFP-R10, brief 6)
+  }, 20_000)
 })

@@ -10,6 +10,9 @@
 // diamonds, and, only while switched on, the FEMA floodplain, the NWS category flood map (experimental) and the model
 // (NWM, experimental; its own amber dotted swatch, never a water colour); the selected location; the scale. The
 // details then also explain the model and the category map (their own caveats).
+// Brief 6 (web-flood-playback, declared edit): the satellite chip and key follow the chart's handle (the pass the map
+// draws, its own date; useSatelliteAtHandle, always now in Public); at a past step the chips of the layers that are
+// products of now (forecast area, FEMA, category map, model) say "now" with their own time (review WFP-R6).
 import { ChevronDown, Info } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { openFloodSummary, useFlood } from '../state/flood'
@@ -17,7 +20,10 @@ import { useShallow } from 'zustand/react/shallow'
 import { useFloodOfficial } from '../official/floodHooks'
 import { answerState, fimMapped, shownGranule } from '../official/floodModel'
 import { extraLayerReason, extraLayerState, useFloodLayerData, type ExtraLayerState } from '../state/floodLayerData'
-import { useSatelliteAtHandle } from '../state/floodTimelineData'
+import { STEP_EPS_MS } from '../state/floodTimeline'
+import { useFloodHandleMs, useSatelliteAtHandle } from '../state/floodTimelineData'
+import { useNow } from '../ui/hooks'
+import { PLAYBACK } from '../ui/timeline/floodPlaybackCopy'
 import { useWorkspace } from '../state/workspace'
 import { fmtDayDate } from '../lib/time'
 import { satLoginNote } from '../ui/public/floodView'
@@ -122,6 +128,12 @@ export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant 
   // with its own date); at now the satellite route's own answer
   const satAtHandle = useSatelliteAtHandle(official.satellite)
   const view = { ...official, satellite: satAtHandle }
+  // at a past step the layers that are products of now stay drawn: their chips say so, with their own time (review
+  // WFP-R6); Public has no handle (useFloodHandleMs is null there)
+  const handleMs = useFloodHandleMs()
+  const nowMs = useNow(60_000)
+  const pastHandle = handleMs != null && handleMs < nowMs - STEP_EPS_MS
+  const fimIssuedMs = view.fim?.status === 'available' ? (view.fim.reference_ms ?? view.fim.updated_ms ?? null) : null
   // a request that failed with no answer still gets its line (review WFP-R1): never a layer that silently vanishes
   const failed = useFloodOfficial(
     useShallow((s) => ({
@@ -141,6 +153,8 @@ export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant 
   const hasSel = useWorkspace((s) => s.selection != null)
   const login = floodOpen ? satLoginNote(view.satellite) : null
   const granule = shownGranule(view.satellite)
+  const nowTag = pastHandle ? ` · ${PLAYBACK.chipNow}` : ''
+  const fimNowTag = pastHandle ? ` · ${fimIssuedMs != null ? fillCopy(PLAYBACK.chipNowIssued, { time: fmtDayDate(fimIssuedMs, zone) }) : PLAYBACK.chipNow}` : ''
   const viewChips = (
     <ul className="fxm-legend-row fxo-legend-row cfv-chips" aria-label="Legend">
       {layers.satellite && (
@@ -158,7 +172,10 @@ export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant 
       {layers.forecastArea && fimMapped(view.fim) && (
         <li>
           <span className="ffk-sw ffk-sw-forecast" aria-hidden="true" />
-          <span>{FLOOD_COMMAND.chipForecast}</span>
+          <span>
+            {FLOOD_COMMAND.chipForecast}
+            {fimNowTag}
+          </span>
         </li>
       )}
       {layers.warnings && (
@@ -176,12 +193,15 @@ export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant 
       {layers.floodplain && (
         <li>
           <span className="ffk-sw ffk-sw-floodplain" aria-hidden="true" />
-          <span>{FLOOD_COMMAND.chipFloodplain}</span>
+          <span>
+            {FLOOD_COMMAND.chipFloodplain}
+            {nowTag}
+          </span>
         </li>
       )}
-      {layers.catfim && <LayerChip sw="cfv-sw-catfim" label={FLOOD_COMMAND.chipCatfim} state={st.catfim} tip={extraLayerReason(extraAns.catfim) ?? (st.catfim === 'empty' ? catfimNone : undefined)} />}
-      {layers.model && <LayerChip sw="cfv-sw-model" label={FLOOD_COMMAND.chipModel} state={st.model} tip={extraLayerReason(extraAns.model) ?? undefined} />}
-      {layers.modelHighFlow && <LayerChip sw="cfv-sw-highflow" label={FLOOD_COMMAND.chipHighFlow} state={st.highFlow} tip={extraLayerReason(extraAns.highFlow) ?? undefined} />}
+      {layers.catfim && <LayerChip sw="cfv-sw-catfim" label={FLOOD_COMMAND.chipCatfim + nowTag} state={st.catfim} tip={extraLayerReason(extraAns.catfim) ?? (st.catfim === 'empty' ? catfimNone : undefined)} />}
+      {layers.model && <LayerChip sw="cfv-sw-model" label={FLOOD_COMMAND.chipModel + nowTag} state={st.model} tip={extraLayerReason(extraAns.model) ?? undefined} />}
+      {layers.modelHighFlow && <LayerChip sw="cfv-sw-highflow" label={FLOOD_COMMAND.chipHighFlow + nowTag} state={st.highFlow} tip={extraLayerReason(extraAns.highFlow) ?? undefined} />}
       {hasSel && (
         <li>
           <span className="fxm-sw fxm-sw-selection" aria-hidden="true" />

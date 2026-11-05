@@ -1,10 +1,11 @@
 // Play and step (brief 6, web-flood-playback M2): what a press of Play does (from now the first step; at the latest
 // step again from the first; reduced motion one step and never running), Play's ticks stop at the latest step, the
 // chart's start while stepping, and the store: a hand move pauses Play, the handle back at now ends the stepping,
-// another flood resets.
+// another flood resets, entering Public puts the handle back at now (review WFP-R1).
 import { afterEach, describe, expect, it } from 'vitest'
 import { DAY_MS, HOUR_MS } from '../../lib/time'
 import { useFlood } from '../../state/flood'
+import { useWorkspace } from '../../state/workspace'
 import { floodKeyframes } from '../../state/floodTimeline'
 import { testPass, testTimeline, versionBuilder } from '../../state/floodTimeline.testutil'
 import { AXIS_MAX_PAST_MS, lastStep, moveHandle, playbackAxisStart, playPress, playTick, setPlaying, useFloodPlayback } from './floodPlayback'
@@ -20,6 +21,7 @@ const TL = testTimeline(
 const FRAMES = floodKeyframes(TL, NOW)
 
 afterEach(() => {
+  useWorkspace.setState({ workspace: 'map', preset: 'public' })
   useFlood.setState({ floodId: null, cursorMs: null })
   useFloodPlayback.setState({ floodId: null, playing: false, engaged: false })
 })
@@ -80,5 +82,23 @@ describe('Play and step', () => {
     setPlaying('f', true)
     useFlood.setState({ floodId: 'g', cursorMs: null })
     expect(useFloodPlayback.getState()).toMatchObject({ floodId: 'g', playing: false, engaged: false })
+  })
+
+  it('entering the Public view (no time handle) stops Play and puts the handle back at now (review WFP-R1)', () => {
+    useWorkspace.setState({ workspace: 'map', preset: 'command' })
+    useFlood.setState({ floodId: 'f', cursorMs: null })
+    moveHandle('f', FRAMES[0].t)
+    setPlaying('f', true)
+    // Forensic keeps the preset it came from: its dock's handle stays
+    useWorkspace.setState({ workspace: 'forensic', preset: 'public' })
+    expect(useFlood.getState().cursorMs).toBe(FRAMES[0].t)
+    expect(useFloodPlayback.getState().playing).toBe(true)
+    // the Public map view: now
+    useWorkspace.setState({ workspace: 'map' })
+    expect(useFlood.getState().cursorMs).toBeNull()
+    expect(useFloodPlayback.getState()).toMatchObject({ playing: false, engaged: false })
+    // Command again starts at now
+    useWorkspace.setState({ preset: 'command' })
+    expect(useFlood.getState().cursorMs).toBeNull()
   })
 })

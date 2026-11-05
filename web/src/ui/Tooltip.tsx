@@ -1,5 +1,7 @@
 // One global tooltip for every element with a `data-tip` attribute (event delegation; works inside scrolling
-// panels without clipping). Shown after a short hover delay or on keyboard focus.
+// panels without clipping). Shown after a short hover delay or on keyboard focus. While shown it follows its element's
+// `data-tip` (a button whose meaning changes under the pointer, e.g. Pause back to Play when playback stops by itself;
+// brief 6 review WFP-R8), and closes when the attribute goes.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -18,12 +20,29 @@ export function TooltipLayer() {
   useEffect(() => {
     let timer: number | undefined
     let current: HTMLElement | null = null
+    let watch: MutationObserver | null = null
+    const unwatch = () => {
+      watch?.disconnect()
+      watch = null
+    }
     const show = (el: HTMLElement) => {
+      unwatch()
       const text = el.dataset.tip
       if (!text || !el.isConnected) return
       const r = el.getBoundingClientRect()
       const place: TipState['place'] = r.top > 56 ? 'top' : 'bottom'
       setTip({ text, x: r.left + r.width / 2, y: place === 'top' ? r.top - 7 : r.bottom + 7, place })
+      // the shown text follows the element's data-tip while it is the current one
+      if (typeof MutationObserver === 'undefined') return
+      watch = new MutationObserver(() => {
+        if (current !== el) return unwatch()
+        if (el.dataset.tip) show(el)
+        else {
+          unwatch()
+          setTip(null)
+        }
+      })
+      watch.observe(el, { attributes: true, attributeFilter: ['data-tip'] })
     }
     const target = (e: Event) => ((e.target as Element | null)?.closest?.('[data-tip]') as HTMLElement | null) ?? null
     const over = (e: PointerEvent) => {
@@ -32,6 +51,7 @@ export function TooltipLayer() {
       if (el === current) return
       current = el
       window.clearTimeout(timer)
+      unwatch()
       if (!el) {
         setTip(null)
         return
@@ -47,6 +67,7 @@ export function TooltipLayer() {
     }
     const hide = () => {
       window.clearTimeout(timer)
+      unwatch()
       current = null
       setTip(null)
     }
@@ -58,6 +79,7 @@ export function TooltipLayer() {
     window.addEventListener('blur', hide)
     return () => {
       window.clearTimeout(timer)
+      unwatch()
       document.removeEventListener('pointerover', over)
       document.removeEventListener('focusin', focus)
       document.removeEventListener('focusout', hide)

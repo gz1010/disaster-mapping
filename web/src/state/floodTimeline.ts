@@ -14,7 +14,7 @@
 //     answer (productsShown: the products in effect now and the issued ones still to start; C1, WFC-R1). Without the
 //     timeline's products: productsShown on the live answer at any time.
 //   - step(keyframes, cursorMs, dir, nowMs): the handle's next or previous step; "now" (null) is the last step.
-//   - Labels (keyframeLabel, gapNote, playSummary): the words of ui/timeline/floodPlaybackCopy.ts.
+//   - Labels (keyframeLabel, gapNote, gapNoteShort for phones, playSummary): the words of ui/timeline/floodPlaybackCopy.ts.
 import type { FloodAlert, FloodPass, FloodTimelineProduct, FloodTimelineResponse } from '../api/types'
 import { DAY_MS, HOUR_MS, MINUTE_MS, fmtAt, fmtClock, fmtDayDate, type TimeFmt } from '../lib/time'
 import { fillCopy } from '../ui/shell/floodCopy'
@@ -350,6 +350,15 @@ export function gapNote(at: PassAt, cursorMs: number, tf: TimeFmt, nowMs: number
   if (nv) parts.push(nv === 1 ? PLAYBACK.noViewOne : fillCopy(PLAYBACK.noViewMany, { n: nv }))
   if (at.unreadBetween.length) parts.push(PLAYBACK.unread)
   return parts.join(' · ')
+}
+
+/** The gap note's short form for phones (review WFP-R5): the date and age of the image shown, kept visible on its own
+ *  line ("Image shown: Oct 29 (6 days before)"); null on a pass. */
+export function gapNoteShort(at: PassAt, cursorMs: number, tf: TimeFmt, nowMs: number): string | null {
+  if (at.onPass) return null
+  const day = (ms: number) => fmtDayDate(ms, tf.tz, { year: 'auto', refMs: nowMs })
+  if (at.pass) return fillCopy(PLAYBACK.mapImageShort, { date: day(at.pass.acquired_ms), age: spanText(cursorMs - at.pass.acquired_ms) })
+  return at.next ? fillCopy(PLAYBACK.gapBeforeShort, { to: day(at.next.acquired_ms) }) : PLAYBACK.gapNoneShort
 }
 
 /** The row at now: "4 satellite passes and 5 NWS product changes from Oct 23 · Play steps through them". */

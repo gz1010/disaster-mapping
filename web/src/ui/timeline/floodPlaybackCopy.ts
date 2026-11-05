@@ -45,8 +45,13 @@ export const PLAYBACK = {
   moreMany: '(+{n} more NWS changes by {time})',
 
   // ---------------------------------------------------------------------------------------------- between passes
-  /** The map's satellite layer between two passes: the latest image at or before the handle, with its own date. */
-  mapImage: 'Map: satellite image of {time} ({age} before the handle)',
+  /** The satellite layer between two passes: the latest image at or before the handle, with its own date (a neutral
+   *  word: the same note sits under the 2D map and the 3D scene; review WFP-R9). */
+  mapImage: 'Shown: satellite image of {time} ({age} before the handle)',
+  /** Phones (review WFP-R5): the image's date kept visible on its own line. */
+  mapImageShort: 'Image shown: {date} ({age} before)',
+  gapBeforeShort: 'No satellite image before {to}',
+  gapNoneShort: 'No usable satellite image',
   gapBetween: 'No satellite image between {from} and {to}',
   gapAfter: 'No satellite image after {from} yet',
   gapBefore: 'No satellite image before {to}',
@@ -58,6 +63,31 @@ export const PLAYBACK = {
   noImage: 'This pass has no image to draw on the map.',
   /** The satellite layer's note when the handle is before the first usable pass (the map draws no image). */
   noImageAtHandle: 'No satellite image at or before this time: the water then is not seen. That is not an all-clear.',
+
+  // ---------------------------------------------------------------------------------------------- "now" layers at a past step
+  /** Layers that are products of now stay drawn at a past step: said with their own time (review WFP-R6). */
+  nowLayers: 'Shown as of now, not this time: {layers}',
+  nowLayersShort: 'Now: {layers}',
+  nowForecast: 'NWS forecast area',
+  nowFloodplain: 'FEMA floodplain',
+  nowCatfim: 'NWS category map',
+  nowModel: 'model',
+  /** The legend chip of such a layer at a past step. */
+  chipNow: 'now',
+  chipNowIssued: 'now, issued {time}',
+
+  // ---------------------------------------------------------------------------------------------- NWS products at the handle
+  /** The row's button listing the NWS versions drawn at a past step (review WFP-R3): each with its issuer, its own
+   *  times, its verbatim words and a link; IEM archive copies tagged and credited. */
+  nwsButton: 'NWS · {n}',
+  nwsButtonLabel: 'NWS products on the map at this time: {n}. Each with its issuer, its own times and a link',
+  nwsButtonTip: 'The NWS products the map draws at this time: issuer, own times, words and link',
+  nwsTitle: 'NWS products on the map at this time',
+  nwsIssued: 'issued {time}',
+  nwsUntil: 'until {time}',
+  nwsLink: 'NWS product',
+  nwsLinkArchived: 'Archived copy of the NWS product',
+  nwsNote: 'Each NWS product is shown from the time NWS issued it until its own end time or NWS’s next version of it. Its end is not an all-clear. Follow local officials.',
 
   // ---------------------------------------------------------------------------------------------- at now
   /** The row at now: what Play steps through. */

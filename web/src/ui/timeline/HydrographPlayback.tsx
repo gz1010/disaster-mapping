@@ -10,9 +10,23 @@
 //   - Keys while the chart is shown: Space plays or pauses (not while typing or on another control), the comma and full
 //     stop keys step back and forward.
 //   - NWS's event names are NWS's own words: rendered inside data-verbatim.
+//   - Review fixes (review6): at a past step the "NWS · n" button lists the NWS versions the map draws, each with its
+//     issuer, its own times, its words verbatim and a link, IEM archive copies tagged and credited (WFP-R3); phones keep
+//     the image's date on a line of its own (WFP-R5); the slim chart says which drawn layers show now (WFP-R6).
+import { ExternalLink } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useFlood } from '../../state/flood'
+import { useShallow } from 'zustand/react/shallow'
+import type { FloodAlert } from '../../api/types'
+import { fmtAt, timeFmt, type TimeFmt } from '../../lib/time'
+import { archiveCreditAtHandle } from '../../map/floodAreaLayers'
+import { useFloodOfficial } from '../../official/floodHooks'
+import { fimMapped, orderAlerts } from '../../official/floodModel'
+import { openFloodSummary, useFlood } from '../../state/flood'
 import { isUsablePass, keyframeIndexAt, passLabel, PLAY_STEP_MS, step, STEP_EPS_MS, type StepLabel } from '../../state/floodTimeline'
+import { useProductsAtHandle } from '../../state/floodTimelineData'
+import { useClock } from '../../state/timeZone'
+import { Popover } from '../controls'
+import { ARCHIVED_COPY, fillCopy } from '../shell/floodCopy'
 import { PLAYBACK } from './floodPlaybackCopy'
 import { lastStep, moveHandle, playPress, playTick, setPlaying, useFloodPlayback } from './floodPlayback'
 import { stepWords, type PlaybackView } from './hydrographPlaybackView'
@@ -115,7 +129,12 @@ export function PlayRow({ view, variant }: { view: PlaybackView; variant: 'slim'
   const words = stepWords(view, cursorMs)
   const playLabel = playing ? PLAYBACK.pause : PLAYBACK.play
   const playTip = playing ? PLAYBACK.pauseTip : reduced ? PLAYBACK.playReducedTip : PLAYBACK.playTip
-  const title = [words.label?.text, words.gap, words.note].filter(Boolean).join(' · ')
+  // the slim chart (Command's 2D map): the drawn layers that are products of now (review WFP-R6)
+  const nowLayers = useNowLayers(variant === 'slim' && words.past)
+  const nowNote = nowLayers.length ? fillCopy(PLAYBACK.nowLayers, { layers: nowLayers.join(', ') }) : null
+  const nowShort = nowLayers.length ? fillCopy(PLAYBACK.nowLayersShort, { layers: nowLayers.join(', ') }) : null
+  const title = [words.label?.text, words.gap, words.note, nowNote].filter(Boolean).join(' · ')
+  const phoneLine = [words.gapShort, nowShort].filter(Boolean).join(' · ')
   return (
     <div className={`hg-play${variant === 'dock' ? ' is-dock' : ''}`} role="group" aria-label={PLAYBACK.groupName}>
       <span className="hg-play-btns">
@@ -145,9 +164,110 @@ export function PlayRow({ view, variant }: { view: PlaybackView; variant: 'slim'
         )}
         {words.gap && <span className="hg-step-gap">{words.gap}</span>}
         {words.note && <span className="hg-step-note">{words.note}</span>}
+        {nowNote && <span className="hg-step-now">{nowNote}</span>}
       </p>
+      {words.past && <NwsAtHandle />}
+      {/* phones: the image's date on a line of its own, never cut by the label's clamp (review WFP-R5) */}
+      {phoneLine && (
+        <p className="hg-step-line">{phoneLine}</p>
+      )}
       <span className="hg-sr">{PLAYBACK.keysHelp}</span>
     </div>
+  )
+}
+
+/** The drawn layers that are products of now (they stay drawn at a past step): the NWS forecast area, FEMA, the
+ *  category map and the model, each while on (review WFP-R6). */
+function useNowLayers(enabled: boolean): string[] {
+  const layers = useFlood(useShallow((s) => ({ forecastArea: s.layers.forecastArea, floodplain: s.layers.floodplain, catfim: s.layers.catfim, model: s.layers.model, highFlow: s.layers.modelHighFlow })))
+  const fim = useFloodOfficial((s) => s.fim.data)
+  if (!enabled) return []
+  const out: string[] = []
+  if (layers.forecastArea && fimMapped(fim)) out.push(PLAYBACK.nowForecast)
+  if (layers.floodplain) out.push(PLAYBACK.nowFloodplain)
+  if (layers.catfim) out.push(PLAYBACK.nowCatfim)
+  if (layers.model || layers.highFlow) out.push(PLAYBACK.nowModel)
+  return out
+}
+
+/** "NWS · n" at a past step (review WFP-R3): the NWS versions the map draws at the handle, from the time history, each
+ *  with its issuer, its own issue and end times (in its own zone), NWS's words verbatim, a link, and the IEM archive's
+ *  tag and credit for an archived copy. Nothing when the handle shows the live answer (Official now lists it). */
+function NwsAtHandle() {
+  const live = useFloodOfficial((s) => s.alerts.data)
+  const r = useProductsAtHandle(live)
+  const clock = useClock()
+  const zone = useFlood((s) => openFloodSummary(s)?.time_zone ?? null)
+  const [open, setOpen] = useState(false)
+  const anchor = useRef<HTMLButtonElement | null>(null)
+  if (r.source !== 'timeline' || !r.alerts.length) return null
+  const n = r.alerts.length
+  const credit = archiveCreditAtHandle(r, r.timeline)
+  return (
+    <>
+      <button
+        ref={anchor}
+        type="button"
+        className="hg-nws-btn"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={fillCopy(PLAYBACK.nwsButtonLabel, { n })}
+        data-tip={PLAYBACK.nwsButtonTip}
+        onClick={() => setOpen((o) => !o)}
+      >
+        {fillCopy(PLAYBACK.nwsButton, { n })}
+      </button>
+      <Popover anchor={anchor} open={open} onClose={() => setOpen(false)} placement="top-end" width={340} className="hg-nws-pop" label={PLAYBACK.nwsTitle}>
+        <p className="hg-nws-title">{PLAYBACK.nwsTitle}</p>
+        <ul className="hg-nws-list">
+          {orderAlerts(r.alerts).map((a) => (
+            <NwsVersion key={a.id} a={a} tf={timeFmt(a.time_zone || zone || 'UTC', clock)} />
+          ))}
+        </ul>
+        <p className="hg-nws-note">{PLAYBACK.nwsNote}</p>
+        {credit && (
+          <p className="hg-nws-credit">
+            {credit.href ? (
+              <a href={credit.href} target="_blank" rel="noreferrer noopener">
+                {credit.text}
+              </a>
+            ) : (
+              credit.text
+            )}
+          </p>
+        )}
+      </Popover>
+    </>
+  )
+}
+
+/** One NWS version: its event and issuer verbatim, its own times, its headline verbatim, the archive tag and its link. */
+export function NwsVersion({ a, tf }: { a: FloodAlert; tf: TimeFmt }) {
+  const end = a.ends_ms ?? a.expires_ms
+  const at = (ms: number) => fmtAt(ms, tf, { zone: true, year: 'auto' })
+  const times = [a.sent_ms != null ? fillCopy(PLAYBACK.nwsIssued, { time: at(a.sent_ms) }) : null, end != null ? fillCopy(PLAYBACK.nwsUntil, { time: at(end) }) : null].filter(Boolean).join(' · ')
+  const url = typeof a.url === 'string' && a.url.startsWith('https://') ? a.url : null
+  return (
+    <li className={`hg-nws-item${a.emergency ? ' is-emergency' : ''}`}>
+      <p className="hg-nws-event">
+        <strong data-verbatim="">{a.event}</strong> · <span data-verbatim="">{a.sender_name || 'National Weather Service'}</span>
+      </p>
+      {times && <p className="hg-nws-times">{times}</p>}
+      {a.headline && (
+        <p className="hg-nws-headline" data-verbatim="">
+          {a.headline}
+        </p>
+      )}
+      <p className="hg-nws-src">
+        {a.archived && <span className="hg-nws-archived">{ARCHIVED_COPY}</span>}
+        {a.archived && url && ' · '}
+        {url && (
+          <a href={url} target="_blank" rel="noreferrer noopener">
+            {a.archived ? PLAYBACK.nwsLinkArchived : PLAYBACK.nwsLink} <ExternalLink size={11} aria-hidden="true" />
+          </a>
+        )}
+      </p>
+    </li>
   )
 }
 
