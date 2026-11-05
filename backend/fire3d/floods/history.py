@@ -149,6 +149,12 @@ def _ms(text: str | None) -> int | None:
     return None
 
 
+def _pid_ms(pid: str | None) -> int | None:
+    """The issue time of an IEM product id ("202504021902-KIND-WGUS43-FLWIND")."""
+    m = re.match(r"^(\d{12})-", pid or "")
+    return _ms(m.group(1)) if m else None
+
+
 def month_windows(year: int, now: int) -> list[tuple[int, int, float | None]]:
     """``(start_ms, end_ms, ttl_s)`` of each month of ``year`` up to now (the current month ends at the next full hour)."""
     out = []
@@ -301,6 +307,8 @@ def events_from(rows: Iterable[dict], features: Iterable[dict]) -> dict[tuple, E
         prod = _ms(r.get("utc_prodissue")) or _ms(r.get("utc_polygon_begin")) or issue
         if issue is None or expire is None:
             continue
+        if (r.get("status") or "").upper() == "NEW":       # the warning was issued before its VTEC begin (rule 7)
+            issue = min(issue, prod or issue, _pid_ms(r.get("product_id")) or issue)
         k = (wfo, ph, sig, etn, year)
         ev = out.get(k)
         if ev is None:
@@ -744,7 +752,10 @@ def _segment_for(segments: list[dict], wfo: str, ph: str, sig: str, etn: int) ->
     return None
 
 
-def _past_alert(prod: dict, seg: dict, *, ev: nws.ArchiveEvent, flood_id: str, now: int, names: dict[str, str]) -> dict:
+def _past_alert(prod: dict, seg: dict, *, ev: nws.ArchiveEvent, flood_id: str, now: int, names: dict[str, str],
+                over: bool = True) -> dict:
+    """One archived product version of ``ev`` (its own segment verbatim). ``over``: the flood is a past one (every
+    version ``ended``); else a version is ``ended`` once its own NWS end time passed."""
     text = prod.get("text") or ""
     v = seg["_vtec"]
     raw = _seg_text(text, ev) or text                # the event's own segment (its polygon and tags)
@@ -768,7 +779,7 @@ def _past_alert(prod: dict, seg: dict, *, ev: nws.ArchiveEvent, flood_id: str, n
         "instruction": seg.get("instruction"),
         "area_desc": "; ".join(names[u] for u in ugcs if u in names) or None, "ugcs": ugcs,
         "message_type": None, "status": "Actual",
-        "phase": "ended" if (end is not None and end <= now) else "in_effect", "archived": True,
+        "phase": "ended" if (over or (end is not None and end <= now)) else "in_effect", "archived": True,
         "time_zone": nws.alert_time_zone(geom, ugcs), "emergency": "FLASH FLOOD EMERGENCY" in raw.upper(),
         "damage_threat": dmg.group(1) if dmg else None, "detection": det.group(1) if det else None,
         "geometry": mapping(geom) if geom is not None else None, "covers_point": None, "flood_ids": [flood_id],
@@ -801,6 +812,7 @@ def past_flood_alerts(summary: dict, *, now: int, at_ms: int | None) -> dict:
     if at_ms is not None and at_ms < int(summary.get("started_ms") or at_ms) - PAST_TOLERANCE_MS:
         return {**env, "status": "not_available_for_past_dates", "reason": PAST_BEFORE_FLOOD, "reason_code": "past_date",
                 "alerts": [], **base}
+    over = summary.get("mode") == "historical" or summary.get("status") == "inactive"
     alerts: list[dict] = []
     failed = 0
     for wfo, ph, sig, etn, year in keys[:MAX_PAST_EVENTS]:
@@ -817,7 +829,7 @@ def past_flood_alerts(summary: dict, *, now: int, at_ms: int | None) -> dict:
                 continue
             seg = _segment_for(detail.segments(prod), wfo, ph, sig, etn)
             if seg is not None:
-                alerts.append(_past_alert(prod, seg, ev=ev, flood_id=fid, now=now, names=names))
+                alerts.append(_past_alert(prod, seg, ev=ev, flood_id=fid, now=now, names=names, over=over))
     if keys and failed == len(keys[:MAX_PAST_EVENTS]):
         return {**env, "status": "unavailable", "reason": PAST_ALERTS_DOWN, "reason_code": "upstream_error",
                 "alerts": [], **base}

@@ -1,6 +1,6 @@
 """Past floods (brief 5, backend-flood-live M2; PLAN-5 3.6, user decision U1 (a); CONTRACT 16.2 / 16.8; SPEC 8.10).
 
-Offline on the recorded IEM / NWS / NWPS / USGS samples of ``tests/data/floods/iem/`` (6 hours of 2025-04-03; see
+Offline on the recorded IEM / NWS / NWPS / USGS samples of ``tests/data/floods/iem/`` (NWS Indianapolis and Louisville, 2025-04-01..05; see
 ``PROVENANCE.md``) and synthetic rows: the bulk route's fields, PAST_RULE, gauge episodes (one gauge flooding twice 30
 days apart gives two floods), ids equal to live ids through the registry, the background year build (preparing, disk
 copy, request rate, outages), the detail chain's year step, archived products at past times, USGS readings with
@@ -33,8 +33,8 @@ from conftest import route_transport
 from test_floods_copy import guard
 
 IEM = Path(__file__).parent / "data" / "floods" / "iem"
-CSV = IEM / "watchwarn_2025-04-03T00-06.csv"
-SBW = IEM / "sbw_2025-04-03T00-06.geojson"
+CSV = IEM / "watchwarn_IND_LMK_2025-04-01_05.csv"
+SBW = IEM / "sbw_IND_LMK_2025-04-01_05.geojson"
 RIV = IEM / "riv_gauges_lids.json"
 DAY = 86_400_000
 HOUR = 3_600_000

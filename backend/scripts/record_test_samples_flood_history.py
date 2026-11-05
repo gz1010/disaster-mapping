@@ -5,8 +5,9 @@
 Polite and small: 9 requests through ``fire3d.http`` (Fire-3d User-Agent, cache), no key.
 
 1. IEM ``cgi-bin/request/gis/watchwarn.py?accept=csv`` (FL.W + FF.W storm-based warnings with every follow-up
-   statement's polygon: H-VTEC NWSLI and severity, damage tag, emergency flag) for 6 hours of 2025-04-03;
-2. IEM ``api/1/vtec/sbw_interval.geojson`` (the issuance polygons) for the same 6 hours;
+   statement's polygon: H-VTEC NWSLI and severity, damage tag, emergency flag) of NWS Indianapolis and Louisville
+   for 2025-04-01..04-05 (the Ohio Valley floods);
+2. IEM ``api/1/vtec/sbw_interval.geojson`` (the issuance polygons) for the same offices and days;
 3. the NWS ``riv_gauges`` map rows of the gauges those warnings name (names, rivers, positions);
 4. IEM ``json/vtec_event.py`` of a river Flood Warning at a major H-VTEC severity (KIND.FL.W.0030.2025, gauge FREI3) and of a Flash Flood Warning with a CONSIDERABLE damage threat (KLMK.FF.W.0023.2025);
 5. NWPS ``/gauges/FREI3`` (no USGS site) and ``/gauges/SERI3`` (thresholds, impacts, USGS site), and USGS
@@ -32,8 +33,9 @@ from fire3d.floods import history  # noqa: E402
 from fire3d.sources import nwps, nws, usgs_water  # noqa: E402
 
 OUT = Path(__file__).resolve().parents[1] / "tests" / "data" / "floods" / "iem"
-START = "2025-04-03T00:00Z"
-END = "2025-04-03T06:00Z"
+START = "2025-04-01T00:00Z"
+END = "2025-04-06T00:00Z"
+WFOS = ("IND", "LMK")             # two offices keep the sample small
 FL_EVENT = {"wfo": "IND", "year": 2025, "phenomena": "FL", "significance": "W", "etn": 30}
 FF_EVENT = {"wfo": "LMK", "year": 2025, "phenomena": "FF", "significance": "W", "etn": 23}
 GAUGE = "SERI3"                  # East Fork White River near Seymour (USGS 03365500)
@@ -62,15 +64,18 @@ def main(argv: list[str] | None = None) -> int:
                    f"{' (cache)' if resp.from_cache else ''}; {len(resp.content):,} bytes")
         print(f"{name}: {len(resp.content):,} bytes")
 
-    r = fhttp.request("GET", history.WATCHWARN_URL, params=history.watchwarn_params(s, e), ttl_s=None, timeout=180)
-    save("watchwarn_2025-04-03T00-06.csv", r, f"IEM watchwarn.py CSV, FL.W + FF.W issued {START}..{END}, with "
-         "follow-up polygons (addsvs=1)")
-    r = fhttp.request("GET", history.SBW_URL, params=history.sbw_params(s, e), ttl_s=None, timeout=180)
-    save("sbw_2025-04-03T00-06.geojson", r, f"IEM api/1/vtec/sbw_interval.geojson, FL + FF issued {START}..{END}")
+    p1 = {**history.watchwarn_params(s, e), "wfo": ",".join(WFOS)}
+    r = fhttp.request("GET", history.WATCHWARN_URL, params=p1, ttl_s=None, timeout=180)
+    save("watchwarn_IND_LMK_2025-04-01_05.csv", r, f"IEM watchwarn.py CSV, FL.W + FF.W of NWS {'/'.join(WFOS)} issued "
+         f"{START}..{END}, with follow-up polygons (addsvs=1)")
+    p2 = history.sbw_params(s, e) + [("wfo", w) for w in WFOS]
+    r = fhttp.request("GET", history.SBW_URL, params=p2, ttl_s=None, timeout=180)
+    save("sbw_IND_LMK_2025-04-01_05.geojson", r, f"IEM api/1/vtec/sbw_interval.geojson, FL + FF of NWS "
+         f"{'/'.join(WFOS)} issued {START}..{END}")
     import csv
     import io
 
-    rows = list(csv.DictReader(io.StringIO((out / "watchwarn_2025-04-03T00-06.csv").read_text())))
+    rows = list(csv.DictReader(io.StringIO((out / "watchwarn_IND_LMK_2025-04-01_05.csv").read_text())))
     lids = sorted({x["hvtec_nwsli"] for x in rows if x.get("hvtec_nwsli") and x["hvtec_nwsli"] != "00000"})
     url, params = nwps.riv_gauges_query(0, "gaugelid in (" + ",".join(f"'{x}'" for x in lids[:history.GAUGE_BATCH]) + ")")
     params["outFields"] = "gaugelid,location,waterbody,state,latitude,longitude,wfo,url"

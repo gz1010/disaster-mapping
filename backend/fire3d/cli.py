@@ -130,10 +130,7 @@ def resolve_incident(ref: str) -> str:
 def _flood_rows(mode: str, year: int | None, refresh: bool) -> tuple[list[dict], dict]:
     """(floods, list answer) of the live list or a year list (built here and now when it is not ready)."""
     if mode == "historical":
-        try:
-            from .floods import history
-        except ImportError:                  # past floods come with backend-flood-live M2
-            raise SystemExit("past floods are not listed yet") from None
+        from .floods import history
 
         lst = history.year_list(year or history.default_year(), wait=True)
     else:

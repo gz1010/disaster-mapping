@@ -463,7 +463,7 @@ interface Aircraft {
 
 | Method | Path | Response |
 |---|---|---|
-| GET | `/api/floods?mode=live\|historical&year=` | `FloodListResponse` `{hazard: "flood", mode, updated_ms, year?, past_rule?, preparing?, floods: FloodSummary[], sources: FloodListSource[], products_in_effect}`. Live: NWS flood products in effect or upcoming in the lower 48 + DC (Flood Warning, Flash Flood Warning, Flood Watch, Flash Flood Watch, Flood Advisory and their statements; coastal and lakeshore products are out) and river gauges observed at minor flooding or worse, grouped per river or area (§8.8), ordered by `floodRank` (CONTRACT §16.8); watches are included (the web hides them by default). `sources[]` (`nws_alerts`, `nwps_gauges`, `rfc_forecasts`; `iem_archive` for past years, and in the live list the IEM copy of NWS warnings that links gauges to them): NWS down → floods from gauges only (`FLOOD_NWS_DOWN`; their caveat says NWS could not be reached); gauges down → from NWS products only (`FLOOD_GAUGES_DOWN`); both down → the flood bundles on disk only (`FLOOD_LISTS_DOWN`), still a 200 whose sources say why (not CONTRACT §16.7's 503; contract5 note); never "no floods" for an outage. `products_in_effect` is null when NWS could not be read. Cached 5 min (60 s while degraded); a cold build makes at most 6 upstream requests. |
+| GET | `/api/floods?mode=live\|historical&year=` | `FloodListResponse` `{hazard: "flood", mode, updated_ms, year?, past_rule?, preparing?, floods: FloodSummary[], sources: FloodListSource[], products_in_effect}`. Live: NWS flood products in effect or upcoming in the lower 48 + DC (Flood Warning, Flash Flood Warning, Flood Watch, Flash Flood Watch, Flood Advisory and their statements; coastal and lakeshore products are out) and river gauges observed at minor flooding or worse, grouped per river or area (§8.8), ordered by `floodRank` (CONTRACT §16.8); watches are included (the web hides them by default). Historical (`year` 2026 or 2025, default this year; §8.10): `past_rule` `"moderate_or_worse"`, `preparing: true` while the one-time year build runs, then the year's floods (mode `historical`; this year's floods still in the live list are served as their live rows); other years an empty list whose `iem_archive` source says which years are kept. `sources[]` (`nws_alerts`, `nwps_gauges`, `rfc_forecasts`; `iem_archive` for past years, and in the live list the IEM copy of NWS warnings that links gauges to them): NWS down → floods from gauges only (`FLOOD_NWS_DOWN`; their caveat says NWS could not be reached); gauges down → from NWS products only (`FLOOD_GAUGES_DOWN`); both down → the flood bundles on disk only (`FLOOD_LISTS_DOWN`), still a 200 whose sources say why (not CONTRACT §16.7's 503; contract5 note); never "no floods" for an outage. `products_in_effect` is null when NWS could not be read. Cached 5 min (60 s while degraded); a cold build makes at most 6 upstream requests. |
 | GET | `/api/floods/status` | `FloodLiveStatus` `{last_refresh_ms, next_refresh_ms, active_floods, gauges_in_flood, auto_build}` from the flood live loop (§8.9) once it has run a cycle, else from the cached list; counts null when the lists could not be read (never 0); `auto_build` only while the loop runs with auto-build on. |
 | GET | `/api/floods/{id}` | `FloodDetailResponse` `{summary, manifest: FloodManifest \| null, job: JobStatus \| null, resolved_from}`. Resolution (PLAN-5 §3.2 rule 13): the live list → the year lists → a registry alias (the canonical summary; the web replaces the URL) → the bundle's frozen summary → the registry's last-known summary → 404. 503 "The flood lists could not be reached right now; try again later." when the lists could not decide and nothing is on disk, never 404. `fixture-flood-<kind>` ids are 404 here (fixture server only). |
 | POST | `/api/floods/{id}/build?force=0\|1` | `JobStatus` (kind "build", `incident_id` = the flood id). 409 for `fixture-flood` or a flood outside the lower 48. |
@@ -471,8 +471,8 @@ interface Aircraft {
 | GET | `/api/floods/{id}/maps?kind=rfc_fim\|catfim\|nfhl&lid=&category=&at_ms=` | `FloodMapResponse`: the NWS forecast flooded area (next 5 days, experimental), NWS category flood maps (experimental), FEMA's 1 % floodplain (background, with `availability` and effective dates); past times `not_available_for_past_dates` (CatFIM answers today's library with a caveat). |
 | GET | `/api/floods/{id}/model?kind=nwm_analysis\|nwm_5day\|nwm_high_flow\|nwm_series&lid=` | `ModelOutputResponse` (National Water Model, experimental model output; `MODEL_CAVEAT` always); past times `not_available_for_past_dates`. |
 | GET | `/api/floods/{id}/satellite?at_ms=` and `/api/floods/{id}/satellite.png?granule=` | `SatelliteWaterResponse` (water seen by satellite, NASA OPERA DSWx; `login` "not_configured" \| "configured" \| "refused", never the token) and its PNG (cloud and no-data pixels drawn as "no view", never transparent). |
-| GET | `/api/official/flood-alerts?flood=<id>\|bbox=w,s,e,n&at_ms=` | `FloodAlertsResponse`: NWS flood products verbatim with issuer, own times, IANA zone and link, from the one national request the list uses (2 min); a flood: its own events (VTEC key, else CAP id) and attached watches; an area or point (w = e, s = n): every product touching it, watches included, with `covers_point`; zone-based products drawn from at most 20 NWS zone outlines, then whole counties (`ZONES_AS_COUNTIES`); `ALERTS_UNAVAILABLE` when NWS cannot be read (never `NO_PRODUCT`); past times not yet (`ALERTS_PAST_NOT_YET`; the IEM archive comes with backend-flood-live); 422 without `flood` or `bbox`. |
-| GET | `/api/official/river-gauges?flood=<id>\|bbox=\|lid=\|scope=national&min=action&series=0\|1&at_ms=` | `RiverGaugesResponse`: gauges, NWS flood categories and thresholds, USGS-measured readings (provisional), the official RFC forecast with its issue time; `bbox` and nearby gauges from the NWS `riv_gauges` map service (layer 0, and layer 15 for which are forecast points), NWPS per `lid` only; a nearby gauge's forecast is `rfc_max_forecast`'s when it is listed there, else null (`is_forecast_point` still says it has one; `?lid=` has it exactly); members fall back to the map's reading with `GAUGE_DETAIL_DOWN` when NWPS cannot be read; `bbox` of a point looks 10 km around it; 404 for a `lid` NOAA does not know; the fixture's fictional `ZZ…` gauges answer from its bundle; an `at_ms` older than 6 h answers `not_available_for_past_dates` (`GAUGES_PAST_NOT_YET`; never today's readings for a past time); 422 without a scope. |
+| GET | `/api/official/flood-alerts?flood=<id>\|bbox=w,s,e,n&at_ms=` | `FloodAlertsResponse`: NWS flood products verbatim with issuer, own times, IANA zone and link, from the one national request the list uses (2 min); a flood: its own events (VTEC key, else CAP id) and attached watches; an area or point (w = e, s = n): every product touching it, watches included, with `covers_point`; zone-based products drawn from at most 20 NWS zone outlines, then whole counties (`ZONES_AS_COUNTIES`); `ALERTS_UNAVAILABLE` when NWS cannot be read (never `NO_PRODUCT`); a flood at a past time (`at_ms` older than 6 h): its archived products from the IEM archive (§8.10: every version sent by then, the event's own segment verbatim, `archived: true`, source IEM; `not_available_for_past_dates` before the flood's first product; `unavailable` when IEM cannot be read); an area at a past time `not_available_for_past_dates` (products are served per flood); 422 without `flood` or `bbox`. |
+| GET | `/api/official/river-gauges?flood=<id>\|bbox=\|lid=\|scope=national&min=action&series=0\|1&at_ms=` | `RiverGaugesResponse`: gauges, NWS flood categories and thresholds, USGS-measured readings (provisional), the official RFC forecast with its issue time; `bbox` and nearby gauges from the NWS `riv_gauges` map service (layer 0, and layer 15 for which are forecast points), NWPS per `lid` only; a nearby gauge's forecast is `rfc_max_forecast`'s when it is listed there, else null (`is_forecast_point` still says it has one; `?lid=` has it exactly); members fall back to the map's reading with `GAUGE_DETAIL_DOWN` when NWPS cannot be read; `bbox` of a point looks 10 km around it; 404 for a `lid` NOAA does not know; the fixture's fictional `ZZ…` gauges answer from its bundle; an `at_ms` older than 6 h (§8.10): a flood's member gauges or one `lid` with USGS's measured stage and flow around that time (provisional), NWS's flood stages of today (`THRESHOLDS_TODAY`), no forecast (`PAST_NO_FORECAST`), the reading's category `unknown`; an area `not_available_for_past_dates`; never today's readings for a past time; 422 without a scope. |
 | GET | `/api/official/local-alerts?...&hazard=fire\|flood`, `/api/extras/evacuations?...&hazard=fire\|flood` | The existing answers; `hazard` defaults to `fire` (byte-for-byte as before). `flood`: local messages about flood, water, levees or dams; Oregon's wildfire-only evacuation feed answers not-available (`OR_EVAC_FIRE_ONLY`); Cal OES `event_type` verbatim. |
 
 Official endpoints (BRIEF-2; built in `backend/fire3d/api/official.py`, details in `docs/redesign/CONTRACT.md` §13). An upstream failure is not an HTTP error: they answer 200 with `status: "unavailable"` (or `"not_available_for_past_dates"` for the archive). Errors: 400 bad id, 404 unknown incident, 422 bad query, 429 Fire-3d's own request limit (NWS 30/min, IEM 30/min). JSON is `Cache-Control: no-store`.
@@ -1001,7 +1001,7 @@ flood (no zone outline, product text, gauge detail or series) is requested in th
     from gauges only, gauges down → from products only, both down → the flood bundles on disk only. Cached 5 min, 60 s
     while degraded.
 12. **Order:** `floodRank` (CONTRACT §16.8), then the newest update.
-13. **`GET /api/floods/{id}`** resolves: the live list → (the year lists, brief 5 live M2) → a registry alias (the
+13. **`GET /api/floods/{id}`** resolves: the live list → the year lists (§8.10, cached lists only) → a registry alias (the
     canonical summary) → the bundle's frozen summary → the last-known summary (`data/floods/last_known/{id}.json`) →
     404; 503 "The flood lists could not be reached right now; try again later." when the lists could not decide and
     nothing is on disk. A summary from the alias, bundle or last-known step is shown as it left the lists (rule 8).
@@ -1045,6 +1045,46 @@ CLI: `uv run python -m fire3d.cli catalog --hazard flood [--mode live|historical
 `uv run python -m fire3d.cli build-flood <id-or-name> [--force]` builds one flood bundle with progress (the API's
 build gate: 404 / 409 / 503 texts); `uv run python scripts/check_bundle.py --hazard flood <id>` checks a flood bundle
 (strict contracts, layer encodings, credits, absolute times, no secret).
+
+### 8.10 Past floods (`fire3d/floods/history.py`; brief 5, user decision U1 (a))
+
+Year lists for 2026 and 2025 (`PAST_YEARS`), built **once per year in a background thread** on the first request
+(`preparing: true` until then; the CLI `catalog --hazard flood --mode historical --year Y` builds and waits), kept in
+memory and on disk (`data/floods/years/{year}.json`): for good for a closed year, rebuilt after 6 h for the current one.
+A failed or partial build is retried after 10 min and never replaces a complete list.
+
+- **Sources:** the Iowa Environmental Mesonet's archive of NWS products (an archived copy, credited "National Weather
+  Service, archived copy via the Iowa Environmental Mesonet (Iowa State University)"). Per month two requests:
+  `cgi-bin/request/gis/watchwarn.py?accept=csv&limit1=1&limitps=1&phenomena=FL,FF&significance=W,W&addsvs=1` (one row
+  per storm-based warning polygon, issuance and every follow-up statement, with the H-VTEC NWSLI and severity, the damage
+  tag and the emergency flag) and `api/1/vtec/sbw_interval.geojson?ph=FL&ph=FF` (the issuance polygons, the year, the
+  counties; the first month starts 14 days earlier because the two services cut their windows differently). Rows and
+  polygons are joined by VTEC key after all months are read. The gauges' names, rivers and positions come from the NWS
+  `riv_gauges` map (`gaugelid in (...)`, 150 a request, cached 30 days). About 30 requests a year on `nws.IEM_LIMITER`
+  (30 a minute, shared with the fire archive; the build waits for a slot); cached for good for a closed year's months,
+  30 days for this year's closed months, 6 h for the current month. Measured 2026-11-05: 2025 in 24 IEM + 5 map
+  requests (23 s, 1,976 floods); 2026 in 22 + 3 (25 s, 2,108 floods).
+- **Rule (`past_rule: "moderate_or_worse"`, PAST_RULE):** river Flood Warnings (FL.W) at an NWS gauge whose H-VTEC
+  severity reached 2 (moderate) or 3 (major) in any of their products; Flash Flood Warnings (FF.W) whose damage threat
+  reached CONSIDERABLE or CATASTROPHIC, or that IEM marks as an emergency; lower 48 + DC. The fallback rule is not
+  needed (the bulk route has severity and tags).
+- **Grouping:** one river flood per gauge episode (warnings at one gauge less than 48 h apart; the same gauge flooding
+  again later is another flood); flash floods joined when their issuance polygons overlap 30 % of the smaller within
+  12 h. Names as §8.8 rule 9 (the gauge's river; the largest place in a flash flood's polygon), duplicates numbered.
+- **Ids:** a VTEC key in the registry gives its live id (and the live name from the last-known summary), so a 2026
+  flood Fire-3d saw live keeps its id; rows of one live id are merged. Other ids are deterministic
+  (`flood-{YYYYMMDD of the first product}-{slug of the name before duplicate suffixes}-{h6 of the gauge or the oldest
+  VTEC key}`).
+- **Rows:** `mode: "historical"`, `status: "inactive"`, level `warning`, `started_ms` = the first product's issue time
+  (`nws_product`), `ended_ms` = the last expiry, `expires_ms` null, `max_category` from the H-VTEC severity (NWS's own
+  category for the event), `gauges_in_flood` 0 (no reading kept), products `archived` with phase `ended` and IEM's event
+  page as `url`, `products_in_effect` null.
+- **Per flood at a past time:** NWS products from IEM's `json/vtec_event.py` (on demand, at most 12 events, cached 30
+  days once over), every version sent up to `at_ms` with the event's own segment verbatim and its `LAT...LON` polygon;
+  gauge readings from USGS (`api.waterdata.usgs.gov/ogcapi/v1`, stage 00065 and flow 00060, provisional, no key) for the
+  flood's span ± a few days (at most 40 days), NWS thresholds and impacts of today (`THRESHOLDS_TODAY`), no forecast
+  (`PAST_NO_FORECAST`); NWS forecast maps and the National Water Model `not_available_for_past_dates`; satellite water
+  from the passes of the 10 days before `at_ms` (2023 on).
 
 ## 9. Frontend
 
