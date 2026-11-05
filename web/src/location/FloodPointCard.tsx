@@ -13,7 +13,8 @@
 // the flood's layers says about the spot (location/floodCheck.ts checkPoint: inside or the distance to the NWS warning
 // area and the NWS forecast flooded area, the satellite's view of the spot: water, no water, clouds, no data or outside
 // the image; FEMA when its layer is on), each tagged with its kind; Public ends it with the link to the experimental
-// model in Command.
+// model in Command. Brief 6 (web-flood-playback, declared edit; review WFP-R1, WFP-R2): the block follows the chart's
+// handle as the map does (a past step's own NWS versions and satellite pass); Public has no handle and shows now.
 import { ArrowRight, ChevronRight, Droplets, ExternalLink } from 'lucide-react'
 import { useMemo } from 'react'
 import { API_BASE } from '../api/client'
@@ -27,8 +28,9 @@ import { fmtAt, timeFmt } from '../lib/time'
 import { useNow } from '../ui/hooks'
 import { useShallow } from 'zustand/react/shallow'
 import { useFloodOfficial, useSatClassAt } from '../official/floodHooks'
-import { answerState, officialAlerts } from '../official/floodModel'
+import { answerState } from '../official/floodModel'
 import { openFloodSummary, pickFlood, useFlood } from '../state/flood'
+import { useFloodHandleMs, useProductsAtHandle, useSatelliteAtHandle } from '../state/floodTimelineData'
 import { applyView } from '../ui/shell/views'
 import { checkPoint, type FloodCheckKind } from './floodCheck'
 import { getSlot } from '../state/floodCatalog'
@@ -76,22 +78,28 @@ function CheckText({ text, event }: { text: string; event?: string }) {
 
 /** A flood view: what each of the open flood's layers says about the spot (checkPoint), each line tagged. */
 export function FloodViewBlock({ sel }: { sel: SelectedLocation }) {
-  const fl = useFlood(useShallow((s) => ({ summary: openFloodSummary(s), cursorMs: s.cursorMs, floodplain: s.layers.floodplain })))
+  const fl = useFlood(useShallow((s) => ({ summary: openFloodSummary(s), floodplain: s.layers.floodplain })))
   const off = useFloodOfficial(useShallow((s) => ({ alerts: s.alerts, fim: s.fim, satellite: s.satellite, nfhl: s.nfhl })))
   const units = useWorkspace((s) => s.units)
   const publicView = useWorkspace((s) => s.preset === 'public')
   const tf = useTimeFormatFor(fl.summary?.time_zone)
   const nowMs = useNow(60_000)
-  const satClass = useSatClassAt(sel.lon, sel.lat)
+  // brief 6 (web-flood-playback, declared edit; review WFP-R2): the NWS products and the satellite pass at the chart's
+  // handle, as the map draws them (Public has no handle: always now, review WFP-R1)
+  const cursorMs = useFloodHandleMs()
+  const products = useProductsAtHandle(off.alerts.data)
+  const satAt = useSatelliteAtHandle(off.satellite.data)
+  const satClass = useSatClassAt(sel.lon, sel.lat, satAt)
   const a = off.alerts
-  const alertsStatus = a.data ? a.data.status : a.loading ? 'loading' : a.error ? 'failed' : 'loading'
+  const alertsStatus = products.source === 'timeline' ? 'available' : a.data ? a.data.status : a.loading ? 'loading' : a.error ? 'failed' : 'loading'
   const c = checkPoint({
     point: [sel.lon, sel.lat],
-    alerts: officialAlerts(a.data),
+    alerts: products.alerts,
+    shown: products,
     alertsStatus,
-    zones: a.data?.zones ?? null,
+    zones: products.zones,
     fim: off.fim.data,
-    satellite: off.satellite.data,
+    satellite: satAt,
     // each layer's own state: a failed request says so and a running one blocks NOTHING_COVERS (review WFP-R1)
     // (both are always asked for an open flood: not asked yet reads as loading)
     fimState: asked(answerState(off.fim)),
@@ -102,7 +110,7 @@ export function FloodViewBlock({ sel }: { sel: SelectedLocation }) {
     model: null,
     gauges: [],
     rivers: fl.summary?.rivers ?? [],
-    cursorMs: fl.cursorMs,
+    cursorMs,
     nowMs,
     tf,
     units,

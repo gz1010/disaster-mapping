@@ -43,3 +43,11 @@ store), `ui/timeline/floodPlaybackCopy.ts` (strings, under the flood wording gua
   102 versions). Gates: backend 1466 passed; web typecheck, lint (55 warnings, all in src/scene), 1888 tests, build.
   Report `docs/redesign/reports/brief6-web-flood-playback.json`, as-built `docs/redesign/contract6/web-flood-playback.md`,
   CONTRACT §17 pointer.
+
+## Review fixes (review6, WFP-R1 … R10)
+
+- 2026-11-05: started. Read the ten findings, verified each against the code (all real). Plan: R1 Public follows now
+  (cursor reset on entering Public + read-time rule), R2 readout and point card at the handle (productsAt, the pass and
+  its class sampler, area figures), R3 "NWS at this time" list (issuer, own times, link, archived tag) + IEM credit,
+  R4 credits at the handle, R5 phone gap line, R6 "now" tags on chips, R7 ticks, R8 tooltip text refresh, R9 neutral
+  word, R10 test timeouts.

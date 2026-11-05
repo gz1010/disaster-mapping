@@ -5,9 +5,12 @@
 //   - Play never starts by itself (no autoplay); it runs one step every PLAY_STEP_MS and stops at the latest step.
 //   - Under prefers-reduced-motion Play never runs on a timer: each press shows the next step.
 //   - Moving the handle by hand (drag, keys, NOW, another flood) pauses Play; back at now the axis returns to 72 h.
+//   - Entering the Public view (no time handle) stops Play and puts the handle back at now (review WFP-R1).
 import { create } from 'zustand'
 import { useFlood } from '../../state/flood'
 import { playStart, step, STEP_EPS_MS, type FloodKeyframe } from '../../state/floodTimeline'
+import { isPublicView } from '../../state/floodTimelineData'
+import { useWorkspace } from '../../state/workspace'
 import { DAY_MS, HOUR_MS } from '../../lib/time'
 import { HYDRO_PAST_MS } from './hydrographModel'
 
@@ -73,6 +76,21 @@ export function playbackAxisStart(frames: readonly FloodKeyframe[], engaged: boo
   const first = frames[0].t - AXIS_PAD_MS
   return Math.max(nowMs - AXIS_MAX_PAST_MS, Math.min(nowMs - HYDRO_PAST_MS, first))
 }
+
+/** Entering the Public view (it has no time handle; BRIEF-6 decision 2): Play stops and the handle goes back to now, so
+ *  Public never shows a step Command or Forensic left (review WFP-R1). */
+export function leavePlaybackForPublic(): void {
+  const pb = useFloodPlayback.getState()
+  if (pb.playing || pb.engaged) useFloodPlayback.setState({ playing: false, engaged: false })
+  if (useFlood.getState().cursorMs != null) {
+    lastSet = undefined
+    useFlood.getState().setCursor(null)
+  }
+}
+
+useWorkspace.subscribe((s, p) => {
+  if (isPublicView(s) && !isPublicView(p)) leavePlaybackForPublic()
+})
 
 // the handle back at now ends the stepping (the axis returns to 72 h); a hand move pauses Play; another flood resets
 useFlood.subscribe((s, p) => {

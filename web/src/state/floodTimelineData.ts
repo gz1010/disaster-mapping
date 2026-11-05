@@ -8,10 +8,12 @@
 import { useEffect, useMemo } from 'react'
 import { create } from 'zustand'
 import { API_BASE, describeError, fetchJson } from '../api/client'
-import type { FloodTimelineResponse, SatelliteWaterResponse } from '../api/types'
-import { satelliteAtHandle } from '../map/floodAreaLayers'
+import type { FloodAlertsResponse, FloodTimelineResponse, SatelliteWaterResponse } from '../api/types'
+import { productsAtHandle, satelliteAtHandle, type ProductsAtHandleZones } from '../map/floodAreaLayers'
+import { officialAlerts } from '../official/floodModel'
 import { useNow } from '../ui/hooks'
 import { useFlood } from './flood'
+import { useWorkspace, type WorkspaceState } from './workspace'
 
 export interface FloodTimelineState {
   /** The flood the answer is for (null: none asked). */
@@ -143,14 +145,41 @@ export function useFloodTimelineSync(floodId: string | null | undefined): void {
   }, [floodId])
 }
 
+/** The Public view is on screen (the map workspace in the Public preset; Forensic keeps the preset it came from). */
+export const isPublicView = (s: Pick<WorkspaceState, 'workspace' | 'preset'>): boolean => s.workspace === 'map' && s.preset === 'public'
+
+/** The handle a view follows: Public has no time handle (BRIEF-6 decision 2; review WFP-R1), so it always shows now,
+ *  whatever handle Command or Forensic left; elsewhere the chart's handle (null = now). */
+export function handleFor(publicView: boolean, cursorMs: number | null): number | null {
+  return publicView ? null : cursorMs
+}
+
+/** The open flood's handle for the view on screen (handleFor). */
+export function useFloodHandleMs(): number | null {
+  const cursorMs = useFlood((s) => s.cursorMs)
+  const pub = useWorkspace(isPublicView)
+  return handleFor(pub, cursorMs)
+}
+
 /** The satellite answer the 2D views show at the chart's handle (map/floodAreaLayers.ts satelliteAtHandle): the
- *  route's own answer at now; before now the pass at the handle (its own date), or none before the first pass. */
+ *  route's own answer at now (and always in Public); before now the pass at the handle (its own date), or none before
+ *  the first pass. */
 export function useSatelliteAtHandle(base: SatelliteWaterResponse | null | undefined): SatelliteWaterResponse | null {
   const floodId = useFlood((s) => s.floodId)
-  const cursorMs = useFlood((s) => s.cursorMs)
+  const cursorMs = useFloodHandleMs()
   const tl = useFloodTimeline((s) => timelineFor(s, floodId))
   const nowMs = useNow(60_000)
   return useMemo(() => satelliteAtHandle(base, tl, cursorMs, nowMs), [base, tl, cursorMs, nowMs])
+}
+
+/** The NWS products at the handle with their zones (map/floodAreaLayers.ts productsAtHandle): what the map draws, for
+ *  the point checks (review WFP-R2) and the archive's credit (WFP-R3). `live`: the flood-alerts answer. */
+export function useProductsAtHandle(live: FloodAlertsResponse | null | undefined): ProductsAtHandleZones & { timeline: FloodTimelineResponse | null } {
+  const floodId = useFlood((s) => s.floodId)
+  const cursorMs = useFloodHandleMs()
+  const tl = useFloodTimeline((s) => timelineFor(s, floodId))
+  const nowMs = useNow(60_000)
+  return useMemo(() => ({ ...productsAtHandle(live, officialAlerts(live), tl, cursorMs, nowMs), timeline: tl }), [live, tl, cursorMs, nowMs])
 }
 
 declare global {

@@ -46,7 +46,7 @@ import {
   satelliteTiles,
   warningsAtHandle,
 } from './floodAreaLayers'
-import { timelineFor, useFloodTimeline } from '../state/floodTimelineData'
+import { handleFor, isPublicView, timelineFor, useFloodTimeline } from '../state/floodTimelineData'
 import { useNationalGauges } from './floodGaugeStatus'
 import {
   CATFIM_HATCH_IMAGE,
@@ -320,10 +320,12 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
     const extra = useFloodLayerData.getState()
     const mineExtra = s != null && extra.floodId === s.id
     const nowMs = Date.now()
-    // the flood's time history: the satellite pass and the NWS versions at the handle (brief 6)
+    // the flood's time history: the satellite pass and the NWS versions at the handle (brief 6); Public has no time
+    // handle and always draws now, whatever handle Command or Forensic left (review WFP-R1)
     const tl = s ? timelineFor(useFloodTimeline.getState(), s.id) : null
-    const sat = satelliteAtHandle(off.satellite.data, tl, fl.cursorMs, nowMs)
-    const cursorBucket = fl.cursorMs == null ? 'now' : String(Math.round(fl.cursorMs / 60_000))
+    const cursorMs = handleFor(isPublicView(useWorkspace.getState()), fl.cursorMs)
+    const sat = satelliteAtHandle(off.satellite.data, tl, cursorMs, nowMs)
+    const cursorBucket = cursorMs == null ? 'now' : String(Math.round(cursorMs / 60_000))
     const key = mine
       ? [
           s.id,
@@ -348,7 +350,7 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
       areaKey = key
       // the products at the chart's handle: before now the timeline's versions, at and after now the point check's own
       // rule (productsShown; review WFC-R1)
-      setData(FLOOD_AREA_SOURCES.warnings, mine ? warningsAtHandle(off.alerts.data, officialAlerts(off.alerts.data), tl, fl.cursorMs, nowMs) : EMPTY_FC)
+      setData(FLOOD_AREA_SOURCES.warnings, mine ? warningsAtHandle(off.alerts.data, officialAlerts(off.alerts.data), tl, cursorMs, nowMs) : EMPTY_FC)
       setData(FLOOD_AREA_SOURCES.forecast, mine ? mapFeatures(off.fim.data) : EMPTY_FC)
       setData(FLOOD_AREA_SOURCES.floodplain, mine ? nfhlFeatures(off.nfhl.data) : EMPTY_FC)
       setData(FLOOD_AREA_SOURCES.satelliteEdge, mine ? satelliteEdge(sat) : EMPTY_FC)

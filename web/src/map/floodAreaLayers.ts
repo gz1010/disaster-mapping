@@ -21,7 +21,8 @@
 // Ids start with fx-flood- (never a fire id). Never the model and never NWS category maps in Public (floodProfile.ts).
 import type { LayerSpecification } from 'maplibre-gl'
 import type { FloodAlert, FloodAlertsResponse, FloodMapResponse, FloodTimelineResponse, SatelliteWaterResponse } from '../api/types'
-import { passAt, passesOf, productsAt, STEP_EPS_MS } from '../state/floodTimeline'
+import { passAt, passesOf, productsAt, STEP_EPS_MS, type ProductsAtHandle } from '../state/floodTimeline'
+import { ARCHIVED_COPY } from '../ui/shell/floodCopy'
 import { PLAYBACK } from '../ui/timeline/floodPlaybackCopy'
 import { VECTOR_SOURCE } from './basemapStyle'
 import { FLOOD_ALERT, FLOOD_AREA, FLOOD_TOKENS } from './floodStyle'
@@ -171,8 +172,27 @@ export function satelliteAtHandle(
   }
 }
 
-/** The NWS warning areas at the handle (brief 6; module docstring): the timeline's versions before now (zone-based ones
- *  from the timeline's zones), the live answer's productsShown at and after now (C1). */
+/** The NWS products at the handle and the zones that outline the zone-based ones. */
+export interface ProductsAtHandleZones extends ProductsAtHandle {
+  zones: FloodAlertsResponse['zones'] | null
+}
+
+/** The NWS products at the handle (brief 6; module docstring): the timeline's versions before now with the timeline's
+ *  zones, the live answer's productsShown (C1) with its zones at and after now. The map's warning areas and the point
+ *  checks (location/floodCheck.ts) both use it, so a spot is judged by exactly what the map draws (review WFP-R2). */
+export function productsAtHandle(
+  live: FloodAlertsResponse | null | undefined,
+  liveAlerts: readonly FloodAlert[],
+  tl: FloodTimelineResponse | null | undefined,
+  cursorMs: number | null,
+  nowMs: number,
+): ProductsAtHandleZones {
+  const products = tl?.products?.status === 'available' ? tl.products.products : null
+  const r = productsAt(products, liveAlerts, cursorMs, nowMs)
+  return { ...r, zones: (r.source === 'timeline' ? tl?.products?.zones : live?.zones) ?? null }
+}
+
+/** The NWS warning areas at the handle (productsAtHandle drawn). */
 export function warningsAtHandle(
   live: FloodAlertsResponse | null | undefined,
   liveAlerts: readonly FloodAlert[],
@@ -180,9 +200,17 @@ export function warningsAtHandle(
   cursorMs: number | null,
   nowMs: number,
 ): FeatureCollection {
-  const products = tl?.products?.status === 'available' ? tl.products.products : null
-  const r = productsAt(products, liveAlerts, cursorMs, nowMs)
-  return warningFeatures(r.alerts, r.source === 'timeline' ? tl?.products?.zones : live?.zones)
+  const r = productsAtHandle(live, liveAlerts, tl, cursorMs, nowMs)
+  return warningFeatures(r.alerts, r.zones)
+}
+
+/** The archive's credit while NWS versions from the IEM archive are drawn at the handle (review WFP-R3), else null. */
+export function archiveCreditAtHandle(r: Pick<ProductsAtHandle, 'alerts' | 'source'>, tl: FloodTimelineResponse | null | undefined): { text: string; href: string | null } | null {
+  if (r.source !== 'timeline' || !r.alerts.some((a) => a.archived)) return null
+  const src = tl?.products?.archive_source
+  const text = src?.credit?.trim() || ARCHIVED_COPY
+  const href = [src?.terms_url, src?.url].find((u): u is string => typeof u === 'string' && u.startsWith('https://')) ?? null
+  return { text, href }
 }
 
 /** The polygons of a map answer (an available answer only). */

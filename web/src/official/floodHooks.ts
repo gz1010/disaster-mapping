@@ -214,10 +214,13 @@ export function pngClassAt(img: Pick<ImageData, 'width' | 'height' | 'data'>, fx
 }
 
 /** The satellite class at a spot for the point check (C2): the bundle's classes when they are the shown image, else
- *  the picture's pixels; undefined while loading or without an image. Browser only. */
-export function useSatClassAt(lon: number | null, lat: number | null): SatClassAt {
+ *  the picture's pixels; undefined while loading or without an image. Browser only. `satAt` (brief 6, web-flood-playback
+ *  declared edit; review WFP-R2): the satellite answer shown at the chart's handle (state/floodTimelineData.ts
+ *  useSatelliteAtHandle: a past step's own pass and image); omitted, the satellite route's answer. */
+export function useSatClassAt(lon: number | null, lat: number | null, satAt?: SatelliteWaterResponse | null): SatClassAt {
   const manifest = useFlood((s) => (s.manifest && s.manifest.id === s.floodId ? s.manifest : null))
-  const sat = useFloodOfficial((s) => s.satellite.data)
+  const routeSat = useFloodOfficial((s) => s.satellite.data)
+  const sat = satAt === undefined ? routeSat : satAt
   const [out, setOut] = useState<{ key: string; v: SatClassAt } | null>(null)
   const img = sat?.status === 'available' && sat.measured ? sat.image : null
   const bin = bundleSatBin(manifest, sat)
