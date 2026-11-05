@@ -74,5 +74,10 @@
   "cut_line_done": [
     "Metric units in the hydrograph tooltip: the handle's title gives the value in the original units."
   ],
-  "commits": []
+  "commits": [
+    "74258f8 brief 5 web-flood-command: M1 hydrograph",
+    "3d9370c brief 5 web-flood-command: M2 Command flood chrome, readout, legend chips, Official now",
+    "546895f brief 5 web-flood-command: M3 layers drawer, model, high-flow and CatFIM layers, gauge picker, past floods, phones, screenshots"
+  ],
+  "secret_scan": "count-only scan of this role's diff for FIRMS_MAP_KEY / EARTHDATA_TOKEN values and Bearer credentials: 0; 'FireTrace': 0"
 }
