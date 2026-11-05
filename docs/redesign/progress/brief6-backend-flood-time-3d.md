@@ -40,4 +40,4 @@ time history and the 3D terrain products, their routes in `api/floods.py`, `floo
 - 2026-11-05: **Final.** Report `docs/redesign/reports/brief6-backend-flood-time-3d.json` (JSON samples of
   `/timeline` for Calcasieu River and the fixture, the pass PNG route, a bundle pass, `manifest.terrain3d` and the
   `hand` layer of St Johns River), as-built note `docs/redesign/contract6/backend-flood-time-3d.md`. Count-only scans:
-  0 secret hits, no "FireTrace". API on 8762 stopped.
+  0 secret hits; the banned reference-demo name appears nowhere. API on 8762 stopped.
