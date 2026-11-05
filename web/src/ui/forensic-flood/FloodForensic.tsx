@@ -12,10 +12,11 @@
 //     scene loads by itself when the job is done
 // The prototype line and "Not an all-clear. Follow local officials." (FixedCopy) stay on every state, phones included.
 import { BarChart3, Crosshair, Map as MapIcon, PanelBottomClose, PanelBottomOpen, RotateCcw } from 'lucide-react'
-import { lazy, Suspense, useRef, useState } from 'react'
+import { lazy, Suspense, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { fmtAt } from '../../lib/time'
 import { floodAssetStore, useFloodAssetsError } from '../../scene/flood/floodAssets'
+import { setFloodOverlayRect } from '../../scene/flood/floodOverlayRects'
 import { useSceneStore } from '../../scene/sceneStore'
 import { floodPrepState } from '../../state/floodBuild'
 import { openFloodSummary, useFlood } from '../../state/flood'
@@ -63,10 +64,14 @@ function EntryControls({ narrow, dockFull, onDock, sheetOpen, onSheet }: { narro
   )
 }
 
-/** The scene key: one line per layer drawn, each with its own time (D8, C16), and the gauge bars' meaning. */
+/** The scene key: one line per layer drawn, each with its own time (D8, C16), the layer's backend note under it, the
+ *  gauge bars' meaning, an amber line while the handle is after now (C1, WFF-R4), and a fold-out "About these layers"
+ *  with each drawn layer's caveats in its source's words (WFF-R2). Phones: folded to its title, the amber line kept
+ *  outside the fold. */
 function SceneKey({ narrow }: { narrow: boolean }) {
   const flood = floodAssetStore((s) => s.assets?.flood ?? null)
   const layers = useForensicFlood((s) => s.layers)
+  const cursorMs = useFlood((s) => s.cursorMs)
   const tf = useTimeFormat()
   const nowMs = useNow(60_000)
   if (!flood) return null
@@ -75,23 +80,51 @@ function SceneKey({ narrow }: { narrow: boolean }) {
     layers,
     tf,
     nowMs,
+    cursorMs,
     hasWarnings: flood.warnings?.status === 'available' && flood.warnings.alerts.length > 0,
     hasGauges: flood.gauges?.status === 'available' && flood.gauges.gauges.length > 0,
   })
-  // phones: folded to its title (the Layers sheet has the legend too); desktop: open
+  const more = items.filter((it) => it.more && it.more.texts.length)
+  const future = items.find((it) => it.key === 'future')
   return (
-    <details key={narrow ? 'narrow' : 'wide'} className="fxf-key glass" open={!narrow} aria-label={FLOOD_FORENSIC.keyTitle}>
-      <summary className="fxf-key-title eyebrow">{FLOOD_FORENSIC.keyTitle}</summary>
-      <ul>
-        {items.map((it) => (
-          <li key={it.key} className={it.stale ? 'is-stale' : undefined}>
-            <i className={`fxf-sw-key fxf-key-${it.swatch}`} aria-hidden="true" />
-            <span>{it.text}</span>
-          </li>
-        ))}
-      </ul>
-      <p className="fxf-key-foot">{FLOOD_FORENSIC.keyNotAllClear}</p>
-    </details>
+    <div className="fxf-key-wrap">
+      {/* phones: folded to its title (the Layers sheet has the legend too); desktop: open */}
+      <details key={narrow ? 'narrow' : 'wide'} className="fxf-key glass" open={!narrow} aria-label={FLOOD_FORENSIC.keyTitle}>
+        <summary className="fxf-key-title eyebrow">{FLOOD_FORENSIC.keyTitle}</summary>
+        <ul>
+          {items.map((it) => (
+            <li key={it.key} className={it.stale ? 'is-stale' : undefined}>
+              <i className={`fxf-sw-key fxf-key-${it.swatch}`} aria-hidden="true" />
+              <span>
+                {it.text}
+                {it.notes?.map((n) => (
+                  <span key={n} className="fxf-key-note">
+                    {n}
+                  </span>
+                ))}
+              </span>
+            </li>
+          ))}
+        </ul>
+        {more.length > 0 && (
+          <details className="fxf-key-more">
+            <summary>{FLOOD_FORENSIC.keyMore}</summary>
+            <dl>
+              {more.map((it) => (
+                <div key={it.key}>
+                  <dt>{it.more!.title}</dt>
+                  {it.more!.texts.map((t) => (
+                    <dd key={t}>{t}</dd>
+                  ))}
+                </div>
+              ))}
+            </dl>
+          </details>
+        )}
+        <p className="fxf-key-foot">{FLOOD_FORENSIC.keyNotAllClear}</p>
+      </details>
+      {narrow && future && <p className="fxf-key-future glass">{future.text}</p>}
+    </div>
   )
 }
 
@@ -173,6 +206,30 @@ function TerrainError() {
   return <div className="fxf-terrain-error glass">{fillCopy(FLOOD_FORENSIC.terrainFailed, { reason: error })}</div>
 }
 
+/** Keeps a floating box over the scene in scene/flood/floodOverlayRects (viewport pixels) so the gauge bar labels hide
+ *  under it (review WFF-R8). */
+function useOverlayRect(id: string, ref: RefObject<HTMLElement | null>, layoutKey: string) {
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const update = () => {
+      const r = el.getBoundingClientRect()
+      setFloodOverlayRect(id, { left: r.left, top: r.top, right: r.right, bottom: r.bottom })
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    for (const c of Array.from(el.children)) ro.observe(c)
+    // a <details> opening or closing resizes the column (observed)
+    window.addEventListener('resize', update)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', update)
+      setFloodOverlayRect(id, null)
+    }
+  }, [id, ref, layoutKey])
+}
+
 function FloodScene() {
   const collapsed = useStore((s) => s.panelsCollapsed)
   const demo = useFlood((s) => openFloodSummary(s)?.synthetic === true)
@@ -182,7 +239,11 @@ function FloodScene() {
   const header = useRef<HTMLDivElement | null>(null)
   const right = useRef<HTMLDivElement | null>(null)
   const dock = useRef<HTMLElement | null>(null)
+  const ws = useRef<HTMLDivElement | null>(null)
+  const note = useRef<HTMLDivElement | null>(null)
   useSafeArea(collapsed, { header, right, dock }, `${narrow}|${dockFull}|${sheetOpen}`)
+  useOverlayRect('ws', ws, `${narrow}|${collapsed}|${sheetOpen}`)
+  useOverlayRect('note', note, `${narrow}|${collapsed}|${dockFull}`)
   const cls = ['app', 'fxf-app', collapsed && 'is-collapsed', !dockFull && 'fx-dock-min', narrow && !sheetOpen && 'fx-sheet-closed']
   return (
     <div className={cls.filter(Boolean).join(' ')}>
@@ -215,7 +276,7 @@ function FloodScene() {
           <FloodDock dockRef={dock} />
         </>
       )}
-      <div className="fx-ws">
+      <div className="fx-ws" ref={ws}>
         {!collapsed && <EntryControls narrow={narrow} dockFull={dockFull} onDock={() => setDockFull((v) => !v)} sheetOpen={sheetOpen} onSheet={() => setSheetOpen((v) => !v)} />}
         {demo && (
           <span className="fx-demo-badge fxf-demo-badge" role="note" data-tip={FLOOD_FORENSIC.demoTip}>
@@ -225,7 +286,7 @@ function FloodScene() {
         )}
         {!collapsed && <SceneKey narrow={narrow} />}
       </div>
-      <div className="fx-note">
+      <div className="fx-note" ref={note}>
         <FixedCopy variant="pill" />
       </div>
       <div className="top-center">

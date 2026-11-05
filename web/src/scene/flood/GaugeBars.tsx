@@ -4,6 +4,8 @@
 // mono label "ZZRF1 · 17.6 FT · MODERATE · 6:25 PM MST". Fixed scale (1 ft of stage = 12 m of bar; gaugeBarMath.ts);
 // the key says "Bar height: river stage at the gauge (scaled), not water depth". Static: nothing animates. Members are
 // read through memberGaugesOf (one reading per gauge, review WFP-R2); a gauges answer that could not be read draws none.
+// Labels mirror to the left before they run under the right column and hide under the panels and the scene key
+// (gaugeBarMath.placeBarLabel, floodOverlayRects; review WFF-R8).
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
@@ -14,11 +16,13 @@ import { useWorkspace } from '../../state/workspace'
 import { shownOpacity, useForensicFlood } from '../../ui/forensic-flood/forensicFloodState'
 import { useNow } from '../../ui/hooks'
 import type { IncidentAssets } from '../assets'
-import { GLSL_COMMON, GLSL_OUTPUT, GLSL_VERT, ORDER, fxUniforms } from '../fx/common'
+import { GLSL_COMMON, GLSL_OUTPUT, GLSL_VERT, ORDER, fxUniforms, prefersReducedMotion } from '../fx/common'
 import { GLSL_RIBBON_FRAG, GLSL_RIBBON_VERT, GLSL_SPRITE_VERT, ribbonGeometry, spriteGeometry, type RibbonLine } from '../fx/lines'
 import { InOverlay, ScreenLabel } from '../fx/text'
+import { useSceneStore } from '../sceneStore'
 import type { FloodSceneAssets } from './floodAssets'
-import { gaugeBars, type GaugeBarSpec } from './gaugeBarMath'
+import { floodOverlayRects } from './floodOverlayRects'
+import { gaugeBars, placeBarLabel, type GaugeBarSpec, type ScreenRect } from './gaugeBarMath'
 
 const barVertex = /* glsl */ `
 ${GLSL_COMMON}
@@ -135,7 +139,19 @@ function buildMarks(bars: GaugeBarSpec[], heightAt: (x: number, z: number) => nu
   return spriteGeometry(marks.length, { aBase: { array: base, size: 3 }, aH: { array: h, size: 1 }, aKind: { array: kind, size: 1 }, aColor: { array: color, size: 4 } })
 }
 
-function BarLabel({ assets, bar }: { assets: IncidentAssets; bar: GaugeBarSpec }) {
+/** Per label: the declutter fade, the mirror flag and the projected anchor (ScreenLabel writes it every frame). */
+interface LabelSlot {
+  fade: { current: number }
+  flip: { current: boolean }
+  screen: { x: number; y: number; visible: boolean }
+}
+
+const LABEL_FONT_PX = 10.5
+const LABEL_OFFSET: [number, number] = [10, 8]
+/** Shown boxes in canvas pixels (scratch, reused every frame). */
+const _blocked: ScreenRect[] = []
+
+function BarLabel({ assets, bar, slot }: { assets: IncidentAssets; bar: GaugeBarSpec; slot: LabelSlot }) {
   const anchor = useMemo(
     () => (out: THREE.Vector3) => {
       out.set(bar.x, assets.heightAt(bar.x, bar.z) * useStore.getState().exaggeration + bar.topM + 4, bar.z)
@@ -143,7 +159,20 @@ function BarLabel({ assets, bar }: { assets: IncidentAssets; bar: GaugeBarSpec }
     },
     [assets, bar],
   )
-  return <ScreenLabel anchor={anchor} text={bar.label} color={bar.member ? '#dff4ff' : '#a9b6bf'} fontPx={10.5} offset={[10, 8]} leader opacity={bar.member ? 0.92 : 0.7} />
+  return (
+    <ScreenLabel
+      anchor={anchor}
+      text={bar.label}
+      color={bar.member ? '#dff4ff' : '#a9b6bf'}
+      fontPx={LABEL_FONT_PX}
+      offset={LABEL_OFFSET}
+      leader
+      opacity={bar.member ? 0.92 : 0.7}
+      fade={slot.fade}
+      flip={slot.flip}
+      screen={slot.screen}
+    />
+  )
 }
 
 export function GaugeBars({ assets, flood }: { assets: IncidentAssets; flood: FloodSceneAssets }) {
@@ -175,8 +204,26 @@ export function GaugeBars({ assets, flood }: { assets: IncidentAssets; flood: Fl
   useEffect(() => () => barMat.dispose(), [barMat])
   useEffect(() => () => markMat.dispose(), [markMat])
   const opacity = setting.opacity
-  useFrame(() => {
+  const labelled = useMemo(() => bars.filter((b) => b.labelled), [bars])
+  const slots = useMemo(() => new Map<string, LabelSlot>(labelled.map((b) => [b.lid, { fade: { current: 1 }, flip: { current: false }, screen: { x: 0, y: 0, visible: false } }])), [labelled])
+  useFrame((state, delta) => {
     gaugeOpacity.value = opacity
+    if (!labelsOn) return
+    // labels mirror to the left before they run under the right column, and hide under the panels, the scene key and
+    // the prototype pill (review WFF-R8); under reduced motion they switch at once
+    const insets = useSceneStore.getState().viewInsets
+    const { width, height, left, top } = state.size
+    _blocked.length = 0
+    for (const r of floodOverlayRects()) _blocked.push({ left: r.left - left, top: r.top - top, right: r.right - left, bottom: r.bottom - top })
+    const k = prefersReducedMotion() ? 1 : Math.min(1, delta * 8)
+    for (const b of labelled) {
+      const sl = slots.get(b.lid)
+      if (!sl || !sl.screen.visible) continue
+      const wPx = b.label.length * LABEL_FONT_PX * 0.62
+      const placed = placeBarLabel(sl.screen, { w: width, h: height }, wPx, LABEL_FONT_PX * 1.25, LABEL_OFFSET, insets, _blocked)
+      sl.flip.current = placed.flip
+      sl.fade.current += ((placed.hidden ? 0 : 1) - sl.fade.current) * k
+    }
   })
   if (!setting.visible || !bars.length) return null
   return (
@@ -185,11 +232,9 @@ export function GaugeBars({ assets, flood }: { assets: IncidentAssets; flood: Fl
       {markGeo && <mesh geometry={markGeo} material={markMat} frustumCulled={false} renderOrder={ORDER.profile + 1} name="flood-gauge-marks" />}
       {labelsOn && (
         <InOverlay>
-          {bars
-            .filter((b) => b.labelled)
-            .map((b) => (
-              <BarLabel key={b.lid} assets={assets} bar={b} />
-            ))}
+          {labelled.map((b) => (
+            <BarLabel key={b.lid} assets={assets} bar={b} slot={slots.get(b.lid)!} />
+          ))}
         </InOverlay>
       )}
     </>

@@ -666,3 +666,34 @@ export function spanText(m: Pick<HydrographModel, 'startMs' | 'endMs' | 'zone'>)
   return `${fmtDayDate(m.startMs, m.zone)} – ${fmtDayDate(m.endMs, m.zone)}`
 }
 
+
+// ------------------------------------------------------------------------------------------------ chart layout, keys
+/** One line of the handle's words (px) per variant: the row is as tall as the lines it shows (review WFC-R3). */
+export const HANDLE_LINE_PX: Record<'slim' | 'dock', number> = { slim: 16, dock: 14 }
+
+/** The handle row's height: one line for the value, one more for the model's line (flow mode). */
+export function handleRowHeight(variant: 'slim' | 'dock', r: Pick<CursorReadout, 'modelLine'> | null): number {
+  return (1 + (r?.modelLine ? 1 : 0)) * HANDLE_LINE_PX[variant]
+}
+
+/** Keys in the gauge list (review WFC-R10): the option to focus next, or null for other keys. */
+export function listKeyTarget(key: string, index: number, count: number): number | null {
+  if (count <= 0) return null
+  if (key === 'ArrowDown') return Math.min(count - 1, index + 1)
+  if (key === 'ArrowUp') return Math.max(0, index - 1)
+  if (key === 'Home') return 0
+  if (key === 'End') return count - 1
+  return null
+}
+
+/** A falling NWS forecast (review WFC-R14, a gap next to PLAN C7): its highest stage is its first step and below the
+ *  latest reading, so its "crest" is not a peak still to come. From the gauge's `?lid=&series=1` answer; false without
+ *  a series. */
+export function forecastFalling(g: Pick<RiverGauge, 'series'> | null | undefined): boolean {
+  const fc = (g?.series?.forecast ?? []).filter((r) => r[1] != null && Number.isFinite(r[1])).sort((a, b) => a[0] - b[0])
+  const ob = (g?.series?.observed ?? []).filter((r) => r[1] != null && Number.isFinite(r[1])).sort((a, b) => a[0] - b[0])
+  if (fc.length < 2 || !ob.length) return false
+  let top = 0
+  for (let i = 1; i < fc.length; i++) if ((fc[i][1] as number) > (fc[top][1] as number)) top = i
+  return top === 0 && (ob[ob.length - 1][1] as number) > (fc[0][1] as number)
+}

@@ -13,6 +13,11 @@ import { useNow } from '../hooks'
 import '../../styles/view-flood-public.css'
 import { FLOOD_PUBLIC, NOT_ALL_CLEAR } from '../shell/floodCopy'
 
+/** Does the row already say it is not an all-clear (its value or sub-line)? */
+function saysNotAllClear(e: { value?: string | null; sub?: string | null; subVerbatim?: string | null }): boolean {
+  return [e.value, e.sub, e.subVerbatim].some((t) => /not an all-clear/i.test(t ?? ''))
+}
+
 export function FloodEvacRows({ variant = 'command' }: { variant?: 'command' | 'compact' }) {
   const summary = useFlood((s) => openFloodSummary(s))
   const evac = useExtrasRuntime((s) => s.evac)
@@ -58,7 +63,8 @@ export function FloodEvacRows({ variant = 'command' }: { variant?: 'command' | '
             ))}
           </ul>
         )}
-        {e.state !== 'listed' && <p className="ffe-note">{NOT_ALL_CLEAR}</p>}
+        {/* the caveat once: not repeated when the row's own words already say it (review WFC-R15) */}
+        {e.state !== 'listed' && !saysNotAllClear(e) && <p className="ffe-note">{NOT_ALL_CLEAR}</p>}
       </div>
     </section>
   )

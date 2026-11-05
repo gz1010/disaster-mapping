@@ -6,8 +6,9 @@ import { ALERTS, DETAIL, GAUGES, SATELLITE } from '../../api/__fixtures__/floods
 import type { FloodAlert, FloodAlertsResponse } from '../../api/types'
 import { timeFmt } from '../../lib/time'
 import type { FloodSceneAssets } from '../../scene/flood/floodAssets'
+import { ALERTS_UNAVAILABLE, CURSOR_FUTURE_PRODUCTS, floodWordingProblems, NO_PRODUCT, MODEL_CAVEAT, NFHL_NO_MAP, NFHL_NOTE, RFC_FIM_NOTE, SAT_NOT_SET_UP, SAT_NOT_SET_UP_SHORT } from '../shell/floodCopy'
 import { FLOOD_FORENSIC } from './floodForensicCopy'
-import { evidenceProducts, gaugeRows, layerUnavailable, sceneKeyItems, versionAction } from './floodForensicView'
+import { dockNoProduct, evidenceProducts, floodplainEffective, gaugeRows, layerNote, layerUnavailable, overviewProduct, sceneKeyItems, versionAction } from './floodForensicView'
 import { FLOOD_FORENSIC_DEFAULTS, type FloodForensicLayer, type FloodLayerSetting } from './forensicFloodState'
 
 const TF = timeFmt('America/Denver', '24h')
@@ -51,7 +52,62 @@ describe('layerUnavailable', () => {
   })
 })
 
+describe('layerNote and empty layers (review WFF-R2)', () => {
+  it("keeps the backend's note of an 'ok' layer: the NASA login, FEMA's partial map", () => {
+    const f = flood()
+    // the fixture's satellite layer is 'ok' with SAT_NOT_SET_UP as its reason
+    expect(f.manifest.layer_status.water_satellite.status).toBe('ok')
+    expect(layerNote('satellite', f)).toBe(SAT_NOT_SET_UP)
+    expect(layerNote('forecastArea', f)).toBeNull()
+    const partial = "FEMA's digital flood map covers only part of this area; outside it, FEMA's floodplain is not shown."
+    const m = { ...f.manifest, layer_status: { ...f.manifest.layer_status, floodplain: { ...f.manifest.layer_status.floodplain, reason: partial } } }
+    expect(layerNote('floodplain', { ...f, manifest: m })).toBe(partial)
+    // an unavailable layer has no note (its reason is the row's "why")
+    const down = { ...f.manifest, layer_status: { ...f.manifest.layer_status, water_satellite: { status: 'unavailable' as const, reason: 'x', source: 'x', time_ms: null } } }
+    expect(layerNote('satellite', { ...f, manifest: down, has: { ...f.has, satellite: false } })).toBeNull()
+  })
+
+  it("a layer made with nothing to draw says the backend's reason (FEMA has no digital map), not \"Not in this bundle\"", () => {
+    const f = flood({ has: { forecast: true, floodplain: false, model: true, catfim: true, satellite: true, noView: true } })
+    const m = { ...f.manifest, layer_status: { ...f.manifest.layer_status, floodplain: { ...f.manifest.layer_status.floodplain, reason: NFHL_NO_MAP } } }
+    expect(layerUnavailable('floodplain', { ...f, manifest: m })).toBe(NFHL_NO_MAP)
+    expect(layerUnavailable('floodplain', f)).toBe(FLOOD_FORENSIC.layerUnavailable)
+  })
+})
+
 describe('sceneKeyItems', () => {
+  it("carries each layer's note and caveats; FEMA with its effective date; the category in words (WFF-R2, R3, R11)", () => {
+    const f = flood()
+    const acquired = SATELLITE().granules[0].acquired_ms
+    const items = sceneKeyItems({ flood: f, layers: layers({ floodplain: true, catfim: true, model: true }), tf: TF, nowMs: acquired + DAY, hasWarnings: true, hasGauges: true })
+    const by = (k: string) => items.find((i) => i.key === k)!
+    expect(by('satellite').notes).toEqual([SAT_NOT_SET_UP_SHORT])
+    expect(by('satellite').more?.texts).toEqual([...SATELLITE().caveats, SAT_NOT_SET_UP])
+    expect(by('satellite').more?.texts[0]).toMatch(/dry pixels do not mean no flooding/)
+    expect(by('forecast').more?.texts[0]).toBe(RFC_FIM_NOTE)
+    const date = floodplainEffective(f)
+    expect(date).toMatch(/2021$/)
+    expect(by('floodplain').text).toBe(`FEMA 1% annual-chance floodplain (“100-year floodplain”), background · effective ${date}`)
+    expect(by('floodplain').more?.texts).toEqual([NFHL_NOTE])
+    expect(by('catfim').text).toBe('NWS category flood map: Moderate flooding (NWS) · experimental')
+    expect(by('catfim').more?.texts[0]).toBe('What NWS maps for moderate flooding at this gauge (experimental map library). Not a forecast.')
+    expect(by('model').more?.texts).toEqual([MODEL_CAVEAT])
+    expect(by('bar').more?.texts).toEqual(GAUGES().caveats)
+    for (const it of items) for (const t of [it.text, ...(it.notes ?? []), ...(it.more?.texts ?? [])]) expect(floodWordingProblems(t)).toEqual([])
+  })
+
+  it("with the handle after now, says the products shown are those in effect now (C1, WFF-R4)", () => {
+    const f = flood()
+    const now = ALERTS().now_ms
+    const future = sceneKeyItems({ flood: f, layers: layers(), tf: TF, nowMs: now, cursorMs: now + 30 * 3_600_000, hasWarnings: true, hasGauges: true })
+    const item = future.find((i) => i.key === 'future')
+    expect(item?.text).toBe(CURSOR_FUTURE_PRODUCTS)
+    expect(item?.stale).toBe(true)
+    // at now or before: no such line
+    expect(sceneKeyItems({ flood: f, layers: layers(), tf: TF, nowMs: now, cursorMs: null, hasWarnings: true, hasGauges: true }).some((i) => i.key === 'future')).toBe(false)
+    expect(sceneKeyItems({ flood: f, layers: layers(), tf: TF, nowMs: now, cursorMs: now - 3_600_000, hasWarnings: true, hasGauges: true }).some((i) => i.key === 'future')).toBe(false)
+  })
+
   it('names each layer drawn with its own time, the no-view hatch, the image edge and the bar meaning', () => {
     const f = flood()
     const acquired = SATELLITE().granules[0].acquired_ms
@@ -112,5 +168,35 @@ describe('gaugeRows', () => {
     expect(z1.category).toBe('MODERATE')
     expect(z1.time).toMatch(/M[SD]T \(.+\)$/)
     expect(gaugeRows({ ...resp, status: 'unavailable' }, null, 'us', TF, 0)).toEqual([])
+  })
+})
+
+describe('dockNoProduct (review WFF-R5: the copy saved with the 3D data, never "right now" for a past handle)', () => {
+  const now = Date.UTC(2026, 10, 5, 6, 0)
+  it('a past handle names its time and the copy', () => {
+    const t = dockNoProduct({ cursorMs: now - 31 * 3_600_000, nowMs: now, savedMs: now - 60_000, tf: TF })
+    expect(t).toMatch(/^No NWS flood product was in effect at .+ in the copy saved with the 3D data\. That is not an all-clear: follow local officials\.$/)
+    expect(t).not.toMatch(/right now/)
+  })
+  it('at now: NO_PRODUCT only while the copy is fresh, else the copy names its own time', () => {
+    expect(dockNoProduct({ cursorMs: null, nowMs: now, savedMs: now - 10 * 60_000, tf: TF })).toBe(NO_PRODUCT)
+    const old = dockNoProduct({ cursorMs: null, nowMs: now, savedMs: now - 3 * DAY, tf: TF })
+    expect(old).toMatch(/^No NWS flood product was in effect in the copy saved with the 3D data \(.+\)\. That is not an all-clear: follow local officials\.$/)
+    expect(floodWordingProblems(old)).toEqual([])
+  })
+})
+
+describe('overviewProduct (review WFF-R6: from warnings.json at build time, never the live list)', () => {
+  it('the highest product in effect when the 3D data was prepared', () => {
+    const a = ALERTS()
+    const r = overviewProduct(a, a.now_ms, a.now_ms + DAY)
+    expect(r.kind).toBe('product')
+    expect(r.kind === 'product' && r.alert.event).toBe('Flood Warning')
+  })
+  it('none in effect then: the absence; a copy that could not be read: its outage text (D24)', () => {
+    const a = ALERTS()
+    expect(overviewProduct(a, Date.UTC(2020, 0, 1), a.now_ms).kind).toBe('none')
+    expect(overviewProduct({ ...a, status: 'unavailable', reason: ALERTS_UNAVAILABLE, alerts: [] }, a.now_ms, a.now_ms)).toEqual({ kind: 'unavailable', text: ALERTS_UNAVAILABLE })
+    expect(overviewProduct(null, a.now_ms, a.now_ms)).toEqual({ kind: 'unavailable', text: ALERTS_UNAVAILABLE })
   })
 })

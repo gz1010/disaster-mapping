@@ -159,6 +159,18 @@ describe('warningsAt (C1: the warning lines at the hydrograph handle)', () => {
     expect(warningsAt([v1, v2, watch], NOW, NOW).future).toBe(false)
   })
 
+  it("after now draws an issued product still to start when its own period covers the handle's time (WFC-R1)", () => {
+    const later = alert({ id: 'later', event: 'Flood Watch', vtec: { office: 'KZZZ', phenomena: 'FA', significance: 'A', etn: 3, action: 'NEW', year: 2026 }, phase: 'upcoming', onset_ms: NOW + 20 * H, effective_ms: NOW - 1 * H, ends_ms: NOW + 40 * H, expires_ms: NOW + 40 * H })
+    const r = warningsAt([v1, v2, later], NOW + 30 * H, NOW)
+    expect(r.alerts.map((a) => a.id).sort()).toEqual(['later', 'v2'])
+    expect(r.future).toBe(true)
+    expect(r.issuedForCursor).toBe(true)
+    // the handle after that product's end: none covers it ("NWS has issued none for this future time")
+    expect(warningsAt([v1, v2, later], NOW + 50 * H, NOW).issuedForCursor).toBe(false)
+    // at now it is drawn as "Starting soon"
+    expect(warningsAt([v1, v2, later], null, NOW).alerts.map((a) => a.id).sort()).toEqual(['later', 'v2'])
+  })
+
   it('a product NWS ended is not drawn now', () => {
     const can = alert({ id: 'c', vtec: { ...v1.vtec!, action: 'CAN' }, sent_ms: NOW - 1 * H, phase: 'ended' })
     expect(warningsAt([v1, v2, can], null, NOW).alerts).toEqual([])

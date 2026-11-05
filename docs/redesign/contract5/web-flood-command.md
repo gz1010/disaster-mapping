@@ -126,3 +126,71 @@ floods, phones, screenshots`, and the report commit. Paths under `web/src/`.
   GaugeList, hydrographData, floodLayerData); 16.10 the additive `modelHighFlow` key; small multiples in the dock and a
   data-status block in Official now are open; `location/CoordinateStrip.tsx` (not used in Command flood) still says
   "No fire open" on the flood overview (WFO-R9).
+
+## Review fixes (WFC-R1..R15; `reports/review5-web-flood-command.json`)
+
+All additive; no store shape changed (`state/flood.ts` untouched by the fixes).
+
+- **One products rule (R1).** `ui/timeline/hydrographModel.ts`: `productsShown(alerts, cursorMs, nowMs) → { alerts,
+  future, issuedForCursor }` (before now: in effect at the handle; at now: in effect + issued and still to start; after
+  now: in effect now + every issued product still to start whose own [onset or effective, end) covers the handle),
+  `futureProductsNote(shown)` (`CURSOR_FUTURE_ISSUED` when an issued product covers the handle, else
+  `CURSOR_FUTURE_PRODUCTS`; null at or before now), `productStart`, `productEnd`, `isUpcoming`. Used by
+  `map/floodController.ts` (warning areas; was `productsDrawn`), `location/floodCheck.ts checkPoint` (was `productsAt`;
+  so also Public's point card) and the chart's note and slider text. `productsAt` stays web-flood-public's
+  (`official/floodModel.ts`) and is still re-exported. New copy: `INSIDE_WARNING_UPCOMING` "Inside the NWS {event} area
+  (starting {start}, until {time}).", `CURSOR_FUTURE_ISSUED` "NWS products in effect now and those NWS has issued for this
+  time. An NWS end time is not a forecast of when flooding stops.", `HYDRO.futureNoteIssued`. **Deviation from CONTRACT
+  §16.12** (for §16.16): §16.12's `productsAt` "after now, the products in effect NOW" is extended by `productsShown`
+  (issued products whose own period covers the handle, and at now the ones still to start), so the map never drops a
+  warning NWS issued for that time and the note never says "NWS has issued none" while one exists.
+  `FloodPointCheck` gains `issuedForCursor`.
+- **Nearest gauge (R2).** `floodCheck.ts`: `pointGaugeBox(point, km = 25)`, `pointGaugesUrl(point, atMs)`,
+  `floodAnswerCovers(resp, point)`, `chooseNearGauge({ point, rivers, flood, floodState, cover, coverState,
+  memberLids?, floodCovers? }) → { pick, absence: 'none' | 'checking' | 'unavailable' | null, reason }`.
+  `ui/timeline/hydrographData.ts`: `usePointGauges(url)` and `pointGaugeCache` (per-URL, last 12, 5 min). The readout
+  asks the point's own `/api/official/river-gauges?bbox=` only when the flood's answer's `area_bbox` does not hold the
+  point ± 25 km; NO_GAUGE_NEAR only from an available covering answer. A simulated flood never asks (its own answer is
+  the demo's world).
+- **Chart layout (R3, R11).** `HANDLE_LINE_PX`, `handleRowHeight(variant, readout)`; the handle row is sized for its
+  lines, the future note is its own wrapped `<p class="hg-future-note">` (both variants, full sentence), the dock's
+  handle row is in the flow (`.hg.is-dock` `min-height: 112px`). `HydrographModel.forecastLabelShort` ("FORECAST · NWS
+  ZZRFC · ISSUED 20:47", the day when not today's) for the dock key; the full label is the key item's title.
+- **Stage-only gauges (R5).** `HydrographModel.stageOnly`, `HYDRO.flowStageOnly`; the OBSERVED key item is left out.
+- **Falling forecast (R14; a plan gap next to C7).** `crest.falling` ("HIGHEST NWS FORECAST {value} {UNIT} {DAY HH:MM}",
+  hollow caret, `HYDRO.highestFalling`, `HYDRO.highestFallingTip`), `forecastFalling(gauge)` (from the `?lid=` series),
+  `forecastRow(…, past, falling)` → `FLOOD_COMMAND.highestForecastLabel` / `highestForecastSub`, Official now's row
+  `FLOOD_COMMAND.highestForecastVerdict`. PLAN-5 C7 covers a forecast still rising at its end; a forecast whose highest
+  value is its first step, below the latest reading, is not a crest still to come either.
+- **Credits (R4).** New `map/floodLayerCredits.ts`: `floodLayerCreditsFor(input) → DataCredit[]` and the CONTRACT §16.15
+  lines `NWC_CREDIT`, `NWM_CREDIT`, `NFHL_CREDIT`, `OPERA_CREDIT`, `USGS_GAUGE_CREDIT` (each answer's own
+  `source.credit` first). `CommandFloodChrome` portals them as a second line into the foot's `#mw-credits`
+  (`FloodLayerFootCredits`), so they fold with the map's credits on narrow screens. The integration may fold them into
+  `lib/dataCredits.ts floodCredits()` (not this role's file), together with Public's `FloodLayerCredits`.
+- **Readout (R7, R8, R9).** No member gauge and no point: "River gauge" + NO_MEMBER_GAUGE / sub. `checkPoint` input
+  gains `modelState`, `catfim`, `catfimState`, `catfimFor`; `catfimCheck(resp, state, point, asked)`; `FloodCheckLine`
+  gains `layer?: 'catfim'` (kind 'official', its own tag via `lineTag`); new `NOTHING_COVERS_OFFICIAL` when FEMA, the
+  category map or the model says inside. `state/floodLayerData.ts`: `extraLayerState(answer) → 'drawn' | 'empty' |
+  'unavailable' | 'checking'`, `extraLayerReason(answer)`. `FloodLegend` chips and details say each state. New copy:
+  `FLOOD_COMMAND.catfimNoneFor`, `catfimChecking`, `modelUnavailable`, `modelNone`, `chipNone`, `chipUnavailable`,
+  `chipChecking`.
+- **Keyboard (R10).** `GaugeList({ floodId, lid, gauges?, onPick?, onClose? })`: focus moves to the current option on
+  open (a timer), `listKeyTarget(key, index, count)` (Arrow Up/Down, Home, End), Escape → `onClose`; openers return the
+  focus. Options in `role="group"` sections, one tab stop.
+- **Bar and column (R6, R12, R15).** `gaugeLineParts(lid, reading, units, nowMs)` (hydrographData.ts) in the workspace's
+  units; `.cfv-gauge-main` shortens, `.cfv-gauge-age` never does. The Official now column gets `has-more` (Command fire's
+  fade) from a local `useMoreBelow`. `FloodEvacRows` says the not-an-all-clear caveat once.
+- **Map labels (R13).** `floodCommandLayers.ts`: sources `fx-flood-catfim-pts`, `fx-flood-model-pts`, layers
+  `fx-flood-catfim-pt-label`, `fx-flood-model-pt-label` (from z8, one line, `symbol-sort-key` rank), `labelPoints(fc,
+  max = 3, minKm = 3)`, `pointInside(rings)`; placed above the basemap's place names, under the gauges.
+
+### For the next roles (review fixes)
+
+- **web-flood-forensic:** switch `scene/flood/floodGeo.ts warningsAt` (after its version step) to
+  `productsShown(latest, cursorMs, nowMs)` from `ui/timeline/hydrographModel.ts` (one call for every handle position),
+  and `ui/forensic-flood/FloodDock.tsx` ProductsColumn's note to `futureProductsNote(shown)`, so the drapes and the
+  column follow the map and the readout (R1). The dock hydrograph's handle words and future note now sit in the flow;
+  the dock is at least 112 px and grows inside the 276-300 px dock (no `height` assumption needed).
+- **integration:** CONTRACT §16.12 deviation above (`productsShown`); §16.14/§5 new web strings (listed above);
+  credits may move into `lib/dataCredits.ts`; `official/floodModel.ts productsDrawn` is now used only by
+  `official/floodHooks.ts` (zone outlines to ask).

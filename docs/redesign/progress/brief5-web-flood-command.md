@@ -27,3 +27,20 @@ Role `web-flood-command` (PLAN-5 §4.5-4.6, plan5-roles.json). Ports: API 8755, 
 - `productsAt` stays in `official/floodModel.ts` (web-flood-public); `hydrographModel.ts` re-exports it (CONTRACT §16.12).
 - The hydrograph fetches its own gauge series (`/api/official/river-gauges?lid=&series=1`) and, only in flow mode with
   a `reach_id`, the model series (`/api/floods/{id}/model?kind=nwm_series&lid=`), in `ui/timeline/hydrographData.ts`.
+
+## Review fixes (WFC-R1..R15), 2026-11-05 from ~06:40 UTC
+
+Ports: API 8755, Vite 5215 (started by the fixer; stop them at the end).
+
+- R1: `productsShown` + `futureProductsNote` (ui/timeline/hydrographModel.ts) used by the map (floodController), the point
+  check (floodCheck.checkPoint, also Public's point card) and the chart's note; `INSIDE_WARNING_UPCOMING`,
+  `CURSOR_FUTURE_ISSUED`. Forensic's `warningsAt` (scene/flood/floodGeo.ts, not ours) should switch to it.
+- R2: `chooseNearGauge`, `floodAnswerCovers`, `pointGaugeBox`, `pointGaugesUrl` (floodCheck.ts), `usePointGauges`
+  (hydrographData.ts); synthetic floods never ask real gauges.
+- R3: handle row sized by lines (`handleRowHeight`), future note its own wrapped `<p class="hg-future-note">`, dock in flow.
+- R4: `map/floodLayerCredits.ts` + portal in CommandFloodChrome (`FloodLayerFootCredits`).
+- R5: `stageOnly` + `HYDRO.flowStageOnly`. R6/R15: `gaugeLineParts` (hydrographData.ts), age kept. R7: NO_MEMBER_GAUGE.
+- R8/R9: checkPoint takes catfim/model states, `NOTHING_COVERS_OFFICIAL`, `catfimCheck`; legend chips/details states
+  (`extraLayerState`). R10: keyboard GaugeList. R11: `forecastLabelShort`. R12: `has-more` fade on the column.
+- R13: point labels (`labelPoints`, `pointInside`). R14: `crest.falling` ("HIGHEST NWS FORECAST …").
+- Status: code + unit tests done; next: browser checks, screenshots, gates, reports.

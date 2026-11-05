@@ -333,6 +333,11 @@ export const FLOOD_COMMAND = {
   floodStageLabel: 'Flood stage (NWS, minor)',
   floodStageNotSet: 'Not set',
   crestLabel: 'Forecast crest (NWS)',
+  // a falling NWS forecast: its highest value is its first step, below the latest reading (review WFC-R14)
+  highestForecastLabel: 'Highest NWS forecast',
+  highestForecastSub:
+    'Highest NWS forecast value {value} {unit} at its first step ({day time zone}), below the latest reading: not a crest still to come (NWS {RFC name}, issued {time}). Forecasts change; check NWS for the newest.',
+  highestForecastVerdict: 'highest {value} at its first step ({when}), below the latest reading',
   forecastInChart: 'NWS forecasts this gauge: choose it in the river-level chart below for its forecast.',
   gaugesChecking: 'Checking river gauges…',
   // event rows
@@ -368,6 +373,10 @@ export const FLOOD_COMMAND = {
   chipModel: 'Model (NWM, experimental)',
   chipHighFlow: 'Model high-flow reaches (NWM, experimental)',
   chipSelected: 'Selected location',
+  // a Command layer's chip while on and not drawn (review WFC-R9)
+  chipNone: 'none here',
+  chipUnavailable: 'could not be loaded',
+  chipChecking: 'checking…',
   // model and CatFIM in the legend details and the readout
   catfimFor: 'NWS category flood map: {category} flooding at {lid} (experimental map library)',
   catfimNone: 'No NWS category flood map for this flood',
@@ -380,6 +389,7 @@ export const FLOOD_COMMAND = {
   tagFemaEffective: 'FEMA · effective {date}',
   modelChecking: 'Model output: checking…',
   modelUnavailable: 'National Water Model output could not be loaded right now.',
+  modelNone: 'The model maps no flooded area or high-flow reach in this flood’s area at its latest analysis (model output; not an all-clear).',
   highFlowTitle: 'Model high-flow reaches (NOAA National Water Model)',
   layerHighFlow: 'National Water Model high-flow reaches (experimental)',
   layerHighFlowDesc: 'Model output: river reaches above their high-water level, never an NWS forecast',

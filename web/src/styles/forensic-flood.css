@@ -38,7 +38,7 @@
   padding: 2px 6px;
   border-radius: 4px;
   border: 1px solid rgba(232, 176, 74, 0.5);
-  color: #e8b04a;
+  color: var(--m-demo);
   font-size: 9.5px;
   letter-spacing: 0.1em;
 }
@@ -64,6 +64,9 @@
 .fxf-key {
   width: 268px;
   max-width: calc(100vw - var(--safe-left) - var(--safe-right) - 24px);
+  /* under the entry controls and the demo badge, above the dock: scrolls when the notes make it taller */
+  max-height: calc(100vh - var(--safe-top) - var(--safe-bottom) - 300px);
+  overflow-y: auto;
   padding: 10px 12px 9px;
   border-radius: 12px;
   font-size: 11.5px;
@@ -101,7 +104,81 @@
   align-items: start;
   gap: 8px;
 }
-.fxf-key li.is-stale span {
+.fxf-key li.is-stale > span {
+  color: var(--warn);
+}
+/* the layer's backend note under its line (review WFF-R2) */
+.fxf-key-note {
+  display: block;
+  margin-top: 2px;
+  font-size: 10.5px;
+  line-height: 1.3;
+  color: var(--text-3);
+}
+.fxf-key li.is-stale .fxf-key-note {
+  color: var(--text-3);
+}
+.fxf-key-future {
+  height: 0;
+  margin-top: 7px;
+  border-top: 2px dotted var(--m-demo);
+  border-radius: 0;
+}
+/* the fold-out with each drawn layer's caveats in its source's words (review WFF-R2) */
+.fxf-key-more {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(200, 200, 200, 0.12);
+}
+.fxf-key-more > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 10.5px;
+  color: var(--text-2);
+}
+.fxf-key-more > summary::-webkit-details-marker {
+  display: none;
+}
+.fxf-key-more > summary::after {
+  content: ' ▸';
+  color: var(--text-3);
+}
+.fxf-key-more[open] > summary::after {
+  content: ' ▾';
+}
+.fxf-key-more dl {
+  margin: 6px 0 0;
+  display: grid;
+  gap: 6px;
+}
+.fxf-key-more dt {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.fxf-key-more dd {
+  margin: 1px 0 0;
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: var(--text-2);
+}
+.fxf-key-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+/* phones: the amber "products in effect now" line stays outside the folded key (review WFF-R4) */
+p.fxf-key-future {
+  height: auto;
+  margin: 0;
+  max-width: 240px;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 10px;
+  font-size: 10.5px;
+  line-height: 1.3;
   color: var(--warn);
 }
 .fxf-key-foot {
@@ -119,7 +196,7 @@
 .fxf-key-satellite,
 .fxf-chip-water {
   background: rgba(42, 140, 230, 0.55);
-  box-shadow: inset 0 0 0 1.5px var(--m-flood-edge, #7fd4ff);
+  box-shadow: inset 0 0 0 1.5px var(--m-flood-edge);
 }
 .fxf-key-noview,
 .fxf-chip-noview {
@@ -131,18 +208,18 @@
 .fxf-key-edge {
   height: 0;
   margin-top: 7px;
-  border-top: 1.5px dashed #9a9a9a;
+  border-top: 1.5px dashed #9a9a9a; /* the satellite "no view" grey (scene/flood/satClasses.ts SAT_NO_VIEW) */
   border-radius: 0;
 }
 .fxf-key-forecast {
   background:
     repeating-linear-gradient(-45deg, rgba(127, 212, 255, 0.85) 0 1.2px, transparent 1.2px 5px),
     rgba(42, 140, 230, 0.16);
-  box-shadow: inset 0 0 0 1px #7fd4ff;
+  box-shadow: inset 0 0 0 1px var(--m-flood-edge);
 }
 .fxf-key-warning {
   background: transparent;
-  box-shadow: inset 0 0 0 2px var(--m-alert, #ee7aa0);
+  box-shadow: inset 0 0 0 2px var(--m-alert);
 }
 .fxf-key-floodplain {
   background:
@@ -154,17 +231,17 @@
   background:
     repeating-linear-gradient(45deg, rgba(207, 234, 255, 0.85) 0 1.2px, transparent 1.2px 5px),
     transparent;
-  box-shadow: inset 0 0 0 1px #cfeaff;
+  box-shadow: inset 0 0 0 1px var(--m-flood-forecast);
 }
 .fxf-key-model {
-  background: radial-gradient(circle, #f5c060 0 1.3px, transparent 1.6px) 0 50% / 5px 12px repeat-x;
+  background: radial-gradient(circle, var(--m-forecast) 0 1.3px, transparent 1.6px) 0 50% / 5px 12px repeat-x;
   box-shadow: none;
 }
 .fxf-key-bar {
   width: 22px;
   background:
-    linear-gradient(90deg, transparent 10px, #dff4ff 10px 12px, transparent 12px),
-    linear-gradient(180deg, transparent 2px, #c766ff 2px 3px, transparent 3px 5px, #ff4d4d 5px 6px, transparent 6px 8px, #ff9a3c 8px 9px, transparent 9px);
+    linear-gradient(90deg, transparent 10px, var(--m-flood-ink) 10px 12px, transparent 12px),
+    linear-gradient(180deg, transparent 2px, var(--m-cat-major) 2px 3px, transparent 3px 5px, var(--m-cat-moderate) 5px 6px, transparent 6px 8px, var(--m-cat-minor) 8px 9px, transparent 9px);
 }
 
 /* ------------------------------------------------------------------------------------------------ Layers tab */
@@ -193,19 +270,19 @@
 }
 .fxf-sw-warnings {
   background: #151515;
-  box-shadow: inset 0 0 0 2px #ee7aa0;
+  box-shadow: inset 0 0 0 2px var(--m-alert);
 }
 .fxf-sw-gauges {
   background:
-    linear-gradient(90deg, transparent 11px, #dff4ff 11px 13px, transparent 13px),
-    linear-gradient(180deg, transparent 4px, #ff4d4d 4px 5px, transparent 5px 9px, #ff9a3c 9px 10px, transparent 10px),
+    linear-gradient(90deg, transparent 11px, var(--m-flood-ink) 11px 13px, transparent 13px),
+    linear-gradient(180deg, transparent 4px, var(--m-cat-moderate) 4px 5px, transparent 5px 9px, var(--m-cat-minor) 9px 10px, transparent 10px),
     #151515;
 }
 .fxf-sw-catfim {
   background: repeating-linear-gradient(45deg, rgba(207, 234, 255, 0.9) 0 1.2px, transparent 1.2px 4.5px), #151515;
 }
 .fxf-sw-model {
-  background: radial-gradient(circle, #f5c060 0 1.2px, transparent 1.6px) 0 50% / 5px 100% repeat-x, #151515;
+  background: radial-gradient(circle, var(--m-forecast) 0 1.2px, transparent 1.6px) 0 50% / 5px 100% repeat-x, #151515;
 }
 .fxf-sw-contours {
   background: repeating-radial-gradient(ellipse at 70% 120%, transparent 0 3px, rgba(232, 214, 170, 0.55) 3px 3.8px), #151515;
@@ -216,7 +293,15 @@
 .fxf-sw-telemetry::before {
   content: 'ZZ';
   font: 600 8.5px var(--font-mono);
-  color: #dff4ff;
+  color: var(--m-flood-ink);
+}
+/* a row's own meta (FEMA's effective date, the aerial photo "taken before this flood", the satellite image day, the
+   category map's category) on its own line: panel.css hides .lrow-meta in the narrow Layers column (review WFF-R3) */
+.fxf-row-meta {
+  margin: -3px 0 5px 34px;
+  font: 400 10px / 1.3 var(--font-mono);
+  letter-spacing: 0.02em;
+  color: var(--text-3);
 }
 .fxf-row-why {
   margin: -2px 0 6px 34px;
@@ -457,11 +542,21 @@
   margin: 0;
   color: var(--text-body);
 }
+.fxf-kv-sub {
+  display: block;
+  margin-top: 1px;
+  font-size: 10.5px;
+  color: var(--text-3);
+}
 .fxf-card-note {
   margin: 8px 0 0;
   font-size: 10.5px;
   line-height: 1.4;
   color: var(--text-3);
+}
+.fxf-card-note.fxf-gauge-caveat {
+  margin-top: 4px;
+  color: var(--text-2);
 }
 .fxf-gauges {
   display: grid;
@@ -541,6 +636,17 @@
   background: #161616;
   color: var(--text);
 }
+/* phones: the diamond and the gauge id only, so the river chart keeps the dock's width (review WFF-R9) */
+.fxf-pick.is-narrow {
+  gap: 4px;
+  margin: 8px 0 0 6px;
+  padding: 0 2px 0 6px;
+}
+.fxf-pick.is-narrow select {
+  max-width: 52px;
+  font-size: 10px;
+  padding: 0;
+}
 .fxf-dock-main {
   flex-direction: row;
   align-items: stretch;
@@ -582,6 +688,12 @@
   font-size: 10.5px;
   line-height: 1.4;
   color: var(--warn);
+}
+.fxf-ke-copy {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--text-3);
 }
 
 /* ------------------------------------------------------------------------------------------------ not prepared */
@@ -664,4 +776,51 @@
 .fxf-prep .fx-empty-actions {
   margin: 4px 0 0;
   padding: 0;
+}
+
+/* ------------------------------------------------------------------------------------------------ hover readout */
+/* the 3D hover readout of a flood (scene/overlays/SceneOverlays.tsx + scene/flood/floodProbe.ts, review WFF-R1): the
+   values are sentences that wrap, never cut with an ellipsis */
+.sc-probe.fxf-probe {
+  width: 300px;
+  max-width: min(320px, calc(100vw - 32px));
+}
+.fxf-probe-row {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 3px;
+  line-height: 1.35;
+}
+.fxf-probe-row > span:first-child {
+  color: var(--text-3, #9a9a9a);
+  letter-spacing: 0.06em;
+}
+.fxf-probe-row > span:last-child {
+  font: 400 11px / 1.35 var(--font-ui, inherit);
+  white-space: normal;
+  color: var(--text, #f0f0f0);
+}
+.fxf-probe-row.is-alert > span:last-child {
+  color: #f4b8cc;
+}
+.fxf-probe-row.is-water > span:last-child {
+  color: var(--m-flood-edge);
+}
+.fxf-probe-row.is-quiet > span:last-child {
+  color: var(--text-2, #bdbdbd);
+}
+.fxf-probe-row.is-warn > span:last-child {
+  color: var(--warn);
+}
+.fxf-probe-row.is-model > span:last-child {
+  color: var(--m-forecast);
+}
+.fxf-probe-note {
+  margin: 6px 0 0;
+  padding-top: 5px;
+  border-top: 1px solid rgba(200, 200, 200, 0.14);
+  font: 400 11px / 1.35 var(--font-ui, inherit);
+  white-space: normal;
+  color: var(--text-2, #bdbdbd);
 }

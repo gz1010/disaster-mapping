@@ -4,13 +4,16 @@
 // The two answers are kept apart (never merged); each refreshes on its own interval while a chart shows it (the server
 // caches series 10 min). A small store shared by every chart (Command's slim chart, Forensic's dock), so two charts of
 // one gauge ask once.
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { create } from 'zustand'
-import { ApiError, describeError } from '../../api/client'
+import { ApiError, describeError, fetchJson } from '../../api/client'
 import { getFloodModel, getRiverGauges } from '../../api/floods'
 import type { GaugeReading, ModelOutputResponse, RiverGauge, RiverGaugesResponse } from '../../api/types'
-import { categoryOf } from './hydrographModel'
-import { NO_ANSWER, type Answer } from '../../official/floodModel'
+import { fmtRelative, HOUR_MS } from '../../lib/time'
+import type { Units } from '../../state/workspace'
+import { fmtStage } from '../public/floodOverviewText'
+import { categoryOf, categoryWord } from './hydrographModel'
+import { NO_ANSWER, type Answer, type AnswerState } from '../../official/floodModel'
 
 /** How often a shown chart asks again (the server caches series 10 min). */
 export const HYDRO_REFRESH_MS = 10 * 60_000
@@ -125,4 +128,47 @@ export function withChartReading(g: RiverGauge, chart: RiverGauge | null | undef
 /** The newest cached chart answer's gauge for a lid (now, not a past time), else null. */
 export function useChartGauge(lid: string | null | undefined): RiverGauge | null {
   return useHydroData((s) => (lid ? gaugeOf(s.gauges[gaugeKey(lid, null)]?.data, lid) : null))
+}
+
+/** Command's bar line for a gauge reading: "AGYM7 · 26.6 FT · MODERATE" (`main`, in the workspace's units like the
+ *  readout, the map and the chart; review WFC-R6) and " · 1 H AGO" (`age`, amber after 3 h, kept on a narrow bar; review
+ *  WFC-R15). */
+export function gaugeLineParts(lid: string, r: Pick<GaugeReading, 'value' | 'unit' | 'category' | 'valid_ms'> | null, units: Units, nowMs: number): { main: string; age: string | null; stale: boolean } {
+  const value = fmtStage(r?.value, r?.unit ?? 'ft', units)?.toUpperCase() ?? null
+  const main = [lid, value, r ? categoryWord(r.category) : null].filter(Boolean).join(' · ')
+  const age = r?.valid_ms != null ? ` · ${fmtRelative(r.valid_ms, nowMs).toUpperCase()}` : null
+  return { main, age, stale: r?.valid_ms != null && nowMs - r.valid_ms > 3 * HOUR_MS }
+}
+
+// ------------------------------------------------------------------------------------------------ a point's gauges
+/** The point's own gauges answers, per URL (the last few points; re-selecting one shows it at once; tests seed it). */
+export const pointGaugeCache = new Map<string, { data: RiverGaugesResponse | null; error: string | null; at: number }>()
+const POINT_GAUGES_FRESH_MS = 5 * 60_000
+
+/** The gauges answer of Command's selected point (`location/floodCheck.ts pointGaugesUrl`: the point ± 25 km), asked
+ *  only when the flood's own gauges answer does not cover the point's 25 km (review WFC-R2); null url: not asked. */
+export function usePointGauges(url: string | null): { data: RiverGaugesResponse | null; state: AnswerState } {
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    if (!url) return
+    const hit = pointGaugeCache.get(url)
+    if (hit && Date.now() - hit.at < POINT_GAUGES_FRESH_MS) return
+    const ctrl = new AbortController()
+    fetchJson<RiverGaugesResponse>(url, { signal: ctrl.signal })
+      .then((data) => pointGaugeCache.set(url, { data, error: null, at: Date.now() }))
+      .catch((e: unknown) => {
+        if (!ctrl.signal.aborted) pointGaugeCache.set(url, { data: hit?.data ?? null, error: describeError(e), at: Date.now() })
+      })
+      .finally(() => {
+        if (ctrl.signal.aborted) return
+        while (pointGaugeCache.size > 12) pointGaugeCache.delete(pointGaugeCache.keys().next().value as string)
+        setTick((t) => t + 1)
+      })
+    return () => ctrl.abort()
+  }, [url])
+  if (!url) return { data: null, state: 'none' }
+  const q = pointGaugeCache.get(url)
+  const data = q?.data ?? null
+  const state: AnswerState = data ? (data.status === 'available' ? 'available' : data.status === 'not_available_for_past_dates' ? 'past' : 'unavailable') : q?.error ? 'unavailable' : 'loading'
+  return { data, state }
 }

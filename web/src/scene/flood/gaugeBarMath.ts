@@ -131,3 +131,39 @@ export function gaugeBars(
   }
   return out.sort((a, b) => Number(b.member) - Number(a.member))
 }
+
+// ------------------------------------------------------------------------------------------------ label placement
+export interface ScreenRect {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
+
+/** Where a bar's label goes on screen (review WFF-R8, the rule of the fire telemetry columns, scene/fx/Telemetry.tsx):
+ *  right of its anchor, mirrored to the left when it would run under the right-hand panels (or off screen) and there
+ *  is room on the left; hidden when it would still run under the UI (the panels around the scene, `insets`, and the
+ *  boxes over it such as the scene key, `blocked`) or when its anchor is under a panel. Screen pixels of the scene
+ *  canvas, y down; `offset` is the label's offset from its anchor (x right, y up), `wPx` / `hPx` its estimated size. */
+export function placeBarLabel(
+  anchor: { x: number; y: number },
+  size: { w: number; h: number },
+  wPx: number,
+  hPx: number,
+  offset: readonly [number, number],
+  insets: { top: number; right: number; bottom: number; left: number },
+  blocked: readonly ScreenRect[] = [],
+): { flip: boolean; hidden: boolean; box: ScreenRect } {
+  const right = size.w - insets.right - 6
+  const left = insets.left + 6
+  const overflow = anchor.x + offset[0] + wPx > right
+  const roomLeft = anchor.x - offset[0] - wPx > left
+  const flip = overflow && roomLeft
+  const x0 = flip ? anchor.x - offset[0] - wPx - 4 : anchor.x + offset[0] - 4
+  const y1 = anchor.y - offset[1] + 4
+  const box = { left: x0, top: y1 - hPx - 8, right: x0 + wPx + 8, bottom: y1 }
+  const anchorUnder = anchor.x < insets.left || anchor.x > size.w - insets.right || anchor.y < insets.top || anchor.y > size.h - insets.bottom
+  const outside = box.right > right + 6 || box.left < left - 6 || box.top < insets.top || box.bottom > size.h - insets.bottom
+  const overlaps = blocked.some((r) => box.left < r.right && box.right > r.left && box.top < r.bottom && box.bottom > r.top)
+  return { flip, hidden: anchorUnder || outside || overlaps, box }
+}

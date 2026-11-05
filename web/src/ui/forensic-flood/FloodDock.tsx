@@ -2,9 +2,10 @@
 // chart, `Hydrograph variant="dock"` (web-flood-command's M1), for the gauge picked on its left (the flood's member
 // gauges, primary first). Its handle sets useFlood.cursorMs, which the warning lines follow (C1: after now they keep the
 // NWS products in effect now). "Charts & NWS products" opens the right column: the NWS products drawn at the handle,
-// verbatim, with their sender and end time, and CURSOR_FUTURE_PRODUCTS after now.
+// verbatim, with their sender and end time, the copy's own time, and CURSOR_FUTURE_PRODUCTS (or CURSOR_FUTURE_ISSUED)
+// after now.
 import type { Ref } from 'react'
-import { fmtAt } from '../../lib/time'
+import { fmtAt, fmtRelative } from '../../lib/time'
 import { CATEGORY_COLORS, gaugeTone } from '../../map/floodStyle'
 import { memberGaugesOf, orderAlerts, senderName } from '../../official/floodModel'
 import { floodAssetStore } from '../../scene/flood/floodAssets'
@@ -13,26 +14,30 @@ import { categoryCaps } from '../../scene/flood/gaugeBarMath'
 import { useFlood } from '../../state/flood'
 import { useTimeFormat } from '../../state/timeZone'
 import { useNow } from '../hooks'
-import { CURSOR_FUTURE_PRODUCTS, fillCopy, FLOOD_PUBLIC, NO_PRODUCT } from '../shell/floodCopy'
+import { fillCopy, FLOOD_PUBLIC } from '../shell/floodCopy'
+import { NARROW_QUERY, useMediaQuery } from '../shell/hooks'
 import { Hydrograph } from '../timeline/Hydrograph'
+import { futureProductsNote } from '../timeline/hydrographModel'
 import { FLOOD_FORENSIC } from './floodForensicCopy'
+import { dockNoProduct } from './floodForensicView'
 
 /** The chart's gauge: the flood's member gauges (primary first), a compact picker on the dock's left; its colour is
- *  the gauge's NWS category, written in the list. */
-function GaugePick() {
+ *  the gauge's NWS category, written in the list. Phones: the colour diamond and the gauge id only (the slim chart's
+ *  narrow left button; review WFF-R9), the category in each option's accessible name. */
+function GaugePick({ narrow }: { narrow: boolean }) {
   const flood = floodAssetStore((s) => s.assets?.flood ?? null)
   const lid = useFlood((s) => s.gaugeLid)
   const members = flood ? memberGaugesOf(flood.gauges, flood.summary) : []
   if (members.length < 2) return null
   const shown = members.find((g) => g.lid === lid) ?? members.find((g) => g.lid === flood?.summary.primary_gauge?.lid) ?? members[0]
   return (
-    <label className="fxf-pick" data-tip={shown.name}>
+    <label className={`fxf-pick${narrow ? ' is-narrow' : ''}`} data-tip={`${shown.name} · ${categoryCaps(shown.observed.category)}`}>
       <i style={{ background: CATEGORY_COLORS[gaugeTone(shown.observed.category)] }} aria-hidden="true" />
       <span className="sr-only">{FLOOD_FORENSIC.gaugePick}</span>
       <select className="mono" value={shown.lid} onChange={(e) => useFlood.getState().setGauge(e.target.value)}>
         {members.map((g) => (
-          <option key={g.lid} value={g.lid}>
-            {g.lid} · {categoryCaps(g.observed.category)}
+          <option key={g.lid} value={g.lid} aria-label={`${g.lid} · ${categoryCaps(g.observed.category)}`}>
+            {narrow ? g.lid : `${g.lid} · ${categoryCaps(g.observed.category)}`}
           </option>
         ))}
       </select>
@@ -40,22 +45,28 @@ function GaugePick() {
   )
 }
 
-/** The NWS products drawn at the handle (the same rule as the warning lines). */
+/** The NWS products drawn at the handle (the same rule as the warning lines), from the copy saved with the 3D data:
+ *  its time is shown, and an empty list says at what time and in which copy (never "right now" for a past handle or an
+ *  old copy; review WFF-R5). */
 function ProductsColumn() {
   const tf = useTimeFormat()
   const now = useNow(60_000)
   const cursorMs = useFlood((s) => s.cursorMs)
   const resp = floodAssetStore((s) => s.assets?.flood.warnings ?? null)
   const available = resp?.status === 'available'
-  const drawn = available ? warningsAt(resp.alerts, cursorMs, now) : { alerts: [], future: false }
-  const list = orderAlerts(drawn.alerts)
+  const drawn = available ? warningsAt(resp.alerts, cursorMs, now) : null
+  const list = orderAlerts(drawn?.alerts ?? [])
+  const savedMs = resp?.retrieved_ms ?? null
+  const saved = savedMs != null ? fmtAt(savedMs, tf, { zone: true, year: 'auto', refMs: now }) : null
+  const none = dockNoProduct({ cursorMs, nowMs: now, savedMs, tf })
+  const future = drawn ? futureProductsNote(drawn) : null
   return (
     <aside className="ke fxf-ke" aria-label={FLOOD_FORENSIC.evidenceTitle}>
       <div className="dock-title">{FLOOD_FORENSIC.evidenceTitle}</div>
       {!available ? (
         <p className="fxf-none">{resp?.reason ?? FLOOD_FORENSIC.evidenceUnavailable}</p>
       ) : list.length === 0 ? (
-        <p className="fxf-none">{NO_PRODUCT}</p>
+        <p className="fxf-none">{none}</p>
       ) : (
         <ul className="fxf-ke-list">
           {list.map((a) => {
@@ -75,7 +86,8 @@ function ProductsColumn() {
           })}
         </ul>
       )}
-      {drawn.future && <p className="fxf-ke-future">{CURSOR_FUTURE_PRODUCTS}</p>}
+      {future && <p className="fxf-ke-future">{future}</p>}
+      {available && saved && savedMs != null && <p className="fxf-ke-copy mono">{fillCopy(FLOOD_FORENSIC.dockCopyTime, { time: saved, age: fmtRelative(savedMs, now) })}</p>}
     </aside>
   )
 }
@@ -83,13 +95,14 @@ function ProductsColumn() {
 export function FloodDock({ dockRef }: { dockRef?: Ref<HTMLElement> }) {
   const floodId = useFlood((s) => s.floodId)
   const lid = useFlood((s) => s.gaugeLid)
+  const narrow = useMediaQuery(NARROW_QUERY)
   const flood = floodAssetStore((s) => s.assets?.flood ?? null)
   const products = flood?.warnings?.status === 'available' ? flood.warnings.alerts : undefined
   const gauges = flood?.gauges?.status === 'available' ? [...memberGaugesOf(flood.gauges, flood.summary), ...flood.gauges.gauges.filter((g) => !g.member)] : undefined
   return (
     <section className="dock glass fxf-dock" ref={dockRef} aria-label={FLOOD_FORENSIC.dockTitle}>
       <div className="dock-main fxf-dock-main">
-        <GaugePick />
+        <GaugePick narrow={narrow} />
         {floodId && <Hydrograph variant="dock" floodId={floodId} lid={lid} products={products} gauges={gauges} />}
       </div>
       <ProductsColumn />

@@ -2,16 +2,20 @@
 // .layers / .lg / .lrow) with the flood's groups. Base: Terrain, Aerial photo (NAIP, "taken before this flood"), FEMA
 // floodplain (off; "effective {date}"). Water: satellite, NWS forecast area, NWS warning areas, gauges, NWS category
 // flood maps (experimental, off). Model: NWM flooded area (experimental, off). Parametric: Contours, Telemetry labels.
-// A layer the bundle could not make is greyed with the backend's own reason. The switches are Forensic's own
+// A layer the bundle could not make is greyed with the backend's own reason; a layer the bundle has keeps the backend's
+// note under its row ("NASA Earthdata login is not set up…", "FEMA's digital flood map covers only part of this area…";
+// review WFF-R2), and its own date or category on a line of its own (WFF-R3). The switches are Forensic's own
 // (forensicFloodState.ts).
 import { Eye, EyeOff, RotateCcw } from 'lucide-react'
 import { fmtDayDate } from '../../lib/time'
 import { floodAssetStore } from '../../scene/flood/floodAssets'
+import { catfimCategoryLabel } from '../../scene/flood/floodProbe'
 import { useTimeFormat } from '../../state/timeZone'
 import { Checkbox, Slider } from '../controls'
+import { fillCopy } from '../shell/floodCopy'
 import { FLOOD_FORENSIC_DEFAULTS, useForensicFlood, type FloodForensicLayer } from './forensicFloodState'
 import { FLOOD_FORENSIC } from './floodForensicCopy'
-import { layerUnavailable } from './floodForensicView'
+import { floodplainEffective, layerNote, layerUnavailable } from './floodForensicView'
 
 interface Row {
   key: FloodForensicLayer
@@ -56,17 +60,22 @@ const GROUPS: { id: string; label: string; rows: Row[] }[] = [
   },
 ]
 
-/** A row's grey meta: FEMA's effective date(s), NAIP "before this flood", the satellite image day. */
+/** A row's own meta, on its own line under the row (the narrow column hides .lrow-meta; review WFF-R3): FEMA's
+ *  effective date, the aerial photo "taken before this flood", the satellite image day, the category map's category in
+ *  words (never a raw value, WFF-R11). */
 function useMeta(): (k: FloodForensicLayer) => string | null {
   const tf = useTimeFormat()
   const flood = floodAssetStore((s) => s.assets?.flood ?? null)
   return (k) => {
     if (!flood) return null
     const st = flood.manifest.layer_status
-    if (k === 'floodplain' && st.floodplain?.time_ms != null) return `effective ${fmtDayDate(st.floodplain.time_ms, 'UTC', { year: 'always' })}`
-    if (k === 'naip') return 'before this flood'
-    if (k === 'satellite' && st.water_satellite?.time_ms != null && flood.has.satellite) return fmtDayDate(st.water_satellite.time_ms, tf.tz)
-    if (k === 'catfim' && flood.catfim) return flood.catfim.category
+    if (k === 'floodplain') {
+      const date = floodplainEffective(flood)
+      return date ? fillCopy(FLOOD_FORENSIC.layerFloodplainEffective, { date }) : null
+    }
+    if (k === 'naip') return FLOOD_FORENSIC.layerNaipBefore
+    if (k === 'satellite' && st.water_satellite?.time_ms != null && flood.has.satellite) return fmtDayDate(st.water_satellite.time_ms, tf.tz, { year: 'always' })
+    if (k === 'catfim' && flood.catfim) return `${catfimCategoryLabel(flood.catfim.category)} · ${flood.catfim.lid}`
     return null
   }
 }
@@ -106,6 +115,7 @@ export function FloodLayersTab() {
               const disabled = reason != null
               const v = layers[r.key]
               const m = meta(r.key)
+              const note = layerNote(r.key, flood)
               return (
                 <div key={r.key}>
                   <div className={`lrow ${disabled ? 'is-unavailable' : ''} ${v.visible && !disabled ? 'is-on' : ''}`}>
@@ -113,7 +123,6 @@ export function FloodLayersTab() {
                     <span className={`sw fxf-sw fxf-sw-${r.key}`} aria-hidden />
                     <button type="button" className="lrow-label" disabled={disabled} data-tip={reason ?? r.tip} onClick={() => st().toggleLayer(r.key)}>
                       <span className="ellipsis">{r.label}</span>
-                      {m && <span className="lrow-meta mono">{m}</span>}
                     </button>
                     <Slider className="lrow-slider" label={`${r.label} opacity`} value={v.opacity} disabled={disabled} onChange={(o) => st().setLayerOpacity(r.key, o)} />
                     <button
@@ -126,7 +135,9 @@ export function FloodLayersTab() {
                       {Math.round(v.opacity * 100)}%
                     </button>
                   </div>
+                  {m && !disabled && <div className="fxf-row-meta">{m}</div>}
                   {v.visible && !disabled && <RowNote k={r.key} exp={r.exp} />}
+                  {note && <div className="fxf-row-why">{note}</div>}
                   {disabled && reason !== FLOOD_FORENSIC.layerUnavailable && <div className="fxf-row-why">{reason}</div>}
                 </div>
               )

@@ -7,7 +7,7 @@ import { ALERTS, FIXTURE_NOW_MS, GAUGE_NO_FORECAST, GAUGE_NOT_CURRENT, GAUGE_NOT
 import zzrf1 from '../../api/__fixtures__/floods/river-gauges-ZZRF1.json'
 import type { ModelOutputResponse, RiverGauge, RiverGaugesResponse } from '../../api/types'
 import { HOUR_MS, type TimeFmt } from '../../lib/time'
-import { CURSOR_FUTURE_PRODUCTS, floodWordingProblems, HYDRO, HYDROGRAPH_EMPTY, PAST_NO_FORECAST } from '../shell/floodCopy'
+import { CURSOR_FUTURE_ISSUED, CURSOR_FUTURE_PRODUCTS, floodWordingProblems, HYDRO, HYDROGRAPH_EMPTY, PAST_NO_FORECAST } from '../shell/floodCopy'
 import {
   buildHydrograph,
   categoryOf,
@@ -16,9 +16,14 @@ import {
   cursorReadout,
   flowToCfs,
   fmtValue,
+  forecastFalling,
+  futureProductsNote,
+  handleRowHeight,
   HYDRO_PAST_MS,
   levelsFor,
+  listKeyTarget,
   productsAt,
+  productsShown,
   stepCursor,
   thinPoints,
   valueAt,
@@ -366,5 +371,99 @@ describe('hydrographModel: empty states (PLAN-5 §5.5) and wording', () => {
     const r = cursorReadout(m, NOW + 30 * HOUR_MS, TF)
     words.push(r.line1, r.modelLine ?? '', ...Object.values(HYDRO), ...Object.values(HYDROGRAPH_EMPTY))
     expect(floodWordingProblems(words.join(' \n '))).toEqual([])
+  })
+})
+
+// review WFC-R1: the map's and the point check's one rule (productsShown), with the chart's note
+describe('productsShown (review WFC-R1)', () => {
+  const warning = () => ALERTS().alerts.find((a) => a.event === 'Flood Warning')!
+  // PLCM7's case: issued, effective 3.3 h ago, onset 2.9 h after now, ends 91 h after now
+  const upcoming = () => ({ ...warning(), id: 'up', phase: 'upcoming' as const, effective_ms: NOW - 3.3 * HOUR_MS, onset_ms: NOW + 2.9 * HOUR_MS, ends_ms: NOW + 91 * HOUR_MS })
+  const ids = (cursor: number | null) => productsShown([warning(), upcoming()], cursor, NOW).alerts.map((a) => a.id)
+  it('at now: the products in effect and the ones still to start', () => {
+    expect(ids(null)).toEqual([warning().id, 'up'])
+    expect(productsShown([upcoming()], null, NOW).future).toBe(false)
+  })
+  it('before now: in effect at the handle only (an upcoming product is not)', () => {
+    expect(ids(NOW - 2 * HOUR_MS)).toEqual([warning().id])
+  })
+  it('after now: in effect now, plus an issued product whose own period covers the handle', () => {
+    expect(ids(NOW + 1 * HOUR_MS)).toEqual([warning().id])
+    expect(ids(NOW + 8 * HOUR_MS)).toEqual([warning().id, 'up'])
+    expect(ids(NOW + 95 * HOUR_MS)).toEqual([warning().id])
+  })
+  it('the note: never "NWS has issued none" while an issued product covers the handle', () => {
+    expect(futureProductsNote(productsShown([upcoming()], NOW + 8 * HOUR_MS, NOW))).toBe(CURSOR_FUTURE_ISSUED)
+    expect(futureProductsNote(productsShown([upcoming()], NOW + 1 * HOUR_MS, NOW))).toBe(CURSOR_FUTURE_PRODUCTS)
+    // the fixture warning (in effect now) ends 8 h after now: 4 h ahead it covers the handle, 30 h ahead it does not
+    expect(futureProductsNote(productsShown([warning()], NOW + 4 * HOUR_MS, NOW))).toBe(CURSOR_FUTURE_ISSUED)
+    expect(futureProductsNote(productsShown([warning()], NOW + 30 * HOUR_MS, NOW))).toBe(CURSOR_FUTURE_PRODUCTS)
+    expect(futureProductsNote(productsShown([warning()], null, NOW))).toBeNull()
+    expect(floodWordingProblems(CURSOR_FUTURE_ISSUED)).toEqual([])
+  })
+  it('an ended product is never shown', () => {
+    expect(productsShown([{ ...upcoming(), phase: 'ended' as const }], null, NOW).alerts).toHaveLength(0)
+  })
+})
+
+describe('hydrographModel: review fixes (WFC-R3, R5, R10, R11, R14)', () => {
+  it('R5: a stage-only gauge on the flow axis says so, never "NWS: Data Not Current", and keys no OBSERVED line', () => {
+    const g = primary()
+    g.series!.observed = g.series!.observed.map(([t, st]) => [t, st, null])
+    g.series!.forecast = g.series!.forecast.map(([t, st]) => [t, st, null])
+    const m = build({ gauge: g, axis: 'flow' })
+    expect(m.stageOnly).toBe(true)
+    expect(m.empty[0]).toBe(HYDRO.flowStageOnly)
+    expect(m.empty).not.toContain(HYDROGRAPH_EMPTY.noReadings)
+    // the stage axis of the same gauge: normal; an empty stage record keeps NWS's "Data Not Current" words
+    expect(build({ gauge: g }).stageOnly).toBe(false)
+    const none = primary()
+    none.series!.observed = []
+    const f = build({ gauge: none, axis: 'flow' })
+    expect(f.stageOnly).toBe(false)
+    expect(f.empty).toContain(HYDROGRAPH_EMPTY.noReadings)
+  })
+
+  it('R14: a falling forecast (highest at its first step, below the latest reading) is not labelled a crest', () => {
+    const g = primary()
+    const latest = g.series!.observed[g.series!.observed.length - 1]
+    const t0 = latest[0]
+    const v0 = (latest[1] ?? 17) - 0.2
+    g.series!.forecast = [0, 1, 2, 3, 4].map((i) => [t0 + (i + 1) * 6 * HOUR_MS, v0 - i * 0.5, null])
+    g.forecast = g.forecast ? { ...g.forecast, crest_at_end: false } : null
+    const m = build({ gauge: g })
+    expect(m.crest?.falling).toBe(true)
+    expect(m.crest?.label).toMatch(/^HIGHEST NWS FORECAST [\d.]+ FT [A-Z]{3} \d\d:\d\d$/)
+    expect(m.crest?.label).not.toMatch(/^CREST/)
+    // a rise is still a crest
+    expect(build().crest?.label).toMatch(/^CREST /)
+    expect(build().crest?.falling).toBe(false)
+    // the readout and Official now ask the same of the gauge's series
+    expect(forecastFalling(g)).toBe(true)
+    expect(forecastFalling(primary())).toBe(false)
+    expect(forecastFalling({ series: null })).toBe(false)
+  })
+
+  it('R11: the dock key keeps the issuer and a short issue time', () => {
+    const m = build()
+    expect(m.forecastLabel).toMatch(/^FORECAST · NWS ZZRFC · ISSUED NOV 4 \d\d:\d\d MST$/)
+    expect(m.forecastLabelShort).toMatch(/^FORECAST · NWS ZZRFC · ISSUED \d\d:\d\d$/)
+  })
+
+  it('R3: the handle row is as tall as its lines (one, two in flow mode with the model)', () => {
+    expect(handleRowHeight('slim', { modelLine: null })).toBe(16)
+    expect(handleRowHeight('slim', { modelLine: 'MODEL · NWM · EXPERIMENTAL · 1 FT³/S (RUN)' })).toBe(32)
+    expect(handleRowHeight('dock', { modelLine: 'x' })).toBe(28)
+  })
+
+  it('R10: arrow keys, Home and End move between the gauge options', () => {
+    expect(listKeyTarget('ArrowDown', 0, 3)).toBe(1)
+    expect(listKeyTarget('ArrowDown', 2, 3)).toBe(2)
+    expect(listKeyTarget('ArrowUp', 0, 3)).toBe(0)
+    expect(listKeyTarget('ArrowUp', -1, 3)).toBe(0)
+    expect(listKeyTarget('Home', 2, 3)).toBe(0)
+    expect(listKeyTarget('End', 0, 3)).toBe(2)
+    expect(listKeyTarget('a', 0, 3)).toBeNull()
+    expect(listKeyTarget('ArrowDown', 0, 0)).toBeNull()
   })
 })

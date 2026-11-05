@@ -52,6 +52,28 @@ export function catfimTarget(summary: Pick<FloodSummary, 'primary_gauge'> | null
   return isCategory(ob) ? { lid, category: ob } : null
 }
 
+/** What a Command layer shows while its toggle is on (review WFC-R9): 'drawn' (an available answer with something to
+ *  draw), 'empty' (available, nothing to draw: "none"), 'unavailable' (its answer says it could not be loaded, or the
+ *  request failed: never a silent layer, never "checking" forever), 'checking' (asked, no answer yet). */
+export type ExtraLayerState = 'drawn' | 'empty' | 'unavailable' | 'checking'
+
+export function extraLayerState(a: Answer<FloodMapResponse | ModelOutputResponse> | null | undefined): ExtraLayerState {
+  const d = a?.data
+  if (d) {
+    if (d.status !== 'available') return 'unavailable'
+    return (d.features?.features?.length ?? 0) > 0 ? 'drawn' : 'empty'
+  }
+  if (a?.error) return 'unavailable'
+  return 'checking'
+}
+
+/** The reason to show for an unavailable layer: its answer's own words, else the request's error. */
+export function extraLayerReason(a: Answer<FloodMapResponse | ModelOutputResponse> | null | undefined): string | null {
+  const d = a?.data
+  if (d && d.status !== 'available') return d.reason ?? null
+  return d ? null : (a?.error ?? null)
+}
+
 const inflight = new Map<string, Promise<void>>()
 
 function setAnswer<K extends FloodLayerDataKey>(key: K, floodId: string, a: FloodLayerDataState[K], extra: Partial<FloodLayerDataState> = {}) {

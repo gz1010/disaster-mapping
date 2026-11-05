@@ -425,10 +425,13 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
     }
     for (const id of FLOOD_CMD_GEOJSON) if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: EMPTY_FC as never, tolerance: 0.3 })
     const underWarnings = has(FLOOD_AREA_LAYERS.warningsFill) ? FLOOD_AREA_LAYERS.warningsFill : label
+    const pointLabels = new Set<string>([FLOOD_CMD_LAYERS.modelPointLabel, FLOOD_CMD_LAYERS.catfimPointLabel])
     for (const layer of floodCommandLayers()) {
       if (has(layer.id)) continue
-      // the fills and lines under the warning areas; the map labels just under the basemap's own labels
-      const at = layer.type === 'symbol' ? label : underWarnings
+      // the fills and lines under the warning areas; the line labels just under the basemap's own labels; the point
+      // labels above them (placed before the basemap's place names, so "MODEL · EXPERIMENTAL" shows; review WFC-R13),
+      // under the gauges and map-core's top layers
+      const at = pointLabels.has(layer.id) ? before() : layer.type === 'symbol' ? label : underWarnings
       map.addLayer({ ...layer, layout: { ...(layer.layout ?? {}), visibility: 'none' } } as typeof layer, at)
     }
     imageKey = ''

@@ -33,15 +33,12 @@ import { goToFloodOverview, openFloodSummary, useFlood } from '../../state/flood
 import { useFloodLayerData, useFloodLayerDataSync } from '../../state/floodLayerData'
 import { useStore } from '../../state/store'
 import { useWorkspace } from '../../state/workspace'
-import { fmtRelative, HOUR_MS } from '../../lib/time'
 import { Popover } from '../controls'
 import { FloodOfficialNow } from '../feed/FloodOfficialNow'
 import { useNow } from '../hooks'
 import { floodPlace } from '../public/floodView'
-import { fmtStage } from '../public/floodOverviewText'
 import { Hydrograph, GaugeList } from '../timeline/Hydrograph'
-import { newestReading, useChartGauge } from '../timeline/hydrographData'
-import { categoryWord } from '../timeline/hydrographModel'
+import { gaugeLineParts, newestReading, useChartGauge } from '../timeline/hydrographData'
 import { DEMO_TAG, FLOOD_COMMAND, FLOOD_OVERVIEW } from './floodCopy'
 import { FixedCopy } from './FixedCopy'
 import { FloodLayersPanel } from './FloodLayersPanel'
@@ -90,10 +87,8 @@ function GaugeStatus() {
   const listed = primaryGaugeReading(summary, gauges)
   const own = chart && chart.lid === pg.lid ? newestReading(chart) : null
   const r = own && own.valid_ms != null && (listed?.valid_ms == null || own.valid_ms > listed.valid_ms) ? own : listed
-  // the readout's, the map's and the chart's units (review WFC-R6)
-  const value = fmtStage(r?.value, r?.unit ?? 'ft', units)?.toUpperCase() ?? null
-  const stale = r?.valid_ms != null && nowMs - r.valid_ms > 3 * HOUR_MS
-  const age = r?.valid_ms != null ? fmtRelative(r.valid_ms, nowMs).toUpperCase() : null
+  // the readout's, the map's and the chart's units (review WFC-R6); the age kept on a narrow bar (WFC-R15)
+  const line = gaugeLineParts(pg.lid, r, units, nowMs)
   const tone = gaugeTone(r?.category)
   return (
     <>
@@ -111,8 +106,8 @@ function GaugeStatus() {
         </svg>
         {/* a narrow bar shortens the reading, never its age (review WFC-R15) */}
         <span className="cfv-gauge-text">
-          <span className="cfv-gauge-main">{[pg.lid, value, r ? categoryWord(r.category) : null].filter(Boolean).join(' · ')}</span>
-          {age && <span className={`cfv-gauge-age${stale ? ' is-stale' : ''}`}>{` · ${age}`}</span>}
+          <span className="cfv-gauge-main">{line.main}</span>
+          {line.age && <span className={`cfv-gauge-age${line.stale ? ' is-stale' : ''}`}>{line.age}</span>}
         </span>
       </button>
       <Popover anchor={anchor} open={open} onClose={() => setOpen(false)} placement="bottom-end" width={360} className="hg-picker" label={FLOOD_COMMAND.gaugeListTitle}>

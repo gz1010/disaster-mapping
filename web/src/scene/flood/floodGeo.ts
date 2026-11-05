@@ -4,8 +4,8 @@
 // category flood map), the flood's framing box, label anchors, and the NWS products drawn at the hydrograph handle.
 // Local coordinates (SPEC 4.1): x east+, z south+ (north is -z); raster row 0 is the north edge.
 import type { FeatureCollectionJson, FloodAlert, FloodSummary, GeometryJson, ManifestGrid } from '../../api/types'
-import { productsAt, productsDrawn } from '../../official/floodModel'
 import { lonLatToLocal } from '../../lib/reproject'
+import { productsShown, type ShownProducts } from '../../ui/timeline/hydrographModel'
 
 /** One polygon: its rings (outer first) as flat [x0, z0, x1, z1, ...] local metres, the closing point not repeated. */
 export type LocalPolygon = Float64Array[]
@@ -224,9 +224,11 @@ export function productKey(a: Pick<FloodAlert, 'id' | 'vtec'>): string {
 
 /** The NWS products the 3D view draws at the hydrograph handle (C1). warnings.json keeps every version of a product
  *  (NEW, EXT, CAN, ...): per product, the newest version sent at or before the handle's time (now when the handle is at
- *  now or after it), then productsDrawn: at now also the products still to start; before now the ones in effect then;
- *  after now the products in effect NOW with `future` (CURSOR_FUTURE_PRODUCTS). */
-export function warningsAt<T extends Versioned>(alerts: readonly T[], cursorMs: number | null, nowMs: number): { alerts: T[]; future: boolean } {
+ *  now or after it), then the flood views' one rule, productsShown (ui/timeline/hydrographModel.ts, review WFC-R1):
+ *  at now also the products still to start; before now the ones in effect then; after now the products in effect NOW
+ *  plus any issued product whose own period covers the handle's time, with `future` and `issuedForCursor` (the note:
+ *  futureProductsNote, CURSOR_FUTURE_PRODUCTS or CURSOR_FUTURE_ISSUED). */
+export function warningsAt<T extends Versioned>(alerts: readonly T[], cursorMs: number | null, nowMs: number): ShownProducts<T> {
   const past = cursorMs != null && Number.isFinite(cursorMs) && cursorMs < nowMs
   const t = past ? (cursorMs as number) : nowMs
   const newest = new Map<string, T>()
@@ -237,8 +239,7 @@ export function warningsAt<T extends Versioned>(alerts: readonly T[], cursorMs: 
     const cur = newest.get(k)
     if (!cur || (cur.sent_ms ?? Number.NEGATIVE_INFINITY) <= sent) newest.set(k, a)
   }
-  const latest = [...newest.values()]
-  return cursorMs == null ? productsDrawn(latest, null, nowMs) : productsAt(latest, cursorMs, nowMs)
+  return productsShown([...newest.values()], cursorMs, nowMs)
 }
 
 export interface CatfimChoice {

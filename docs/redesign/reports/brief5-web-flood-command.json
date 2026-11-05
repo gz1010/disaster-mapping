@@ -1,7 +1,7 @@
 {
   "role": "web-flood-command",
   "brief": 5,
-  "summary": "The Command flood view and the river-level chart are built. M1: the hydrograph (pure model with productsAt re-exported, NWS flood levels with bands and pinned labels, observed/forecast split, NWM on the flow axis only and never without a reach_id, flow-mode handle with NWS and NWM on separate lines, LATEST stale after 3 h, crest or HIGH AT END, product ticks, DST-safe day ticks, metric, empty states; slim and dock components with a keyboard slider and no play button). M2: CommandFloodChrome with Command fire's layout (bar with the primary gauge line, FloodReadout, Official now column and phone sheet, legend chips, slim chart), FloodReadout (tagged per-layer lines at the chart's handle, nearest gauge on the flood's rivers, category words, crest or forecast high, NO_GAUGE_NEAR only for available answers, flood rows, area figures with caveats). M3: Command-only map layers (NWS category flood map hatch, NWM flooded area and high-flow reaches in amber dotted with MODEL · EXPERIMENTAL labels), state/floodLayerData.ts, the Layers drawer's high-flow toggle and CatFIM target, gauge list from the bar and the chart, one reading per gauge (the newest of list, flood answer and the chart's series), past floods (chart at the last NWS product, PAST_NO_FORECAST), phones. Fire Command view unchanged.",
+  "summary": "The Command flood view and the river-level chart are built. M1: the hydrograph (pure model with productsAt re-exported, NWS flood levels with bands and pinned labels, observed/forecast split, NWM on the flow axis only and never without a reach_id, flow-mode handle with NWS and NWM on separate lines, LATEST stale after 3 h, crest or HIGH AT END, product ticks, DST-safe day ticks, metric, empty states; slim and dock components with a keyboard slider and no play button). M2: CommandFloodChrome with Command fire's layout (bar with the primary gauge line, FloodReadout, Official now column and phone sheet, legend chips, slim chart), FloodReadout (tagged per-layer lines at the chart's handle, nearest gauge on the flood's rivers, category words, crest or forecast high, NO_GAUGE_NEAR only for available answers, flood rows, area figures with caveats). M3: Command-only map layers (NWS category flood map hatch, NWM flooded area and high-flow reaches in amber dotted with MODEL · EXPERIMENTAL labels), state/floodLayerData.ts, the Layers drawer's high-flow toggle and CatFIM target, gauge list from the bar and the chart, one reading per gauge (the newest of list, flood answer and the chart's series), past floods (chart at the last NWS product, PAST_NO_FORECAST), phones. Fire Command view unchanged. Review fixes (WFC-R1..R15, all fixed; reports/review5-web-flood-command.json): one products rule for the map, the point check and the chart (productsShown: issued warnings still to start are drawn and checked, and after now an issued product covering the handle stays, with CURSOR_FUTURE_ISSUED instead of 'NWS has issued none'); the readout's nearest gauge from an answer that covers the point's 25 km; the chart's handle words sized for their lines with the future note on its own wrapped line (slim and dock); the flood layers' credit lines in the foot; stage-only gauges on the flow axis; metric bar line keeping its age; NO_MEMBER_GAUGE without a point; NOTHING_COVERS_OFFICIAL next to model, FEMA or CatFIM inside-lines; Command layers' states in the readout, chips and legend; a keyboard gauge list; the dock key's issue time; the Official now column's fade; MODEL and NWS CATEGORY MAP point labels on real floods; a falling forecast never labelled a crest; the evacuation caveat once.",
   "files": [
     "web/src/ui/timeline/hydrographModel.ts",
     "web/src/ui/timeline/hydrographModel.test.ts",
@@ -29,7 +29,14 @@
     "web/src/styles/view-flood-command.css",
     "docs/redesign/contract5/web-flood-command.md",
     "docs/redesign/progress/brief5-web-flood-command.md",
-    "docs/redesign/reports/brief5-web-flood-command.json"
+    "docs/redesign/reports/brief5-web-flood-command.json",
+    "web/src/map/floodLayerCredits.ts",
+    "web/src/map/floodLayerCredits.test.ts",
+    "web/src/map/FloodLegend.test.ts",
+    "web/src/ui/feed/FloodEvacRows.tsx",
+    "web/src/ui/feed/FloodEvacRows.test.ts",
+    "web/src/location/floodCheck.test.ts",
+    "docs/redesign/reports/review5-web-flood-command.json"
   ],
   "screenshots": [
     "docs/screenshots/brief5-web-flood-command-fixture.png",
@@ -38,16 +45,27 @@
     "docs/screenshots/brief5-web-flood-command-real.png",
     "docs/screenshots/brief5-web-flood-command-past.png",
     "docs/screenshots/brief5-web-flood-command-phone.png",
-    "docs/screenshots/brief5-web-flood-command-fire-regression.png"
+    "docs/screenshots/brief5-web-flood-command-fire-regression.png",
+    "docs/screenshots/brief5-web-flood-command-fix-upcoming.png",
+    "docs/screenshots/brief5-web-flood-command-fix-upcoming-future.png",
+    "docs/screenshots/brief5-web-flood-command-fix-far-gauge.png",
+    "docs/screenshots/brief5-web-flood-command-fix-three-line-handle.png",
+    "docs/screenshots/brief5-web-flood-command-fix-dock.png",
+    "docs/screenshots/brief5-web-flood-command-fix-layer-credits.png",
+    "docs/screenshots/brief5-web-flood-command-fix-stage-only-flow.png",
+    "docs/screenshots/brief5-web-flood-command-fix-no-member-gauge.png",
+    "docs/screenshots/brief5-web-flood-command-fix-1024-metric.png",
+    "docs/screenshots/brief5-web-flood-command-fix-model-labels.png"
   ],
   "screenshot_notes": {
-    "fixture": "/?flood=fixture-flood&preset=command&sel=36.80,-108.05 on the real API (FIRE3D_LIVE=0)",
-    "forecast-cursor": "cursor 30 h ahead: the Flood Warning outline is still drawn and CURSOR_FUTURE_PRODUCTS shows in the readout and the chart (C1)",
-    "model-on": "model layer on, zoomed to z13: amber dotted edge, MODEL tag in the readout, legend chip",
-    "real": "Platte River flood (flood-20261103-platte-river-flood-e045bf), live NWS and NWPS data on 2026-11-05 ~06:00 UTC",
+    "fixture": "/?flood=fixture-flood&preset=command&sel=36.80,-108.05 on the real API (FIRE3D_LIVE=0), retaken after the review fixes (2026-11-05 ~07:20 UTC)",
+    "forecast-cursor": "cursor 30 h ahead: the Flood Warning outline is still drawn; CURSOR_FUTURE_PRODUCTS in the readout and as its own wrapped line in the chart (C1, WFC-R3)",
+    "model-on": "model layer on, z13, centred on the model: amber dotted edge, the MODEL · EXPERIMENTAL point label (WFC-R13), MODEL tag, NWM credit line",
+    "real": "Platte River flood, sel 39.33,-94.798 inside a starting-soon Flood Warning: the WFC-R1 line; Official now names the falling forecast (WFC-R14)",
     "past": "fixture-flood-past through backend/scripts/serve_fixture.py (the real API lists no past floods until backend-flood-live M2)",
     "phone": "390x844 @2x",
-    "fire-regression": "/?incident=fixture-live&preset=command&sel=36.215,-121.43: matches brief4-final-command-fire-fixture-live.png except the clock-relative ages"
+    "fire-regression": "/?incident=fixture-live&preset=command&sel=36.215,-121.43: matches brief4-final-command-fire-fixture-live.png except the clock-relative ages",
+    "fix-*": "review-fix evidence, one per finding group (see reports/review5-web-flood-command.json)"
   },
   "gates": {
     "backend": "uv run pytest -q: 1340 passed, 0 skipped",
@@ -61,12 +79,14 @@
   "known_issues": [
     "The readout is long at 1440x1000: with a selected point its last gauge row (forecast crest) and the flood rows scroll below the fold (the card fades and scrolls, like the fire readout).",
     "The readout's lines describe every answered layer at the point even when that layer is hidden in Layers (the same as Public's point card).",
-    "The model's MODEL · EXPERIMENTAL label is placed along polygon edges only where they are straight enough (symbol-placement line); the dotted amber edge, the readout tag and the legend chip always say it.",
     "NWPS's status reading can lag its own series by hours (AGYM7 on 2026-11-05: 3 h). Command shows the newest of the list's, the flood answer's and the chart's series reading everywhere; the series reading's category is NWS's levels compared with the stage.",
     "Past floods: the real API lists none yet (backend-flood-live M2) and answers GAUGES_PAST_NOT_YET for past gauge readings; the chart then shows the backend's reason. The past screenshot uses the fixture server.",
     "The fixture server answers every demo flood's evacuations with the New Mexico fixture (pre-existing), so the past Kentucky demo shows 'Not available in this state · New Mexico'.",
     "On a narrow chart the crest label is left out when it cannot sit beside the NOW label; its caret keeps the tooltip and the readout and Official now give the crest.",
-    "The Official now column has no 'View all updates' and no data-status block (there is no flood updates feed)."
+    "The Official now column has no 'View all updates' and no data-status block (there is no flood updates feed).",
+    "Forensic's drapes and dock products column (web-flood-forensic's files): its fixer is switching them to productsShown / futureProductsNote (WFC-R1 rule); until that lands the 3D view keeps the old after-now rule.",
+    "The readout asks the point's own river-gauges answer when the flood's answer does not cover the point's 25 km (most points of a small flood): one cached request per selected point; a simulated flood never asks it.",
+    "On a narrow bar (1024 px) the gauge line shortens its reading (the category word) to keep its age."
   ],
   "cut_line_left": [
     "Small multiples in the dock variant (Forensic shows one gauge at a time, with the GaugeList export available for a picker)."

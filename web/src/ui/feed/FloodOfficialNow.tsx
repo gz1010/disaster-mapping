@@ -21,10 +21,12 @@ import { useTimeFormatFor } from '../../state/timeZone'
 import { useWorkspace } from '../../state/workspace'
 import { useNow } from '../hooks'
 import '../../styles/view-flood-public.css'
-import { ALERTS_UNAVAILABLE, fillCopy, FLOOD_PUBLIC, MODEL_SEPARATE, NO_PRODUCT, NO_RFC_FORECAST, PAST_NO_FORECAST } from '../shell/floodCopy'
+import { ALERTS_UNAVAILABLE, fillCopy, FLOOD_COMMAND, FLOOD_PUBLIC, MODEL_SEPARATE, NO_PRODUCT, NO_RFC_FORECAST, PAST_NO_FORECAST } from '../shell/floodCopy'
 import { fmtStage } from '../public/floodOverviewText'
 import { polygonsOf } from '../public/floodView'
 import { forecastRow } from '../../location/floodCheck'
+import { useChartGauge } from '../timeline/hydrographData'
+import { forecastFalling } from '../timeline/hydrographModel'
 import { FloodEvacRows } from './FloodEvacRows'
 import { CommandRows, LocalAlertsRow, Row, SourceLink } from './OfficialNow'
 
@@ -100,6 +102,9 @@ export function FloodOfficialNow({ variant = 'command' }: { variant?: 'command' 
   const rows = floodAlertRows(off.alerts.data, { zone: summary?.time_zone ?? tf.tz, clock, nowMs, past })
   const g = primaryMemberGauge(off.gauges.data, summary)
   const f = g?.forecast ?? null
+  // the chart's own answer for the gauge (with its series) tells a falling forecast (review WFC-R14)
+  const chart = useChartGauge(g?.lid)
+  const falling = forecastFalling(chart && chart.lid === g?.lid ? chart : g)
   let forecast: { verdict: string; meta: string | null; line: string | null } | null = null
   if (past) forecast = { verdict: PAST_NO_FORECAST, meta: null, line: null }
   else if (g && g.is_forecast_point && f && f.max_value != null) {
@@ -108,9 +113,9 @@ export function FloodOfficialNow({ variant = 'command' }: { variant?: 'command' 
     const when = f.max_ms != null ? fmtAt(f.max_ms, gtf, { weekday: true, zone: true, year: 'auto', refMs: nowMs }) : ''
     const issued = f.issued_ms != null ? fmtAt(f.issued_ms, gtf, { zone: true, year: 'auto', refMs: nowMs }) : ''
     // the whole sentence (CREST_LINE, or FORECAST_HIGH_LINE when the highest value is the last step; C7)
-    const row = forecastRow(g, gtf, 'us', nowMs)
+    const row = forecastRow(g, gtf, 'us', nowMs, false, falling)
     forecast = {
-      verdict: f.crest_at_end ? `high ${v} at the end of the forecast (${when}); still forecast to rise` : `crest ${v} ${when}`,
+      verdict: f.crest_at_end ? `high ${v} at the end of the forecast (${when}); still forecast to rise` : falling ? fillCopy(FLOOD_COMMAND.highestForecastVerdict, { value: v, when }) : `crest ${v} ${when}`,
       meta: `NWS ${rfcName(f)}${issued ? `, issued ${issued}` : ''}`,
       line: row.sub || null,
     }

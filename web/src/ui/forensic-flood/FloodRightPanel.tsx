@@ -7,20 +7,19 @@ import { ExternalLink, LineChart } from 'lucide-react'
 import { useEffect, useRef, useState, type Ref } from 'react'
 import { fmtAt, fmtDayDate, type TimeFmt } from '../../lib/time'
 import { CATEGORY_COLORS, gaugeTone } from '../../map/floodStyle'
-import { memberGaugesOf, rfcName } from '../../official/floodModel'
+import { memberGaugesOf, rfcName, senderName } from '../../official/floodModel'
 import { floodAssetStore } from '../../scene/flood/floodAssets'
 import { categoryCaps, stageCaps } from '../../scene/flood/gaugeBarMath'
 import { loadNotes, saveNotes } from '../../state/annotations'
 import { openFloodSummary, useFlood } from '../../state/flood'
-import { highestProduct } from '../../state/floodOverview'
 import { useTimeFormat } from '../../state/timeZone'
 import { useWorkspace } from '../../state/workspace'
 import { Card } from '../controls'
 import { useNow } from '../hooks'
 import { NOT_ALL_CLEAR } from '../shell/fixedCopyText'
-import { CREST_LINE, fillCopy, FORECAST_HIGH_LINE, NO_RFC_FORECAST } from '../shell/floodCopy'
+import { CREST_LINE, fillCopy, FORECAST_HIGH_LINE, GAUGE_NOT_ALL_CLEAR, NO_RFC_FORECAST } from '../shell/floodCopy'
 import { FLOOD_FORENSIC } from './floodForensicCopy'
-import { gaugeRows } from './floodForensicView'
+import { gaugeRows, overviewProduct } from './floodForensicView'
 import { FloodEvidenceTab } from './FloodEvidenceTab'
 import { FloodLayersTab } from './FloodLayersTab'
 import { useForensicFlood, type FloodForensicTab } from './forensicFloodState'
@@ -156,8 +155,11 @@ function OverviewCard() {
   const flood = floodAssetStore((st) => st.assets?.flood ?? null)
   if (!s) return null
   const m = flood?.manifest
-  const prod = highestProduct(s)
   const km = m ? Math.round(m.grid.extent_m / 1000) : null
+  // the highest NWS product in effect when the 3D data was prepared, from the copy saved with it (warnings.json), never
+  // from the live list; the copy's outage text when it could not be read (D24; review WFF-R6)
+  const builtAt = m ? fmtAt(m.built_ms, tf, { zone: true, year: 'auto', refMs: nowMs }) : null
+  const prod = flood && m ? overviewProduct(flood.warnings, m.built_ms, nowMs) : null
   return (
     <Card title={FLOOD_FORENSIC.overviewCard} collapsible storageKey="flood-overview" defaultOpen={false} className="fxf-card">
       <dl className="kv fxf-kv">
@@ -165,10 +167,23 @@ function OverviewCard() {
           <dt>Kind</dt>
           <dd>{FLOOD_FORENSIC.overviewKind[s.kind]}</dd>
         </div>
-        <div>
-          <dt>{FLOOD_FORENSIC.overviewProducts}</dt>
-          <dd>{prod ? <span data-verbatim="">{prod.event}</span> : FLOOD_FORENSIC.overviewNoProduct}</dd>
-        </div>
+        {prod && (
+          <div>
+            <dt>{FLOOD_FORENSIC.overviewProducts}</dt>
+            <dd>
+              {prod.kind === 'unavailable' ? (
+                prod.text
+              ) : prod.kind === 'product' ? (
+                <>
+                  <span data-verbatim="">{prod.alert.event}</span> <span className="muted">({senderName(prod.alert.sender_name)})</span>
+                  <span className="fxf-kv-sub">{fillCopy(FLOOD_FORENSIC.overviewProductAt, { time: builtAt ?? '—' })}</span>
+                </>
+              ) : (
+                fillCopy(FLOOD_FORENSIC.overviewNoProduct, { time: builtAt ?? '—' })
+              )}
+            </dd>
+          </div>
+        )}
         <div>
           <dt>{s.started_basis === 'first_seen' ? FLOOD_FORENSIC.overviewSeenSince : FLOOD_FORENSIC.overviewStarted}</dt>
           <dd className="mono">{fmtDayDate(s.started_ms, s.time_zone || tf.tz, { year: 'always' })}</dd>
@@ -207,6 +222,10 @@ function GaugesCard() {
   const members = rows.filter((r) => r.member)
   const nearbyAll = rows.filter((r) => !r.member)
   const nearby = allNearby ? nearbyAll : nearbyAll.slice(0, NEARBY_SHOWN)
+  // a gauge below flood stage is never an all-clear (§5.3; review WFF-R7): the answer's own caveats, and
+  // GAUGE_NOT_ALL_CLEAR whenever a listed gauge reads below flood stage
+  const below = rows.some((r) => r.tone === 'no_flooding')
+  const belowNotes = [...new Set([...(flood.gauges?.caveats ?? []), ...(below ? [GAUGE_NOT_ALL_CLEAR] : [])])]
   return (
     <Card title={FLOOD_FORENSIC.gaugesCard} sub={members.length ? <span className="mono">{members.length}</span> : undefined} collapsible storageKey="flood-gauges" className="fxf-card fxf-gauges-card" bodyClassName="fxf-card-scroll">
       {flood.gauges && flood.gauges.status !== 'available' ? (
@@ -239,6 +258,11 @@ function GaugesCard() {
               {allNearby ? FLOOD_FORENSIC.gaugesFewer : fillCopy(FLOOD_FORENSIC.gaugesAll, { n: nearbyAll.length })}
             </button>
           )}
+          {belowNotes.map((n) => (
+            <p key={n} className="fxf-card-note fxf-gauge-caveat">
+              {n}
+            </p>
+          ))}
           <p className="fxf-card-note">{FLOOD_FORENSIC.barHeight}</p>
         </>
       )}

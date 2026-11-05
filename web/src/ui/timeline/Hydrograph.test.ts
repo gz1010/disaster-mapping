@@ -13,9 +13,9 @@ import { useFloodOfficial } from '../../official/floodHooks'
 import { NO_ANSWER, type Answer } from '../../official/floodModel'
 import { useFlood } from '../../state/flood'
 import { useWorkspace } from '../../state/workspace'
-import { CURSOR_FUTURE_PRODUCTS, floodWordingProblems, HYDRO, NO_MEMBER_GAUGE, stripVerbatim } from '../shell/floodCopy'
+import { CURSOR_FUTURE_ISSUED, CURSOR_FUTURE_PRODUCTS, floodWordingProblems, HYDRO, NO_MEMBER_GAUGE, stripVerbatim } from '../shell/floodCopy'
 import { restoreSsrState, ssrState } from '../ssr.testutil'
-import { Hydrograph, type HydrographProps } from './Hydrograph'
+import { GaugeList, Hydrograph, type HydrographProps } from './Hydrograph'
 import { gaugeKey, modelKey, useHydroData } from './hydrographData'
 
 const ans = <T,>(data: T | null): Answer<T> => ({ data, loading: false, error: null })
@@ -124,11 +124,49 @@ describe('Hydrograph (slim)', () => {
 })
 
 describe('Hydrograph (dock)', () => {
-  it('renders the same chart without the picker; the key keeps the forecast issuer', () => {
+  it('renders the same chart without the picker; the key keeps the forecast issuer and its issue time (WFC-R11)', () => {
     const html = render({ variant: 'dock' })
     expect(html).toContain('hg is-dock')
     expect(html).not.toContain('hg-pick')
-    expect(html).toContain('FORECAST · NWS ZZRFC')
+    expect(html).toMatch(/FORECAST · NWS ZZRFC · ISSUED \d\d:\d\d/)
+    // the full label (with the day and zone) is the key item's tooltip
+    expect(html).toMatch(/title="FORECAST · NWS ZZRFC · ISSUED NOV 4 \d\d:\d\d MST"/)
     expect(html).toContain('role="slider"')
+  })
+})
+
+// review WFC-R3: a three-line handle (value, the model's line, the future note) never prints over the plot or the key
+describe('Hydrograph: three-line handle (WFC-R3)', () => {
+  const three = (variant: 'slim' | 'dock') => render({ variant, initialAxis: 'flow' }, { cursorMs: FIXTURE_NOW_MS + 30 * 3600e3, model: ans(MODEL_SERIES()) })
+  for (const variant of ['slim', 'dock'] as const)
+    it(`${variant}: the row is sized for its two label lines; the future note is its own wrapped line before the plot`, () => {
+      const html = three(variant)
+      const px = variant === 'slim' ? 32 : 28
+      expect(html).toContain(`class="hg-handle-row${variant === 'dock' ? ' is-dock' : ''}" style="height:${px}px" data-lines="2"`)
+      expect(html).toContain('hg-hl-line is-model')
+      // the note: not inside the absolutely placed label, never cut (no ellipsis), placed before the plot
+      expect(html).not.toContain('hg-hl-line is-future')
+      const note = html.indexOf('<p class="hg-future-note"')
+      expect(note).toBeGreaterThan(html.indexOf('hg-handle-row'))
+      expect(note).toBeLessThan(html.indexOf('class="hg-plot"'))
+      expect(html).toContain(CURSOR_FUTURE_PRODUCTS)
+    })
+  it('a handle inside a product NWS issued for that time: CURSOR_FUTURE_ISSUED, never "NWS has issued none" (WFC-R1)', () => {
+    const html = render({}, { cursorMs: FIXTURE_NOW_MS + 4 * 3600e3 })
+    expect(html).toContain(CURSOR_FUTURE_ISSUED)
+    expect(html).not.toContain(CURSOR_FUTURE_PRODUCTS)
+  })
+})
+
+// review WFC-R10: the gauge list is a listbox of option groups with one tab stop (the current gauge)
+describe('GaugeList (WFC-R10)', () => {
+  it('options in labelled groups, the current gauge selected and the only tab stop', () => {
+    render()
+    const html = renderToStaticMarkup(createElement(GaugeList, { floodId: DETAIL().summary.id, lid: 'ZZRF1' }))
+    expect(html).toContain('role="listbox"')
+    expect(html).toMatch(/role="group" aria-labelledby="[^"]+-members"/)
+    expect((html.match(/role="option"/g) ?? []).length).toBe(GAUGES().gauges.length)
+    expect((html.match(/tabindex="0"/g) ?? []).length).toBe(1)
+    expect(html).toMatch(/aria-selected="true" tabindex="0"/)
   })
 })

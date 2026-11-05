@@ -39,7 +39,9 @@ import {
   cursorLabel,
   cursorReadout,
   futureProductsNote,
+  handleRowHeight,
   HYDRO_GAP_MS,
+  listKeyTarget,
   productsShown,
   stepCursor,
   unitLabels,
@@ -310,14 +312,11 @@ function useWidth(): [(el: HTMLDivElement | null) => void, number] {
   return [ref, w]
 }
 
-/** One line of the handle's words (px): the row is as tall as the lines it shows. */
-export const HANDLE_LINE_PX: Record<HydrographVariant, number> = { slim: 16, dock: 14 }
-
 /** The handle's words above the plot, at the handle: the time and value; the model on its own line (flow). The row is
  *  sized for its lines, so nothing spills over the plot (review WFC-R3); the future note is its own wrapped line. */
 function HandleRow({ variant, readout, x, plotW }: { variant: HydrographVariant; readout: CursorReadout | null; x: number; plotW: number }) {
-  const lines = readout ? 1 + (readout.modelLine ? 1 : 0) : 1
-  const height = lines * HANDLE_LINE_PX[variant]
+  const lines = readout?.modelLine ? 2 : 1
+  const height = handleRowHeight(variant, readout)
   const row = `hg-handle-row${variant === 'dock' ? ' is-dock' : ''}`
   if (!readout) return <div className={row} style={{ height }} />
   const align = x < 170 ? 'is-start' : x > plotW - 170 ? 'is-end' : ''
@@ -608,16 +607,6 @@ function AxisRow({ model: m, plotW }: { model: HydrographModel; plotW: number })
 // ------------------------------------------------------------------------------------------------ the gauge picker
 /** The list of the flood's gauges (members first, then nearby gauges labelled "not part of this flood"); picking one
  *  shows it in the river-level chart (useFlood.setGauge). Used by the chart's picker and Command's bar gauge line. */
-/** Keys in the gauge list (review WFC-R10): the option to focus next, or null for other keys. */
-export function listKeyTarget(key: string, index: number, count: number): number | null {
-  if (count <= 0) return null
-  if (key === 'ArrowDown') return Math.min(count - 1, index + 1)
-  if (key === 'ArrowUp') return Math.max(0, index - 1)
-  if (key === 'Home') return 0
-  if (key === 'End') return count - 1
-  return null
-}
-
 export function GaugeList({ floodId, lid, gauges, onPick, onClose }: { floodId: string; lid: string | null; gauges?: readonly RiverGauge[]; onPick?: () => void; onClose?: () => void }) {
   const summary = useFlood((s) => (s.floodId === floodId ? openFloodSummary(s) : null))
   const offGauges = useFloodOfficial((s) => (s.floodId === floodId ? s.gauges.data : null))
@@ -627,18 +616,19 @@ export function GaugeList({ floodId, lid, gauges, onPick, onClose }: { floodId: 
   const box = useRef<HTMLDivElement | null>(null)
   const titleId = useId()
   const options = () => Array.from(box.current?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? [])
-  // opened: the focus moves to the current gauge (else the first), once the list is placed and visible (WFC-R10)
+  // opened: the focus moves to the current gauge (else the first), once the popover is placed and visible (WFC-R10);
+  // a timer, not an animation frame, so a busy map's slow frames never leave the focus on the opener
   useEffect(() => {
     let tries = 0
-    let raf = 0
+    let timer = 0
     const focus = () => {
       const all = options()
       const target = all.find((o) => o.getAttribute('aria-selected') === 'true') ?? all[0]
-      target?.focus({ preventScroll: false })
-      if (target && document.activeElement !== target && tries++ < 5) raf = requestAnimationFrame(focus)
+      target?.focus()
+      if (target && document.activeElement !== target && tries++ < 10) timer = window.setTimeout(focus, 30)
     }
-    raf = requestAnimationFrame(focus)
-    return () => cancelAnimationFrame(raf)
+    timer = window.setTimeout(focus, 0)
+    return () => window.clearTimeout(timer)
   }, [])
   const pick = (g: RiverGauge) => {
     if (useFlood.getState().floodId === floodId) useFlood.getState().setGauge(g.lid)

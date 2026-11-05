@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { GAUGES } from '../../api/__fixtures__/floods/edgeCases'
 import { timeFmt } from '../../lib/time'
 import { CATEGORY_COLORS } from '../../map/floodStyle'
-import { BAR_M_PER_FT, barHeightM, categoryCaps, gaugeBarLabel, gaugeBars, stageCaps, stageFt } from './gaugeBarMath'
+import { BAR_M_PER_FT, barHeightM, categoryCaps, gaugeBarLabel, gaugeBars, placeBarLabel, stageCaps, stageFt } from './gaugeBarMath'
 
 const GRID = { center_e: 762340, center_n: 4075610, utm_zone: 12, extent_m: 12000 }
 const TF = timeFmt('America/Denver', '24h')
@@ -62,5 +62,30 @@ describe('gauge bar maths', () => {
   it('leaves out a gauge outside the bundle area', () => {
     const g = { ...GAUGES().gauges[0], lat: 40, lon: -100 }
     expect(gaugeBars([g], GRID, { units: 'us', tf: TF, nowMs: 0 })).toEqual([])
+  })
+})
+
+describe('placeBarLabel (review WFF-R8: labels never run under the panels or the scene key)', () => {
+  const size = { w: 1440, h: 1000 }
+  const insets = { top: 70, right: 352, bottom: 130, left: 0 }
+  const OFF: [number, number] = [10, 8]
+  it('stays right of its anchor when it fits', () => {
+    const p = placeBarLabel({ x: 600, y: 400 }, size, 180, 13, OFF, insets)
+    expect(p.flip).toBe(false)
+    expect(p.hidden).toBe(false)
+    expect(p.box.left).toBeGreaterThan(600)
+  })
+  it('mirrors to the left before it would run under the right column', () => {
+    const p = placeBarLabel({ x: 1000, y: 400 }, size, 180, 13, OFF, insets)
+    expect(p.flip).toBe(true)
+    expect(p.hidden).toBe(false)
+    expect(p.box.right).toBeLessThan(1000)
+  })
+  it('hides under the scene key, and when its anchor is under a panel', () => {
+    const key = { left: 20, top: 300, right: 290, bottom: 560 }
+    expect(placeBarLabel({ x: 200, y: 420 }, size, 180, 13, OFF, insets, [key]).hidden).toBe(true)
+    expect(placeBarLabel({ x: 400, y: 420 }, size, 180, 13, OFF, insets, [key]).hidden).toBe(false)
+    expect(placeBarLabel({ x: 1200, y: 400 }, size, 180, 13, OFF, insets).hidden).toBe(true)
+    expect(placeBarLabel({ x: 600, y: 950 }, size, 180, 13, OFF, insets).hidden).toBe(true)
   })
 })

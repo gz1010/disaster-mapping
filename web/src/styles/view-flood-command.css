@@ -145,6 +145,10 @@
 .ffr .ffr-note.is-warn {
   color: var(--m-stale);
 }
+.ffr .ffr-note .ffr-strong {
+  font-weight: 600;
+  color: var(--m-text);
+}
 .ffr .ro-sub a {
   color: inherit;
   text-decoration: underline;
@@ -200,6 +204,13 @@
 .fxm-legend.is-chips .cfv-chips {
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+/* a Command layer that is on but not drawn says why on its chip (review WFC-R9) */
+.cfv-chips .cfv-chip-warn {
+  color: var(--m-stale);
+}
+.cfv-chips .cfv-chip-quiet {
+  color: var(--m-text-3);
 }
 /* the reading shortens with an ellipsis on a narrow bar; its age (amber when stale) always stays (review WFC-R15) */
 .cfv-gauge-text {

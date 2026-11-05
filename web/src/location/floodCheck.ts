@@ -18,6 +18,8 @@
 // (the narrower NOTHING_COVERS_OFFICIAL when FEMA, the category map or the model says "inside": review WFC-R8). The
 // products follow productsShown (ui/timeline/hydrographModel.ts): the same rule as the map (review WFC-R1).
 // Pure and tested (floodCheck.test.ts). Used by the point card (location/FloodPointCard.tsx) and Command's readout.
+import { API_BASE } from '../api/client'
+import { riverGaugesQuery } from '../api/floods'
 import type { FloodAlert, FloodAlertsResponse, FloodMapResponse, ModelOutputResponse, RiverGauge, RiverGaugesResponse, SatelliteWaterResponse } from '../api/types'
 import { distanceToAreas } from '../lib/areaDistance'
 import { bearingDeg, distanceM } from '../lib/geodesy'
@@ -348,6 +350,11 @@ export function pointGaugeBox(point: [number, number], km = READOUT_GAUGE_KM): [
   return [lon - dLon, lat - dLat, lon + dLon, lat + dLat]
 }
 
+/** `/api/official/river-gauges?bbox=<point ± 25 km>` (and `at_ms` for a past flood): the point's own gauges answer. */
+export function pointGaugesUrl(point: [number, number], atMs: number | null): string {
+  return `${API_BASE}/api${riverGaugesQuery({ bbox: pointGaugeBox(point).map((v) => Math.round(v * 1e4) / 1e4) as [number, number, number, number], atMs })}`
+}
+
 /** Does the flood's gauges answer cover the point's ±25 km (its `area_bbox` holds the whole box)? Otherwise the
  *  readout asks for the point's own box, as the point card does (review WFC-R2). */
 export function floodAnswerCovers(resp: Pick<RiverGaugesResponse, 'status' | 'area_bbox'> | null | undefined, point: [number, number]): boolean {
@@ -377,8 +384,10 @@ export function chooseNearGauge(i: {
   cover: RiverGaugesResponse | null
   coverState: AnswerState
   memberLids?: readonly string[]
+  /** The flood's answer covers every spot (a simulated flood: its answer is the demo's whole world). */
+  floodCovers?: boolean
 }): NearGaugeChoice {
-  const needCover = !floodAnswerCovers(i.flood, i.point)
+  const needCover = !i.floodCovers && !floodAnswerCovers(i.flood, i.point)
   const own = i.flood?.status === 'available' ? i.flood.gauges : []
   const members = new Set(i.memberLids ?? [])
   const extra = needCover && i.cover?.status === 'available' ? i.cover.gauges.filter((g) => !own.some((o) => o.lid === g.lid)).map((g) => (members.has(g.lid) && !g.member ? { ...g, member: true } : g)) : []
@@ -477,7 +486,7 @@ export function categoryWords(g: Pick<RiverGauge, 'observed'>, tf: TimeFmt, nowM
 /** The forecast row of a gauge: the crest (CREST_LINE) or the forecast high still rising at its end (C7); none when
  *  the gauge is not a forecast point (NO_RFC_FORECAST); a forecast point without its forecast here says where to see
  *  it (never NO_RFC_FORECAST then; bundle-api deviation 4). */
-export function forecastRow(g: RiverGauge, tf: TimeFmt, units: Units, nowMs: number, past = false): { label: string; value: string; sub: string } {
+export function forecastRow(g: RiverGauge, tf: TimeFmt, units: Units, nowMs: number, past = false, falling = false): { label: string; value: string; sub: string } {
   // river forecasts are not kept for past dates (a past flood)
   if (past) return { label: FLOOD_COMMAND.crestLabel, value: FLOOD_PUBLIC.pastDates, sub: PAST_NO_FORECAST }
   const f = g.forecast
@@ -488,9 +497,10 @@ export function forecastRow(g: RiverGauge, tf: TimeFmt, units: Units, nowMs: num
     const when = f.max_ms != null ? fmtAt(f.max_ms, tf, { weekday: true, zone: true, year: 'auto', refMs: nowMs }) : '—'
     const issued = f.issued_ms != null ? fmtAt(f.issued_ms, tf, { zone: true, year: 'auto', refMs: nowMs }) : '—'
     const slots = { value: v, unit: u, 'day time zone': when, 'RFC name': rfcName(f), time: issued }
-    return f.crest_at_end
-      ? { label: FORECAST_HIGH_LABEL, value, sub: fillCopy(FORECAST_HIGH_LINE, slots) }
-      : { label: FLOOD_COMMAND.crestLabel, value: `${value} · ${when}`, sub: fillCopy(CREST_LINE, slots) }
+    if (f.crest_at_end) return { label: FORECAST_HIGH_LABEL, value, sub: fillCopy(FORECAST_HIGH_LINE, slots) }
+    // a falling forecast: its highest value is its first step, below the latest reading (review WFC-R14)
+    if (falling) return { label: FLOOD_COMMAND.highestForecastLabel, value: `${value} · ${when}`, sub: fillCopy(FLOOD_COMMAND.highestForecastSub, slots) }
+    return { label: FLOOD_COMMAND.crestLabel, value: `${value} · ${when}`, sub: fillCopy(CREST_LINE, slots) }
   }
   if (g.is_forecast_point) return { label: FLOOD_COMMAND.crestLabel, value: '—', sub: FLOOD_COMMAND.forecastInChart }
   return { label: FLOOD_COMMAND.crestLabel, value: NO_RFC_FORECAST, sub: '' }

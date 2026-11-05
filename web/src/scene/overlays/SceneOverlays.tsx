@@ -6,9 +6,10 @@
 // north needle and "000° · 29°" under it; drag it around its centre to turn the view (ui/useCompassDrag.ts; a click is
 // still north up, ← → on it turn 15°), with ⟲ ⟳ buttons beside it. The view dock: scale, 2D / 3D in the accent, the
 // exaggeration and quality as "1.5× ▾" / "High ▾" (the same selects), depth of field, frame fire, full screen.
-// Brief 5 (PLAN-5 §4.7): with a flood open the probe readout shows the flood layers at the cursor (satellite water
-// class, the NWS forecast flooded area, FEMA and the model when switched on) instead of fuel and arrival (a flood has
-// no ignition), the frame button frames the flood, and the loading veil follows the flood's own terrain.
+// Brief 5 (PLAN-5 §4.7): with a flood open the probe readout shows what each flood layer says at the cursor
+// (scene/flood/floodProbe.ts: NWS products, satellite pass, NWS forecast area, FEMA / category map / model when switched
+// on, NOTHING_COVERS; never an all-clear) instead of fuel and arrival (a flood has no ignition), the frame button frames
+// the flood, and the loading veil follows the flood's own terrain.
 import { Aperture, Crosshair, Maximize2, Minimize2, RotateCcw, RotateCw, X } from 'lucide-react'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { headingLabel, isRotated } from '../../lib/compass'
@@ -19,12 +20,12 @@ import { ROTATE_STEP_DEG } from '../../state/rotation'
 import { useFlood } from '../../state/flood'
 import { useStore, type Quality } from '../../state/store'
 import { useTimeFormat } from '../../state/timeZone'
-import { FLOOD_FORENSIC } from '../../ui/forensic-flood/floodForensicCopy'
-import { shownOpacity, useForensicFlood } from '../../ui/forensic-flood/forensicFloodState'
+import { useForensicFlood } from '../../ui/forensic-flood/forensicFloodState'
+import { useNow } from '../../ui/hooks'
 import { useCompassDrag } from '../../ui/useCompassDrag'
 import { useAssetsError, useAssetsLoading } from '../assets'
 import { floodAssetStore, useFloodAssetsError, useFloodAssetsLoading } from '../flood/floodAssets'
-import { satDrapeOf } from '../flood/satClasses'
+import { floodProbeRows } from '../flood/floodProbe'
 import { camState } from '../camera/cameraState'
 import { headingOfAzimuth } from '../camera/heading'
 import { useSceneStore } from '../sceneStore'
@@ -332,24 +333,21 @@ function ProbeReadout({ area }: { area: { w: number; h: number } }) {
   )
 }
 
-/** A raster cell at the probe (row 0 = north), or null outside it. */
-function cellAt(a: Uint8Array | null, w: number, h: number, x: number, z: number, extent: number): number | null {
-  if (!a) return null
-  const c = Math.floor((x / extent + 0.5) * w)
-  const r = Math.floor((z / extent + 0.5) * h)
-  return c >= 0 && c < w && r >= 0 && r < h ? a[r * w + c] : null
-}
-
 /** The flood layers under the cursor (hybrid / parametric styles, as the fire probe): coordinates, elevation and slope,
- *  the satellite class, the NWS forecast flooded area, and FEMA / the model only while they are switched on. */
+ *  then what each flood layer says at the spot (scene/flood/floodProbe.ts, review WFF-R1): the NWS products drawn at the
+ *  handle, the satellite pass's own sentence, the NWS forecast area, FEMA / the category map / the model only while on
+ *  (and the model only where it maps water), and NOTHING_COVERS when no layer covers the spot. Values wrap, never cut. */
 function FloodProbeReadout({ area }: { area: { w: number; h: number } }) {
   const probe = useSceneStore((s) => s.probe)
   const interacting = useSceneStore((s) => s.interacting)
   const style = useStore((s) => s.visualStyle)
   const assets = floodAssetStore((s) => s.assets)
   const L = useForensicFlood((s) => s.layers)
+  const cursorMs = useFlood((s) => s.cursorMs)
+  const tf = useTimeFormat()
+  const nowMs = useNow(60_000)
   const ref = useRef<HTMLDivElement>(null)
-  const [box, setBox] = useState({ w: 240, h: 110 })
+  const [box, setBox] = useState({ w: 300, h: 140 })
   const key = probe ? `${Math.round(probe.x / 50)}|${Math.round(probe.z / 50)}` : ''
   useEffect(() => {
     const el = ref.current
@@ -357,18 +355,8 @@ function FloodProbeReadout({ area }: { area: { w: number; h: number } }) {
   }, [key])
   const fl = assets?.flood
   if (!probe || interacting || style === 'realistic' || !assets || !fl || probe.screenX == null || probe.screenY == null) return null
-  const { width: w, height: h } = fl.arrays
-  const at = (a: Uint8Array | null) => cellAt(a, w, h, probe.x, probe.z, assets.extent)
   const slopeDeg = (Math.atan(probe.slope) * 180) / Math.PI
-  const rows: [string, string][] = []
-  const sat = at(fl.arrays.satellite)
-  if (fl.has.satellite && sat != null && shownOpacity(L.satellite) > 0) rows.push([FLOOD_FORENSIC.probeWater, satDrapeOf(sat).label])
-  if (fl.has.forecast && shownOpacity(L.forecastArea) > 0) rows.push([FLOOD_FORENSIC.probeForecast, (at(fl.arrays.forecast) ?? 0) > 127 ? FLOOD_FORENSIC.probeInForecast : FLOOD_FORENSIC.probeOutForecast])
-  if (fl.has.floodplain && shownOpacity(L.floodplain) > 0) {
-    const z = at(fl.arrays.floodplain) ?? 0
-    rows.push([FLOOD_FORENSIC.probePlain, z === 3 ? FLOOD_FORENSIC.probeFloodway : z === 2 ? FLOOD_FORENSIC.probeInPlain : z === 1 ? FLOOD_FORENSIC.probeBand : FLOOD_FORENSIC.probeOutPlain])
-  }
-  if (fl.has.model && shownOpacity(L.model) > 0) rows.push([FLOOD_FORENSIC.probeModel, (at(fl.arrays.model) ?? 0) > 127 ? FLOOD_FORENSIC.probeModelIn : FLOOD_FORENSIC.probeModelOut])
+  const { rows, note } = floodProbeRows({ flood: fl, layers: L, extent: assets.extent, point: { x: probe.x, z: probe.z, lon: probe.lon, lat: probe.lat }, cursorMs, nowMs, tf })
   const pw = area.w || 4000
   const ph = area.h || 4000
   let x = probe.screenX + 18
@@ -376,7 +364,7 @@ function FloodProbeReadout({ area }: { area: { w: number; h: number } }) {
   if (x + box.w > pw - 8) x = probe.screenX - box.w - 18
   if (y + box.h > ph - 8) y = probe.screenY - box.h - 18
   return (
-    <div ref={ref} className="sc-glass sc-probe" style={{ transform: `translate(${Math.round(x)}px, ${Math.round(y)}px)` }}>
+    <div ref={ref} className="sc-glass sc-probe fxf-probe" style={{ transform: `translate(${Math.round(x)}px, ${Math.round(y)}px)` }}>
       <div className="sc-probe-coord">
         {Math.abs(probe.lat).toFixed(5)}°{probe.lat >= 0 ? 'N' : 'S'} {Math.abs(probe.lon).toFixed(5)}°{probe.lon >= 0 ? 'E' : 'W'}
       </div>
@@ -386,12 +374,13 @@ function FloodProbeReadout({ area }: { area: { w: number; h: number } }) {
           {fmtNumber(probe.elev)} m <span className="sc-dim">·</span> {fmtNumber(slopeDeg)}° slope
         </span>
       </div>
-      {rows.map(([k, v]) => (
-        <div key={k} className="sc-probe-row">
-          <span>{k}</span>
-          <span>{v}</span>
+      {rows.map((r) => (
+        <div key={r.key} className={`fxf-probe-row${r.tone ? ` is-${r.tone}` : ''}`}>
+          <span>{r.label}</span>
+          <span>{r.text}</span>
         </div>
       ))}
+      {note && <p className="fxf-probe-note">{note}</p>}
     </div>
   )
 }

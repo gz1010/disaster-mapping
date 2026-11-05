@@ -27,3 +27,13 @@ Role `web-flood-forensic` (PLAN-5 §4.7, CONTRACT §16.12). Ports API 8756, Vite
   no `SceneAssets` base type is needed. Flood assets add an optional `flood` part.
 - Warning lines: per VTEC event, the newest version sent at or before the handle's time, then `productsDrawn` /
   `productsAt` (C1).
+
+## Review fixes (review5-web-flood-forensic, 14 findings)
+
+- 2026-11-05 07:15 UTC: started the fix step (no earlier attempt found: no review5 report, no fix commit, no uncommitted
+  edits in this role's files). Read BRIEF-5, PLAN-5, CONTRACT §16, the role entry, part-1 results and the as-built
+  notes; viewed the reviewer's screenshots (scratchpad rv-wff). Ports API 8756, Vite 5216.
+- 07:24 UTC: code fixes in place for R1-R13 (floodProbe.ts + test, key notes and fold-out, row meta lines, future line,
+  dock absence, overview from warnings.json, gauge caveats, label placement + floodOverlayRects, phone picker,
+  floodAssets.test.ts, unused copy removed, tokens in CSS); targeted tests green, typecheck ok, lint 55. Next:
+  screenshots on 8756 / 5216, then gates.

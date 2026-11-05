@@ -123,7 +123,7 @@ export function pointInside(rings: Ring[]): [number, number] | null {
 
 /** Label points for a layer's polygons: a point inside each of the largest polygons (at most `max`, never two within
  *  `minKm` of each other), largest first (`rank` 0 = largest, so MapLibre keeps it when labels collide). */
-export function labelPoints(fc: FeatureCollection, max = 4, minKm = 2): FeatureCollection {
+export function labelPoints(fc: FeatureCollection, max = 3, minKm = 3): FeatureCollection {
   const polys: { rings: Ring[]; area: number }[] = []
   for (const f of fc.features) {
     const g = f.geometry as { type?: string; coordinates?: unknown } | null
@@ -174,7 +174,8 @@ export function floodCommandLayers(): LayerSpecification[] {
       'text-size': 10,
       'text-letter-spacing': 0.08,
       'symbol-sort-key': ['get', 'rank'],
-      'text-padding': 6,
+      'text-padding': 4,
+      'text-max-width': 30,
     },
     paint: { 'text-color': color, 'text-halo-color': 'rgba(10,10,10,0.92)', 'text-halo-width': 1.6 },
   })

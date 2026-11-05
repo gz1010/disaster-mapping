@@ -5,23 +5,25 @@
 //   one line per flood layer at the point (location/floodCheck.ts checkPoint, at the river-level chart's handle:
 //   productsAt, C1), each with an outlined tag saying what it is and how old: OFFICIAL, FORECAST · ISSUED 10:20,
 //   SATELLITE · 4 D AGO, FEMA (when on), MODEL (only when switched on); NOTHING_COVERS when no layer covers the spot;
-//   the nearest river gauge (the flood's rivers first, else at action stage or above, within 25 km): stage with its own
-//   reading time, the NWS category in words (PLAN-5 §5.3, never a raw value), flood stage, the NWS forecast crest or
-//   the forecast high at its end (C7), the distance, and GAUGE_OTHER_STREAM; NO_GAUGE_NEAR only when the gauge answer
-//   is available (D24);
+//   the nearest river gauge (the flood's rivers first, else at action stage or above, within 25 km; from the flood's
+//   gauges answer and, when that does not cover the point's 25 km, the point's own answer, as the point card asks):
+//   stage with its own reading time, the NWS category in words (PLAN-5 §5.3, never a raw value), flood stage, the NWS
+//   forecast crest or the forecast high at its end (C7), the distance, and GAUGE_OTHER_STREAM; NO_GAUGE_NEAR only when
+//   an answer covering the point's 25 km is available (D24; review WFC-R2); without a point, the primary gauge, or
+//   NO_MEMBER_GAUGE for a flood with none (WFC-R7);
 //   the flood's rows: FLOOD ID (copy), PRIMARY GAUGE coordinates (copy, centre), LAST OFFICIAL UPDATE;
 //   area figures, each on its own line with its caveat: RFC_FIM_AREA_COMMAND (only when the backend measured it from
 //   the flood's own forecast reaches, C6) and SAT_AREA_COMMAND with the satellite caveat.
 // Without a selected point: the prompt, then the primary gauge, the flood's rows and the area figures. Phones: a
 // bottom sheet whose peek line is the selected point, else the primary gauge.
 import { ChevronDown, ChevronUp, Crosshair, X } from 'lucide-react'
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import type { FloodSummary, RiverGauge } from '../api/types'
+import type { FloodSummary, RiverGaugesResponse } from '../api/types'
 import { formatDecimalPair, formatLat, formatLon } from '../lib/geodesy'
 import { directionWord, distance } from '../lib/plainLanguage'
 import { fmtAt, fmtRelative, HOUR_MS, timeFmt, type TimeFmt } from '../lib/time'
-import { useFloodOfficial, useSatClassAt } from '../official/floodHooks'
+import { askedAt, useFloodOfficial, useSatClassAt } from '../official/floodHooks'
 import { answerState, memberGaugesOf, officialAlerts, withNewerReading, type AnswerState } from '../official/floodModel'
 import { openFloodSummary, useFlood } from '../state/flood'
 import { useFloodLayerData } from '../state/floodLayerData'
@@ -29,13 +31,14 @@ import { useClock, useTimeFormatFor } from '../state/timeZone'
 import { useWorkspace, type SelectedLocation, type Units } from '../state/workspace'
 import { useNow } from '../ui/hooks'
 import { fmtStage } from '../ui/public/floodOverviewText'
-import { fillCopy, FLOOD_COMMAND, FLOOD_LAST_KNOWN, GAUGE_NOT_DEFINED, GAUGE_OTHER_STREAM, GAUGES_UNAVAILABLE, NO_GAUGE_NEAR } from '../ui/shell/floodCopy'
+import { fillCopy, FLOOD_COMMAND, FLOOD_LAST_KNOWN, GAUGE_NOT_DEFINED, GAUGE_OTHER_STREAM, GAUGES_UNAVAILABLE, NO_GAUGE_NEAR, NO_MEMBER_GAUGE, NO_MEMBER_GAUGE_SUB } from '../ui/shell/floodCopy'
 import { ReadoutRow } from '../ui/shell/Readout'
 import { CopyButton } from './CoordinateStrip'
-import { areaFigures, categoryWords, checkPoint, forecastRow, lineTag, nearestFloodGauge, utmZoneOf, type NearestGauge } from './floodCheck'
+import { areaFigures, categoryWords, checkPoint, chooseNearGauge, floodAnswerCovers, forecastRow, lineTag, pointGaugesUrl, utmZoneOf, type NearestGauge } from './floodCheck'
 import { coordinateLine } from './readoutText'
 import { useNarrow } from './useNarrow'
-import { useChartGauge, withChartReading } from '../ui/timeline/hydrographData'
+import { useChartGauge, usePointGauges, withChartReading } from '../ui/timeline/hydrographData'
+import { forecastFalling } from '../ui/timeline/hydrographModel'
 import './location.css'
 import '../styles/view-flood-command.css'
 
@@ -173,34 +176,51 @@ function GaugeRows({ sel, summary }: { sel: SelectedLocation | null; summary: Fl
   const clock = useClock()
   const nowMs = useNow(60_000)
   const st = answerState(gaugesAns)
-  const all = useMemo(() => {
+  // one reading per gauge: the primary gauge's newest of the list's and the answer's (WFP-R2)
+  const flood = useMemo((): RiverGaugesResponse | null => {
     const resp = gaugesAns.data
-    if (!resp || resp.status !== 'available') return [] as RiverGauge[]
+    if (!resp || resp.status !== 'available') return resp ?? null
     const ref = summary.primary_gauge
-    return resp.gauges.map((g) => (ref && g.lid === ref.lid ? withNewerReading(g, ref) : g))
+    return { ...resp, gauges: resp.gauges.map((g) => (ref && g.lid === ref.lid ? withNewerReading(g, ref) : g)) }
   }, [gaugesAns.data, summary.primary_gauge])
+  const point: [number, number] | null = sel ? [sel.lon, sel.lat] : null
+  // a simulated flood's answer is its whole (synthetic) world: real gauges are never mixed into the demo
+  const demo = summary.synthetic === true
+  // the point's own gauges answer when the flood's does not cover its 25 km (review WFC-R2)
+  const cover = usePointGauges(point && !demo && !floodAnswerCovers(flood, point) ? pointGaugesUrl(point, askedAt(summary)) : null)
   let pick: NearestGauge | null = null
   let title: string = FLOOD_COMMAND.gaugeNearest
-  if (sel) pick = nearestFloodGauge(all, [sel.lon, sel.lat], summary.rivers)
-  else {
+  let absent: ReactNode = null
+  if (point) {
+    const memberLids = [summary.primary_gauge?.lid, ...(summary.gauges ?? []).map((g) => g.lid)].filter((x): x is string => !!x)
+    const c = chooseNearGauge({ point, rivers: summary.rivers, flood, floodState: asked(st), cover: cover.data, coverState: asked(cover.state), memberLids, floodCovers: demo })
+    pick = c.pick
+    // an absence sentence needs an answer covering the point's 25 km (D24, WFC-R2)
+    if (c.absence === 'none') absent = <p className="ffr-note">{NO_GAUGE_NEAR}</p>
+    else if (c.absence === 'checking') absent = <p className="ffr-note">{FLOOD_COMMAND.gaugesChecking}</p>
+    else if (c.absence === 'unavailable') absent = <p className="ffr-note is-warn">{c.reason ?? GAUGES_UNAVAILABLE}</p>
+  } else {
     const members = memberGaugesOf(gaugesAns.data, summary)
     const g = members.find((m) => m.lid === summary.primary_gauge?.lid) ?? members[0] ?? null
     if (g) pick = { gauge: g, km: 0, bearingDeg: 0, onRiver: true }
     title = FLOOD_COMMAND.gaugePrimary
+    if (!g) {
+      if (st === 'available' && !summary.primary_gauge) {
+        // a flash or areal flood without a member gauge says so (PLAN-5 5.3; review WFC-R7), never an empty heading
+        title = FLOOD_COMMAND.gaugeTitle
+        absent = (
+          <p className="ffr-note">
+            <strong className="ffr-strong">{NO_MEMBER_GAUGE}</strong> · {NO_MEMBER_GAUGE_SUB}
+          </p>
+        )
+      } else if (st === 'loading' || st === 'none') absent = <p className="ffr-note">{FLOOD_COMMAND.gaugesChecking}</p>
+      else if (st !== 'available') absent = <p className="ffr-note is-warn">{gaugesAns.data?.reason ?? GAUGES_UNAVAILABLE}</p>
+    }
   }
   return (
     <section className="cro-rows ffr-gauge" aria-label={FLOOD_COMMAND.gaugeTitle}>
       <h3 className="cro-eyebrow ffr-eyebrow">{title}</h3>
-      {pick ? (
-        <GaugeBlock n={pick} sel={sel} tf={timeFmt(pick.gauge.time_zone || summary.time_zone, clock)} units={units} nowMs={nowMs} past={summary.mode === 'historical'} />
-      ) : st === 'loading' ? (
-        <p className="ffr-note">{FLOOD_COMMAND.gaugesChecking}</p>
-      ) : st === 'available' ? (
-        // an absence sentence needs an answer (D24)
-        sel ? <p className="ffr-note">{NO_GAUGE_NEAR}</p> : null
-      ) : (
-        <p className="ffr-note is-warn">{gaugesAns.data?.reason ?? GAUGES_UNAVAILABLE}</p>
-      )}
+      {pick ? <GaugeBlock n={pick} sel={sel} tf={timeFmt(pick.gauge.time_zone || summary.time_zone, clock)} units={units} nowMs={nowMs} past={summary.mode === 'historical'} /> : absent}
     </section>
   )
 }
@@ -214,7 +234,7 @@ function GaugeBlock({ n, sel, tf, units, nowMs, past }: { n: NearestGauge; sel: 
   const stale = g.observed.valid_ms != null && nowMs - g.observed.valid_ms > 3 * HOUR_MS
   const reading = g.observed.valid_ms != null ? `${fmtAt(g.observed.valid_ms, tf, { zone: true, year: 'auto', refMs: nowMs })} (${fmtRelative(g.observed.valid_ms, nowMs)})` : null
   const usgs = g.data_attribution.some((d) => /geological survey|usgs/i.test(d.text))
-  const fc = forecastRow(g, tf, units, nowMs, past)
+  const fc = forecastRow(g, tf, units, nowMs, past, forecastFalling(chart ?? g))
   const minor = g.thresholds?.minor ?? null
   const river = g.waterbody?.trim() || g.name
   return (
