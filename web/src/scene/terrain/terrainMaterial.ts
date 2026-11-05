@@ -21,6 +21,10 @@
 //                      0-1 / 1-2 / 2-5 m (lowest strongest), under the water drapes. "Not a flood map"
 //   playback pass      brief 6: the satellite drape follows the river-level chart's handle (scene/flood/floodPassDrape.ts:
 //                      Terrain.tsx swaps uSatWater for a kept pass's classes, or drapes a pass's 2D picture, uSatImg)
+// Two program variants (brief 6 review, WFF3D-R1): WebGL2 only promises 16 texture units per fragment shader (ANGLE on
+// Metal and D3D11 report exactly 16) and the shadow map takes one, so the shader may sample at most 15 textures. A fire
+// compiles without TERRAIN_FLOOD (12 samplers: no flood drapes); an open flood compiles with it (13: no fuel, observed
+// fire, forecast or burn severity, which a flood never has). terrainMaterial.test.ts counts both.
 // Every overlay has an opacity uniform; emissive values > 1 are left in HDR so bloom picks them up.
 import * as THREE from 'three'
 import { ATMOSPHERE_GLSL, atmosphereUniforms } from '../atmosphere/atmosphere'
@@ -71,7 +75,8 @@ const vertexShader = /* glsl */ `
   }
 `
 
-const fragmentShader = /* glsl */ `
+/** The terrain fragment shader (both variants; TERRAIN_FLOOD picks one). Exported for terrainMaterial.test.ts. */
+export const terrainFragmentShader = /* glsl */ `
   #include <common>
   #include <packing>
   #include <lights_pars_begin>
@@ -86,7 +91,9 @@ const fragmentShader = /* glsl */ `
   uniform float uExag;
   uniform sampler2D uNaip;
   uniform float uImagery;
+  #ifndef TERRAIN_FLOOD
   uniform sampler2D uFuel;
+  #endif
   uniform float uHasFuel;
   uniform sampler2D uLut;
   uniform sampler2D uCanopy;
@@ -98,11 +105,13 @@ const fragmentShader = /* glsl */ `
   uniform sampler2D uBakeA;
   uniform sampler2D uBakeB;
   uniform float uBakeMix;
+  #ifndef TERRAIN_FLOOD
   uniform sampler2D uObserved;
-  uniform float uHasObserved;
   uniform sampler2D uForecast;
-  uniform float uHasForecast;
   uniform sampler2D uSeverity;
+  #endif
+  uniform float uHasObserved;
+  uniform float uHasForecast;
   uniform float uHasSeverity;
 
   uniform float uTimeH;      // timeline time, hours since manifest.time_origin_ms
@@ -141,23 +150,29 @@ const fragmentShader = /* glsl */ `
 
   // flood drapes (brief 5): pack r NWS forecast area, g FEMA floodplain (0 / 96 / 200 / 255), b NWM, a CatFIM (linear);
   // satellite DSWx classes (nearest) with their 256 x 2 lookup (row 0 colour + opacity, row 1 water / no view / drawn)
+  #ifdef TERRAIN_FLOOD
   uniform sampler2D uFloodPack;
-  uniform float uHasFlood;
   uniform sampler2D uSatWater;
-  uniform float uHasSat;
   uniform sampler2D uSatLut;
+  #endif
+  uniform float uHasFlood;
+  uniform float uHasSat;
   uniform float uSatOpacity;
   uniform float uFimOpacity;
   uniform float uPlainOpacity;
   uniform float uModelOpacity;
   uniform float uCatfimOpacity;
   // brief 6: height above the nearest river channel (uint8 0.1 m, 255 = no value; nearest), its opacity (0 = off)
+  #ifdef TERRAIN_FLOOD
   uniform sampler2D uHand;
+  #endif
   uniform float uHasHand;
   uniform float uHandOpacity;
   // brief 6: a playback pass without a bundle raster: its 2D picture (sRGB, alpha; image row 0 north) draped through an
   // affine map local (x, z) -> picture (u, v)
+  #ifdef TERRAIN_FLOOD
   uniform sampler2D uSatImg;
+  #endif
   uniform float uHasSatImg;
   uniform vec3 uSatImgU;
   uniform vec3 uSatImgV;
@@ -284,12 +299,13 @@ const fragmentShader = /* glsl */ `
     float slopeDeg = degrees(atan(length(grad)));
 
     // ---------------------------------------------------------------- inputs
-    float code = uHasFuel > 0.5 ? floor(texture2D(uFuel, uv).r * 255.0 + 0.5) : 0.0;
-    vec4 lutV = texture2D(uLut, vec2((code + 0.5) / 256.0, 0.75));
+    float code = 0.0;
     // fuel categories and the realistic LUT albedo blended bilinearly over the 4 nearest fire-grid texels, so
     // procedural detail never shows the 30 m cells
     vec4 cat = vec4(0.0);  // grass, shrub, timber, bare
     vec4 lutR = vec4(0.0);
+    #ifndef TERRAIN_FLOOD
+    code = uHasFuel > 0.5 ? floor(texture2D(uFuel, uv).r * 255.0 + 0.5) : 0.0;
     if (uHasFuel > 0.5) {
       vec2 fsz = vec2(textureSize(uFuel, 0));
       vec2 fpix = uv * fsz - 0.5;
@@ -309,6 +325,8 @@ const fragmentShader = /* glsl */ `
         if (uImagery < 0.999) lutR += wk * texture2D(uLut, vec2((cd + 0.5) / 256.0, 0.25));
       }
     }
+    #endif
+    vec4 lutV = texture2D(uLut, vec2((code + 0.5) / 256.0, 0.75));
     float cc = uHasCanopy > 0.5 ? clamp(texture2D(uCanopy, uv).r * 2.55, 0.0, 1.0) : 0.0;
     float svf = uHasSkyView > 0.5 ? texture2D(uSkyView, uv).r : 0.85;
     float wat = uHasWater > 0.5 ? smoothstep(0.18, 0.62, texture2D(uWater, uv).r) : 0.0;
@@ -355,6 +373,7 @@ const fragmentShader = /* glsl */ `
     float coreMask = 0.0;
     float burned = 0.0;
     float age = 1e5;
+    #ifndef TERRAIN_FLOOD
     if (uHasObserved > 0.5) {
       vec2 of = texture2D(uObserved, uv).rg;
       a = of.r;
@@ -365,12 +384,15 @@ const fragmentShader = /* glsl */ `
       age = uTimeH - a;
       burned = clamp(age / fa + 0.5, 0.0, 1.0) * inMask;
     }
+    #endif
     float sev = 0.6;
     float dnbr = 0.0;
+    #ifndef TERRAIN_FLOOD
     if (uHasSeverity > 0.5) {
       dnbr = texture2D(uSeverity, uv).r;
       sev = clamp((dnbr - 0.1) / 0.6, 0.15, 1.0);
     }
+    #endif
     float burnVis = burned * uObsOpacity;
 
     // ---------------------------------------------------------------- albedo (realistic)
@@ -483,6 +505,7 @@ const fragmentShader = /* glsl */ `
     // ---------------------------------------------------------------- flood drapes (surface colour, brief 5)
     // world-space line spacing (at least ~10 px apart) snapped to powers of two of the pixel size, so patterns never
     // swim or merge while zooming
+    #ifdef TERRAIN_FLOOD
     float hatchL = 26.0 * exp2(ceil(log2(max(1.0, fp * 10.0 / 26.0))));
     if (uHasFlood > 0.5) {
       vec4 fl = texture2D(uFloodPack, uv);
@@ -617,6 +640,7 @@ const fragmentShader = /* glsl */ `
       col = mix(col, amberC * 0.6, smoothstep(0.35, 0.65, mb) * 0.07 * uModelOpacity);
       col = mix(col, amberC, max(medge * dots, medge * 0.25) * uModelOpacity);
     }
+    #endif
 
     // ---------------------------------------------------------------- emissive data layers
     vec3 emis = vec3(0.0);
@@ -682,6 +706,7 @@ const fragmentShader = /* glsl */ `
     }
 
     // forecast: probability field, horizon contours, dashed p50 front
+    #ifndef TERRAIN_FLOOD
     if (uHasForecast > 0.5 && uForecastOpacity > 0.0) {
       vec4 fq = texture2D(uForecast, uv);
       float pa = fq.a;
@@ -717,6 +742,7 @@ const fragmentShader = /* glsl */ `
         emis += FIRE_MID * fl * dash * valid * 0.75 * uForecastOpacity * uLineGain;
       }
     }
+    #endif
 
     emis += mix(GOLD, GOLD_WHITE, 0.5) * sweepGlow * 1.1 * uLineGain;
     col += emis;
@@ -837,13 +863,26 @@ export function createTerrainDepthMaterial(exag: THREE.IUniform): THREE.ShaderMa
   })
 }
 
-export function createTerrainMaterial(): THREE.ShaderMaterial {
+/** The define that compiles the flood variant (flood drapes; no fire samplers). */
+export const TERRAIN_FLOOD = 'TERRAIN_FLOOD'
+
+/** Switch an existing terrain material between the fire and the flood variant (recompiles only on a change). */
+export function setTerrainVariant(material: THREE.ShaderMaterial, flood: boolean): void {
+  const has = TERRAIN_FLOOD in material.defines
+  if (has === flood) return
+  if (flood) material.defines[TERRAIN_FLOOD] = ''
+  else delete material.defines[TERRAIN_FLOOD]
+  material.needsUpdate = true
+}
+
+export function createTerrainMaterial(flood = false): THREE.ShaderMaterial {
   const uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib.lights, terrainUniforms()])
   return new THREE.ShaderMaterial({
     name: 'fire3d-terrain',
     vertexShader,
-    fragmentShader,
+    fragmentShader: terrainFragmentShader,
     uniforms,
+    defines: flood ? { [TERRAIN_FLOOD]: '' } : {},
     lights: true,
     fog: false,
   })

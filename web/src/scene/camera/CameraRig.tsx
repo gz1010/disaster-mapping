@@ -13,11 +13,14 @@
 // (scene/flood/riverFrame.ts: lower, closer, looking along the main river near its gauge) instead of the whole flood
 // from far above; the camera command 'frame-river' ("River view") comes back to it, 'frame-fire' ("Frame flood")
 // still fits the whole flood. The map's hand-off (store.flyTo) keeps the map's place when the map was closer than the
-// river view, else the river view is used (a map framing the whole flood would hide the flooded ground again).
+// river view, else the river view's place, distance and tilt are used (a map framing the whole flood would hide the
+// flooded ground again); a turned map keeps its heading there (decision k), a north-up map gets the heading along the
+// river (review WFF3D-R7; CONTRACT §17).
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { MapControls } from 'three/addons/controls/MapControls.js'
+import { isRotated } from '../../lib/compass'
 import { raycastHeightfield } from '../../lib/geo'
 import { attachRotateGesture } from '../../lib/rotateGesture'
 import { registerRotation } from '../../state/rotation'
@@ -232,7 +235,9 @@ export function CameraRig({ assets }: { assets: IncidentAssets | null }) {
     if (assets.flood?.river && useStore.getState().viewMode === '3d') {
       const rv = riverViewPose(assets, assets.flood.river, exag, size.width, size.height, useSceneStore.getState().viewInsets, camera.fov)
       if (rv && (f.distance == null || f.distance > rv.dist * 1.25)) {
-        startTween(rv, 1.5)
+        // decision k: a map the user turned keeps its heading; a north-up map looks along the river
+        const turned = f.bearingDeg != null && Number.isFinite(f.bearingDeg) && isRotated(f.bearingDeg)
+        startTween(turned ? { ...rv, azimuth: azimuthOfHeading(f.bearingDeg as number) } : rv, 1.5)
         return
       }
     }

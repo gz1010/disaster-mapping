@@ -2,7 +2,7 @@
 // added to state/flood.ts.
 import { afterEach, describe, expect, it } from 'vitest'
 import { useFlood } from '../../state/flood'
-import { FLOOD_FORENSIC_DEFAULTS, FLOOD_FORENSIC_LAYERS, shownOpacity, useForensicFlood } from './forensicFloodState'
+import { depthChoiceFor, FLOOD_FORENSIC_DEFAULTS, FLOOD_FORENSIC_LAYERS, shownOpacity, useForensicFlood } from './forensicFloodState'
 
 afterEach(() => useForensicFlood.getState().resetLayers())
 
@@ -37,5 +37,24 @@ describe('forensicFloodState', () => {
     // toggling Forensic's model switch leaves the map views' model layer alone
     useForensicFlood.getState().setLayerVisible('model', true)
     expect(useFlood.getState().layers.model).toBe(false)
+  })
+
+  it("the depth surface's water: per flood, a second press or Reset goes back to automatic (review WFF3D-R6)", () => {
+    const s = useForensicFlood.getState()
+    s.setDepthFrom('a', 'forecast')
+    expect(depthChoiceFor(useForensicFlood.getState(), 'a')).toBe('forecast')
+    // another flood starts automatic
+    expect(depthChoiceFor(useForensicFlood.getState(), 'b')).toBeNull()
+    // a second press of the chosen water: automatic again
+    s.setDepthFrom('a', 'forecast')
+    expect(depthChoiceFor(useForensicFlood.getState(), 'a')).toBeNull()
+    s.setDepthFrom('a', 'satellite')
+    s.setDepthFrom('a', 'forecast')
+    expect(depthChoiceFor(useForensicFlood.getState(), 'a')).toBe('forecast')
+    s.setDepthFrom('a', null)
+    expect(useForensicFlood.getState().depthFrom).toBeNull()
+    s.setDepthFrom('a', 'satellite')
+    s.resetLayers()
+    expect(useForensicFlood.getState().depthFrom).toBeNull()
   })
 })

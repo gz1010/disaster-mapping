@@ -111,7 +111,7 @@ export function floodProbeRows(i: {
   depth?: Uint8Array | null
   /** Brief 6 (playback): the satellite pass on screen at the chart's handle (scene/flood/flood3dHooks.ts
    *  useSatelliteOnScreen); absent: the 3D data's own satellite layer. */
-  satOnScreen?: { sat: SatelliteWaterResponse | null; has: boolean; arr: Uint8Array | null; imageOnly: boolean; note: string | null } | null
+  satOnScreen?: { sat: SatelliteWaterResponse | null; has: boolean; arr: Uint8Array | null; imageOnly: boolean; gridOnly?: boolean; note: string | null } | null
   /** Brief 6 (playback): the NWS products drawn at the handle (flood3dHooks useProductsOnScreen: the time history's
    *  versions before now); absent: warningsAt on the bundle's copy. */
   products?: { alerts: FloodAlert[]; zones: FloodAlertsResponse['zones'] } | null
@@ -148,8 +148,11 @@ export function floodProbeRows(i: {
   const satHas = so ? so.has && so.arr != null : fl.has.satellite
   const g = shownGranule(sat)
   const satCls = satHas ? at(so ? so.arr : fl.arrays.satellite) : null
-  const satInside = satHas && !!sat?.image && inBounds(sat.image.bounds_lonlat, p.lon, p.lat)
+  // a pass from the bundle's frozen list has no picture footprint here: its cells say what it covered (review WFF3D-R3)
+  const satInside = satHas && (so?.gridOnly ? satCls != null : !!sat?.image && inBounds(sat.image.bounds_lonlat, p.lon, p.lat))
   if (satInside && (satCls === 1 || satCls === 2)) covered = true
+  // a pass shown as its picture only: the spot is not read, so "no layer covers it" cannot be said (review WFF3D-R9)
+  const unread = !!so?.imageOnly && !!sat?.image && inBounds(sat.image.bounds_lonlat, p.lon, p.lat)
   if (on('satellite')) {
     if (so?.imageOnly && g) rows.push({ key: 'sat', label: FLOOD_FORENSIC.probeWater, text: fillCopy(FLOOD_3D.probeSatImageOnly, { date: fmtDayDate(g.acquired_ms, tf.tz, { year: 'auto', refMs: nowMs }) }), tone: 'quiet' })
     else if (!satHas || !g) rows.push({ key: 'sat', label: FLOOD_FORENSIC.probeWater, text: (so ? (so.note ?? sat?.reason) : null) ?? st.water_satellite?.reason ?? FLOOD_FORENSIC.keySatNone, tone: 'quiet' })
@@ -220,6 +223,6 @@ export function floodProbeRows(i: {
 
   let note: string | null = null
   if (!known) note = resp?.reason ?? ALERTS_UNAVAILABLE
-  else if (!covered) note = otherInside ? NOTHING_COVERS_OFFICIAL : NOTHING_COVERS
+  else if (!covered) note = unread ? FLOOD_3D.probeNothingUnread : otherInside ? NOTHING_COVERS_OFFICIAL : NOTHING_COVERS
   return { rows, note }
 }

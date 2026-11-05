@@ -53,22 +53,46 @@ describe('which depth surface is shown', () => {
 
   it('a playback pass shows its own estimate, or says there is none (it never swaps to the forecast)', () => {
     const layers = { depth_pass_A: {}, depth_satellite: {} }
-    const own = depthShown({ terrain3d: t3(), has: both, choice: null, layers, pass: { key: 'A', depthLayer: 'depth_pass_A', noView: false, isShown: false, acquiredMs: 5 } })
+    const own = depthShown({ terrain3d: t3(), has: both, choice: null, layers, pass: { key: 'A', depthLayer: 'depth_pass_A', isShown: false, acquiredMs: 5 } })
     expect(own).toMatchObject({ from: 'satellite', layer: 'depth_pass_A', passKey: 'A' })
-    const missing = depthShown({ terrain3d: t3(), has: both, choice: null, layers, pass: { key: 'B', depthLayer: null, noView: false, isShown: false, acquiredMs: 5 } })
+    const missing = depthShown({ terrain3d: t3(), has: both, choice: null, layers, pass: { key: 'B', depthLayer: null, isShown: false, acquiredMs: 5 } })
     expect(missing).toMatchObject({ from: null, layer: null, note: FLOOD_3D.depthNoPass, passKey: 'B' })
-    const notInBundle = depthShown({ terrain3d: t3(), has: both, choice: null, layers, pass: { key: 'C', depthLayer: 'depth_pass_C', noView: false, isShown: false, acquiredMs: 5 } })
+    const notInBundle = depthShown({ terrain3d: t3(), has: both, choice: null, layers, pass: { key: 'C', depthLayer: 'depth_pass_C', isShown: false, acquiredMs: 5 } })
     expect(notInBundle.from).toBeNull()
-    const noView = depthShown({ terrain3d: t3(), has: both, choice: null, layers, pass: { key: 'D', depthLayer: null, noView: true, isShown: false, acquiredMs: 5 } })
-    expect(noView.note).toBe(FLOOD_3D.depthNoView)
+    // a known pass with nothing of it drawn (no raster, no picture): it says so, never "drawn flat"
+    const notDrawn = depthShown({ terrain3d: t3(), has: both, choice: null, layers, pass: { key: 'D', depthLayer: null, isShown: false, acquiredMs: 5, drawn: false } })
+    expect(notDrawn).toMatchObject({ from: null, layer: null, note: FLOOD_3D.depthPassNotDrawn })
     // the bundle's own shown pass uses depth_satellite
-    expect(depthShown({ terrain3d: t3(), has: both, choice: null, layers, pass: { key: 'S', depthLayer: 'depth_pass_S', noView: false, isShown: true, acquiredMs: 5 } }).layer).toBe('depth_satellite')
+    expect(depthShown({ terrain3d: t3(), has: both, choice: null, layers, pass: { key: 'S', depthLayer: 'depth_pass_S', isShown: true, acquiredMs: 5 } }).layer).toBe('depth_satellite')
     // the forecast stays available on request
-    expect(depthShown({ terrain3d: t3(), has: both, choice: 'forecast', layers, pass: { key: 'B', depthLayer: null, noView: false, isShown: false, acquiredMs: 5 } }).from).toBe('forecast')
+    expect(depthShown({ terrain3d: t3(), has: both, choice: 'forecast', layers, pass: { key: 'B', depthLayer: null, isShown: false, acquiredMs: 5 } }).from).toBe('forecast')
+  })
+
+  it('before the first pass: nothing is drawn, never the forecast surface (review WFF3D-R2)', () => {
+    const before = { key: '', depthLayer: null, isShown: false, acquiredMs: Number.NaN, before: true }
+    const d = depthShown({ terrain3d: t3(), has: both, choice: null, pass: before, atMs: 100 })
+    expect(d).toMatchObject({ from: null, layer: null, note: FLOOD_3D.depthNoImageYet })
+    // the user's satellite choice says the same
+    expect(depthShown({ terrain3d: t3(), has: both, choice: 'satellite', pass: before, atMs: 100 }).layer).toBeNull()
+  })
+
+  it('the NWS forecast area is never shown for a handle before its own issue time', () => {
+    const fcAt = t3({ fc: { time_ms: 1_000 } })
+    // the user's forecast choice, the handle before the forecast was issued: no surface, and why
+    expect(depthShown({ terrain3d: fcAt, has: both, choice: 'forecast', atMs: 500 })).toMatchObject({ from: null, layer: null, note: FLOOD_3D.depthForecastLater })
+    // after its issue time (or at now) it is shown
+    expect(depthShown({ terrain3d: fcAt, has: both, choice: 'forecast', atMs: 1_500 }).from).toBe('forecast')
+    expect(depthShown({ terrain3d: fcAt, has: both, choice: 'forecast', atMs: null }).from).toBe('forecast')
+    // automatic, the 3D data's own pass on screen without a satellite estimate: the forecast only once it was issued
+    const noSat = t3({ sat: { status: 'unavailable', layer: null, reason: 'none' }, fc: { time_ms: 1_000 } })
+    const shown = { key: 'S', depthLayer: null, isShown: true, acquiredMs: 400 }
+    expect(depthShown({ terrain3d: noSat, has: both, choice: null, pass: shown, atMs: 500 }).from).toBeNull()
+    expect(depthShown({ terrain3d: noSat, has: both, choice: null, pass: shown, atMs: 1_500 }).from).toBe('forecast')
   })
 
   it('the notes are never an all-clear', () => {
-    for (const s of [FLOOD_3D.depthNoPass, FLOOD_3D.depthNoView, FLOOD_3D.depthNoTerrain3d]) expect(floodWordingProblems(s)).toEqual([])
+    for (const s of [FLOOD_3D.depthNoPass, FLOOD_3D.depthPassNotDrawn, FLOOD_3D.depthNoImageYet, FLOOD_3D.depthNoForecast, FLOOD_3D.depthForecastLater, FLOOD_3D.depthNoTerrain3d])
+      expect(floodWordingProblems(s)).toEqual([])
   })
 })
 

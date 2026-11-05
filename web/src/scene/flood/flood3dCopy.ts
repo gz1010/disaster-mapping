@@ -26,21 +26,26 @@ export const FLOOD_3D = {
   heightRuleGrid:
     "This flood's 3D data was prepared before the relief measure: the automatic height is taken from the heights of the whole 3D area, with the same rule.",
   // estimated water depth (FwDET)
-  layerDepth: 'Water depth (estimated)',
+  layerDepth: 'Depth (estimated)',
   layerDepthTip: "Estimated from the terrain at the water's edge (FwDET), inside the mapped water only. Experimental: errors of a metre or more are common",
   depthFrom: 'Depth of',
   depthOfSatellite: 'Of the satellite water seen {date}',
   depthOfForecast: 'Of the NWS forecast flooded area issued {date}',
   depthFromSatellite: 'Satellite water',
   depthFromForecast: 'NWS forecast area',
+  depthFromAuto: '(automatic)',
   depthShallow: '0 m',
   depthMid: '1 m',
   depthMid2: '2 m',
   depthDeep: '3 m or more',
   depthNoPass: 'No depth surface for this satellite pass: its depth estimate is not in the 3D data. The water it saw is drawn flat.',
-  depthNoView: 'No depth surface for this satellite pass: it had no view of this area (clouds or no data). That is not an all-clear.',
+  depthPassNotDrawn:
+    'No depth surface for this satellite pass: neither its water nor its depth estimate is in the 3D data, so nothing of it is drawn here. That is not an all-clear.',
   depthNoImageYet: 'No depth surface: no satellite image at or before this time. That is not an all-clear.',
-  depthNotShownSource: 'No depth surface is shown: {reason}',
+  depthNoForecast: 'No depth surface: the NWS forecast flooded area has no depth estimate in the 3D data.',
+  depthForecastLater:
+    'No depth surface: the NWS forecast flooded area was issued after this time, so it is not shown here. Move the handle later, or pick Satellite water.',
+  depthChoiceAuto: 'Your choice. Press again for the automatic choice',
   depthNoTerrain3d: "This flood's 3D data was prepared before depth estimates were added: prepare it again for a depth surface.",
   keyMoreDepth: 'Estimated depth',
   // height above the river (HAND)
@@ -63,6 +68,15 @@ export const FLOOD_3D = {
   probeDepthAt: "About {m} m deep here (estimated from the terrain at the water's edge; experimental, often off by a metre or more).",
   probeDepthTop: "More than 25 m deep here by the estimate (from the terrain at the water's edge; experimental).",
   probeSatImageOnly: 'The pass of {date} is shown here as its picture only (its cells are not in the 3D data), so this spot is not read here. Not an all-clear.',
+  probeNothingUnread:
+    'No NWS flood product or NWS forecast flooded area covers this spot, and the satellite picture is not read here. Unknown, not dry. Follow local officials.',
+  // the satellite pass on screen when the flood's time history could not be loaded (the 3D data's own copy of it)
+  satPassBundle: "From the copy of the flood's time history saved with the 3D data (the live list could not be loaded).",
+  satPassNotDrawn: 'The satellite pass of {date} is not in the 3D data and its picture could not be loaded: nothing of it is drawn here. That is not an all-clear.',
+  keySatAgeHandle: '{age} before the handle',
+  keySatAtHandle: 'at the handle',
+  // at now, when the time history lists newer passes than the one the 3D data shows (review WFF3D-R8)
+  keySatNewer: 'Newer satellite passes exist ({date}): step back with the river-level chart to see them.',
   probeHand: 'ABOVE RIVER',
   probeHandAt: 'The ground here is about {m} m above the nearest river channel (from terrain). Not a flood map.',
   probeHandTop: 'The ground here is more than 25 m above the nearest river channel (from terrain). Not a flood map.',

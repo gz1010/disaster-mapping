@@ -6,9 +6,11 @@
 // note under its row ("NASA Earthdata login is not set up…", "FEMA's digital flood map covers only part of this area…";
 // review WFF-R2), and its own date or category on a line of its own (WFF-R3). The switches are Forensic's own
 // (forensicFloodState.ts).
-// Brief 6 (web-forensic-flood-3d): a group "From the terrain" (experimental) with the estimated water depth surface
-// (on; its depth ramp, which mapped water it is of, the backend's label) and the height above the river (off by
-// default; its bands and HAND_LABEL "Not a flood map").
+// Brief 6 (web-forensic-flood-3d): a group "From the terrain" (its header tagged experimental, always on screen) with the
+// estimated water depth surface (on; "Depth (estimated)", its depth ramp, which mapped water it is of, the backend's
+// label) and the height above the river (off by default; its bands, HAND_LABEL "Not a flood map" and the experimental
+// tag; review WFF3D-R5). "Depth of": automatic until a water is picked; pressing the picked one again, Reset or another
+// flood goes back to automatic (WFF3D-R6).
 import { Eye, EyeOff, RotateCcw } from 'lucide-react'
 import { fmtDayDate } from '../../lib/time'
 import { shownGranule } from '../../official/floodModel'
@@ -19,7 +21,7 @@ import { catfimCategoryLabel } from '../../scene/flood/floodProbe'
 import { useTimeFormat } from '../../state/timeZone'
 import { Checkbox, Slider } from '../controls'
 import { fillCopy } from '../shell/floodCopy'
-import { FLOOD_FORENSIC_DEFAULTS, useForensicFlood, type FloodForensicLayer } from './forensicFloodState'
+import { depthChoiceFor, FLOOD_FORENSIC_DEFAULTS, useForensicFlood, type DepthFrom, type FloodForensicLayer } from './forensicFloodState'
 import { FLOOD_FORENSIC } from './floodForensicCopy'
 import { floodplainEffective, layerNote, layerUnavailable } from './floodForensicView'
 
@@ -30,7 +32,7 @@ interface Row {
   exp?: boolean
 }
 
-const GROUPS: { id: string; label: string; rows: Row[] }[] = [
+const GROUPS: { id: string; label: string; tag?: string; rows: Row[] }[] = [
   {
     id: 'base',
     label: FLOOD_FORENSIC.groupBase,
@@ -54,6 +56,7 @@ const GROUPS: { id: string; label: string; rows: Row[] }[] = [
   {
     id: 'terrain3d',
     label: FLOOD_3D.groupTerrain3d,
+    tag: FLOOD_3D.groupTerrain3dTag,
     rows: [
       { key: 'depth', label: FLOOD_3D.layerDepth, tip: FLOOD_3D.layerDepthTip, exp: true },
       { key: 'hand', label: FLOOD_3D.layerHand, tip: FLOOD_3D.layerHandTip, exp: true },
@@ -115,6 +118,7 @@ export function FloodLayersTab() {
           <div key={g.id} className="lg">
             <div className="lg-head">
               <span className="eyebrow">{g.label}</span>
+              {g.tag && <span className="exp-tag fxf-group-tag">{g.tag}</span>}
               <span className="lg-count mono">
                 {on}/{g.rows.length}
               </span>
@@ -180,10 +184,12 @@ export function FloodLayersTab() {
 function DepthNote() {
   const flood = floodAssetStore((s) => s.assets?.flood ?? null)
   const depth = useDepthShown(flood)
-  const from = useForensicFlood((s) => s.depthFrom)
+  const from = useForensicFlood((s) => depthChoiceFor(s, flood?.manifest.id))
   if (!flood || !depth) return null
   const shown = depth.from
-  const pick = (f: 'satellite' | 'forecast') => useForensicFlood.getState().setDepthFrom(f)
+  // a press picks that water; a press on the water already picked goes back to automatic
+  const pick = (f: DepthFrom) => useForensicFlood.getState().setDepthFrom(flood.manifest.id, f)
+  const tip = (f: DepthFrom) => (from === f ? FLOOD_3D.depthChoiceAuto : undefined)
   return (
     <div className="legend legend-wrap fxf-note">
       <div className="fxf-depth-legend" aria-label={depth.product?.label ?? FLOOD_3D.layerDepth}>
@@ -195,16 +201,19 @@ function DepthNote() {
       </div>
       {depth.product && <span className="fxf-row-meta">{depth.product.label}</span>}
       <div className="fxf-depth-from" role="group" aria-label={FLOOD_3D.depthFrom}>
-        <span className="fxf-depth-from-label">{FLOOD_3D.depthFrom}</span>
-        <button type="button" aria-pressed={shown === 'satellite'} disabled={!flood.has.depthSatellite && from !== 'satellite'} onClick={() => pick('satellite')}>
+        <span className="fxf-depth-from-label">
+          {FLOOD_3D.depthFrom}
+          {from == null && <span className="fxf-depth-auto"> {FLOOD_3D.depthFromAuto}</span>}
+        </span>
+        <button type="button" aria-pressed={shown === 'satellite'} data-tip={tip('satellite')} disabled={!flood.has.depthSatellite && from !== 'satellite'} onClick={() => pick('satellite')}>
           {FLOOD_3D.depthFromSatellite}
         </button>
-        <button type="button" aria-pressed={shown === 'forecast'} disabled={!flood.has.depthForecast} onClick={() => pick('forecast')}>
+        <button type="button" aria-pressed={shown === 'forecast'} data-tip={tip('forecast')} disabled={!flood.has.depthForecast && from !== 'forecast'} onClick={() => pick('forecast')}>
           {FLOOD_3D.depthFromForecast}
         </button>
       </div>
       {depth.note && <span className="fxf-row-why">{depth.note}</span>}
-      <span className="exp-tag">experimental</span>
+      <span className="exp-tag">{FLOOD_3D.groupTerrain3dTag}</span>
     </div>
   )
 }
@@ -227,6 +236,7 @@ function HandNote() {
         {FLOOD_3D.handBand3}
       </span>
       <span className="fxf-row-meta">{label}</span>
+      <span className="exp-tag">{FLOOD_3D.groupTerrain3dTag}</span>
     </div>
   )
 }

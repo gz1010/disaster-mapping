@@ -2,21 +2,24 @@
 // chart, `Hydrograph variant="dock"` (web-flood-command's M1), for the gauge picked on its left (the flood's member
 // gauges, primary first). Its handle sets useFlood.cursorMs, which the warning lines follow (C1: after now they keep the
 // NWS products in effect now). "Charts & NWS products" opens the right column: the NWS products drawn at the handle,
-// verbatim, with their sender and end time, the copy's own time, and CURSOR_FUTURE_PRODUCTS (or CURSOR_FUTURE_ISSUED)
-// after now.
+// the same versions as the 3D warning lines and the hover (scene/flood/productsOnScreen.ts; review WFF3D-R4): before now
+// from the flood's time history, IEM archive copies tagged and credited; each with its issuer, its own issue and end
+// times, NWS's words verbatim and a link. Then where the list comes from (the time history, or the copy saved with the
+// 3D data and its time), and CURSOR_FUTURE_PRODUCTS (or CURSOR_FUTURE_ISSUED) after now.
 import type { Ref } from 'react'
 import { fmtAt, fmtRelative } from '../../lib/time'
 import { CATEGORY_COLORS, gaugeTone } from '../../map/floodStyle'
-import { memberGaugesOf, orderAlerts, senderName } from '../../official/floodModel'
+import { memberGaugesOf, orderAlerts } from '../../official/floodModel'
+import { useProductsOnScreen } from '../../scene/flood/flood3dHooks'
 import { floodAssetStore } from '../../scene/flood/floodAssets'
-import { warningsAt } from '../../scene/flood/floodGeo'
 import { categoryCaps } from '../../scene/flood/gaugeBarMath'
 import { useFlood } from '../../state/flood'
 import { useTimeFormat } from '../../state/timeZone'
 import { useNow } from '../hooks'
-import { fillCopy, FLOOD_PUBLIC } from '../shell/floodCopy'
+import { fillCopy } from '../shell/floodCopy'
 import { NARROW_QUERY, useMediaQuery } from '../shell/hooks'
 import { Hydrograph } from '../timeline/Hydrograph'
+import { NwsVersion } from '../timeline/HydrographPlayback'
 import { futureProductsNote } from '../timeline/hydrographModel'
 import { FLOOD_FORENSIC } from './floodForensicCopy'
 import { dockNoProduct } from './floodForensicView'
@@ -45,49 +48,52 @@ function GaugePick({ narrow }: { narrow: boolean }) {
   )
 }
 
-/** The NWS products drawn at the handle (the same rule as the warning lines), from the copy saved with the 3D data:
- *  its time is shown, and an empty list says at what time and in which copy (never "right now" for a past handle or an
- *  old copy; review WFF-R5). */
+/** The NWS products drawn at the handle: the very list the 3D warning lines and the hover use (productsOnScreen.ts),
+ *  each version with its issuer, its own times, NWS's words verbatim and a link (an IEM archive copy tagged, with the
+ *  archive's credit). Where the list comes from is said under it; an empty list says at what time and in which list
+ *  (never "right now" for a past handle or an old copy; review WFF-R5, WFF3D-R4). */
 function ProductsColumn() {
   const tf = useTimeFormat()
   const now = useNow(60_000)
   const cursorMs = useFlood((s) => s.cursorMs)
-  const resp = floodAssetStore((s) => s.assets?.flood.warnings ?? null)
-  const available = resp?.status === 'available'
-  const drawn = available ? warningsAt(resp.alerts, cursorMs, now) : null
-  const list = orderAlerts(drawn?.alerts ?? [])
-  const savedMs = resp?.retrieved_ms ?? null
-  const saved = savedMs != null ? fmtAt(savedMs, tf, { zone: true, year: 'auto', refMs: now }) : null
-  const none = dockNoProduct({ cursorMs, nowMs: now, savedMs, tf })
-  const future = drawn ? futureProductsNote(drawn) : null
+  const flood = floodAssetStore((s) => s.assets?.flood ?? null)
+  const resp = flood?.warnings ?? null
+  const shown = useProductsOnScreen(flood)
+  const list = orderAlerts(shown?.alerts ?? [])
+  const fromMs = shown?.retrievedMs ?? null
+  const from = fromMs != null ? fmtAt(fromMs, tf, { zone: true, year: 'auto', refMs: now }) : null
+  const none = dockNoProduct({ cursorMs, nowMs: now, savedMs: resp?.retrieved_ms ?? null, tf, source: shown?.source ?? 'copy' })
+  const future = shown ? futureProductsNote(shown) : null
+  const credit = shown?.archiveCredit ?? null
   return (
     <aside className="ke fxf-ke" aria-label={FLOOD_FORENSIC.evidenceTitle}>
       <div className="dock-title">{FLOOD_FORENSIC.evidenceTitle}</div>
-      {!available ? (
+      {!shown ? (
         <p className="fxf-none">{resp?.reason ?? FLOOD_FORENSIC.evidenceUnavailable}</p>
       ) : list.length === 0 ? (
         <p className="fxf-none">{none}</p>
       ) : (
-        <ul className="fxf-ke-list">
-          {list.map((a) => {
-            const end = a.ends_ms ?? a.expires_ms
-            const zoned = { tz: a.time_zone || tf.tz, clock: tf.clock }
-            return (
-              <li key={a.id} className={a.emergency ? 'is-emergency' : undefined}>
-                <span className="fxf-ke-event" data-verbatim="">
-                  {a.event}
-                </span>
-                <span className="fxf-ke-meta mono">
-                  {senderName(a.sender_name)}
-                  {end != null ? ` · ${fillCopy(FLOOD_PUBLIC.until, { time: fmtAt(end, zoned, { zone: true }) })}` : ''}
-                </span>
-              </li>
-            )
-          })}
+        <ul className="hg-nws-list fxf-ke-nws">
+          {list.map((a) => (
+            <NwsVersion key={a.id} a={a} tf={{ tz: a.time_zone || tf.tz, clock: tf.clock }} />
+          ))}
         </ul>
       )}
       {future && <p className="fxf-ke-future">{future}</p>}
-      {available && saved && savedMs != null && <p className="fxf-ke-copy mono">{fillCopy(FLOOD_FORENSIC.dockCopyTime, { time: saved, age: fmtRelative(savedMs, now) })}</p>}
+      {credit && (
+        <p className="hg-nws-credit fxf-ke-credit">
+          {credit.href ? (
+            <a href={credit.href} target="_blank" rel="noreferrer noopener">
+              {credit.text}
+            </a>
+          ) : (
+            credit.text
+          )}
+        </p>
+      )}
+      {shown && from && fromMs != null && (
+        <p className="fxf-ke-copy mono">{fillCopy(shown.source === 'timeline' ? FLOOD_FORENSIC.dockTimelineTime : FLOOD_FORENSIC.dockCopyTime, { time: from, age: fmtRelative(fromMs, now) })}</p>
+      )}
     </aside>
   )
 }

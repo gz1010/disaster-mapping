@@ -17,3 +17,17 @@ Notes:
   Calcasieu (×10; satellite water there is a few ponds, the NWS forecast area and the no-view hatch dominate).
 - Final polish: phones show "River" and the dock keeps "Height ×3" (depth of field and full screen give way); the
   3D warning lines and the hover's NWS rows follow productsAt (time history before now).
+
+## Review fixes (review6, WFF3D-R1 … R10)
+
+- 2026-11-05: started. R1 (blocker): the terrain shader compiles two variants (`TERRAIN_FLOOD` define): fire 12
+  samplers, flood 13, + the shadow map; `terrain/terrainMaterial.test.ts` counts them (≤ 15 each) and checks every
+  sampled texture is declared in its variant.
+- 2026-11-05: code fixes in: R2 (depthShown: a playback pass or no image yet never swaps to the forecast; the forecast
+  surface is refused for a handle before its issue time), R3 (`PassDrape.source`, `satelliteOfDrape`: the key, Layers
+  date, hover and edge follow the drawn pass; mode 'none' says nothing is drawn), R4 (`productsOnScreen.ts`: lines,
+  hover and the dock's NWS column read one answer; the column lists each version with issuer, own times, verbatim words,
+  link, archive tag and IEM credit), R5 (group header and HAND row tagged experimental; "Depth (estimated)"), R6
+  (`depthFrom` per flood, second press / Reset → automatic), R7 (hand-off: a turned map keeps its heading), R8 (key note
+  at now when newer passes exist), R9 (hollow swatch, unread picture note, age at the handle, readout subscribes).
+  Gates so far: typecheck, lint 55 (all src/scene), vitest 151 files 1917 passed 2 skipped.

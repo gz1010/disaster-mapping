@@ -5,8 +5,9 @@
 // start off (D12, D21, D22); everything else on.
 // Brief 6 (web-forensic-flood-3d): two layers from the terrain, the estimated water depth surface ('depth', on) and the
 // height above the river ('hand', off by default: "Not a flood map"); which mapped water the depth surface is of
-// (`depthFrom`); and the user's own height boost for one flood (`boost`; null = the flood's automatic height,
-// scene/flood/heightBoost.ts).
+// (`depthFrom`, for one flood; null = automatic; review WFF3D-R6: a second press of the chosen water, Reset or another
+// flood go back to automatic); and the user's own height boost for one flood (`boost`; null = the flood's automatic
+// height, scene/flood/heightBoost.ts).
 import { create } from 'zustand'
 
 export type FloodForensicLayer =
@@ -68,11 +69,12 @@ export interface ForensicFloodState {
   /** The user's own height boost for one flood (null: the flood's automatic height). Kept while the app runs, so a
    *  trip to the map and back keeps it; another flood starts at its own automatic height. */
   boost: { floodId: string; factor: number } | null
-  /** The depth surface's water: null = automatic (the satellite pass when it has a depth estimate, else the NWS
-   *  forecast area). */
-  depthFrom: DepthFrom | null
+  /** The depth surface's water for one flood: null = automatic (the satellite pass when it has a depth estimate, else
+   *  the NWS forecast area). Another flood starts automatic. */
+  depthFrom: { floodId: string; from: DepthFrom } | null
   setBoost(floodId: string, factor: number | null): void
-  setDepthFrom(from: DepthFrom | null): void
+  /** Choose the depth surface's water for this flood; null, or the water already chosen, goes back to automatic. */
+  setDepthFrom(floodId: string, from: DepthFrom | null): void
   setLayerVisible(k: FloodForensicLayer, visible: boolean): void
   toggleLayer(k: FloodForensicLayer): void
   setLayerOpacity(k: FloodForensicLayer, opacity: number): void
@@ -86,13 +88,19 @@ export const useForensicFlood = create<ForensicFloodState>()((set) => ({
   boost: null,
   depthFrom: null,
   setBoost: (floodId, factor) => set({ boost: factor != null && Number.isFinite(factor) && factor > 0 ? { floodId, factor } : null }),
-  setDepthFrom: (depthFrom) => set({ depthFrom }),
+  setDepthFrom: (floodId, from) =>
+    set((s) => ({ depthFrom: from == null || (s.depthFrom?.floodId === floodId && s.depthFrom.from === from) ? null : { floodId, from } })),
   setLayerVisible: (k, visible) => set((s) => (s.layers[k].visible === visible ? {} : { layers: { ...s.layers, [k]: { ...s.layers[k], visible } } })),
   toggleLayer: (k) => set((s) => ({ layers: { ...s.layers, [k]: { ...s.layers[k], visible: !s.layers[k].visible } } })),
   setLayerOpacity: (k, opacity) => set((s) => ({ layers: { ...s.layers, [k]: { ...s.layers[k], opacity: clamp01(opacity) } } })),
-  resetLayers: () => set({ layers: defaults() }),
+  resetLayers: () => set({ layers: defaults(), depthFrom: null }),
   setTab: (tab) => set({ tab }),
 }))
+
+/** The depth surface's water the user chose for this flood (null: automatic). */
+export function depthChoiceFor(s: Pick<ForensicFloodState, 'depthFrom'>, floodId: string | null | undefined): DepthFrom | null {
+  return floodId != null && s.depthFrom?.floodId === floodId ? s.depthFrom.from : null
+}
 
 /** A layer's opacity as drawn: 0 when it is off. */
 export function shownOpacity(l: FloodLayerSetting): number {

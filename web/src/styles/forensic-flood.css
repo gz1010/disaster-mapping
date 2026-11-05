@@ -929,3 +929,18 @@ p.fxf-key-future {
     padding: 0 8px;
   }
 }
+
+/* review WFF3D-R9: a key line with nothing drawn (no depth surface, and why): a hollow outline, never the satellite's
+   "no view" hatch */
+.fxf-key-none {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgba(154, 154, 154, 0.55);
+}
+/* review WFF3D-R5: the "From the terrain" group header says experimental while its rows are off */
+.lg-head .fxf-group-tag {
+  margin-left: 0;
+}
+/* review WFF3D-R6: "Depth of (automatic)" until a water is picked */
+.fxf-depth-from .fxf-depth-auto {
+  color: var(--text-4, #7a7a7a);
+}

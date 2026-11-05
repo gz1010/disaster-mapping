@@ -382,9 +382,11 @@ function FloodProbeReadout({ area }: { area: { w: number; h: number } }) {
   // brief 6 (playback): the satellite pass on screen at the chart's handle
   const satOnScreen = useSatelliteOnScreen(fl ?? null)
   const products = useProductsOnScreen(fl ?? null)
+  // the depth raster on screen, subscribed so a still hover follows a new pass during Play (review WFF3D-R9)
+  const depth = depthOnScreen((s) => s.data)
   if (!probe || interacting || style === 'realistic' || !assets || !fl || probe.screenX == null || probe.screenY == null) return null
   const slopeDeg = (Math.atan(probe.slope) * 180) / Math.PI
-  const { rows, note } = floodProbeRows({ flood: fl, layers: L, extent: assets.extent, point: { x: probe.x, z: probe.z, lon: probe.lon, lat: probe.lat }, cursorMs, nowMs, tf, depth: depthOnScreen.getState().data, satOnScreen, products })
+  const { rows, note } = floodProbeRows({ flood: fl, layers: L, extent: assets.extent, point: { x: probe.x, z: probe.z, lon: probe.lon, lat: probe.lat }, cursorMs, nowMs, tf, depth, satOnScreen, products })
   const pw = area.w || 4000
   const ph = area.h || 4000
   let x = probe.screenX + 18

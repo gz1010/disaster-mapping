@@ -19,6 +19,7 @@ import { catfimCategoryLabel, catfimCategoryWord } from '../../scene/flood/flood
 import { categoryCaps, stageCaps } from '../../scene/flood/gaugeBarMath'
 import type { Units } from '../../state/workspace'
 import { ALERTS_UNAVAILABLE, CATFIM_NOTE, fillCopy, MODEL_CAVEAT, NO_PRODUCT, NFHL_LABEL, NFHL_NOTE, RFC_FIM_NOTE, RFC_FIM_OUTSIDE, SAT_NOT_SET_UP_SHORT } from '../shell/floodCopy'
+import { spanText, STEP_EPS_MS } from '../../state/floodTimeline'
 import { futureProductsNote } from '../timeline/hydrographModel'
 import { FLOOD_FORENSIC } from './floodForensicCopy'
 import { shownOpacity, type FloodForensicLayer, type FloodLayerSetting } from './forensicFloodState'
@@ -103,7 +104,7 @@ export function floodplainEffective(flood: Pick<FloodSceneAssets, 'manifest'>): 
   return t != null ? fmtDayDate(t, 'UTC', { year: 'always' }) : null
 }
 
-export type KeySwatch = 'satellite' | 'noview' | 'edge' | 'forecast' | 'warning' | 'floodplain' | 'model' | 'catfim' | 'bar' | 'future' | 'height' | 'depth' | 'hand'
+export type KeySwatch = 'satellite' | 'noview' | 'edge' | 'forecast' | 'warning' | 'floodplain' | 'model' | 'catfim' | 'bar' | 'future' | 'height' | 'depth' | 'hand' | 'none'
 
 export interface SceneKeyItem {
   key: string
@@ -173,12 +174,21 @@ export function sceneKeyItems(i: {
     const more = { title: FLOOD_FORENSIC.keyMoreSatellite, texts: uniq([...(sat?.caveats ?? []), login]) }
     if (flood.has.satellite && g) {
       const time = fmtAt(g.acquired_ms, tf, { zone: true, year: 'auto', refMs: nowMs })
-      out.push({ key: 'satellite', swatch: 'satellite', text: fillCopy(FLOOD_FORENSIC.keySatellite, { time, age: fmtRelative(g.acquired_ms, nowMs) }), stale: nowMs - g.acquired_ms > SAT_STALE_MS, notes, more })
+      // its age at the handle while the handle is in the past (review WFF3D-R9), else before now
+      const past = i.cursorMs != null && Number.isFinite(i.cursorMs) && i.cursorMs < nowMs
+      const ref = past ? (i.cursorMs as number) : nowMs
+      const age = !past
+        ? fmtRelative(g.acquired_ms, nowMs)
+        : Math.abs(ref - g.acquired_ms) <= STEP_EPS_MS
+          ? FLOOD_3D.keySatAtHandle
+          : fillCopy(FLOOD_3D.keySatAgeHandle, { age: spanText(ref - g.acquired_ms) })
+      out.push({ key: 'satellite', swatch: 'satellite', text: fillCopy(FLOOD_FORENSIC.keySatellite, { time, age }), stale: ref - g.acquired_ms > SAT_STALE_MS, notes, more })
       if (flood.has.noView) out.push({ key: 'noview', swatch: 'noview', text: FLOOD_FORENSIC.keySatNoView })
       if (sat?.image) out.push({ key: 'edge', swatch: 'edge', text: FLOOD_FORENSIC.keySatEdge })
     } else {
       const text = i.satNote ?? reason ?? FLOOD_FORENSIC.keySatNone
-      out.push({ key: 'satnone', swatch: 'noview', text, notes: uniq([loginShort]).filter((n) => n !== text), more: more.texts.length ? more : undefined })
+      // nothing drawn: a hollow swatch, never the "no view" hatch (review WFF3D-R9)
+      out.push({ key: 'satnone', swatch: 'none', text, notes: uniq([loginShort]).filter((n) => n !== text), more: more.texts.length ? more : undefined })
     }
   }
   if (on('forecastArea') && flood.has.forecast) {
@@ -201,7 +211,7 @@ export function sceneKeyItems(i: {
     const date = tMs != null ? fmtDayDate(tMs, tf.tz, { year: 'auto', refMs: nowMs }) : '—'
     const of = d.from === 'forecast' ? fillCopy(FLOOD_3D.depthOfForecast, { date }) : fillCopy(FLOOD_3D.depthOfSatellite, { date })
     if (d.from && p) out.push({ key: 'depth', swatch: 'depth', text: p.label, notes: [of], more })
-    else if (d.note) out.push({ key: 'depth', swatch: 'noview', text: p?.label ?? FLOOD_3D.layerDepth, notes: [d.note], more })
+    else if (d.note) out.push({ key: 'depth', swatch: 'none', text: p?.label ?? FLOOD_3D.layerDepth, notes: [d.note], more })
   }
   // brief 6: the height above the river (off by default), its bands and the backend's caveat
   if (on('hand') && t3 && flood.has.hand) {
@@ -333,12 +343,14 @@ export function gaugeRows(resp: RiverGaugesResponse | null, summary: Pick<FloodS
 export const COPY_FRESH_MS = 30 * 60_000
 
 /** The dock's products column when no product is drawn at the handle (D24: only for an available copy; review
- *  WFF-R5): before now, at the handle's time "in the copy saved with the 3D data"; at or after now, NO_PRODUCT only
- *  while the copy is fresh, else the copy's own time. */
-export function dockNoProduct(i: { cursorMs: number | null; nowMs: number; savedMs: number | null; tf: TimeFmt }): string {
+ *  WFF-R5): before now, at the handle's time in the list it was read from (the flood's time history, or the copy saved
+ *  with the 3D data; review WFF3D-R4); at or after now, NO_PRODUCT only while the copy is fresh, else the copy's own
+ *  time. */
+export function dockNoProduct(i: { cursorMs: number | null; nowMs: number; savedMs: number | null; tf: TimeFmt; source?: 'timeline' | 'copy' }): string {
   const { cursorMs, nowMs, savedMs, tf } = i
   const at = (ms: number) => fmtAt(ms, tf, { zone: true, year: 'auto', refMs: nowMs })
-  if (cursorMs != null && Number.isFinite(cursorMs) && cursorMs < nowMs) return fillCopy(FLOOD_FORENSIC.dockNoProductAt, { time: at(cursorMs) })
+  if (cursorMs != null && Number.isFinite(cursorMs) && cursorMs < nowMs)
+    return fillCopy(i.source === 'timeline' ? FLOOD_FORENSIC.dockNoProductTimeline : FLOOD_FORENSIC.dockNoProductAt, { time: at(cursorMs) })
   if (savedMs != null && nowMs - savedMs <= COPY_FRESH_MS) return NO_PRODUCT
   return fillCopy(FLOOD_FORENSIC.dockNoProductCopy, { time: savedMs != null ? at(savedMs) : '—' })
 }

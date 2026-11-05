@@ -148,4 +148,7 @@ export const FLOOD_FORENSIC = {
   dockCopyTime: 'Copy saved with the 3D data · {time} ({age})',
   dockNoProductAt: 'No NWS flood product was in effect at {time} in the copy saved with the 3D data. That is not an all-clear: follow local officials.',
   dockNoProductCopy: 'No NWS flood product was in effect in the copy saved with the 3D data ({time}). That is not an all-clear: follow local officials.',
+  dockNoProductTimeline:
+    "No NWS flood product was in effect at {time} in the flood's time history (NWS, and the IEM archive for older versions). That is not an all-clear: follow local officials.",
+  dockTimelineTime: "From the flood's time history · read {time} ({age})",
 } as const

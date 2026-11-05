@@ -7,9 +7,10 @@
 // "flood drapes"), and its terrain, aerial photo and contour switches are Forensic's own flood toggles
 // (ui/forensic-flood/forensicFloodState.ts), never the fire store's layers.
 // Brief 6 (web-forensic-flood-3d): the height above the river (HAND) drape for a flood, off by default; the satellite
-// drape follows the playback pass at the river-level chart's handle (scene/flood/floodPassDrape.ts passDrapeGpu).
+// drape follows the playback pass at the river-level chart's handle (scene/flood/floodPassDrape.ts passDrapeGpu). The
+// material compiles the flood variant (TERRAIN_FLOOD) while a flood is open, the fire variant otherwise (texture units).
 import { useFrame, useThree } from '@react-three/fiber'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { FUEL_DATAVIZ_LUT, FUEL_REALISTIC_LUT } from '../../lib/fuels'
 import { lutAtlasTexture } from '../../lib/raster'
@@ -24,7 +25,7 @@ import { ease, look } from '../look'
 import { reducedMotion } from '../motion'
 import { useSceneStore } from '../sceneStore'
 import { SunBaker } from './sunBake'
-import { createTerrainDepthMaterial, createTerrainMaterial } from './terrainMaterial'
+import { createTerrainDepthMaterial, createTerrainMaterial, setTerrainVariant } from './terrainMaterial'
 
 const HOUR = 3_600_000
 
@@ -110,6 +111,9 @@ export function Terrain({ assets }: { assets: IncidentAssets }) {
       useSceneStore.getState().setTerrainShadow(null)
     }
   }, [baker])
+  // the fire or the flood program (terrainMaterial.ts: at most 15 textures each), set before the first frame draws
+  const isFlood = assets.flood != null
+  useLayoutEffect(() => setTerrainVariant(material, isFlood), [material, isFlood])
   useEffect(() => {
     setTerrainReady(true)
     return () => {
