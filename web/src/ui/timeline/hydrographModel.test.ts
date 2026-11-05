@@ -12,6 +12,8 @@ import {
   buildHydrograph,
   categoryOf,
   clampCursor,
+  CREST_LABEL_ROOM,
+  crestLeft,
   cursorLabel,
   cursorReadout,
   flowToCfs,
@@ -492,5 +494,40 @@ describe('hydrographModel: review fixes (WFC-R3, R5, R10, R11, R14)', () => {
     expect(listKeyTarget('End', 0, 3)).toBe(2)
     expect(listKeyTarget('a', 0, 3)).toBeNull()
     expect(listKeyTarget('ArrowDown', 0, 0)).toBeNull()
+  })
+})
+
+describe('crestLeft (final check 5): the caret never covers the crest label', () => {
+  const label = 'CREST 18.0 FT FRI 09:30'
+  const w = label.length * 6.2 + 4
+  const caret = (x: number) => [x - 4, x + 4]
+  const clear = (left: number, x: number) => left + w <= caret(x)[0] || left >= caret(x)[1]
+
+  it('room above the caret: centred on the crest, as before', () => {
+    expect(crestLeft(label, 400, 100, 1000)).toBeCloseTo(400 - w / 2)
+    expect(crestLeft(label, 400, 100, 1000, false)).toBeCloseTo(400 - w / 2)
+  })
+
+  it('no room above (a crest near the top): beside the caret, right of it when it fits', () => {
+    const left = crestLeft(label, 400, 100, 1000, true)
+    expect(left).toBe(408)
+    expect(clear(left!, 400)).toBe(true)
+  })
+
+  it('no room on the right: left of the caret, still after the NOW label', () => {
+    const left = crestLeft(label, 950, 100, 1000, true)
+    expect(left).toBeCloseTo(950 - 8 - w)
+    expect(clear(left!, 950)).toBe(true)
+    expect(left!).toBeGreaterThanOrEqual(140)
+  })
+
+  it('neither side fits: the old centred placement; a chart too narrow beside NOW still leaves the words out', () => {
+    expect(crestLeft(label, 125, 240, 250, true)).toBeCloseTo(125 - w / 2)
+    expect(crestLeft(label, 200, 150, 260, true)).toBeNull()
+    expect(crestLeft(label, 200, 150, 260, false)).toBeNull()
+  })
+
+  it('the room the label needs above its caret is its 22 px offset', () => {
+    expect(CREST_LABEL_ROOM).toBe(22)
   })
 })

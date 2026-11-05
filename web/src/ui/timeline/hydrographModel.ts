@@ -710,3 +710,24 @@ export function forecastFalling(g: Pick<RiverGauge, 'series'> | null | undefined
   for (let i = 1; i < fc.length; i++) if ((fc[i][1] as number) > (fc[top][1] as number)) top = i
   return top === 0 && (ob[ob.length - 1][1] as number) > (fc[0][1] as number)
 }
+
+/** Height (px) the crest label needs above its caret (label 12 px tall, 22 px above the crest value; the caret is the
+ *  8 px just above the value). With less room the label is pinned to the plot's top, where the caret would cover it. */
+export const CREST_LABEL_ROOM = 22
+
+/** Where the crest label starts: centred on the crest, kept after the NOW label and inside the plot. `beside` (no room
+ *  above the caret, final check 5): right of the caret, else left of it, so the caret never covers its words; when
+ *  neither side fits, centred as before. */
+export function crestLeft(label: string, crestX: number, nowX: number, plotW: number, beside = false): number | null {
+  const w = label.length * 6.2 + 4
+  const afterNow = (l: number) => !(l < nowX + 40 && crestX >= nowX)
+  let left = crestX - w / 2
+  if (beside) {
+    if (crestX + 8 + w <= plotW && afterNow(crestX + 8)) left = crestX + 8
+    else if (crestX - 8 - w >= 0 && afterNow(crestX - 8 - w)) left = crestX - 8 - w
+  }
+  if (!afterNow(left)) left = nowX + 40
+  left = Math.max(0, Math.min(left, plotW - w))
+  // no room beside the NOW label (a narrow chart): the caret keeps its tooltip, the words are left out
+  return left < nowX + 36 && left + w > nowX ? null : left
+}

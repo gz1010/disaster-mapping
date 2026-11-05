@@ -37,6 +37,8 @@ import {
   buildHydrograph,
   clampCursor,
   cursorLabel,
+  CREST_LABEL_ROOM,
+  crestLeft,
   cursorReadout,
   futureProductsNote,
   handleRowHeight,
@@ -474,7 +476,8 @@ function PlotOverlays({ model: m, plotW, height, past }: { model: HydrographMode
   const nowX = xFrac(m, m.nowMs) * plotW
   const crestX = m.crest ? xFrac(m, m.crest.t) * plotW : null
   const crestY = m.crest ? PAD_Y + yFrac(m, m.crest.v) * (height - 2 * PAD_Y) : 0
-  const crestAt = m.crest && crestX != null ? crestLeft(m.crest.label, crestX, nowX, plotW) : null
+  // the label sits above the caret; a crest near the plot's top has no room there, so the label goes beside the caret
+  const crestAt = m.crest && crestX != null ? crestLeft(m.crest.label, crestX, nowX, plotW, crestY < CREST_LABEL_ROOM) : null
   return (
     <>
       <button
@@ -509,16 +512,6 @@ function PlotOverlays({ model: m, plotW, height, past }: { model: HydrographMode
  *  forecast (its first step, below the latest reading: not a peak still to come; review WFC-R14). */
 function crestTip(c: NonNullable<HydrographModel['crest']>): string {
   return c.atEnd ? HYDRO.highAtEndTip : c.falling ? HYDRO.highestFallingTip : c.passed ? HYDRO.highestPassedTip : HYDRO.crestTip
-}
-
-/** Where the crest label starts: centred on the crest, kept after the NOW label and inside the plot. */
-function crestLeft(label: string, crestX: number, nowX: number, plotW: number): number | null {
-  const w = label.length * 6.2 + 4
-  let left = crestX - w / 2
-  if (left < nowX + 40 && crestX >= nowX) left = nowX + 40
-  left = Math.max(0, Math.min(left, plotW - w))
-  // no room beside the NOW label (a narrow chart): the caret keeps its tooltip, the words are left out
-  return left < nowX + 36 && left + w > nowX ? null : left
 }
 
 /** The handle as a slider over the plot: drag or keys; aria-valuetext is the handle's words. */
