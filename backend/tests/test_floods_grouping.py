@@ -625,3 +625,71 @@ def test_rule8_a_left_gauge_flood_never_keeps_a_false_caveat() -> None:
     inland = {**s, "gauges": [{**ref, "name": "Nocatee (Joshua Creek)", "waterbody": "Joshua Creek"}],
               "caveat": fcopy.ALERTS_UNAVAILABLE}
     assert cat.as_left(inland, NOW, NOW + H, nws_ok=True, gauges_ok=True)["caveat"] == fcopy.GAUGE_ONLY_CAVEAT
+
+
+# ---- integration (2026-11-05): checked against the real list ----------------------------------------------------
+def test_integration_areal_warnings_on_one_named_river_join_within_25_km() -> None:
+    """NWS Grand Junction's and NWS Salt Lake City's areal Flood Warnings "along the San Juan River", 3 km apart and
+    issued 17 h apart, were two "San Juan River flood (UT)" entries: the water an areal product names joins river
+    members of that river within 25 km (rule 3), like a river product's WHERE line. Different waters stay apart."""
+    kw = {"ugcs": ("UTC037",), "same": ("049037",), "area": "San Juan, UT"}
+    gjt = cap("gjt", "Flood Warning", vt("NEW", "FA", "W", 30, office="KGJT"), box(-109.5, 37.15, 0.3, 0.1),
+              desc="Flooding along the San Juan River continues.", sent=NOW - 20 * H, **kw)
+    slc = cap("slc", "Flood Warning", vt("NEW", "FA", "W", 17, office="KSLC"), box(-110.17, 37.2, 0.3, 0.1),
+              desc="* WHAT...Flooding along the San Juan River.", sent=NOW - 2 * H, **kw)
+    lst = build(inputs([gjt, slc]))
+    assert names(lst) == ["San Juan River flood"] and lst["floods"][0]["kind"] == "areal"
+    fresh()
+    verde = cap("v", "Flood Warning", vt("NEW", "FA", "W", 40, office="KPSR"), box(-109.5, 37.15, 0.3, 0.1),
+                desc="Flooding along the Verde River continues.", sent=NOW - 20 * H, **kw)
+    assert len(build(inputs([verde, slc]))["floods"]) == 2                   # another river: no join by distance
+
+
+def test_integration_a_gauge_only_flood_lists_the_products_over_its_gauge() -> None:
+    """Copperhill's gauge (Toccoa / Ocoee River) read major under NWS Morristown's Flash Flood Warning, which names no
+    gauge: the gauge-only flood said "No NWS flood product here right now" while the warning covered it. Such a flood
+    now lists the products over its gauge (attached like a watch: never a join, never its own key), so its views name
+    the warning; its id and name stay the gauge's, and the flash flood stays its own flood."""
+    ff = cap("ff", "Flash Flood Warning", vt("EXT", "FF", "W", 82, office="KMRX"), box(-84.38, 35.0, 0.08, 0.06),
+             desc="Some locations that will experience flash flooding include...\nDucktown, Copperhill and Culberson.",
+             ugcs=("TNC139",), same=("047139",), area="Polk, TN")
+    g = riv("CPHT1", -84.3767, 34.9914, "major", "Toccoa River (GA) / Ocoee River (TN)", state="TN")
+    lst = build(inputs([ff], obs=[g]))
+    by = {s["name"]: s for s in lst["floods"]}
+    assert set(by) == {"Ducktown flash flood", "Toccoa River / Ocoee River flood"}
+    gauge = by["Toccoa River / Ocoee River flood"]
+    assert gauge["kind"] == "river" and gauge["level"] == "warning" and gauge["caveat"] is None
+    assert [p["event"] for p in gauge["products"]] == ["Flash Flood Warning"]
+    assert gauge["primary_gauge"]["lid"] == "CPHT1" and (gauge["lat"], gauge["lon"]) == (34.9914, -84.3767)
+    assert by["Ducktown flash flood"]["kind"] == "flash" and by["Ducktown flash flood"]["gauges"] == []
+    reg = reg_mod.get_registry()
+    assert not any(k.startswith("KMRX.FF") for k in reg.keys_of(gauge["id"]))   # the product is not the gauge flood's
+    # outside the product's area: a gauge-only flood as before (D2)
+    fresh()
+    far = riv("CPHT1", -84.0, 34.6, "major", "Toccoa River (GA) / Ocoee River (TN)", state="GA")
+    s = {x["name"]: x for x in build(inputs([ff], obs=[far]))["floods"]}["Toccoa River / Ocoee River flood"]
+    assert s["level"] == "gauge_only" and s["products"] == [] and s["caveat"] == fcopy.GAUGE_ONLY_CAVEAT
+
+
+def test_integration_a_gauge_in_flood_under_a_watch_is_never_hidden_as_watch_only() -> None:
+    """U2 hides watch-only floods by default; a gauge at flood stage under an attached Flood Watch is not one: it
+    stays gauge_only (ranked above watches) and lists the watch."""
+    w = cap("w", "Flood Watch", vt("NEW", "FA", "A", 12), None, ugcs=("MOZ008",), same=("029021",), area="Buchanan",
+            onset=NOW + 2 * H)
+    g = riv("AGYM7", -94.70, 39.69, "minor", "Platte River")
+    s = build(inputs([w], obs=[g]))["floods"]
+    assert len(s) == 1 and s[0]["level"] == "gauge_only" and [p["event"] for p in s[0]["products"]] == ["Flood Watch"]
+
+
+def test_integration_names_drop_state_and_position_notes_and_needless_suffixes() -> None:
+    assert naming.clean_water("Toccoa River (GA) / Ocoee River (TN)") == "Toccoa River / Ocoee River"
+    assert naming.clean_water("Loxahatchee River 500 ft downstream of US 1") == "Loxahatchee River"
+    assert naming.clean_water("Dunns Creek State Park Boat Ramp (in MHHW)") == "Dunns Creek State Park Boat Ramp"
+    # two "Salt River flood"s: the second takes its place name; the first no longer needs its state
+    rows = [{"name": "Salt River flood", "state": "AZ", "_base_name": "Salt River flood"},
+            {"name": "Salt River flood", "state": "AZ", "_base_name": "Salt River flood", "_alt_name": "Rio Verde flood"}]
+    naming.dedupe_names(rows)
+    assert [r["name"] for r in rows] == ["Salt River flood", "Rio Verde flood"]
+    rows = [{"name": "Key Largo flood", "state": "FL", "_first_sent": 1}, {"name": "Key Largo flood", "state": "FL", "_first_sent": 2}]
+    naming.dedupe_names(rows)
+    assert [r["name"] for r in rows] == ["Key Largo flood (FL)", "Key Largo flood (FL, 2)"]

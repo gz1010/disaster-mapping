@@ -33,6 +33,9 @@ export const FLOOD_NOT_LISTED = 'This flood is no longer listed.'
 export const FLOOD_LAST_KNOWN = 'This flood is no longer in the NWS lists Fire-3d reads. Shown: what Fire-3d last saw on {date}. Not an all-clear. Follow local officials.'
 /** (B) */
 export const GAUGE_ONLY_CAVEAT = 'No NWS flood product names this gauge right now.'
+/** (B) backend-flood-sources BFS-R2: a gauge-only flood at a tide or lake gauge (copy.py GAUGE_ONLY_COASTAL_CAVEAT). */
+export const GAUGE_ONLY_COASTAL_CAVEAT =
+  'No NWS Flood or Flash Flood product names this gauge right now. It may measure tidal or lake water: Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products, which may be in effect here.'
 export const WATCHES_HIDDEN = '{n} Flood Watches hidden · Show'
 export const WATCHES_HIDDEN_ONE = '1 Flood Watch hidden · Show'
 export const FLOOD_HERE_IN_FIRES = 'NWS flood products are in effect here · Show floods'
@@ -77,6 +80,8 @@ export const CIRCLE_MEANING = {
   product: '{Sender} has a {event} in effect for this area until {time}.',
   watch: '{Sender} has a {event} in effect for this area until {time}: flooding is possible. Not an all-clear. Follow local officials.',
   gaugeOnly: 'No NWS flood product names this flood right now; a river gauge here reads at flood stage.',
+  /** A gauge at flood stage under a Flood Watch (the list keeps it gauge_only; integration). */
+  gaugeWatch: 'A river gauge here reads at flood stage; {Sender} has a {event} in effect for this area until {time}. Not an all-clear. Follow local officials.',
   noProductNow:
     'No NWS flood product is in effect here right now, and no gauge of this flood has read at flood stage in the last 6 hours. Not an all-clear. Follow local officials.',
   past: "Past flood: NWS's last product for it was sent {date}. Not an all-clear. Follow local officials.",

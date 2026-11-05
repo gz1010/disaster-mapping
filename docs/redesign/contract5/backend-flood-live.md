@@ -224,3 +224,96 @@ fixture server keeps its canned answers).
 - **Reviewer:** the real cycle and the real year builds are reproducible with `uv run python -m fire3d.cli catalog
   --hazard flood --mode historical --year 2025` (cached) and the API on port 8760 with `FIRE3D_LIVE=1
   FIRE3D_AUTO_BUILD_LIVE=0` (use a scratch `FIRE3D_DATA_DIR` copy of `data/floods`: the loop refreshes ready bundles).
+
+## Review fixes (BFL-R1..R10; commit "brief 5 backend-flood-live: review fixes")
+
+What changed against the sections above. Every finding is fixed; R9 needs one web string changed by the integration
+(below).
+
+### Live loop (`floods/live.py`)
+
+- **One budget a cycle (R1, R7).** `PREFETCH_MAX` (20) now covers the prefetch **and** the append step's NWS and NWPS
+  requests together. The prefetch takes at most `PREFETCH_MAX - APPEND_SHARE` (`APPEND_SHARE` = 8) with
+  `PREFETCH_CAPS` hvtec 6 / zones 3 / series 3 (were 10 / 5 / 5 out of 20); `run_cycle` passes what is left to
+  `refresh_bundles(..., budget=)`. In `append_bundle`, the products' answer (`zones.flood_alerts`) is fetched only
+  when `alerts_cost(summary)` fits (the national answer when its 2-min copy expired, uncached zone outlines up to
+  `ZONE_FETCH_MAX`, uncached product texts up to `HVTEC_FETCH_MAX`; read from caches only), else the products wait
+  for a later cycle. Member gauge reads cost their exact NWPS requests (`_gauge_cost`: detail + series when not cached)
+  out of the same budget, at most `GAUGE_READS_MAX` (`reads = {"left", "gauges"}`). The list's own reading is applied
+  whenever it is newer than NWPS's cached one. `_hvtec_cost(a)` is now exact (0 when the list and product are cached).
+- **Refreshes start only after a paced warm-up, outside the job workers (R1).** `refresh_bundles` no longer submits
+  jobs: due refreshes go to `STATE.pending` (`fid -> (reason, summary)`) and `run_cycle` starts one runner task
+  (`run_refreshes(jobs)`, task name `fire3d-flood-refreshes`, cancelled with the loop). For each due flood the runner
+  calls `warm_nwps(summary, max_s=WARM_MAX_S)` in a worker thread: the member gauges' NWPS detail and series and the
+  NWM reach series of forecast points are fetched into the HTTP cache only while `nwps.NWPS_LIMITER.remaining() >
+  NWPS_RESERVE` (10 of 30 a minute stay free), polling every `WARM_POLL_S`, stopping after `WARM_MAX_S` (240 s); then
+  it submits the `refresh` job. The first-cycle auto-build (`auto_build(jobs, ids, rows)`) warms the same way before
+  each build. No job worker ever waits.
+- **A refresh never makes a bundle worse (R1).** `refresh_job_fn` snapshots the earlier build's files
+  (`snapshot(bdir, m)`: everything but the terrain), rebuilds, and then, under the build lock, runs
+  `keep_what_the_rebuild_lost(bdir, old_m, snap, new_m, now=)` through `bundle.update_manifest` (validated strictly):
+  - products: `merge_alerts` as before; an `unavailable` rebuild keeps the earlier answer **and** its `layer_status`;
+  - gauges: `merge_rebuilt_gauges(older, rebuilt, members) -> (merged, kept)` (signature changed: it returns a tuple
+    and takes the rebuilt summary's member lids): an `unavailable` rebuild keeps the earlier `gauges.json`; a member
+    that the rebuild could read only from the NWS gauge map (`GAUGE_DETAIL_DOWN` and no impacts / reach / attribution)
+    keeps its earlier NWPS detail with the map's newer reading (`keep_detail`); a member of the flood that the rebuild
+    left out is put back; `GAUGE_DETAIL_DOWN` is dropped when no member is left with the map's reading only; the
+    gauge credits (NWPS, data attributions, RFCs) are re-added through `build._gauge_credits`;
+  - NWM series: earlier `model/nwm_series_<lid>.json` files of current members are put back (`files.model`, credit);
+  - layers (`LAYER_PARTS`): `naip`, `water_forecast` (+ `maps/rfc_fim.geojson`), `floodplain` (+ `maps/nfhl.geojson`),
+    `water_model` (+ `model/nwm_analysis.geojson`) and `water_satellite` (+ `satellite.json`, `satellite.png`) that were
+    `ok` and are not now keep their earlier files, `layers` entry, `layer_status` (own time) and credit; satellite only
+    when the rebuild's answer is an outage (`unavailable`, or a picture with `upstream_error`), never over NASA's
+    `no_image` answer (as the satellite route);
+  - the manifest's warnings lose the outage texts of what was kept and gain `REFRESH_KEPT` ("The refresh of {time}
+    could not load {what} again; the earlier copy is kept, with its own time.", time in UTC). The job result has
+    `kept`; `STATE.last_kept[fid]` records it.
+- **Satellite passes tried survive a restart (R6).** `data/floods/live_state.json` (`LIVE_STATE_NAME`;
+  `{"seen_passes": {fid: {"built_ms", "keys"}}}`, at most `SEEN_PASSES_MAX` keys per flood, floods with a bundle only).
+  `new_passes(fid, m, passes, acq)`: with a measured image, passes newer than it and not tried (as before); without
+  one, the passes listed at the first check after a build (sensed before it ran) are taken as the ones the build saw,
+  so only passes that appear later count. `STATE.seen_passes` holds these records (was a set per flood).
+- **Product text refused by Fire-3d's own limit is asked again (R8):** `prefetch`'s `hvtec` marks a product tried only
+  after NWS answered (or failed), never on `SourceBusy`.
+
+### Past floods (`floods/history.py`)
+
+- **R2:** `row_product_ms(r)` = the row's own product id time, else `utc_polygon_begin`, else `utc_prodissue`;
+  `events_from` sets `last_ms` to the newest product's time and `expire_ms` to **that product's** expiry (IEM keeps a
+  long provisional expiry on early rows of "until further notice" warnings: 31 of 125 events in the recorded sample).
+  So `last_product_ms`, `updated_ms` and `ended_ms` of a year row are the newest product's (LMK FL 50: 2025-04-26 16:10
+  UTC, ended 04-27 10:14). `SCHEMA` = 2: the disk copies are rebuilt once (the month answers are cached).
+- **R3:** `build_rows(events, year, *, reg, gauges, now=None, names=None)`: with `now` (the year build passes it), a
+  group whose newest product had not expired is left out (the live list serves it). `canonical_rows(rows, reg)` maps
+  served row ids through the registry's aliases at request time (merging rows that land on one id; `aliases` updated);
+  `year_list` and `cached_rows` (so `find`) use it. The unused `_merge_event` is gone; `_merge` tolerates rows
+  without `_keys`.
+- **R10:** product refs carry `sender_name` = `sender_of(wfo, names)`: NWS's own sender name from this server's cached
+  national answer (`office_names()`, no request), else "NWS <office id>" (e.g. "NWS LMK").
+- **R9:** docstrings say "forecast or observed" (H-VTEC's severity). The rule is unchanged.
+- New string `PAST_NO_BUNDLE` ("Fire-3d prepares 3D data for current floods only: NWS's forecast maps, the model and
+  river forecasts are not kept for a past flood's dates.") in `PAST_STRINGS` (guard-tested).
+
+### Routes (`api/floods.py`) and CLI
+
+- **R3:** `_with_live_rows` (every year now, not only the current one) serves a year row as the live row that has its
+  id **or any of its VTEC keys**, each live row once. `_resolve`: live -> year -> **an alias of a year row (canonical
+  year row, `resolved_from: "alias"`)** -> `catalog.resolve`.
+- **R4:** `POST /api/floods/{id}/build` resolves with `_resolve`; a year-list flood answers **409 `PAST_NO_BUNDLE`**
+  (the web shows a 409's detail verbatim). `cli build-flood <past id>` refuses with the same text (exit 1).
+- **R5:** `_past_at(summary, at_ms)`: a `mode: "historical"` summary asked without `at_ms` is answered at its
+  `last_product_ms` (else `ended_ms`, `updated_ms`) by `/model` (so `not_available_for_past_dates`), `/maps` (rfc_fim,
+  catfim; FEMA unchanged), `/satellite`, `flood-alerts?flood=` and `river-gauges?flood=`.
+- `scripts/check_bundle.py --hazard flood` notes (not problems) member gauges of the summary missing from
+  `gauges.json`, members with the gauge map's reading only, and `REFRESH_KEPT` warnings.
+
+### For the integration and the web roles
+
+- **R9 wording:** `PAST_RULE_NOTE` in `web/src/ui/shell/floodCopy.ts` (not this role's file) should say "river floods
+  that reached **or were forecast to reach** moderate or major flood stage at an NWS gauge" (H-VTEC's severity is the
+  forecast or observed severity); SPEC 8.10 says so now.
+- CONTRACT 16.14: add `PAST_NO_BUNDLE` and `REFRESH_KEPT` (a manifest warning); 16.8: `PREFETCH_MAX` is the cycle's
+  whole background budget (prefetch + append), `APPEND_SHARE` 8, `NWPS_RESERVE` 10; 16.7: build 409 for a past flood,
+  and the default `at_ms` of a past flood's per-flood routes.
+- Forensic (web): for a `mode: "historical"` flood the "Prepare 3D data" button could say `PAST_NO_BUNDLE` up front
+  instead of offering a build that answers 409.

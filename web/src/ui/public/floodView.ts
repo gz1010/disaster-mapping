@@ -36,6 +36,7 @@ import {
   GAUGE_BELOW_STAGE_SUB,
   GAUGE_CATEGORY_DISPLAY,
   GAUGE_NOT_CURRENT,
+  GAUGE_ONLY_CAVEAT,
   GAUGE_OUT_OF_SERVICE,
   GAUGE_PROVISIONAL,
   GAUGES_UNAVAILABLE,
@@ -60,6 +61,7 @@ import {
   fillCopy,
 } from '../shell/floodCopy'
 import { fmtStage, gaugePlace } from './floodOverviewText'
+import { NOT_ALL_CLEAR } from '../shell/fixedCopyText'
 import type { DistanceChipText } from './fireView'
 
 const num = (v: number | null | undefined): v is number => typeof v === 'number' && Number.isFinite(v)
@@ -146,10 +148,27 @@ export function floodCircleStatus(s: FloodSummary | null, tf: TimeFmt, nowMs: nu
     }
   }
   const p = highestProduct(s)
+  const watchOnly = p != null && WATCH_EVENTS.has(p.event)
+  // A gauge-only flood whose backend caveat is not the plain one (ALERTS_UNAVAILABLE during an NWS outage, the tide or
+  // lake gauge caveat): NWS's absence is unknown there, so never the "no NWS flood product" sentences (D24; the
+  // backend-flood-sources note; integration). The caveat is the meaning, with "not an all-clear".
+  const special = s.level === 'gauge_only' && s.caveat && s.caveat !== GAUGE_ONLY_CAVEAT ? s.caveat : null
+  if (special && (!p || watchOnly)) {
+    const quiet = s.status === 'inactive'
+    const meaning = /all-clear/i.test(special) ? special : `${special} ${NOT_ALL_CLEAR}`
+    return { kind: 'gaugeOnly', line: CIRCLE_STATUS.gaugeOnly, tone: quiet ? 'quiet' : 'active', meaning, rain: !quiet }
+  }
   // no NWS product in effect and no member gauge at flood stage in the last 6 hours (the live list keeps it 48 h)
   if (s.status === 'inactive' || (!p && s.level !== 'gauge_only' && s.gauges_in_flood <= 0))
     return { kind: 'noProductNow', line: CIRCLE_STATUS.noProductNow, tone: 'quiet', meaning: CIRCLE_MEANING.noProductNow, rain: false }
   if (!p) return { kind: 'gaugeOnly', line: CIRCLE_STATUS.gaugeOnly, tone: 'active', meaning: CIRCLE_MEANING.gaugeOnly, rain: true }
+  // A gauge at flood stage under a Flood Watch stays gauge_only (the list never hides it as watch-only): the gauge is
+  // the status, the watch is named in the meaning (integration)
+  if (s.level === 'gauge_only' && watchOnly) {
+    const until = num(p.ends_ms) ? fmtAt(p.ends_ms, tf, { zone: true, year: 'auto', refMs: nowMs }) : null
+    const meaning = fillCopy(CIRCLE_MEANING.gaugeWatch, { Sender: senderName(p.sender_name), event: p.event, time: until ?? '' })
+    return { kind: 'gaugeOnly', line: CIRCLE_STATUS.gaugeOnly, tone: 'active', meaning: until ? meaning : meaning.replace(/ until (?=[.:])/, ''), rain: true }
+  }
   const kind: FloodCircleKind =
     p.emergency || s.emergency
       ? 'emergency'

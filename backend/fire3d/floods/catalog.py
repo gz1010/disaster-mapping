@@ -400,10 +400,14 @@ def group(inp: Inputs, now: int, reg: reg_mod.Registry | None = None
         if wb:
             river_nodes.append(("g:" + lid, wb, Point(gauges[lid].ref["lon"], gauges[lid].ref["lat"])))
     for pid, a in prods.items():
-        if classes[pid] == "river" and geoms[pid] is not None:
-            r = naming.river_from_text(*texts_of(a))
-            if r:
-                river_nodes.append(("p:" + pid, r, geoms[pid]))
+        if geoms[pid] is None:
+            continue
+        # River products by their WHERE line; areal products by the water their text names ("Flooding along the
+        # San Juan River"): two offices' areal warnings 3 km apart on one river are one flood (integration, real list)
+        r = (naming.river_from_text(*texts_of(a)) if classes[pid] == "river"
+             else naming.water_from_text(*texts_of(a)) if classes[pid] == "areal" else None)
+        if r:
+            river_nodes.append(("p:" + pid, r, geoms[pid]))
     for i in range(len(river_nodes)):
         for j in range(i + 1, len(river_nodes)):
             (na, ra, ga), (nb, rb, gb) = river_nodes[i], river_nodes[j]
@@ -457,6 +461,20 @@ def group(inp: Inputs, now: int, reg: reg_mod.Registry | None = None
                 floods[i].watches.extend(pids)
         else:
             floods.append(_Flood(pids, sorted({lid for p in pids for lid in links.get(p, ()) if lid in gauges}), []))
+    # Integration (2026-11-05, the real list): a gauge-only flood whose gauge stands inside another NWS flood product
+    # (Copperhill's gauge at major under NWS Morristown's Flash Flood and Flood Warnings) lists those products too,
+    # attached like a watch (rule 4: never a join, never registered to it), so its views never say "No NWS flood
+    # product here right now" while one is in effect at the gauge.
+    for f in floods:
+        if any(classes[p] != "watch" for p in f.pids):
+            continue
+        pts = [Point(gauges[lid].ref["lon"], gauges[lid].ref["lat"]) for lid in f.lids if lid in gauges]
+        if not pts:
+            continue
+        for pid in prods:
+            if classes[pid] != "watch" and geoms[pid] is not None and pid not in f.watches \
+                    and any(geoms[pid].covers(pt) for pt in pts):
+                f.watches.append(pid)
     for pid in prods:
         prods[pid]["_geom"] = geoms[pid]
     return prods, gauges, links, floods, in_effect
@@ -485,6 +503,10 @@ def summarize(f: _Flood, prods: dict[str, dict], gauges: dict[str, GaugeInfo], l
     kind = "river" if ("FL" in phs or refs) else ("flash" if any(c == "flash" for c in classes) else "areal")
     levels = [G.product_level(a) for a in products]
     level = max(levels, key=G.LEVEL_ORDER.index) if levels else "gauge_only"
+    if level == "watch" and any(G.cat_rank(r["observed_category"]) >= 1 for r in refs):
+        # Integration: a gauge at flood stage under an attached Flood Watch is not a watch-only flood (U2 hides those
+        # by default); it stays gauge_only, rank above watches, with its watch listed in its products.
+        level = "gauge_only"
     geoms = [a["_geom"] for a in products if a.get("_geom") is not None]
     own_geoms = [a["_geom"] for a in own if a.get("_geom") is not None]
     big = _largest(own_geoms) or _largest(geoms)
@@ -827,13 +849,15 @@ def nws_down_row(s: dict, now: int) -> dict | None:
             "rivers": list(dict.fromkeys(w for w in (naming.clean_water(g.get("waterbody")) for g in refs) if w))}
 
 
-def gauges_down_row(s: dict) -> dict | None:
+def gauges_down_row(s: dict, own_keys: set[str] | None = None) -> dict | None:
     """The row the live list gives a flood while the river gauges (``riv_gauges`` and the RFC forecast points) cannot
     be read and no earlier copy exists (rule 11): its NWS products only, no gauge; None without a product in effect
-    (a gauge-only flood is not listed then). Used for the fixture's ``edge/list-gauges-down.json``; tested against
-    :func:`build_list`."""
+    (a gauge-only flood is not listed then). ``own_keys`` (the registry's keys of the flood): when given, a flood none
+    of whose products in effect is its own (a gauge-only flood listing the products over its gauge, integration) is
+    not listed either. Used for the fixture's ``edge/list-gauges-down.json``; tested against :func:`build_list`."""
     prods = [p for p in s.get("products") or [] if p.get("phase") in ("in_effect", "upcoming")]
-    if not prods:
+    if not prods or (own_keys is not None and not any(p.get("vtec_key") in own_keys for p in prods)
+                     and not any(k.startswith("CAP:") for k in own_keys)):     # products without VTEC: CAP keys
         return None
     sent = [p["sent_ms"] for p in prods if p.get("sent_ms")]
     phs = {(p.get("vtec_key") or "...").split(".")[1] for p in prods if p.get("vtec_key")}

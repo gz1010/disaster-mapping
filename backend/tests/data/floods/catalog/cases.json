@@ -113,6 +113,19 @@
    ]
   },
   {
+   "name": "Joshua Creek flood",
+   "kind": "river",
+   "level": "warning",
+   "state": "FL",
+   "max_category": "moderate",
+   "gauges": [
+    "NOCF1"
+   ],
+   "vtec_keys": [
+    "KTBW.FL.W.0015.2026"
+   ]
+  },
+  {
    "name": "Moenkopi Wash flood",
    "kind": "river",
    "level": "warning",
@@ -124,17 +137,6 @@
    "vtec_keys": [
     "KFGZ.FA.W.0040.2026"
    ]
-  },
-  {
-   "name": "Joshua Creek flood",
-   "kind": "river",
-   "level": "gauge_only",
-   "state": "FL",
-   "max_category": "moderate",
-   "gauges": [
-    "NOCF1"
-   ],
-   "vtec_keys": []
   },
   {
    "name": "South Fork New River flood",
@@ -267,13 +269,14 @@
    "vtec_keys": []
   },
   {
-   "name": "Loxahatchee River 500 ft downstream of US 1 flood",
+   "name": "Loxahatchee River flood",
    "kind": "river",
    "level": "gauge_only",
    "state": "FL",
    "max_category": "minor",
    "gauges": [
-    "LRPF1"
+    "LRPF1",
+    "LXRF1"
    ],
    "vtec_keys": []
   },
@@ -448,7 +451,7 @@
    ]
   },
   {
-   "name": "San Juan River flood (NM)",
+   "name": "San Juan River flood",
    "kind": "river",
    "level": "warning",
    "state": "NM",
@@ -457,17 +460,8 @@
     "SHRN5"
    ],
    "vtec_keys": [
-    "KABQ.FL.W.0025.2026"
-   ]
-  },
-  {
-   "name": "San Juan River flood (UT, 2)",
-   "kind": "areal",
-   "level": "warning",
-   "state": "UT",
-   "max_category": null,
-   "gauges": [],
-   "vtec_keys": [
+    "KABQ.FL.W.0025.2026",
+    "KGJT.FA.W.0030.2026",
     "KSLC.FA.W.0017.2026"
    ]
   },
@@ -480,17 +474,6 @@
    "gauges": [],
    "vtec_keys": [
     "KPUB.FA.W.0026.2026"
-   ]
-  },
-  {
-   "name": "San Juan River flood (UT)",
-   "kind": "areal",
-   "level": "warning",
-   "state": "UT",
-   "max_category": null,
-   "gauges": [],
-   "vtec_keys": [
-    "KGJT.FA.W.0030.2026"
    ]
   },
   {
@@ -509,5 +492,6 @@
     "KTWC.FL.Y.0006.2026"
    ]
   }
- ]
+ ],
+ "integration_2026_11_05": "Reviewed again by the brief-5 integration against the real list of 2026-11-05: areal warnings that name a river join river members of that river within 25 km (San Juan River: NWS Albuquerque's Shiprock warning and the two Utah areal warnings are one flood); waterbody position notes are dropped (the two Loxahatchee River tide gauges are one flood); a gauge-only flood whose gauge stands inside an NWS product's area lists that product (Joshua Creek at Nocatee under the Peace River Flood Warning)."
 }

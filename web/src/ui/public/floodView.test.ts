@@ -9,7 +9,7 @@ import { summaryFixture } from '../../api/fixtures.testutil'
 import type { FloodSummary } from '../../api/types'
 import { timeFmt } from '../../lib/time'
 import { useStore } from '../../state/store'
-import { CIRCLE_MEANING, CIRCLE_STATUS, floodWordingProblems } from '../shell/floodCopy'
+import { ALERTS_UNAVAILABLE as ALERTS_DOWN_TEXT, CIRCLE_MEANING, CIRCLE_STATUS, GAUGE_ONLY_CAVEAT, GAUGE_ONLY_COASTAL_CAVEAT, floodWordingProblems } from '../shell/floodCopy'
 import { restoreSsrState, ssrState } from '../ssr.testutil'
 import { floodCircleLabel, floodCircleStatus, floodDateLine, floodPlace, floodShortName } from './floodView'
 import { HazardCircle } from './HazardCircle'
@@ -97,6 +97,32 @@ describe('circle status and meaning (PLAN-5 §5.2, D19, C15)', () => {
     expect(floodCircleStatus(real(DETAIL_FLASH().summary), tf, FIXTURE_NOW_MS).meaning).toMatch(/Flash Flood Warning \(Flash Flood Emergency\)/)
     expect(floodCircleStatus({ ...real(DETAIL().summary), status: 'inactive', products: [] }, tf, FIXTURE_NOW_MS).meaning).toBe(CIRCLE_MEANING.noProductNow)
     expect(floodCircleStatus(DETAIL().summary, tf, FIXTURE_NOW_MS).meaning).toBe(CIRCLE_MEANING.demo)
+  })
+
+  it('a gauge-only flood whose caveat is an NWS outage or a tide gauge never says "no NWS flood product" (integration, D24)', () => {
+    const base = { ...real(DETAIL().summary), level: 'gauge_only' as const, products: [], gauges_in_flood: 1 }
+    for (const caveat of [ALERTS_DOWN_TEXT, GAUGE_ONLY_COASTAL_CAVEAT])
+      for (const status of ['active', 'inactive'] as const) {
+        const st = floodCircleStatus({ ...base, caveat, status }, tf, FIXTURE_NOW_MS)
+        expect(st.line).toBe(CIRCLE_STATUS.gaugeOnly)
+        expect(st.meaning.startsWith(caveat)).toBe(true)
+        expect(st.meaning).toMatch(/not an all-clear/i)
+        expect(st.meaning).not.toContain(CIRCLE_MEANING.noProductNow)
+        expect(st.tone).toBe(status === 'inactive' ? 'quiet' : 'active')
+        expect(floodWordingProblems(st.meaning)).toEqual([])
+      }
+    // the plain caveat keeps the plan's sentence
+    expect(floodCircleStatus({ ...base, caveat: GAUGE_ONLY_CAVEAT, status: 'active' }, tf, FIXTURE_NOW_MS).meaning).toBe(CIRCLE_MEANING.gaugeOnly)
+  })
+
+  it('a gauge at flood stage under a Flood Watch: the gauge is the status, the watch is named (integration)', () => {
+    const watch = real(DETAIL_WATCH().summary).products[0]
+    const s = { ...real(DETAIL().summary), level: 'gauge_only' as const, caveat: GAUGE_ONLY_CAVEAT, gauges_in_flood: 1,
+      products: [{ ...watch, phase: 'in_effect' as const }] }
+    const st = floodCircleStatus(s, tf, FIXTURE_NOW_MS)
+    expect(st.line).toBe(CIRCLE_STATUS.gaugeOnly)
+    expect(st.meaning).toMatch(/^A river gauge here reads at flood stage; NWS Example Office \(synthetic\) has a Flood Watch in effect for this area until .+\. Not an all-clear\. Follow local officials\.$/)
+    expect(floodWordingProblems(st.meaning)).toEqual([])
   })
 
   it('the accessible name is the whole name with the status words', () => {
