@@ -8,7 +8,7 @@
 //                the title) and Layers; below 1024 px the view switch and Layers move into a menu
 //   left         the hazard circle (ui/public/HazardCircle.tsx) with a leader to the reported point
 //                (ui/public/ReportedPoint.tsx), then the official facts (ui/public/FireFacts.tsx) and, for a fire
-//                Fire-3d has not prepared, "Prepare map data (1-3 min)" (it replaces the top notice in Public)
+//                Disaster Mapping has not prepared, "Prepare map data (1-3 min)" (it replaces the top notice in Public)
 //   right        the location card of a picked point (its model block replaced by the Command link), the compact map
 //                controls, and the map key with the scale (ui/public/FireKey.tsx)
 //   bottom       a 30 px bar: the research-prototype line and "Not an all-clear. Follow local officials." (left) and

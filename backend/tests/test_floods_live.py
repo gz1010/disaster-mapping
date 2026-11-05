@@ -368,7 +368,7 @@ def test_prefetch_with_nws_busy_still_fetches_series(recorded_list, monkeypatch)
     monkeypatch.setattr(fhttp, "_transport", _prefetch_routes(calls))
     nws.flood_active()
     calls.clear()
-    monkeypatch.setattr(nws.NWS_LIMITER, "try_acquire", lambda: False)     # Fire-3d's own NWS budget is used up
+    monkeypatch.setattr(nws.NWS_LIMITER, "try_acquire", lambda: False)     # Disaster Mapping's own NWS budget is used up
     monkeypatch.setattr(nws.NWS_LIMITER, "acquire", lambda *a, **k: False, raising=False)
     spent = flood_live.prefetch(lst, now=now)
     assert not [c for c in calls if c.url.host == "api.weather.gov"]
@@ -655,13 +655,13 @@ def test_merge_rebuilt_gauges_never_loses_members_or_detail():
 
 def _nwps_busy(monkeypatch):
     def busy(url, params, ttl_s):
-        raise nws.SourceBusy("NOAA's National Water Prediction Service: Fire-3d's request limit is reached")
+        raise nws.SourceBusy("NOAA's National Water Prediction Service: Disaster Mapping's request limit is reached")
 
     monkeypatch.setattr(nwps, "_nwps_json", busy)
 
 
 def test_refresh_with_nwps_busy_keeps_member_gauges_detail_and_model_series(recorded_flood, monkeypatch):
-    """The reviewer's run: the refresh rebuild met Fire-3d's own NWPS limit. Nothing the bundle had is lost."""
+    """The reviewer's run: the refresh rebuild met Disaster Mapping's own NWPS limit. Nothing the bundle had is lost."""
     summary, now, calls = recorded_flood
     build.build_flood(summary["id"], now=now)
     bdir = store.flood_dir(summary["id"])
@@ -835,7 +835,7 @@ def test_alerts_cost_counts_uncached_zones_and_texts(recorded_list, monkeypatch)
 
 
 def test_prefetch_asks_again_for_a_product_refused_by_the_own_limit(recorded_list, monkeypatch):
-    """Review BFL-R8: Fire-3d's own NWS limit refused the product text: it is asked again next cycle; NWS's own
+    """Review BFL-R8: Disaster Mapping's own NWS limit refused the product text: it is asked again next cycle; NWS's own
     answer (or error) is final."""
     lst, now = recorded_list
     calls: list[httpx.Request] = []

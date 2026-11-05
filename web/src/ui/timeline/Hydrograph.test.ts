@@ -1,7 +1,7 @@
 // The river-level chart rendered on the server (PLAN-5 §4.6): slim and dock, the line key with issuer and issue time,
 // the NWS levels, LATEST, NOW, the handle as a keyboard slider (no play button), the future-products note after now
 // (C1), the model on the flow axis only and never without a reach (D20, C28), empty and failed states, and no banned
-// word in Fire-3d's own words.
+// word in Disaster Mapping's own words.
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -117,7 +117,7 @@ describe('Hydrograph (slim)', () => {
     expect(failed).toContain(HYDRO.unavailable)
   })
 
-  it("no banned word in Fire-3d's own words", () => {
+  it("no banned word in Disaster Mapping's own words", () => {
     for (const html of [render(), render({ initialAxis: 'flow' }, { model: ans(MODEL_SERIES()) }), render({ variant: 'dock' }, { cursorMs: FIXTURE_NOW_MS + 30 * 3600e3 })])
       expect(floodWordingProblems(stripVerbatim(html))).toEqual([])
   })

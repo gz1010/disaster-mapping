@@ -214,7 +214,7 @@ export function MapLegend({ inline, variant = 'row' }: { inline?: boolean; varia
         </ul>
         <p>A group's circle grows with the number of fires in it; click a group to zoom in. Alaska, Hawaii and US territories are not supported yet.</p>
         {!publicPreset && (
-          <p>"Spread not prepared yet": Fire-3d has not prepared that fire's analysis. Its card can prepare it (1-3 min); Fire-3d never does so on its own.</p>
+          <p>"Spread not prepared yet": Disaster Mapping has not prepared that fire's analysis. Its card can prepare it (1-3 min); Disaster Mapping never does so on its own.</p>
         )}
         <p className="fxm-legend-note">{LIST_ABSENCE}</p>
       </section>
@@ -366,7 +366,7 @@ export function MapLegend({ inline, variant = 'row' }: { inline?: boolean; varia
             const line = extrasStatus[k]
             return line ? <ExtrasNotice key={k} line={line} /> : null
           })}
-          {layers.evacuation && <p className="fxm-legend-note">Fire-3d's modeled spread is not an evacuation instruction. Follow local officials.</p>}
+          {layers.evacuation && <p className="fxm-legend-note">Disaster Mapping's modeled spread is not an evacuation instruction. Follow local officials.</p>}
         </section>
       )}
     </div>

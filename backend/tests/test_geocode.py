@@ -121,7 +121,7 @@ def test_single_match(client: TestClient, upstream: Upstream) -> None:
     assert req.url.host == "geocoding.geo.census.gov"
     assert req.url.path == "/geocoder/locations/onelineaddress"
     assert dict(req.url.params) == {"address": "600 E MARIPOSA ST, ALTADENA, CA 91001", "benchmark": "Public_AR_Current", "format": "json"}
-    assert req.headers["user-agent"].startswith("Fire-3d/")
+    assert req.headers["user-agent"].startswith("Disaster-Mapping/")
 
 
 def test_cache_is_keyed_by_the_normalised_query(client: TestClient, upstream: Upstream) -> None:
@@ -400,8 +400,8 @@ def test_boise_county_and_alaska(client: TestClient, upstream: Upstream) -> None
     ak = local(client, "Anchorage, AK")
     a = ak["matches"][0]
     assert a["state"] == "AK" and a["supported"] is False
-    assert a["note"] == "Fire-3d does not support Alaska, Hawaii or US territories yet."
-    assert "Fire-3d does not support Alaska, Hawaii or US territories yet." in ak["note"]
+    assert a["note"] == "Disaster Mapping does not support Alaska, Hawaii or US territories yet."
+    assert "Disaster Mapping does not support Alaska, Hawaii or US territories yet." in ak["note"]
     nash = local(client, "Nashville, TN")["matches"][0]
     assert nash["name"] == "Nashville-Davidson, TN" and nash["exact"]
     assert upstream.calls == []

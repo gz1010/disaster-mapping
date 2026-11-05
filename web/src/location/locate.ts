@@ -3,7 +3,7 @@
 // the user clicks the button (navigator.geolocation.getCurrentPosition; no outside location service). The answer
 // becomes the workspace's `device` (memory only: never in the URL, never stored, never sent): the map flies there and
 // marks it (map/DeviceMarker.tsx). Only "Check this spot" makes it the selected point ("Your location"), which the
-// location card then checks like a map click; that sends the point to Fire-3d's server, and the prompt says so first
+// location card then checks like a map click; that sends the point to Disaster Mapping's server, and the prompt says so first
 // (H3+H4 review R3: the check used to run at once while the tooltip said the point was not saved). Plain messages say
 // why there is no answer.
 import type { DeviceLocation, SelectedLocation } from '../state/workspace'
@@ -22,7 +22,7 @@ export const LOCATE_TIP =
 export const LOCATE_FOUND = 'Your location from your browser is on the map. It stays in this browser.'
 export const LOCATE_CHECK_LABEL = 'Check this spot'
 export const LOCATE_CHECK_NOTE =
-  "Checking sends this point to Fire-3d's server, which looks up the place and asks official sources (evacuation zones, alerts) about the area around it, as for a map click."
+  "Checking sends this point to Disaster Mapping's server, which looks up the place and asks official sources (evacuation zones, alerts) about the area around it, as for a map click."
 export const LOCATE_HIDE_LABEL = 'Stop showing my location'
 
 export type LocateFailure = 'denied' | 'unavailable' | 'timeout' | 'unsupported' | 'insecure'

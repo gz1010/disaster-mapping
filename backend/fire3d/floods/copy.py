@@ -40,10 +40,10 @@ RFC_FIM_OUTSIDE = "Outside NWS's mapped area, flooding is unknown, not absent."
 CATFIM_NOTE = "What NWS maps for {category} flooding at this gauge (experimental map library). Not a forecast."
 SAT_CAVEAT = ("Water seen by satellite (NASA OPERA), {date_time}. It includes the river's normal water. Clouds ({n}% of "
               "this area), trees, buildings and the days between passes hide water: dry pixels do not mean no flooding.")
-SAT_NOT_SET_UP = ("NASA Earthdata login is not set up on this server. Fire-3d shows NASA's public optical images "
+SAT_NOT_SET_UP = ("NASA Earthdata login is not set up on this server. Disaster Mapping shows NASA's public optical images "
                   "(Landsat and Sentinel-2), which cannot see through clouds and arrive about a day later. Radar images "
                   "that see through clouds need the login.")
-SAT_LOGIN_REFUSED = ("The NASA Earthdata login on this server was refused (it may have expired). Fire-3d shows NASA's "
+SAT_LOGIN_REFUSED = ("The NASA Earthdata login on this server was refused (it may have expired). Disaster Mapping shows NASA's "
                      "public optical images only until it is renewed.")
 SAT_UNAVAILABLE = "Satellite water could not be loaded right now. That is not an all-clear."
 NFHL_NOTE = ("FEMA's 1%-annual-chance (100-year) floodplain, used for flood insurance. It is not a map of current "
@@ -73,10 +73,10 @@ CONTRACT_STRINGS: dict[str, str] = {
 # Other backend-sent strings of the flood list and detail routes (review BFS-R8; not yet in CONTRACT 16.14: the
 # integration adds them from docs/redesign/contract5/backend-flood-sources.md). Same guard as above.
 # ----------------------------------------------------------------------------------------------------------------
-# FloodSummary.caveat of a gauge-only flood at a gauge that may measure tidal or lake water (review BFS-R2): Fire-3d
+# FloodSummary.caveat of a gauge-only flood at a gauge that may measure tidal or lake water (review BFS-R2): Disaster Mapping
 # does not read NWS Coastal Flood or Lakeshore Flood products (PLAN-5 D1), so it never says that none names it.
 GAUGE_ONLY_COASTAL_CAVEAT = ("No NWS Flood or Flash Flood product names this gauge right now. It may measure tidal or "
-                             "lake water: Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products, which "
+                             "lake water: Disaster Mapping does not read NWS Coastal Flood or Lakeshore Flood products, which "
                              "may be in effect here.")
 # FloodListSource.reason texts
 RFC_DOWN = "NWS river forecast points could not be reached right now; forecast flood categories may be missing."
@@ -86,7 +86,7 @@ STALE_RFC = "NWS river forecasts could not be refreshed right now; an earlier co
 STALE_IEM = "IEM's copy of NWS flood warnings could not be refreshed right now; an earlier copy links the gauges."
 IEM_JOIN_DOWN = ("IEM's copy of NWS flood warnings could not be reached right now; some river gauges may not be linked "
                  "to their NWS warning.")
-PAST_NOT_YET = "Fire-3d does not list past floods yet. That is not an all-clear."
+PAST_NOT_YET = "Disaster Mapping does not list past floods yet. That is not an all-clear."
 # HTTP 404 detail of GET /api/floods/{id} (the web shows its own FLOOD_NOT_LISTED)
 FLOOD_NOT_LISTED_DETAIL = "This flood is not listed."
 # FloodListSource.name per source id (the live list's IEM entry is its H-VTEC join, review BFS-R10)
@@ -125,7 +125,7 @@ MODEL_DOWN = "National Water Model output could not be loaded right now."
 MODEL_NO_REACH = "This gauge has no National Water Model reach, so there is no model series for it."
 NFHL_PARTLY_MAPPED = ("FEMA's digital flood map covers only part of this area; outside it, FEMA's floodplain is not "
                       "shown.")
-NFHL_TRUNCATED = ("FEMA's map has more flood zones in this area than Fire-3d draws; some of the floodplain may be missing "
+NFHL_TRUNCATED = ("FEMA's map has more flood zones in this area than Disaster Mapping draws; some of the floodplain may be missing "
                   "here.")
 # Review fixes (review5-backend-flood-bundle-api R3-R5, R7-R9)
 SAT_CAVEAT_NO_CLOUD_SHARE = ("Water seen by satellite (NASA OPERA), {date_time}. It includes the river's normal water. "
@@ -134,9 +134,9 @@ SAT_CAVEAT_NO_CLOUD_SHARE = ("Water seen by satellite (NASA OPERA), {date_time}.
 SAT_CAVEAT_RADAR = ("Water seen by radar satellite (NASA OPERA), {date_time}. It includes the river's normal water. "
                     "Trees, buildings, steep slopes and the days between passes hide water: dry pixels do not mean no "
                     "flooding.")
-SAT_PICTURE_REASON = ("Fire-3d could not load a measured satellite water image of this area from the last 10 days; "
+SAT_PICTURE_REASON = ("Disaster Mapping could not load a measured satellite water image of this area from the last 10 days; "
                       "NASA's picture of {date} is not measured here. That is not an all-clear.")
-SAT_SAVED_COPY = ("NASA's satellite water service could not be reached right now; this is the image Fire-3d saved when "
+SAT_SAVED_COPY = ("NASA's satellite water service could not be reached right now; this is the image Disaster Mapping saved when "
                   "it prepared this flood.")
 CATFIM_NOT_COVERED = "No NWS category flood map for this flood (no river gauge with a flood category)."
 CATFIM_NOTE_ANY = "What NWS maps for each flood category at a river gauge (experimental map library). Not a forecast."
@@ -149,7 +149,7 @@ ALERTS_PAST_NOT_YET = ("Past NWS flood products are not served yet (the archive 
                        "an all-clear: follow local officials.")
 # HTTP error details of the build and per-flood routes
 BUILD_SYNTHETIC = "This is a synthetic bundle (test data); it cannot be rebuilt."
-BUILD_OUTSIDE_L48 = "Fire-3d prepares floods in the lower 48 states and DC only."
+BUILD_OUTSIDE_L48 = "Disaster Mapping prepares floods in the lower 48 states and DC only."
 FLOOD_ROUTE_NOT_LISTED = "This flood is not listed."
 GAUGE_NOT_FOUND = "NOAA has no river gauge with this id."
 SATELLITE_IMAGE_GONE = "This satellite image is no longer kept; reload the flood to get the newest one."
@@ -158,7 +158,7 @@ TERRAIN_DOWN = "Terrain (USGS 3DEP) could not be loaded; the 3D view needs it."
 NAIP_DOWN = "The aerial photo (USGS NAIP) could not be loaded for this area."
 GAUGES_NONE = "This flood has no river gauge."
 # Local officials' alerts with hazard=flood (/api/official/local-alerts)
-LOCAL_FLOOD_CAVEAT = ("Fire-3d lists only the local officials' alerts the National Weather Service relays; most are not "
+LOCAL_FLOOD_CAVEAT = ("Disaster Mapping lists only the local officials' alerts the National Weather Service relays; most are not "
                       "relayed. No alert here is not an all-clear: follow local officials.")
 LOCAL_FLOOD_ARCHIVE_REASON = "FEMA's archive of local alerts is not checked for floods in this version."
 LOCAL_FLOOD_NWS_DOWN = ("Local officials' alerts relayed by NWS are not shown; that does not mean there are none. "

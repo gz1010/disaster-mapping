@@ -32,7 +32,7 @@
 .ke-kind.is-annotation {
   color: #cfcfcf;
 }
-/* automated (Fire-3d detected it, not a person or agency): a dot on the glyph's corner, spelled out in its label */
+/* automated (Disaster Mapping detected it, not a person or agency): a dot on the glyph's corner, spelled out in its label */
 .ke-kind.is-auto {
   position: relative;
   border-radius: 4px 4px 4px 4px;

@@ -1,4 +1,4 @@
-// TEST FIXTURES ONLY (never imported by app code). Recorded 2026-10-18 from the Fire-3d API (official-backend's
+// TEST FIXTURES ONLY (never imported by app code). Recorded 2026-10-18 from the Disaster Mapping API (official-backend's
 // /api/official/* on this repo) and the backend's recorded NWS sample; geometry is trimmed to a few vertices and
 // rounded; wording, ids and times are the sources' own unless a comment says otherwise.
 import type { CalFireResponse, FireWeatherResponse, NwsAlert } from '../types'
@@ -655,7 +655,7 @@ export const CALFIRE_EATON_PAST: CalFireResponse = {
  "incident_id": "2025-eaton-fire-dbfa57",
  "caveats": [
   "These are CAL FIRE's own numbers and update time, quoted as published; they can lag what is happening on the ground.",
-  "Fire-3d records CAL FIRE's changes only since it first checked this incident (recording_since_ms); earlier changes are not available. A new CAL FIRE update time without new numbers is not listed as a change.",
+  "Disaster Mapping records CAL FIRE's changes only since it first checked this incident (recording_since_ms); earlier changes are not available. A new CAL FIRE update time without new numbers is not listed as a change.",
   "CAL FIRE's list keeps only the latest record, so the update-by-update history of a past fire is not available. This is CAL FIRE's final record.",
   "CAL FIRE edited this record well after the fire was contained; its update time is that edit, not news from the fire."
  ],
@@ -691,7 +691,7 @@ export const CALFIRE_HENDERSON_LIVE: CalFireResponse = {
  "incident_id": "2026-henderson-fire-3e3dfe",
  "caveats": [
   "These are CAL FIRE's own numbers and update time, quoted as published; they can lag what is happening on the ground.",
-  "Fire-3d records CAL FIRE's changes only since it first checked this incident (recording_since_ms); earlier changes are not available. A new CAL FIRE update time without new numbers is not listed as a change."
+  "Disaster Mapping records CAL FIRE's changes only since it first checked this incident (recording_since_ms); earlier changes are not available. A new CAL FIRE update time without new numbers is not listed as a change."
  ],
  "incident_url": "https://www.fire.ca.gov/incidents/2026/10/15/henderson-fire/",
  "agencies": "United States Marine Corps, CAL FIRE, US Forest Service - Cleveland National Forest, California Governor's Office of Emergency Services",

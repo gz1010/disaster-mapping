@@ -46,7 +46,7 @@ from fire3d import http as fhttp
 from fire3d.sources.perimeters import ATTR_FIELDS
 from fire3d.timeutil import DAY_MS, HOUR_MS, iso_to_ms
 
-config.USER_AGENT = "Fire-3d/0.1 test-sample recorder (research prototype; a few requests per run)"
+config.USER_AGENT = "Disaster-Mapping/0.1 test-sample recorder (research prototype; a few requests per run)"
 
 CALFIRE_URL = "https://incidents.fire.ca.gov/umbraco/api/IncidentApi/List"
 FIRMS = "https://firms.modaps.eosdis.nasa.gov"

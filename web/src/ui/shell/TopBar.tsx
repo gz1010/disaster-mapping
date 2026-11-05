@@ -4,7 +4,7 @@
 // `flex: 1 1 0`, so the centre pill stays centred whatever the sides hold. The bar lets map drags through the empty
 // space between its items. Styles: styles/topbar.css (exact values from handoff-4/screens/*.dc.html).
 //   TopBar        the bar (a <header>); extra props (data-chrome, id, ...) go to its root
-//   TopBarBrand   logo + "Fire-3d"
+//   TopBarBrand   logo + "Disaster Mapping"
 //   ViewPill      the view switch (views.ts applyView): radio buttons, the active one accent orange with dark ink
 //   BackButton    36 px round glass button, "Back to all fires"
 //   LiveDot       "● LIVE" in mono, or the fire's year as a chip
@@ -38,12 +38,12 @@ export function TopBar({
   )
 }
 
-/** Logo + "Fire-3d" (overview and Forensic; the screens omit it inside a fire on the map). */
+/** Logo + "Disaster Mapping" (overview and Forensic; the screens omit it inside a fire on the map). */
 export function TopBarBrand({ size = 24 }: { size?: number }) {
   return (
     <span className="tb-brand">
       <Logo size={size} />
-      <span className="tb-brand-name">Fire-3d</span>
+      <span className="tb-brand-name">Disaster Mapping</span>
     </span>
   )
 }

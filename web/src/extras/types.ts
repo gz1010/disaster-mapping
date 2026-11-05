@@ -25,7 +25,7 @@ export interface ExtrasSource {
  *  integration: every evacuation answer of the backend carries them, `api/extras.py` `_source_entry`). Camera and
  *  imagery answers keep plain `ExtrasSource` entries. */
 export interface EvacSource extends ExtrasSource {
-  /** When Fire-3d fetched this source for the answer (null = not fetched). */
+  /** When Disaster Mapping fetched this source for the answer (null = not fetched). */
   retrieved_ms: number | null
   /** The source layer's own last update (ArcGIS `dataLastEditDate`). */
   updated_ms: number | null
@@ -45,7 +45,7 @@ export interface ExtrasEnvelope {
   status: ExtrasStatus
   reason: string | null
   reason_code: ExtrasReasonCode
-  /** When Fire-3d fetched the data from the source (cache time), epoch ms. */
+  /** When Disaster Mapping fetched the data from the source (cache time), epoch ms. */
   retrieved_ms: number | null
   /** The source's own last update time, epoch ms. */
   source_updated_ms: number | null
@@ -86,7 +86,7 @@ export interface EvacZoneProps {
   state: string | null
   /** Which source listed it ('caloes_evacuations', 'or_oem_evacuations'). */
   source_id: string
-  /** False when `status` is Fire-3d's rendering of the source's value (Oregon's level number: "Level 3"). */
+  /** False when `status` is Disaster Mapping's rendering of the source's value (Oregon's level number: "Level 3"). */
   status_verbatim: boolean
   /** The source's own value (Cal OES STATUS text; Oregon's level integer). */
   status_raw: string | number | null
@@ -189,7 +189,7 @@ export interface CamerasResponse extends ExtrasEnvelope {
   kind: 'cameras'
   cameras: { type: 'FeatureCollection'; features: CameraFeature[] }
   counts: Partial<Record<CameraKind, number>>
-  /** Cameras of networks whose terms Fire-3d has not verified (not listed), by network name. */
+  /** Cameras of networks whose terms Disaster Mapping has not verified (not listed), by network name. */
   excluded: Record<string, number>
 }
 

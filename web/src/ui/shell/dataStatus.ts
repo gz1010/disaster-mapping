@@ -7,7 +7,7 @@
 // (time_range.now_ms, SPEC 8.3): when the newest detection or mapped perimeter is more than an hour older, the row says
 // so and the detection row keeps the time the burned area is known up to.
 // Brief 2 (U-R9): one freshness pattern. Official sources get their own rows (evacuation zones from the state's
-// source, NWS fire weather, the fire's agency record) with the issuer's update time and Fire-3d's check time; a past fire's record row always
+// source, NWS fire weather, the fire's agency record) with the issuer's update time and Disaster Mapping's check time; a past fire's record row always
 // carries the year and says it is the record's last edit. Public gets one line (freshnessLine) with the same rows as
 // details.
 import type { DetectionsFile, ForecastManifest, IncidentManifest, IncidentSummary, PerimetersFile, WeatherFile } from '../../api/types'
@@ -136,7 +136,7 @@ export function buildDataStatus(inp: DataStatusInput, nowMs: number): StatusRow[
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
-/** Evacuation (state source), NWS and agency record rows: the issuer's time where it gives one, Fire-3d's check time
+/** Evacuation (state source), NWS and agency record rows: the issuer's time where it gives one, Disaster Mapping's check time
  *  as the age. */
 export function officialRows(inp: Pick<DataStatusInput, 'summary' | 'official'>, nowMs: number, live: boolean, tf: TimeFmt = getTimeFormat()): StatusRow[] {
   const at = (ms: number) => fmtStatusTimeAt(ms, nowMs, tf)
@@ -190,8 +190,8 @@ export function officialRows(inp: Pick<DataStatusInput, 'summary' | 'official'>,
       stale: false,
       tip:
         ev.state === 'not-available'
-          ? 'Fire-3d found no free, official, public, machine-readable state evacuation feed for this state (checked Oct 22, 2026). Follow local officials.'
-          : `${srcTips.length ? `${srcTips.join(' ')} ` : ''}Fire-3d checks every 2 minutes while live.`,
+          ? 'Disaster Mapping found no free, official, public, machine-readable state evacuation feed for this state (checked Oct 22, 2026). Follow local officials.'
+          : `${srcTips.length ? `${srcTips.join(' ')} ` : ''}Disaster Mapping checks every 2 minutes while live.`,
     })
   }
 
@@ -240,7 +240,7 @@ export function officialRows(inp: Pick<DataStatusInput, 'summary' | 'official'>,
       age: live ? fmtRelative(recordMs, nowMs) : null,
       stale: false,
       tip: wfigs
-        ? "NIFC WFIGS (IRWIN) publishes the protecting agency's own numbers with the record's own update time; Fire-3d does not record changes to it yet."
+        ? "NIFC WFIGS (IRWIN) publishes the protecting agency's own numbers with the record's own update time; Disaster Mapping does not record changes to it yet."
         : live
           ? 'CAL FIRE updates its incident records by hand, usually a few times a day.'
           : 'CAL FIRE keeps one final record per past fire; its last edit (final acreage, containment date) can come months after the fire. Its update-by-update history is not available.',

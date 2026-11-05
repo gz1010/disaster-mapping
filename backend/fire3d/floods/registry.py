@@ -8,7 +8,7 @@ CAP reference chain key ``CAP:<identifier>`` stands in when NWS sends no VTEC; a
 gets a new episode and so a new id (C8).
 
 Last-known summaries ``last_known/{id}.json`` (a ``FloodSummary``) are written for every flood built from the
-current lists; the file's mtime is when Fire-3d last saw the flood. They keep an id that left the lists listed (as
+current lists; the file's mtime is when Disaster Mapping last saw the flood. They keep an id that left the lists listed (as
 inactive) for ``INACTIVE_LISTED_H`` and resolvable afterwards (rule 13, C20).
 """
 
@@ -134,7 +134,7 @@ class Registry:
             return [k for k, (i, _) in self.keys.items() if self.canonical(i) == flood_id]
 
     def first_seen_of(self, flood_id: str) -> int | None:
-        """When Fire-3d first saw any member of an id (its oldest registered key, retired ones included), or None."""
+        """When Disaster Mapping first saw any member of an id (its oldest registered key, retired ones included), or None."""
         with self._lock:
             seen = [fs for i, fs in self.keys.values() if self.canonical(i) == flood_id]
         return min(seen) if seen else None

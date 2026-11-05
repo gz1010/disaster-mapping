@@ -45,6 +45,6 @@ export function zoneHoverLines(zone: EvacZoneFeature, data: Pick<EvacuationsResp
     { text: d.status, cls: 'fxm-tip-title' },
     { text: d.title },
     { text: `${d.jurisdiction} · ${d.updatedText}` },
-    { text: `Official status from local officials via ${via}. Fire-3d forecasts are not evacuation instructions.`, cls: 'fxm-tip-hint' },
+    { text: `Official status from local officials via ${via}. Disaster Mapping forecasts are not evacuation instructions.`, cls: 'fxm-tip-hint' },
   ]
 }

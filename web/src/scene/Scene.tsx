@@ -1,4 +1,4 @@
-// Fire-3d 3D scene (SPEC 9.0 / 9.3 / 9.6): full-bleed R3F canvas + HTML overlays.
+// Disaster Mapping 3D scene (SPEC 9.0 / 9.3 / 9.6): full-bleed R3F canvas + HTML overlays.
 //   LookDriver   visualStyle -> shared look (lighting, sky, fog, grade), animated transitions, sceneStore.env
 //   Sky          dark green-black dome (warm sun glow in the realistic look)
 //   SunLights    sun (shadow map at high / medium quality) + hemisphere sky light for standard materials

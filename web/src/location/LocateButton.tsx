@@ -2,7 +2,7 @@
 // §3.3 and decision i-7). Only a click asks the browser (navigator.geolocation.getCurrentPosition, no outside location
 // service). The fix becomes the workspace's `device` (memory only) and the map flies there and marks it
 // (map/DeviceMarker.tsx); nothing leaves the browser. A prompt under the button row says so and offers "Check this
-// spot", which first says what a check sends (the point to Fire-3d's server, as a map click) and then makes it the
+// spot", which first says what a check sends (the point to Disaster Mapping's server, as a map click) and then makes it the
 // selected point "Your location" (approximate when the browser's accuracy is coarser than 100 m), checked by the
 // location card. "Stop showing my location" forgets it. Denied, unavailable and timed-out requests get a plain message
 // in the same place; nothing is guessed. Pure parts: location/locate.ts.

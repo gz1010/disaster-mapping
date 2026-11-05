@@ -18,7 +18,7 @@ Sources (free, no key, official or officially sanctioned; terms checked 2026-10-
   VIIRS daily images (NASA CMR pass times + GIBS tiles) and GOES-West 10-minute GeoColor (GIBS).
 
 Every JSON response carries ``status`` ("available" | "unavailable" | "not_available_for_past_dates"), a
-``reason``, ``retrieved_ms`` (when Fire-3d fetched it from the source), ``source_updated_ms`` (the source's own update
+``reason``, ``retrieved_ms`` (when Disaster Mapping fetched it from the source), ``source_updated_ms`` (the source's own update
 time) and source / attribution metadata. Upstream calls go through ``fire3d.http`` (timeouts, retries with backoff,
 disk cache with TTLs matched to each source's update cadence) behind a short in-memory cache and per-source request
 limits; the proxy's own limit answers 429. Route functions are plain ``def`` (FastAPI runs them in its threadpool).
@@ -203,7 +203,7 @@ class SourceError(RuntimeError):
 
 
 class SourceBusy(SourceError):
-    """Fire-3d's own request limit for this source is reached."""
+    """Disaster Mapping's own request limit for this source is reached."""
 
 
 class _TtlCache:
@@ -240,7 +240,7 @@ class _TtlCache:
 
 @dataclass
 class _Upstream:
-    """One upstream service and Fire-3d's own request limit for it."""
+    """One upstream service and Disaster Mapping's own request limit for it."""
 
     name: str
     limiter: fhttp.RateLimiter
@@ -285,7 +285,7 @@ def _fetch(up: _Upstream, method: str, url: str, *, params: Any = None, body: An
         if hit is not None:
             return hit
     if not up.limiter.try_acquire():
-        raise SourceBusy(f"{up.name}: Fire-3d's request limit is reached; try again in a minute")
+        raise SourceBusy(f"{up.name}: Disaster Mapping's request limit is reached; try again in a minute")
     try:
         resp = fhttp.request(method, url, params=params, json_body=body, ttl_s=ttl_s, timeout=timeout, retries=retries)
         payload = resp.json() if parse == "json" else resp.text
@@ -293,7 +293,7 @@ def _fetch(up: _Upstream, method: str, url: str, *, params: Any = None, body: An
         code = f"HTTP {e.status}" if e.status is not None else "no response"
         raise SourceError(f"{up.name} could not be reached ({code})") from None
     except (orjson.JSONDecodeError, ValueError):
-        raise SourceError(f"{up.name} sent a reply Fire-3d could not read") from None
+        raise SourceError(f"{up.name} sent a reply Disaster Mapping could not read") from None
     out = (payload, resp.fetched_ms)
     if ttl_s > 0:
         _mem.set(key, out, ttl_s)
@@ -614,7 +614,7 @@ def evacuations_payload(ctx: AreaContext, hazard: str = "fire") -> dict[str, Any
     out["sources"] = [_source_entry(sid, "CA" if sid.startswith("caloes") else "OR") for sid in source_ids]
     issuing = [ad.issuing_authority for ad in adapters]
     out.update({"issuing_authority": " ".join(issuing) if issuing else
-                "Local emergency officials. Fire-3d has no official evacuation zone source for this area.",
+                "Local emergency officials. Disaster Mapping has no official evacuation zone source for this area.",
                 "zones": {"type": "FeatureCollection", "features": []}, "counts": {}, "coverage": [],
                 "states": evac.states_entries(states, {})})
     if fire_only:
@@ -898,7 +898,7 @@ def cameras_payload(ctx: AreaContext) -> dict[str, Any]:
     out["retrieved_ms"] = fetched
     out["source_updated_ms"] = _layer_updated_ms(WEBCAMS_LAYER_URL, "Cal OES webcam layer", CAMERAS_TTL_S)
     if excluded:
-        out["caveats"].append("Cameras from networks whose terms Fire-3d has not verified are not shown "
+        out["caveats"].append("Cameras from networks whose terms Disaster Mapping has not verified are not shown "
                               f"({', '.join(f'{k}: {v}' for k, v in sorted(excluded.items()))}).")
     out["caveats"].append("Camera images are live views, opened only on request; each shows when the camera server last "
                           "updated it (the capture time is printed on the image).")
@@ -975,7 +975,7 @@ def camera_latest(camera_id: str) -> dict[str, Any]:
     if hit is not None:
         return hit
     if not UP_FRAMES.limiter.try_acquire():
-        raise HTTPException(status_code=429, detail="Fire-3d's camera image limit is reached; try again in a minute")
+        raise HTTPException(status_code=429, detail="Disaster Mapping's camera image limit is reached; try again in a minute")
     meta = SOURCES[src]
     out: dict[str, Any] = {"camera_id": camera_id, "source": meta, "credit": meta["attribution"], "license": meta["license"],
                            "viewer_url": ALERTCA_VIEWER_URL.format(slug=camera_id.split(":", 1)[1]) if src == "alertcalifornia" else None}
@@ -1463,7 +1463,7 @@ def goes_products(ctx: AreaContext) -> tuple[list[dict], int]:
         id=f"goes-west:{_iso(t)}", family="goes", label="GOES-West GeoColor", composite="geocolor", platform="GOES-West",
         sensor="ABI", acquired_ms=t, acquired_end_ms=t + 10 * 60_000, pass_times_ms=[t], published_ms=None,
         latency_ms=(retrieved - t) if recent else None,
-        latency_note="age of the newest published frame when Fire-3d checked (GIBS publishes frames 30-60 min late)",
+        latency_note="age of the newest published frame when Disaster Mapping checked (GIBS publishes frames 30-60 min late)",
         resolution_m=2000, resolution_note="about 1-2 km pixels: smoke plumes and clouds, not fire edges",
         cloud_cover_pct=None, cloud_note="cloud cover not reported; clouds and smoke are visible",
         coverage_pct=100.0, coverage_note="full-disk view covers the whole area",
@@ -1595,7 +1595,7 @@ def _s2_visual_href(item_id: str) -> str:
                      ttl_s=SCENES_TTL_PAST_S)
     href = (((data or {}).get("assets") or {}).get("visual") or {}).get("href")
     if not href or not str(href).startswith(f"https://{S2_ASSET_HOST}/"):
-        raise SourceError("the scene has no true-colour image Fire-3d can read")
+        raise SourceError("the scene has no true-colour image Disaster Mapping can read")
     return str(href)
 
 
@@ -1659,7 +1659,7 @@ def render_sentinel2(ids: list[str], b: BBox, reader: Callable[[str, tuple, int,
             if out.is_file():
                 return out
             if not UP_RENDER.limiter.try_acquire():
-                raise SourceBusy("Fire-3d's Sentinel-2 rendering limit is reached; try again in a minute")
+                raise SourceBusy("Disaster Mapping's Sentinel-2 rendering limit is reached; try again in a minute")
             if not _render_slots.acquire(timeout=60):
                 raise SourceBusy("Sentinel-2 rendering is busy; try again shortly")
             try:

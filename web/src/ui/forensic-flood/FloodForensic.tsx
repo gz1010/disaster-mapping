@@ -7,7 +7,7 @@
 //     FloodDock (the river level chart and, opened, the NWS products drawn at its handle)
 //   - "Frame flood" and "Charts & NWS products" under the compass; the scene key (one line per layer drawn, each with
 //     its own time, and "Bar height: river stage at the gauge (scaled), not water depth")
-//   - a flood without 3D data: "Fire-3d has not prepared this flood's 3D terrain yet." + "Prepare 3D data (about 1
+//   - a flood without 3D data: "Disaster Mapping has not prepared this flood's 3D terrain yet." + "Prepare 3D data (about 1
 //     min)" (useFlood.startFloodBuild, written by web-flood-public; its progress from state/floodBuild.ts), and the
 //     scene loads by itself when the job is done
 // The prototype line and "Not an all-clear. Follow local officials." (FixedCopy) stay on every state, phones included.

@@ -38,9 +38,9 @@ describe('extrasStatusLines', () => {
   })
 
   it('reports loading and request errors', () => {
-    const s = extrasStatusLines(ALL_ON, { evac: ok(null), cams: ok(null, 'Could not reach the Fire-3d server.'), imgs: ok(null) }, null)
+    const s = extrasStatusLines(ALL_ON, { evac: ok(null), cams: ok(null, 'Could not reach the Disaster Mapping server.'), imgs: ok(null) }, null)
     expect(s.evacuation).toMatchObject({ tone: 'muted', title: 'Official evacuation zones: loading…' })
-    expect(s.cameras).toMatchObject({ tone: 'error', detail: 'Could not reach the Fire-3d server.' })
+    expect(s.cameras).toMatchObject({ tone: 'error', detail: 'Could not reach the Disaster Mapping server.' })
     expect(s.recentImagery?.title).toBe('Recent satellite imagery: loading…')
   })
 
@@ -93,7 +93,7 @@ describe('official additions (brief 2)', () => {
     expect(fireWeatherStatusLine({ status: 'unavailable', reason: 'NWS down.' }, null, opts)?.tone).toBe('warn')
     // the archive could not be reached: unavailable right now (final verification, panel SR-m1)
     expect(fireWeatherStatusLine({ status: 'not_available_for_past_dates', reason_code: 'upstream_error', reason: 'IEM down.' }, null, opts)).toEqual({ tone: 'warn', title: 'NWS fire weather alerts: unavailable right now', detail: 'IEM down.' })
-    expect(fireWeatherStatusLine(null, 'Could not reach the Fire-3d server.', opts)?.tone).toBe('error')
+    expect(fireWeatherStatusLine(null, 'Could not reach the Disaster Mapping server.', opts)?.tone).toBe('error')
     expect(fireWeatherStatusLine({ status: 'available', reason: null }, null, opts)).toBeNull()
     expect(fireWeatherStatusLine(null, 'x', { hasIncident: false, demo: false })).toBeNull()
     expect(fireWeatherStatusLine(null, 'x', { hasIncident: true, demo: true })).toBeNull()

@@ -1,5 +1,5 @@
 // The location card on the national overview (owner: us-web; brief 2 O-R9, brief 3 §14.10-14.11). No fire is open, so
-// there is no fire-area check and no model here: the card shows whether Fire-3d covers the point (from
+// there is no fire-area check and no model here: the card shows whether Disaster Mapping covers the point (from
 // /api/geo/lookup only: Alaska, Hawaii, territories and places outside the US say so, §14.14), the official line at the
 // point (useOfficialAtPoint, I5) and the nearest fires, measured from the agency's reported location of each (not its
 // edge), and never turns a distance into a risk statement. Times are local time at the point (the lookup's zone). When a prepared fire's analysis area contains the point, it offers "Zoom to the <name> Fire", an
@@ -105,7 +105,7 @@ export function OverviewCard({ sel, official }: { sel: SelectedLocation; officia
   const point = useMemo(() => checkLocation({ point: sel, timeMs: nowMs, nowMs, summary: null, manifest: null, perimeters: [], detections: [], weather: null, forecast: null, rasters: makeRastersMissing(), address }).point, [sel, nowMs, address])
   const titleIsCoords = !point.address && point.label === formatLatLon(sel.lat, sel.lon, 5)
   const updated = Object.values(listUpdated ?? {}).filter((v): v is number => typeof v === 'number')
-  // when Fire-3d fetched the lists (sources[].retrieved_ms; an older copy keeps its own time), never the answer's time
+  // when Disaster Mapping fetched the lists (sources[].retrieved_ms; an older copy keeps its own time), never the answer's time
   const health = listHealth(Object.values(listSources ?? {}))
   const newest = health.fetchedMs ?? (updated.length ? Math.max(...updated) : null)
   // phones: a short sheet until the user asks for more; every new point starts short again
@@ -163,7 +163,7 @@ export function OverviewCard({ sel, official }: { sel: SelectedLocation; officia
           <h3 className="loc-block-title">Updated and reliability</h3>
           <ul>
             {lookupPlace(geo) && <li>Place: {lookupPlace(geo)}</li>}
-            {/* the place and the time zone below come from Fire-3d's offline lookup (/api/geo/lookup, §14.13) */}
+            {/* the place and the time zone below come from Disaster Mapping's offline lookup (/api/geo/lookup, §14.13) */}
             {geo && <li className="loc-credit">{GEO_LOOKUP_CREDIT}</li>}
             {health.allDown ? (
               <li>Fire lists: CAL FIRE and NIFC WFIGS could not be reached right now</li>

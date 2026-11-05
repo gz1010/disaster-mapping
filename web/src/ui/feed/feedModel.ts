@@ -2,7 +2,7 @@
 // + annotations (Key Events) plus, when given, agency perimeters, satellite passes, the selected forecast run and items
 // from the optional and official sources (`extra`), as plain-language feed items in chronological order; and the one
 // selection action shared by the feed, map markers and timeline markers.
-// Wording rules: every item says what kind of information it is; automated items (Fire-3d event detection, model
+// Wording rules: every item says what kind of information it is; automated items (Disaster Mapping event detection, model
 // output, satellite sensors) are flagged `automated` and never worded as human reporting; estimated positions are
 // flagged `approximate`; the producer's original wording (scientific units) is kept in `original`. Official items keep
 // their issuer, own times and link; they fit and highlight their area when selected and never seek into a forecast.
@@ -154,7 +154,7 @@ function eventCopy(e: FireEvent, c: Ctx): Copy {
       // the build's own times in the panel's clock and the fire's zone (review UX-M3)
       const text = localizeDetailTimes(e.detail, c.tf, e.t_ms)
       // Only CAL FIRE's reported start, unchanged and not confirmed by a satellite (backend ignition_time): an agency
-      // report, not something Fire-3d inferred. The start area is still Fire-3d's estimate (approximate location).
+      // report, not something Disaster Mapping inferred. The start area is still Disaster Mapping's estimate (approximate location).
       if (estimated && /^CAL FIRE\b/.test(e.source) && !/\+|GOES|FIRMS/.test(e.source) && !/Ignition estimated/.test(e.detail))
         return {
           title: 'Fire start reported',
@@ -435,8 +435,8 @@ function forecastItem(f: ForecastManifest, m: IncidentManifest, preset: Preset, 
       ? `Covers ${keepUnits(forecastPeriod(f, tf))}: ${runs}. Shows where model runs spread the fire; experimental, not an official prediction.`
       : command
         ? `The forecast model was re-run on ${fmtAt(f.issued_ms, tf, { year: 'always', zone: true })} for ${keepUnits(forecastPeriod(f, tf))} (${runs}), to compare with what happened.`
-        : `Fire-3d re-ran its experimental spread model on the weather of ${keepUnits(forecastPeriod(f, tf))} (${runs}), after the fire, to compare with what happened.`,
-    source: 'Fire-3d spread model',
+        : `Disaster Mapping re-ran its experimental spread model on the weather of ${keepUnits(forecastPeriod(f, tf))} (${runs}), after the fire, to compare with what happened.`,
+    source: 'Disaster Mapping spread model',
     automated: true,
     key: false,
     confidence: null,

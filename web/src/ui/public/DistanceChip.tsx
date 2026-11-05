@@ -136,7 +136,7 @@ export function DistanceChipView({ compact = false, measure }: { compact?: boole
   }
   return (
     <div className={`pfv-dist-wrap${compact ? ' is-compact' : ''}`}>
-      <button type="button" className={`pfv-dist is-prompt${busy ? ' is-busy' : ''}`} aria-describedby={failure ? msgId : undefined} onClick={share} disabled={busy} data-tip="Your browser finds your location only when you click. Fire-3d does not save it or put it in the link.">
+      <button type="button" className={`pfv-dist is-prompt${busy ? ' is-busy' : ''}`} aria-describedby={failure ? msgId : undefined} onClick={share} disabled={busy} data-tip="Your browser finds your location only when you click. Disaster Mapping does not save it or put it in the link.">
         {busy ? <LoaderCircle size={14} className="pfv-dist-spin" aria-hidden="true" /> : <ShareIcon />}
         {busy ? 'Finding your location…' : SHARE_PROMPT}
       </button>

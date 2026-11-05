@@ -1,6 +1,6 @@
 // The Public flood view's words and figures (brief 5, FloodView.dc.html; PLAN-5 §4.4, §5; D5, D8, D10, D11, D19,
 // D24, C1, C4, C7, C15, C16). Pure and tested (floodView.test.ts); the components in this folder only draw them.
-//   title          the place ("San Juan County, New Mexico") and "NOV 2 2026 — PRESENT" / "SEEN BY FIRE-3D SINCE …" /
+//   title          the place ("San Juan County, New Mexico") and "NOV 2 2026 — PRESENT" / "SEEN BY DISASTER MAPPING SINCE …" /
 //                  "NOV 2 2026 — LAST NWS PRODUCT NOV 5 2026" (never "ENDED")
 //   hazard circle  the NWS product as the status ("FLOOD · WARNING", never ACTIVE / ENDED / OVER / CLEAR), the short
 //                  name ("San Juan"), one meaning sentence per status that names the issuer
@@ -496,7 +496,7 @@ export function floodFacts(i: FloodFactsInput): FloodFactRow[] {
       rows.push(forecastRow('crest', primary, i))
     }
   }
-  // row 4: the start (its basis said: NWS product, a gauge's first reading at flood stage, or Fire-3d's first sight)
+  // row 4: the start (its basis said: NWS product, a gauge's first reading at flood stage, or Disaster Mapping's first sight)
   if (s && num(s.started_ms)) {
     const seen = s.started_basis === 'first_seen'
     rows.push({
@@ -505,7 +505,7 @@ export function floodFacts(i: FloodFactsInput): FloodFactRow[] {
       value: fmtDayDate(s.started_ms, i.tf.tz, { year: 'auto', refMs: i.nowMs }),
       unit: fmtClock(s.started_ms, i.tf, { zone: true }),
       size: 26,
-      // the label says Fire-3d's first sight; what else started it (an NWS product, a gauge's first reading at flood
+      // the label says Disaster Mapping's first sight; what else started it (an NWS product, a gauge's first reading at flood
       // stage) is the row's tooltip
       tip: seen ? FLOOD_PUBLIC.startedFirstSeen : s.started_basis === 'gauge' ? FLOOD_PUBLIC.startedGauge : FLOOD_PUBLIC.startedNws,
     })

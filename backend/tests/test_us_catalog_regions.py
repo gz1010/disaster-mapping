@@ -114,9 +114,9 @@ def test_lookup_shapes() -> None:
     assert boise["county"] == {"fips": "16001", "name": "Ada County"} and boise["note"] is None
     anc = regions.lookup(-149.9003, 61.2181)
     assert anc["coverage"] == "alaska" and anc["supported"] is False and anc["time_zone"] is None and anc["state"] is None
-    assert anc["note"] == "Fire-3d does not support Alaska, Hawaii or US territories yet."
+    assert anc["note"] == "Disaster Mapping does not support Alaska, Hawaii or US territories yet."
     tj = regions.lookup(-117.0333, 32.525)
-    assert tj["coverage"] == "outside_us" and tj["note"] == "Outside the United States: Fire-3d has no data here."
+    assert tj["coverage"] == "outside_us" and tj["note"] == "Outside the United States: Disaster Mapping has no data here."
     assert contract_problems(GeoLookup, anc) == [] and contract_problems(GeoLookup, tj) == []
 
 

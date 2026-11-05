@@ -1,5 +1,5 @@
 // Shared context of the official hooks and producers (owner: official-web): the open fire, whether the timeline
-// stands for a past time, the reference time of "in effect", where the fire is (distances) and the areas Fire-3d
+// stands for a past time, the reference time of "in effect", where the fire is (distances) and the areas Disaster Mapping
 // checks. Time is quantised to the minute, so playback re-renders readers at most once a minute.
 import { useMemo } from 'react'
 import type { Mode } from '../api/types'

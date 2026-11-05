@@ -280,7 +280,7 @@ def oregon_level(v: Any) -> int | None:
 
 
 def normalize_oregon(f: dict) -> dict | None:
-    """One Oregon OEM zone -> the same feature shape as Cal OES (CONTRACT §14.8.4). The status "Level N" is Fire-3d's
+    """One Oregon OEM zone -> the same feature shape as Cal OES (CONTRACT §14.8.4). The status "Level N" is Disaster Mapping's
     rendering of OEM's level number (``status_verbatim: false``), with OEM's own definition as ``status_label``. A row
     without a level 1-3 is dropped (EV-R6). OEM gives no issue time: ``status_updated_ms`` is null and ``listed_ms`` is
     when the zone was added to the state layer (``created_date``); ``last_edited_date`` is OEM's 15-minute
@@ -433,7 +433,7 @@ ADAPTERS: dict[str, EvacAdapter] = {
         standing_caveats=(
             "Shown as current status. Oregon OEM gives no issue time for a zone; the time shown is when the zone was "
             "added to the Oregon state layer.",
-            "Oregon levels are shown by Fire-3d as \"Level 1-3\" from OEM's level number, with OEM's definitions "
+            "Oregon levels are shown by Disaster Mapping as \"Level 1-3\" from OEM's level number, with OEM's definitions "
             "(Level 1: BE READY, Level 2: BE SET, Level 3: GO NOW).",
         ),
         normalize=normalize_oregon,

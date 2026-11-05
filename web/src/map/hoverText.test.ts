@@ -53,13 +53,13 @@ describe('zoneHoverLines (§14.8.5)', () => {
     const z = EVAC_SAMPLE.zones.features[0]
     const t = zoneHoverLines(z, EVAC_SAMPLE, EVAC_SAMPLE.now_ms, LA12)
     expect(t[0].cls).toBe('fxm-tip-title')
-    expect(t[3].text).toBe('Official status from local officials via Cal OES. Fire-3d forecasts are not evacuation instructions.')
+    expect(t[3].text).toBe('Official status from local officials via Cal OES. Disaster Mapping forecasts are not evacuation instructions.')
   })
 
   it('an Oregon zone: "via Oregon OEM", never Cal OES', () => {
     const z = OR_EVAC_MEDFORD.zones.features[0]
     const t = texts(zoneHoverLines(z, OR_EVAC_MEDFORD, OR_EVAC_MEDFORD.now_ms, LA12))
-    expect(t[3]).toBe('Official status from local officials via Oregon OEM. Fire-3d forecasts are not evacuation instructions.')
+    expect(t[3]).toBe('Official status from local officials via Oregon OEM. Disaster Mapping forecasts are not evacuation instructions.')
     expect(t.join('\n')).not.toContain('Cal OES')
   })
 })

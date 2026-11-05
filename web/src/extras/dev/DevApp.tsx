@@ -280,7 +280,7 @@ export function DevApp() {
       <div ref={container} className="xd-map" aria-label="Map" />
       <div className="xd-top">
       <header className="xd-bar">
-        <strong className="xd-title">Fire-3d · optional sources (dev)</strong>
+        <strong className="xd-title">Disaster Mapping · optional sources (dev)</strong>
         <div className="xd-group" role="group" aria-label="Incident">
           {DEV_PRESETS.map((p) => (
             <button key={p.id} type="button" aria-pressed={p.id === presetId} onClick={() => ctl.current?.setPreset(p.id)}>

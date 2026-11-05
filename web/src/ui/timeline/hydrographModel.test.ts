@@ -261,7 +261,7 @@ describe('hydrographModel: the handle', () => {
     expect(r.kind).toBe('forecast')
     expect(r.line1).toBe('18.0 FT FORECAST (NWS) · MODERATE')
     expect(r.future).toBe(true)
-    // between two forecast steps the value is drawn by Fire-3d: marked ≈
+    // between two forecast steps the value is drawn by Disaster Mapping: marked ≈
     const between = cursorReadout(m, crest.t + 3 * HOUR_MS, TF)
     expect(between.interpolated).toBe(true)
     expect(between.line1.startsWith('≈')).toBe(true)

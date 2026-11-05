@@ -95,7 +95,7 @@ export function IncidentOverview() {
         <dt>Incident</dt>
         <dd className="ov-name ellipsis">{summary.name}</dd>
         <dt>Incident ID</dt>
-        <dd className="mono ellipsis" data-tip={idLine ?? 'Fire-3d incident identifier'}>
+        <dd className="mono ellipsis" data-tip={idLine ?? 'Disaster Mapping incident identifier'}>
           {summary.id}
         </dd>
         <dt>Location</dt>

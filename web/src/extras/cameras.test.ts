@@ -78,7 +78,7 @@ describe('camera list, legend and feed', () => {
     const [item] = cameraFeedItems(CAMERAS_SAMPLE)
     expect(item).toMatchObject({ topic: 'camera', kind: 'observation', automated: true, seekable: false, location: null })
     expect(item.detail).toBe('2 wildfire cameras (ALERTCalifornia) and 1 traffic camera (Caltrans) in this area (Cal OES list updated Oct 17, 13:00 PDT). Images open only when you ask for one.')
-    // timed by Cal OES's own list update, never by Fire-3d's fetch (brief 2 U-R1)
+    // timed by Cal OES's own list update, never by Disaster Mapping's fetch (brief 2 U-R1)
     expect(item.tMs).toBe(CAMERAS_SAMPLE.source_updated_ms)
     expect(item).toMatchObject({ checkedMs: CAMERAS_SAMPLE.retrieved_ms, timeNotGiven: false })
     const [noTime] = cameraFeedItems({ ...CAMERAS_SAMPLE, source_updated_ms: null })

@@ -5,7 +5,7 @@
 // basemapFallback) and says so here, with "Try aerial again"; past the photos' last zoom level it says the photo
 // detail ends there (closer views only enlarge it).
 // Brief 4 H4 (decision a): the Public fire view draws neither the model nor the modeled area, and says itself when
-// Fire-3d has not prepared the fire's map data (under its facts): there the model notices are left out, and leaving the
+// Disaster Mapping has not prepared the fire's map data (under its facts): there the model notices are left out, and leaving the
 // fire's area reads "<name> is out of view" with "Back to the fire".
 import { X } from 'lucide-react'
 import { useState } from 'react'

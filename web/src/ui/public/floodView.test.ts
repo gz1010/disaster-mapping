@@ -38,10 +38,10 @@ describe('title (PLAN-5 §5.2 date line)', () => {
   it('place is "<County>, <State name>"', () => {
     expect(floodPlace(DETAIL().summary)).toBe('San Juan County, New Mexico')
   })
-  it('PRESENT, SEEN BY FIRE-3D SINCE, and a past flood with its last NWS product; never ENDED', () => {
+  it('PRESENT, SEEN BY DISASTER MAPPING SINCE, and a past flood with its last NWS product; never ENDED', () => {
     const s = DETAIL().summary
     expect(floodDateLine({ ...s, started_basis: 'nws_product' }, tf.tz)).toMatch(/^[A-Z]{3} \d{1,2} 2026 — PRESENT$/)
-    expect(floodDateLine({ ...s, started_basis: 'first_seen' }, tf.tz)).toMatch(/^SEEN BY FIRE-3D SINCE [A-Z]{3} \d{1,2} 2026$/)
+    expect(floodDateLine({ ...s, started_basis: 'first_seen' }, tf.tz)).toMatch(/^SEEN BY DISASTER MAPPING SINCE [A-Z]{3} \d{1,2} 2026$/)
     const past = PAST_FLOOD()
     const line = floodDateLine(past, tf.tz)!
     expect(line).toMatch(/^[A-Z]{3} \d{1,2} 2025 — LAST NWS PRODUCT [A-Z]{3} \d{1,2} 2025$/)
@@ -539,10 +539,10 @@ describe('review WFP-R5, R7, R12: outage wording, product sources, no-gauge fore
     expect(fim.tip).toBe('Unavailable right now: test outage (HTTP 503)')
   })
   it('R5: a failed evacuation request says EVAC_UNAVAILABLE (flood wording, not an all-clear), the error in the tooltip', () => {
-    const evac = floodFacts(input({ evac: { data: null, loading: false, error: 'The Fire-3d server could not get data from this source.' } })).find((r) => r.key === 'evac')!
+    const evac = floodFacts(input({ evac: { data: null, loading: false, error: 'The Disaster Mapping server could not get data from this source.' } })).find((r) => r.key === 'evac')!
     expect(evac.sub).toBe(EVAC_UNAVAILABLE)
     expect(evac.sub).toMatch(/not an all-clear/)
-    expect(evac.tip).toBe('The Fire-3d server could not get data from this source.')
+    expect(evac.tip).toBe('The Disaster Mapping server could not get data from this source.')
   })
   it('R7: detection, damage threat and watch area name the issuer, its own sent time and link to the product', () => {
     const withUrl = <T extends { alerts: { url: string | null }[] }>(r: T): T => ({ ...r, alerts: r.alerts.map((a) => ({ ...a, url: 'https://api.weather.gov/alerts/urn:oid:example' })) })

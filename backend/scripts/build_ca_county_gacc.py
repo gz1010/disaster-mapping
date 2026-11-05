@@ -30,7 +30,7 @@ from fire3d import config  # noqa: E402
 from fire3d import http as fhttp  # noqa: E402
 from fire3d.sources import wfigs  # noqa: E402
 
-config.USER_AGENT = "Fire-3d/0.1 county GACC builder (research prototype; one request per run)"
+config.USER_AGENT = "Disaster-Mapping/0.1 county GACC builder (research prototype; one request per run)"
 OUT = BACKEND / "fire3d" / "data" / "ca_county_gacc.json"
 
 

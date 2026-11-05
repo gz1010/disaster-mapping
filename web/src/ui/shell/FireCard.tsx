@@ -58,7 +58,7 @@ function modeChip(f: IncidentSummary): { label: string; cls: string } {
  *  block per agency when they disagree; a complex's members. Only the record's own values: nothing from the model and
  *  nothing from another agency's record (the Timber Fire: CAL FIRE's section never says "Active" when only NIFC does). */
 export function OfficialRecord({ fire, nowMs, tf }: { fire: IncidentSummary; nowMs: number; tf: TimeFmt }) {
-  // this agency's own status and wording, never the merged listing's (the title's chip says whether Fire-3d lists the
+  // this agency's own status and wording, never the merged listing's (the title's chip says whether Disaster Mapping lists the
   // fire as active, which it does when either agency does; round 3 item 2, the Timber Fire)
   const status = recordStatus(fire)
   const active = status.ownActive
@@ -222,7 +222,7 @@ function AnalysisLine({ state, progress, modelRuns }: { state: AnalysisState; pr
     )
   return (
     <div className={`fc-analysis is-${state}`}>
-      <p>{state === 'error' ? 'The last preparation of the analysis failed.' : 'Fire-3d has not prepared an analysis of this fire yet.'}</p>
+      <p>{state === 'error' ? 'The last preparation of the analysis failed.' : 'Disaster Mapping has not prepared an analysis of this fire yet.'}</p>
       <p className="fc-analysis-note">Preparing downloads terrain, fuels, satellite detections and weather from public services and takes about 1-3 minutes.</p>
     </div>
   )
@@ -317,7 +317,7 @@ export function FireCard() {
       </div>
       {!ready && <p className="fc-hint">Play spread and the 3D view need the analysis. Official information and address checks work without it.</p>}
       <AccuracyNote label={accuracy.label} command={command} loadFailed={accuracy.failed} />
-      <p className="fc-note">Fire-3d's model output is experimental and is not an evacuation order. Follow local officials.</p>
+      <p className="fc-note">Disaster Mapping's model output is experimental and is not an evacuation order. Follow local officials.</p>
     </section>
   )
 }

@@ -108,7 +108,7 @@ class GzipCache:
 def create_app(data_dir: Path) -> FastAPI:
     """Build the fixture app serving bundles under ``data_dir/incidents``."""
     incidents_dir = Path(data_dir).resolve() / "incidents"
-    app = FastAPI(title="Fire-3d fixture server", version=config.VERSION)
+    app = FastAPI(title="Disaster Mapping fixture server", version=config.VERSION)
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"], expose_headers=["ETag"])
     jobs: dict[str, dict[str, Any]] = {}
     jobs_lock = threading.Lock()
@@ -698,7 +698,7 @@ def mount_flood_routes(app: FastAPI, data_dir: Path, *, start_job, latest_job, g
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Fire-3d fixture server (SPEC 6 read endpoints from disk)")
+    ap = argparse.ArgumentParser(description="Disaster Mapping fixture server (SPEC 6 read endpoints from disk)")
     ap.add_argument("--port", type=int, default=8099)
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--data-dir", type=Path, default=None, help="data dir containing incidents/ (default: FIRE3D_DATA_DIR or <repo>/data)")

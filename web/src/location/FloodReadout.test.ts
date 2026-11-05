@@ -1,7 +1,7 @@
 // Command's flood readout (PLAN-5 §4.5): tags with each layer's kind and own time, NOTHING_COVERS, the nearest gauge
 // (the flood's rivers first; NO_GAUGE_NEAR only for an available answer, D24), category words (never a raw value), the
 // crest or the forecast high at its end (C7), the area figures only when measured (C6), the flood's rows, the model
-// line only while switched on (D12), no banned word in Fire-3d's own words.
+// line only while switched on (D12), no banned word in Disaster Mapping's own words.
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -105,7 +105,7 @@ describe('area figures (C6)', () => {
   it('the forecast area only when measured from member reaches; the satellite water only from a measured image; each with its caveat', () => {
     const f = areaFigures(RFC_FIM(), SATELLITE(), 'us')
     expect(f.map((x) => x.key)).toEqual(['fim', 'sat'])
-    expect(f[0].text).toMatch(/^Forecast flooded area \(next 5 days\): 3\.5 mi², measured by Fire-3d/)
+    expect(f[0].text).toMatch(/^Forecast flooded area \(next 5 days\): 3\.5 mi², measured by Disaster-Mapping/)
     expect(f[0].text).toContain('It includes the river channel.')
     expect(f[1].text).toBe('Water seen by satellite in this area: 2.6 mi² (includes normal river and lake water)')
     expect(f[1].caveat).toMatch(/^Water seen by satellite \(NASA OPERA\)/)
@@ -199,7 +199,7 @@ describe('FloodReadout (rendered)', () => {
     expect(html).toContain('Nearest gauge on the Ridge Fork River; another stream may be closer.')
     expect(html).toContain('Forecast crest (NWS)')
     expect(html).toContain(DETAIL().summary.id)
-    expect(html).toContain('measured by Fire-3d')
+    expect(html).toContain('measured by Disaster Mapping')
     expect(html).toContain('includes normal river and lake water')
     expect(html).not.toContain('MODEL')
   })
@@ -284,7 +284,7 @@ describe('FloodReadout (rendered)', () => {
     expect(html).toContain('Gauge out of service (NWS); no reading.')
   })
 
-  it("no banned word in Fire-3d's own words", () => {
+  it("no banned word in Disaster Mapping's own words", () => {
     for (const html of [render(), render({ sel: null }), render({ sel: { lat: 37.5, lon: -107.2, source: 'click' } as SelectedLocation }), render({ sel: null, detail: DETAIL_FLASH() })]) expect(floodWordingProblems(stripVerbatim(html))).toEqual([])
     expect(NOTHING_COVERS).toContain('Unknown, not dry')
   })

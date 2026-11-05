@@ -125,7 +125,7 @@ def _get(fetch: Callable[[], tuple[Any, int]], stale: Callable[[], tuple[Any, in
     try:
         data, fetched = fetch()
         return SourceResult(data, fetched)
-    except nws.SourceError as e:                      # SourceBusy included: Fire-3d's own limit
+    except nws.SourceError as e:                      # SourceBusy included: Disaster Mapping's own limit
         log.warning("flood list source failed: %s", e)
         old = stale()
         if old is not None:
@@ -221,7 +221,7 @@ class GaugeInfo:
 
 
 def gauge_infos(inp: Inputs, l48: set[str]) -> dict[str, GaugeInfo]:
-    """Every gauge Fire-3d knows from the national answers (observed at action+, or forecast at action+)."""
+    """Every gauge Disaster Mapping knows from the national answers (observed at action+, or forecast at action+)."""
     obs = {r["lid"]: r for r in (inp.observed.data or []) if G.keep_gauge(r, l48)}
     fc = {r["lid"]: r for r in (inp.forecast.data or []) if G.keep_gauge(r, l48)}
     rfc = {r["lid"]: r for r in (inp.rfc.data or [])}
@@ -254,9 +254,9 @@ def gauge_infos(inp: Inputs, l48: set[str]) -> dict[str, GaugeInfo]:
 
 
 def gauge_only_caveat(members: list[GaugeInfo], nws_ok: bool) -> str:
-    """``FloodSummary.caveat`` of a gauge-only flood, never claiming an NWS answer Fire-3d does not have: NWS could not
+    """``FloodSummary.caveat`` of a gauge-only flood, never claiming an NWS answer Disaster Mapping does not have: NWS could not
     be read -> ``ALERTS_UNAVAILABLE`` (review BFS-R4); a gauge that may measure tidal or lake water ->
-    ``GAUGE_ONLY_COASTAL_CAVEAT`` (Fire-3d does not read NWS Coastal or Lakeshore Flood products, D1; BFS-R2); else
+    ``GAUGE_ONLY_COASTAL_CAVEAT`` (Disaster Mapping does not read NWS Coastal or Lakeshore Flood products, D1; BFS-R2); else
     ``GAUGE_ONLY_CAVEAT``."""
     if not nws_ok:
         return fcopy.ALERTS_UNAVAILABLE
@@ -586,10 +586,10 @@ def reusable_episode(reg: reg_mod.Registry, lid: str, now: int) -> tuple[str | N
     """(open episode key, its flood id) of a gauge; the id is None when the episode must be retired (rule 10, C8).
 
     An episode stays open until its flood has been quiet longer than ``INACTIVE_LISTED_H``, judged from the flood's
-    own last-known summary (review BFS-R5): an active flood went quiet at most when Fire-3d last saw it, an inactive
-    one when it ended. Fire-3d's own build gaps (the server was off overnight) never close an episode alone. Without a
+    own last-known summary (review BFS-R5): an active flood went quiet at most when Disaster Mapping last saw it, an inactive
+    one when it ended. Disaster Mapping's own build gaps (the server was off overnight) never close an episode alone. Without a
     last-known summary the episode's first-seen time stands in. The quiet time is never before the episode began: a
-    gauge whose last reading at flood stage is older than ``INACTIVE_LISTED_H`` when Fire-3d first lists it keeps one
+    gauge whose last reading at flood stage is older than ``INACTIVE_LISTED_H`` when Disaster Mapping first lists it keeps one
     episode instead of a new one at every build."""
     ep = reg.open_episode(lid)
     if ep is None:
@@ -612,7 +612,7 @@ def reusable_episode(reg: reg_mod.Registry, lid: str, now: int) -> tuple[str | N
 def continuations(rows: list[dict], claims: list[list[tuple[int, str, str]]], now: int,
                   reg: reg_mod.Registry) -> dict[int, dict]:
     """Rule 10, continuation (seen on the real list of 2026-11-04: NWS Pueblo replaced its Conejos River Flood Warning
-    KPUB.FA.W.0026 with a new one, KPUB.FA.W.0028, for the same river): a new flash or areal flood (no member Fire-3d
+    KPUB.FA.W.0026 with a new one, KPUB.FA.W.0028, for the same river): a new flash or areal flood (no member Disaster Mapping
     has registered) whose own products cover at least ``AREAL_OVERLAP`` of a flash or areal flood that left the lists
     within ``INACTIVE_LISTED_H`` (its last-known area) is that flood going on, as rule 3 joins two such products
     while both are listed. It keeps the older id and start, and is never listed twice under one name.
@@ -743,14 +743,14 @@ def _ref_key(p: dict) -> str:
 
 def as_left(s: dict, seen: int, now: int, *, nws_ok: bool, gauges_ok: bool,
             current: dict[str, str] | None = None) -> dict:
-    """A flood that is no longer in the current lists, as Fire-3d shows it (rules 8 and 13; review BFS-R1, BFS-R4).
+    """A flood that is no longer in the current lists, as Disaster Mapping shows it (rules 8 and 13; review BFS-R1, BFS-R4).
 
     NWS answered (fresh or an earlier copy): each product left NWS's active list, so its phase is "ended" (a product
     NWS still lists keeps its phase now, ``current``). NWS could not be read: each keeps its last-known phase until its
     own NWS end time passes (cannot decide). Status, level, ``expires_ms`` and ``emergency`` follow the products still
     in effect; with none the flood is inactive and keeps the level it last had (as a past flood does), with
     ``expires_ms`` null and ``emergency`` false. While the gauges cannot be read, a member gauge that read at flood
-    stage within ``GAUGE_ACTIVE_H`` keeps it active. A gauge-only flood's caveat never claims an NWS answer Fire-3d
+    stage within ``GAUGE_ACTIVE_H`` keeps it active. A gauge-only flood's caveat never claims an NWS answer Disaster Mapping
     does not have."""
     current = current or {}
     prods = []
@@ -770,7 +770,7 @@ def as_left(s: dict, seen: int, now: int, *, nws_ok: bool, gauges_ok: bool,
     level = max((G.ref_level(p) for p in live), key=G.LEVEL_ORDER.index) if live else s.get("level")
     caveat = None
     if level == "gauge_only":
-        # Decided again from what is known now, so a summary saved during an outage, or by an earlier Fire-3d that
+        # Decided again from what is known now, so a summary saved during an outage, or by an earlier Disaster Mapping that
         # had no tide-gauge caveat ("Fisher Island flood" at the Atlantic Ocean tide gauge), never keeps a false one.
         if not nws_ok:
             caveat = fcopy.ALERTS_UNAVAILABLE
@@ -785,7 +785,7 @@ def as_left(s: dict, seen: int, now: int, *, nws_ok: bool, gauges_ok: bool,
 
 
 def _listable(s: dict, nws_ok: bool, gauges_ok: bool, current: dict[str, str]) -> bool:
-    """A flood that left the lists is listed (inactive) only when Fire-3d can tell it is quiet: NWS answered, the gauges
+    """A flood that left the lists is listed (inactive) only when Disaster Mapping can tell it is quiet: NWS answered, the gauges
     answered when it has any, and none of its products is listed now with another flood (review BFS-R4: an outage
     means "cannot decide"; the detail route still answers its last-known summary)."""
     if not nws_ok or (s.get("gauges") and not gauges_ok):
@@ -796,7 +796,7 @@ def _listable(s: dict, nws_ok: bool, gauges_ok: bool, current: dict[str, str]) -
 def _carry_overs(current_ids: set[str], now: int, reg: reg_mod.Registry, *, nws_ok: bool, gauges_ok: bool,
                  current: dict[str, str]) -> list[dict]:
     """Rule 8: floods that left the current lists stay listed (status "inactive", their products "ended") for
-    INACTIVE_LISTED_H after Fire-3d last saw them, when Fire-3d can tell (:func:`_listable`); older ones have their
+    INACTIVE_LISTED_H after Disaster Mapping last saw them, when Disaster Mapping can tell (:func:`_listable`); older ones have their
     gauge episodes retired (a later flood there gets a new id), never during an outage."""
     out, retire = [], []
     for s, seen in reg_mod.iter_last_known():
@@ -807,7 +807,7 @@ def _carry_overs(current_ids: set[str], now: int, reg: reg_mod.Registry, *, nws_
             if _listable(s, nws_ok, gauges_ok, current):
                 left = as_left(s, seen, now, nws_ok=nws_ok, gauges_ok=gauges_ok, current=current)
                 if left != s:
-                    # Remember what the lists said (its products ended), keeping when Fire-3d last saw it in them:
+                    # Remember what the lists said (its products ended), keeping when Disaster Mapping last saw it in them:
                     # a later outage then never shows a product NWS already dropped as in effect again.
                     reg_mod.write_last_known(left, seen)
                 out.append(left)
@@ -906,7 +906,7 @@ def build_list(inp: Inputs, now: int) -> dict:
     out = []
     for r in rows:
         s = _overlay_bundle(_public(r))
-        # During an outage Fire-3d sees less: an id's last-known summary (what it last saw with both lists) is kept.
+        # During an outage Disaster Mapping sees less: an id's last-known summary (what it last saw with both lists) is kept.
         if (nws_ok and gauges_ok) or reg_mod.read_last_known(s["id"]) is None:
             reg_mod.write_last_known(s, now)
         out.append(s)

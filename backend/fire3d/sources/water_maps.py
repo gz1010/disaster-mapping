@@ -22,7 +22,7 @@ layers' ``oid``; current only, no history):
 Every request goes through :mod:`fire3d.http` (disk cache, retries) behind :data:`NOAA_WATER_LIMITER`; a failed host is
 remembered for 60 s (:data:`MAPS_DOWN`). Times: ``reference_time`` is UTC without a zone ("2026-11-04 22:00:00");
 ``update_time`` ends in " UTC". Credits are in :mod:`fire3d.floods.copy` (16.15). Errors raise ``nws.SourceError``
-(``SourceBusy`` when Fire-3d's own limit is reached) with secret-free, user-facing text.
+(``SourceBusy`` when Disaster Mapping's own limit is reached) with secret-free, user-facing text.
 """
 
 from __future__ import annotations
@@ -158,7 +158,7 @@ def query_params(bbox: BBox, *, where: str = "1=1", out_fields: str = "*", geome
 # One paged ArcGIS GeoJSON query (also used by sources/nfhl.py)
 # ----------------------------------------------------------------------------------------------------------------
 class Features(list):
-    """A list of features that knows whether the service had more than Fire-3d paged through (``truncated``)."""
+    """A list of features that knows whether the service had more than Disaster Mapping paged through (``truncated``)."""
 
     truncated: bool = False
 
@@ -181,7 +181,7 @@ def arcgis_query(layer_url: str, params: dict[str, str], *, ttl_s: float, limite
             if down.down(host):
                 raise SourceError(f"{name} could not be reached (it failed less than a minute ago)")
             if not limiter.try_acquire():
-                raise SourceBusy(f"{name}: Fire-3d's request limit is reached; try again in a minute")
+                raise SourceBusy(f"{name}: Disaster Mapping's request limit is reached; try again in a minute")
             try:
                 hit = fhttp.request("GET", url, params=p, ttl_s=ttl_s, timeout=timeout, retries=retries, expect_json=True)
             except fhttp.HttpError as e:
@@ -198,7 +198,7 @@ def arcgis_query(layer_url: str, params: dict[str, str], *, ttl_s: float, limite
             doc = hit.json()
         except ValueError:
             fhttp.evict_cache("GET", url, p)
-            raise SourceError(f"{name} sent a reply Fire-3d could not read") from None
+            raise SourceError(f"{name} sent a reply Disaster Mapping could not read") from None
         if not isinstance(doc, dict) or "error" in doc or not isinstance(doc.get("features"), list):
             fhttp.evict_bad_answer(hit, "GET", url, p)
             code = (doc.get("error") or {}).get("code") if isinstance(doc, dict) and isinstance(doc.get("error"), dict) else None
@@ -254,7 +254,7 @@ def _times(feats: Iterable[dict]) -> tuple[int | None, int | None]:
 # ----------------------------------------------------------------------------------------------------------------
 @dataclass
 class MapLayer:
-    """A map answer: contract-shaped features, the service's own times, and when Fire-3d fetched them."""
+    """A map answer: contract-shaped features, the service's own times, and when Disaster Mapping fetched them."""
 
     features: list[dict]
     reference_ms: int | None

@@ -132,7 +132,7 @@ describe('weatherSourceLabel', () => {
 })
 
 describe('official rows and freshness (brief 2, U-R9)', () => {
-  it("adds Cal OES, NWS and CAL FIRE rows with the issuer's time and Fire-3d's check time", () => {
+  it("adds Cal OES, NWS and CAL FIRE rows with the issuer's time and Disaster Mapping's check time", () => {
     const official = {
       evacuation: { state: 'listed' as const, checkedMs: T0 - 2 * 60_000, sourceUpdatedMs: T0 - 3 * H, zones: [{}, {}] },
       fireWeather: { state: 'none', checkedMs: T0 - 60_000, alerts: [] },

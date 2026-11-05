@@ -336,7 +336,7 @@ function EvacuationRow({ e, nowMs, wallMs, metric }: { e: EvacuationOfficial; no
           <p className="on-line">
             <strong className="on-official">{g.status}</strong> · {g.zones.length} zone{g.zones.length === 1 ? '' : 's'} · {g.issuer}
           </p>
-          {!g.verbatim && <p className="on-meta">{`${g.aggregator}'s level number, with ${g.aggregator}'s definition (shown by Fire-3d)`}</p>}
+          {!g.verbatim && <p className="on-meta">{`${g.aggregator}'s level number, with ${g.aggregator}'s definition (shown by Disaster Mapping)`}</p>}
           <p className="on-meta">
             {join([
               g.distanceKm == null ? null : g.distanceKm === 0 ? 'touches the fire area' : `${distanceText(g.distanceKm, metric)} from the fire`,
@@ -412,7 +412,7 @@ function RecordRow({ c, nowMs, wallMs, live }: { c: CalFireOfficial; nowMs: numb
   const ends = live ? [] : recordEndTimes({ contained: c.containedMs, controlled: c.controlledMs, out: c.outMs })
   const yearMode = recordYearMode([c.updatedMs, ...ends.map((e) => e.ms)], tf.tz, [fireYear, localYear(nowMs, tf.tz), localYear(wallMs, tf.tz)])
   const status = c.final ? 'final record' : c.isActive === false ? 'not active' : c.isActive ? 'active' : null
-  const note = cf ? calfireHistoryNote(c, mode, tf) : 'NIFC WFIGS publishes the current record only; Fire-3d does not record changes to it yet.'
+  const note = cf ? calfireHistoryNote(c, mode, tf) : 'NIFC WFIGS publishes the current record only; Disaster Mapping does not record changes to it yet.'
   const lagged = laggedEditNote(c)
   const lastParts = cf && last ? changeTitleParts(last) : []
   const extra =
@@ -719,7 +719,7 @@ export function CommandRows({ children }: { children: ReactNode }) {
   return <RowsVariant.Provider value="command">{children}</RowsVariant.Provider>
 }
 
-/** Command's foot (decision i-8): the model is not an order, and not an all-clear: "Fire-3d's modeled spread is
+/** Command's foot (decision i-8): the model is not an order, and not an all-clear: "Disaster Mapping's modeled spread is
  *  experimental and is not an evacuation order. Not an all-clear. Follow local officials." */
 export const COMMAND_OFFICIAL_FOOT = `${NOT_AN_ORDER.replace(/\s*Follow local officials\.\s*$/, '')} ${NOT_ALL_CLEAR}`
 

@@ -1,5 +1,5 @@
 // TEST FIXTURES ONLY (never imported by app code): trimmed real /api/extras responses recorded on 2026-10-17 from
-// the Fire-3d API (Cal OES evacuation layer around the Bryson Fire, cameras and imagery around the Cooley Fire).
+// the Disaster Mapping API (Cal OES evacuation layer around the Bryson Fire, cameras and imagery around the Cooley Fire).
 // Geometry is trimmed to a few vertices; wording, ids and times are the sources' own.
 import type { CamerasResponse, EvacuationsResponse, ImageryResponse } from '../types'
 

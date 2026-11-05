@@ -2,7 +2,7 @@
 
     cd backend && uv run python scripts/record_test_samples_flood_history.py [--out DIR] [--cache-dir DIR]
 
-Polite and small: 9 requests through ``fire3d.http`` (Fire-3d User-Agent, cache), no key.
+Polite and small: 9 requests through ``fire3d.http`` (Disaster Mapping User-Agent, cache), no key.
 
 1. IEM ``cgi-bin/request/gis/watchwarn.py?accept=csv`` (FL.W + FF.W storm-based warnings with every follow-up
    statement's polygon: H-VTEC NWSLI and severity, damage tag, emergency flag) of NWS Indianapolis and Louisville
@@ -101,7 +101,7 @@ def main(argv: list[str] | None = None) -> int:
         save(f"usgs_{GAUGE}_{label}.json", r, f"USGS continuous {param} ({label}) of {site}, 2025-04-04..04-06")
     (out / "PROVENANCE.md").write_text(
         "# Past-flood test samples (brief 5, backend-flood-live M2)\n\n"
-        "Recorded by `backend/scripts/record_test_samples_flood_history.py` (Fire-3d User-Agent, no key). Iowa "
+        "Recorded by `backend/scripts/record_test_samples_flood_history.py` (Disaster Mapping User-Agent, no key). Iowa "
         "Environmental Mesonet: an archived copy of NWS products (public domain, "
         "https://mesonet.agron.iastate.edu/disclaimer.php); NOAA NWS / NWPS (https://www.weather.gov/disclaimer); "
         "U.S. Geological Survey provisional data (https://waterdata.usgs.gov/provisional-data-statement/).\n\n"

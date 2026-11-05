@@ -100,7 +100,7 @@ def test_constants_and_paths() -> None:
     assert config.INCIDENTS_DIR == config.DATA_DIR / "incidents"
     assert sorted(config.LIVE_FUEL_MOISTURE_BY_MONTH) == list(range(1, 13))
     assert config.LIVE_FUEL_MOISTURE_BY_MONTH[8] == (0.3, 0.7)
-    assert config.USER_AGENT == "Fire-3d/0.1 (research prototype)"
+    assert config.USER_AGENT == "Disaster-Mapping/0.1 (research prototype)"
     for k in ("SSL_CERT_FILE", "REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE"):
         assert Path(os.environ[k]).is_file()
     assert isinstance(config.LIVE_ENABLED, bool) and isinstance(config.AUTO_BUILD_LIVE, bool)

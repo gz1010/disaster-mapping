@@ -53,7 +53,7 @@ describe('status lines', () => {
 
   it('explains request failures without upstream bodies', () => {
     expect(requestErrorText(new ApiError(429, '/api/extras/x', 'limit'))).toMatch(/Too many requests/)
-    expect(requestErrorText(new ApiError(502, '/api/extras/x', 'secret upstream text'))).toBe('The Fire-3d server could not get data from this source.')
-    expect(requestErrorText(new TypeError('fetch failed'))).toBe('Could not reach the Fire-3d server.')
+    expect(requestErrorText(new ApiError(502, '/api/extras/x', 'secret upstream text'))).toBe('The Disaster Mapping server could not get data from this source.')
+    expect(requestErrorText(new TypeError('fetch failed'))).toBe('Could not reach the Disaster Mapping server.')
   })
 })

@@ -193,7 +193,7 @@ describe('evacuations in flood wording (D23, C5)', () => {
     expect(f.value).toBe(EVAC_NONE_LISTED)
     expect(f.sub).toBe('None listed in Cal OES for this area · checked 2 min ago · not an all-clear: follow local officials.')
   })
-  it('listed: the issuer status verbatim, Cal OES event type verbatim, never "fire" in Fire-3d words', () => {
+  it('listed: the issuer status verbatim, Cal OES event type verbatim, never "fire" in Disaster Mapping words', () => {
     const f = floodEvacuation({ data: evac({ zones: { type: 'FeatureCollection', features: [zone(), zone({ zone_id: 'z2', status: 'Evacuation Warning', status_key: 'warning' })] } }), loading: false, error: null }, tf, FIXTURE_NOW_MS)
     expect(f.state).toBe('listed')
     expect(f.value).toBe('Evacuation Order')
@@ -202,7 +202,7 @@ describe('evacuations in flood wording (D23, C5)', () => {
     expect(f.sub).toMatch(/^1 zone · Example County · updated .+ · \+1 other zone · via Cal OES$/)
     expect(evacOwnWordsMentionFire(f)).toBe(false)
   })
-  it('a fire zone listed in the flood area keeps its own event type verbatim; Fire-3d does not call it a flood zone', () => {
+  it('a fire zone listed in the flood area keeps its own event type verbatim; Disaster Mapping does not call it a flood zone', () => {
     const f = floodEvacuation({ data: evac({ zones: { type: 'FeatureCollection', features: [zone({ event_type: 'Fire' })] } }), loading: false, error: null }, tf, FIXTURE_NOW_MS)
     expect(f.subVerbatim).toBe('Cal OES event type: Fire')
     expect(evacOwnWordsMentionFire(f)).toBe(false)
@@ -275,8 +275,8 @@ describe('one reading per gauge (review WFP-R2)', () => {
 
 describe('evacuations: a failed request (review WFP-R5)', () => {
   it('flood wording, not an all-clear; the request error in the tooltip', () => {
-    const f = floodEvacuation({ data: null, loading: false, error: 'The Fire-3d server could not get data from this source.' }, tf, FIXTURE_NOW_MS)
-    expect(f).toMatchObject({ state: 'unavailable', sub: EVAC_UNAVAILABLE, tip: 'The Fire-3d server could not get data from this source.' })
+    const f = floodEvacuation({ data: null, loading: false, error: 'The Disaster Mapping server could not get data from this source.' }, tf, FIXTURE_NOW_MS)
+    expect(f).toMatchObject({ state: 'unavailable', sub: EVAC_UNAVAILABLE, tip: 'The Disaster Mapping server could not get data from this source.' })
     expect(evacOwnWordsMentionFire(f)).toBe(false)
     expect(floodWordingProblems(`${f.value} ${f.sub}`)).toEqual([])
   })

@@ -2,7 +2,7 @@
 // shows, with its source and own time, and the scale, on one line. An old perimeter is never "now": "Latest perimeter ·
 // <source> · <its time> (<age>)" with a Stale tag on a live fire's day-old perimeter (ui/public/fireView.ts
 // perimeterKey; the source's short form, the whole source in the tooltip). A fire
-// Fire-3d has not prepared: "No mapped perimeter yet · reported location (<issuer>)"; prepared without a perimeter:
+// Disaster Mapping has not prepared: "No mapped perimeter yet · reported location (<issuer>)"; prepared without a perimeter:
 // "No perimeter published yet" (the burned-area estimate is not put in its place). "Legend details" opens the map
 // legend's details for this view (map/MapLegend.tsx variant "key").
 import { useShallow } from 'zustand/react/shallow'

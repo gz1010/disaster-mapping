@@ -23,13 +23,13 @@ describe('coverage at a point comes from /api/geo/lookup only (W9, §14.14)', ()
   })
   it('Alaska, Hawaii, territories: "not supported yet"; outside the US: "no data here"', () => {
     const off = { supported: false, state: null, state_name: null, county: null, time_zone: null, time_zone_name: null }
-    expect(coverageText(g({ ...off, coverage: 'alaska' }))).toBe('Fire-3d does not support Alaska, Hawaii or US territories yet.')
+    expect(coverageText(g({ ...off, coverage: 'alaska' }))).toBe('Disaster Mapping does not support Alaska, Hawaii or US territories yet.')
     expect(coverageText(g({ ...off, coverage: 'hawaii' }))).toBe(NOT_SUPPORTED_TEXT)
     expect(coverageText(g({ ...off, coverage: 'territory' }))).toBe(NOT_SUPPORTED_TEXT)
-    expect(coverageText(g({ ...off, coverage: 'outside_us' }))).toBe('Outside the United States: Fire-3d has no data here.')
-    expect(OUTSIDE_US_TEXT).toBe('Outside the United States: Fire-3d has no data here.')
+    expect(coverageText(g({ ...off, coverage: 'outside_us' }))).toBe('Outside the United States: Disaster Mapping has no data here.')
+    expect(OUTSIDE_US_TEXT).toBe('Outside the United States: Disaster Mapping has no data here.')
     // the server's own note wins when it has one
-    expect(coverageText(g({ ...off, coverage: 'alaska', note: 'Fire-3d does not support Alaska, Hawaii or US territories yet.' }))).toBe(NOT_SUPPORTED_TEXT)
+    expect(coverageText(g({ ...off, coverage: 'alaska', note: 'Disaster Mapping does not support Alaska, Hawaii or US territories yet.' }))).toBe(NOT_SUPPORTED_TEXT)
   })
   it('Alaska, Hawaii, territories: no "nearest fires" list from the lower 48 (it would read as nothing nearby)', () => {
     const off = { supported: false, state: null, state_name: null, county: null, time_zone: null, time_zone_name: null }

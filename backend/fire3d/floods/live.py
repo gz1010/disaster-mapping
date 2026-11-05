@@ -262,9 +262,9 @@ def prefetch_plan(lst: dict, alerts: list[dict], now: int) -> dict[str, list[tup
 def prefetch(lst: dict, *, budget: int = PREFETCH_MAX - APPEND_SHARE, now: int | None = None) -> dict[str, int]:
     """Spend at most ``budget`` upstream requests on the background prefetch (:func:`prefetch_plan`; by default what
     the cycle's :data:`PREFETCH_MAX` leaves after :data:`APPEND_SHARE`). Returns the requests counted per kind (a
-    fetch is counted at its largest possible cost before it is made). Fire-3d's own rate limit (``SourceBusy``) ends a
+    fetch is counted at its largest possible cost before it is made). Disaster Mapping's own rate limit (``SourceBusy``) ends a
     kind for this cycle; an upstream error skips one item. A product whose text could not be asked because of
-    Fire-3d's own limit is asked again in a later cycle (review BFL-R8)."""
+    Disaster Mapping's own limit is asked again in a later cycle (review BFL-R8)."""
     now = int(now if now is not None else now_ms())
     plan = prefetch_plan(lst, _national_from_cache(), now)
     kinds = ("hvtec", "zones", "series")
@@ -277,7 +277,7 @@ def prefetch(lst: dict, *, budget: int = PREFETCH_MAX - APPEND_SHARE, now: int |
         a = item[0]
         try:
             nws.product_hvtec(a)
-        except SourceBusy:                       # never asked: Fire-3d's own limit; a later cycle asks again
+        except SourceBusy:                       # never asked: Disaster Mapping's own limit; a later cycle asks again
             raise
         except SourceError:                      # NWS answered (or failed): not asked again every cycle
             STATE.hvtec_tried.add(a["id"])
@@ -305,7 +305,7 @@ def prefetch(lst: dict, *, budget: int = PREFETCH_MAX - APPEND_SHARE, now: int |
             left -= cost
             try:
                 fetchers[kind](item)
-            except SourceBusy:                   # Fire-3d's own rate limit: this kind waits for the next cycle
+            except SourceBusy:                   # Disaster Mapping's own rate limit: this kind waits for the next cycle
                 stopped.add(kind)
             except SourceError as e:
                 log.info("flood prefetch %s: %s", kind, config.mask_secrets(e))
@@ -924,7 +924,7 @@ def refresh_job_fn(flood_id: str, reason: str):
 def warm_nwps(summary: dict, *, max_s: float | None = None) -> int:
     """Load the flood's member gauges' NWPS detail and series, and the National Water Model series of their reaches,
     into the HTTP cache **at a pace that leaves** :data:`NWPS_RESERVE` NWPS slots free, so the build that follows reads
-    them from the cache instead of running into Fire-3d's own NWPS limit (30 a minute) and falling back to the gauge
+    them from the cache instead of running into Disaster Mapping's own NWPS limit (30 a minute) and falling back to the gauge
     map. Stops after ``max_s`` (:data:`WARM_MAX_S`); what is not warmed by then the build asks for itself. Returns the
     requests made. Runs in the loop's own runner, never in a job worker."""
     from . import gauges as gauges_mod

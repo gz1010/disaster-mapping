@@ -28,8 +28,8 @@ Wording (event names, headlines, descriptions, instructions, the issuer's name) 
 operator's ``sender`` address of a local message is never read into an answer. Archived text is the
 segment for the zone in question of the latest statement issued by the requested time; archived times are the
 archive's per-zone times (some watch rows end before they begin: upgraded or cancelled early). Requests go through
-:mod:`fire3d.http` (disk cache, one retry) behind Fire-3d's own request limits, with the User-Agent
-"Fire-3d/0.1 (research prototype)"; the optional ``FIRE3D_NWS_CONTACT`` is appended for NWS requests only.
+:mod:`fire3d.http` (disk cache, one retry) behind Disaster Mapping's own request limits, with the User-Agent
+"Disaster-Mapping/0.1 (research prototype)"; the optional ``FIRE3D_NWS_CONTACT`` is appended for NWS requests only.
 """
 
 from __future__ import annotations
@@ -67,7 +67,7 @@ EVENT_BY_SIGNIFICANCE = {"W": "Red Flag Warning", "A": "Fire Weather Watch"}
 FLOOD_EVENTS = ("Flood Warning", "Flash Flood Warning", "Flood Watch", "Flash Flood Watch", "Flood Advisory",
                 "Flood Statement", "Flash Flood Statement")
 FLOOD_PHENOMENA = ("FL", "FA", "FF")
-# NWS event name of each VTEC (phenomena, significance) Fire-3d reads (archive labels)
+# NWS event name of each VTEC (phenomena, significance) Disaster Mapping reads (archive labels)
 EVENT_LABELS: dict[tuple[str, str], str] = {
     ("FW", "W"): "Red Flag Warning", ("FW", "A"): "Fire Weather Watch",
     ("FL", "W"): "Flood Warning", ("FL", "Y"): "Flood Advisory", ("FL", "A"): "Flood Watch",
@@ -121,7 +121,7 @@ class SourceError(RuntimeError):
 
 
 class SourceBusy(SourceError):
-    """Fire-3d's own request limit for this source is reached."""
+    """Disaster Mapping's own request limit for this source is reached."""
 
 
 NWS_LIMITER = fhttp.RateLimiter(30, 60.0, "official: NWS API")
@@ -156,7 +156,7 @@ _UNSAFE_UA = re.compile(r"[^\x20-\x7e]|[()]")
 
 
 def user_agent() -> str:
-    """User-Agent for NWS: ``config.USER_AGENT`` ("Fire-3d/0.1 (research prototype)"), with the optional
+    """User-Agent for NWS: ``config.USER_AGENT`` ("Disaster-Mapping/0.1 (research prototype)"), with the optional
     ``FIRE3D_NWS_CONTACT`` (a website or email, sanitized) appended inside the parentheses. No personal data by
     default."""
     contact = _UNSAFE_UA.sub("", os.environ.get("FIRE3D_NWS_CONTACT", "")).strip()[:120]
@@ -177,7 +177,7 @@ def _get(url: str, params: Any, *, ttl_s: float, limiter: fhttp.RateLimiter, nam
     if hit is not None:
         return hit
     if not limiter.try_acquire():
-        raise SourceBusy(f"{name}: Fire-3d's request limit is reached; try again in a minute")
+        raise SourceBusy(f"{name}: Disaster Mapping's request limit is reached; try again in a minute")
     try:
         return fhttp.request("GET", url, params=params, headers=headers, ttl_s=ttl_s, timeout=TIMEOUT_S, retries=RETRIES)
     except fhttp.HttpError as e:
@@ -193,7 +193,7 @@ def _json(resp: fhttp.Response, url: str, params: Any, name: str) -> Any:
         return resp.json()
     except ValueError:
         fhttp.evict_cache("GET", url, params)
-        raise SourceError(f"{name} sent a reply Fire-3d could not read") from None
+        raise SourceError(f"{name} sent a reply Disaster Mapping could not read") from None
 
 
 # ----------------------------------------------------------------------------------------------------------------
@@ -1074,7 +1074,7 @@ class EventDetail:
 
 
 def parse_event_detail(data: Any) -> EventDetail:
-    """The parts of IEM's ``vtec_event.py`` reply Fire-3d uses."""
+    """The parts of IEM's ``vtec_event.py`` reply Disaster Mapping uses."""
     if not isinstance(data, dict) or not data.get("event_exists", True):
         raise ValueError("no such event")
     rows = []
@@ -1284,7 +1284,7 @@ def archive_for_area(area: BBox, point: tuple[float, float], samples: list[tuple
                      window: tuple[int, int], *, now: int | None = None) -> dict[str, Any]:
     """Archived fire weather alerts near ``area`` at ``at_ms`` (see :func:`place_archive`): ``{alerts, zones,
     caveats, retrieved_ms}``. ``samples``: (lon, lat) points searched in the archive, the reported location first.
-    Raises SourceError when the archive cannot be searched at the reported location, SourceBusy at Fire-3d's limit."""
+    Raises SourceError when the archive cannot be searched at the reported location, SourceBusy at Disaster Mapping's limit."""
     now = now or now_ms()
     ttl = archive_ttl_s(window[1], now)
     events: dict[tuple, ArchiveEvent] = {}

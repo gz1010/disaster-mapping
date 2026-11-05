@@ -4,7 +4,7 @@
 // PROVENANCE.md), parsed by the backend's own nws.normalize_local_nws / openfema.parse_records on 2026-10-23. Matching,
 // phase and the envelopes are set by hand as us-pipeline's endpoint shapes them (CONTRACT §14.7); the incident ids of
 // the archive answers are illustrative (no such bundles), Black Cove's is the real one with its archive still pending.
-// LOCAL_ARCHIVE_EATON (at the end) is different: Fire-3d's own answer for the Eaton Fire (8 of its 33 messages), from the
+// LOCAL_ARCHIVE_EATON (at the end) is different: Disaster Mapping's own answer for the Eaton Fire (8 of its 33 messages), from the
 // endpoint (review round 1, R1).
 import type { LocalAlertsResponse } from '../types'
 
@@ -71,7 +71,7 @@ export const LOCAL_LIVE_LA_CEM: LocalAlertsResponse = {
   reported_location: null,
   counties: [{ fips: '06037', name: 'Los Angeles County', state: 'CA' }],
   caveats: [
-    'Fire-3d lists only the local alerts the National Weather Service relays; most are not relayed (about 1 in 20 fire and evacuation alerts in 2024-26). No alert here is not an all-clear: follow local officials.',
+    'Disaster Mapping lists only the local alerts the National Weather Service relays; most are not relayed (about 1 in 20 fire and evacuation alerts in 2024-26). No alert here is not an all-clear: follow local officials.',
   ],
 }
 
@@ -105,7 +105,7 @@ export const LOCAL_LIVE_NONE_RENO: LocalAlertsResponse = {
   reported_location: null,
   counties: [{ fips: '32031', name: 'Washoe County', state: 'NV' }],
   caveats: [
-    'Fire-3d lists only the local alerts the National Weather Service relays; most are not relayed (about 1 in 20 fire and evacuation alerts in 2024-26). No alert here is not an all-clear: follow local officials.',
+    'Disaster Mapping lists only the local alerts the National Weather Service relays; most are not relayed (about 1 in 20 fire and evacuation alerts in 2024-26). No alert here is not an all-clear: follow local officials.',
   ],
 }
 
@@ -214,7 +214,7 @@ export const LOCAL_ARCHIVE_KERN_FRW: LocalAlertsResponse = {
   reported_location: [-118.7, 35.35],
   counties: [{ fips: '06029', name: 'Kern County', state: 'CA' }],
   caveats: [
-    'Fire-3d lists only the local alerts the National Weather Service relays; most are not relayed (about 1 in 20 fire and evacuation alerts in 2024-26). No alert here is not an all-clear: follow local officials.',
+    'Disaster Mapping lists only the local alerts the National Weather Service relays; most are not relayed (about 1 in 20 fire and evacuation alerts in 2024-26). No alert here is not an all-clear: follow local officials.',
     'Archived copy from FEMA (OpenFEMA, published about a day later); FEMA does not validate message content. Replays can list more than was visible live.',
     "FEMA IPAWS archive via OpenFEMA: This product uses the Federal Emergency Management Agency's OpenFEMA API, but is not endorsed by FEMA",
   ],
@@ -278,7 +278,7 @@ export const LOCAL_ARCHIVE_SHERIDAN_WY: LocalAlertsResponse = {
   reported_location: [-118.7, 35.35],
   counties: [{ fips: '56033', name: 'Sheridan County', state: 'WY' }],
   caveats: [
-    'Fire-3d lists only the local alerts the National Weather Service relays; most are not relayed (about 1 in 20 fire and evacuation alerts in 2024-26). No alert here is not an all-clear: follow local officials.',
+    'Disaster Mapping lists only the local alerts the National Weather Service relays; most are not relayed (about 1 in 20 fire and evacuation alerts in 2024-26). No alert here is not an all-clear: follow local officials.',
     'Archived copy from FEMA (OpenFEMA, published about a day later); FEMA does not validate message content. Replays can list more than was visible live.',
     "FEMA IPAWS archive via OpenFEMA: This product uses the Federal Emergency Management Agency's OpenFEMA API, but is not endorsed by FEMA",
   ],
@@ -314,13 +314,13 @@ export const LOCAL_ARCHIVE_PENDING_BLACK_COVE: LocalAlertsResponse = {
   reported_location: [-82.25, 35.25],
   counties: [{ fips: '37149', name: 'Polk County', state: 'NC' }],
   caveats: [
-    'Fire-3d lists only the local alerts the National Weather Service relays; most are not relayed (about 1 in 20 fire and evacuation alerts in 2024-26). No alert here is not an all-clear: follow local officials.',
+    'Disaster Mapping lists only the local alerts the National Weather Service relays; most are not relayed (about 1 in 20 fire and evacuation alerts in 2024-26). No alert here is not an all-clear: follow local officials.',
     'Archived copy from FEMA (OpenFEMA, published about a day later); FEMA does not validate message content. Replays can list more than was visible live.',
     "FEMA IPAWS archive via OpenFEMA: This product uses the Federal Emergency Management Agency's OpenFEMA API, but is not endorsed by FEMA",
   ],
 }
 
-/** Eaton Fire (2025-01-07, Los Angeles County) at the replay time 2025-01-09 03:40 UTC (at_ms 1736394000000): Fire-3d's
+/** Eaton Fire (2025-01-07, Los Angeles County) at the replay time 2025-01-09 03:40 UTC (at_ms 1736394000000): Disaster Mapping's
  *  own answer to GET /api/official/local-alerts?incident=2025-eaton-fire-dbfa57&at_ms=1736394000000 (FIRE3D_LIVE=0,
  *  FEMA's OpenFEMA archive window already on disk), recorded 2026-10-23 for review3-us-official R1. Real archived
  *  messages, verbatim: 8 of the answer's 33, in the backend's order (phase, then send time): the 3 newest are LA City's
@@ -1557,17 +1557,17 @@ export const LOCAL_ARCHIVE_EATON: LocalAlertsResponse = {
     }
   ],
   "caveats": [
-    "Fire-3d lists only the local alerts the National Weather Service relays; most are not relayed (about 1 in 20 fire and evacuation alerts in 2024-26). No alert here is not an all-clear: follow local officials.",
+    "Disaster Mapping lists only the local alerts the National Weather Service relays; most are not relayed (about 1 in 20 fire and evacuation alerts in 2024-26). No alert here is not an all-clear: follow local officials.",
     "Archived copy from FEMA (OpenFEMA, published about a day later); FEMA does not validate message content. Replays can list more than was visible live.",
     "FEMA IPAWS archive via OpenFEMA: This product uses the Federal Emergency Management Agency's OpenFEMA API, but is not endorsed by FEMA."
   ]
 }
 
-// Fire-3d's own answer for the Horse Gulch Fire (Montana, 2024) at Jul 10, 2024 6:00 PM MDT (`at_ms=1720656000000`), from
+// Disaster Mapping's own answer for the Horse Gulch Fire (Montana, 2024) at Jul 10, 2024 6:00 PM MDT (`at_ms=1720656000000`), from
 // the endpoint on 2026-10-23 (integration part 1 review, UX-M1): NWS keeps about 7 days, so only FEMA's archive answered;
 // three in-effect messages from MTHelenaPoliceDepartment (two "Evacuation Immediate", one "Fire Warning"), the newest
 // covering the fire's reported location. Montana has no state evacuation feed, so these are the only official
-// evacuation messages Fire-3d can show for this fire.
+// evacuation messages Disaster Mapping can show for this fire.
 export const LOCAL_ARCHIVE_HORSE_GULCH: LocalAlertsResponse = {
   "kind": "local_alerts",
   "status": "available",
@@ -1586,7 +1586,7 @@ export const LOCAL_ARCHIVE_HORSE_GULCH: LocalAlertsResponse = {
   "now_ms": 1792744732692,
   "incident_id": "2024-horse-gulch-889237",
   "caveats": [
-    "Fire-3d lists only the local alerts the National Weather Service relays; most are not relayed (about 1 in 20 fire and evacuation alerts in 2024-26). No alert here is not an all-clear: follow local officials.",
+    "Disaster Mapping lists only the local alerts the National Weather Service relays; most are not relayed (about 1 in 20 fire and evacuation alerts in 2024-26). No alert here is not an all-clear: follow local officials.",
     "Archived copy from FEMA (OpenFEMA, published about a day later); FEMA does not validate message content. Replays can list more than was visible live.",
     "FEMA IPAWS archive via OpenFEMA: This product uses the Federal Emergency Management Agency's OpenFEMA API, but is not endorsed by FEMA."
   ],

@@ -14,7 +14,7 @@ export const FLOOD_FORENSIC = {
   prepareFailed: 'The 3D data could not be prepared.',
   prepareAgain: 'Prepare again',
   prepareFixture: 'This demo flood has no 3D data to prepare.',
-  prepareNote: 'Fire-3d downloads the terrain and copies the official water layers for this flood (USGS, NWS, NOAA, FEMA, NASA). The map views do not need it.',
+  prepareNote: 'Disaster Mapping downloads the terrain and copies the official water layers for this flood (USGS, NWS, NOAA, FEMA, NASA). The map views do not need it.',
   loadingDetail: "Loading this flood's details…",
   loadingTerrain: "Loading the flood's 3D terrain…",
   terrainFailed: 'The 3D terrain could not be loaded: {reason}',
@@ -112,7 +112,7 @@ export const FLOOD_FORENSIC = {
   analysisNoSavedForecast: 'NWS forecast point; its forecast was not saved with the 3D data.',
   // evidence tab
   evidenceTitle: 'NWS products',
-  evidenceIntro: "Every version of each NWS flood product Fire-3d saved with this flood's 3D data, in NWS's own words.",
+  evidenceIntro: "Every version of each NWS flood product Disaster Mapping saved with this flood's 3D data, in NWS's own words.",
   evidenceNone: "No NWS flood product was saved with this flood's 3D data.",
   evidenceUnavailable: 'The NWS flood products could not be reached when the 3D data was prepared. That is not an all-clear: follow local officials.',
   evidenceVersions: '{n} versions',
@@ -141,7 +141,7 @@ export const FLOOD_FORENSIC = {
   overviewArea: '3D area',
   overviewPrepared: '3D data prepared',
   overviewStarted: 'Started',
-  overviewSeenSince: 'Seen by Fire-3d since',
+  overviewSeenSince: 'Seen by Disaster Mapping since',
   // dock
   dockTitle: 'River level',
   // the products column (review WFF-R5): the bundle's copy of NWS products, never a live answer

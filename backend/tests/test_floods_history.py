@@ -172,7 +172,7 @@ def test_year_rows_from_the_recorded_day_are_contract_valid(monkeypatch):
 
 
 def test_2026_ids_equal_live_ids(monkeypatch):
-    """A flood Fire-3d saw live keeps its live id (and name) in the year list; two year rows of one live id merge."""
+    """A flood Disaster Mapping saw live keeps its live id (and name) in the year list; two year rows of one live id merge."""
     t0 = int(time.mktime((2026, 3, 3, 0, 0, 0, 0, 0, 0)) * 1000)
     a = _ev("FREI3", 30, t0)
     b = _ev("SERI3", 20, t0 + HOUR)
@@ -384,7 +384,7 @@ def test_detail_chain_order_live_year_alias(client, monkeypatch):
 
 
 def test_year_ids_follow_aliases_written_after_the_build(client, monkeypatch):
-    """Review BFL-R3: the year list was built before Fire-3d merged a flood into another; its old id must open the
+    """Review BFL-R3: the year list was built before Disaster Mapping merged a flood into another; its old id must open the
     canonical flood (rule 13 alias), never a past row of its own."""
     c, live = client
     monkeypatch.setattr(fhttp, "_transport", _routes())

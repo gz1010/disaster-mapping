@@ -1,5 +1,5 @@
 // The flood legend (brief 5, PLAN-5 §4.3): MapLegend's variants for the flood layers. On the national map in Floods: the
-// flood marker sizes (by the official level and category, never Fire-3d's inference), groups "N FLOODS", watches and
+// flood marker sizes (by the official level and category, never Disaster Mapping's inference), groups "N FLOODS", watches and
 // past floods (hollow), the gauge category diamonds with their names (never colour alone, never green), the short
 // list-absence line, then "Legend details". In a flood view also "NWS warning area" (the alert pink). Never a model entry
 // here (model output is shown and keyed only in Command, switched on). Variants: 'row' (the overview's details),

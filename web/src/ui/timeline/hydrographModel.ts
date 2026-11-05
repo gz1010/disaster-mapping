@@ -329,7 +329,7 @@ export function levelsFor(gauge: Pick<RiverGauge, 'thresholds'>, axis: HydroAxis
   return out
 }
 
-/** The NWS category of a value against the gauge's levels (Fire-3d's comparison of NWS's own numbers). */
+/** The NWS category of a value against the gauge's levels (Disaster Mapping's comparison of NWS's own numbers). */
 export function categoryOf(v: number, levels: Partial<Record<HydroLevel, number>>): GaugeCategory | null {
   if (!Object.keys(levels).length) return null
   for (const k of [...HYDRO_LEVELS].reverse()) {
@@ -611,7 +611,7 @@ export interface CursorReadout {
   modelLine: string | null
   kind: 'observed' | 'forecast' | 'none'
   category: GaugeCategory | null
-  /** Fire-3d drew the value between two points (HYDRO.interpolated). */
+  /** Disaster Mapping drew the value between two points (HYDRO.interpolated). */
   interpolated: boolean
   /** The handle is after now: the views keep the products in effect now (C1, CURSOR_FUTURE_PRODUCTS). */
   future: boolean

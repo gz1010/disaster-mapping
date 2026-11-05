@@ -89,7 +89,7 @@ const FILTERS: { id: FeedFilter; label: string }[] = [
 ]
 
 function emptyText(filter: FeedFilter): string {
-  if (filter === 'official') return "No official updates from Fire-3d's sources for this fire. That is not an all-clear: follow local officials."
+  if (filter === 'official') return "No official updates from Disaster Mapping's sources for this fire. That is not an all-clear: follow local officials."
   if (filter === 'key') return 'No key events were detected for this fire.'
   return EMPTY_FEED
 }
@@ -386,7 +386,7 @@ function ExtLink({ href, children }: { href: string; children: string }) {
   )
 }
 
-/** Issuer, the issuer's own times, Fire-3d's check time, notes and links of an official item. */
+/** Issuer, the issuer's own times, Disaster Mapping's check time, notes and links of an official item. */
 function OfficialDetails({ item, nowMs }: { item: FeedItem; nowMs: number }) {
   const tf = useTimeFormat()
   const times: { label: string; ms: number }[] = []
@@ -434,7 +434,7 @@ function OfficialDetails({ item, nowMs }: { item: FeedItem; nowMs: number }) {
             {l.label}
           </ExtLink>
         ))}
-        {item.checkedMs != null && <span className="uf-muted">Checked by Fire-3d {agoText(item.checkedMs, nowMs)}</span>}
+        {item.checkedMs != null && <span className="uf-muted">Checked by Disaster Mapping {agoText(item.checkedMs, nowMs)}</span>}
       </p>
     </>
   )

@@ -32,7 +32,7 @@ export interface SummaryLine {
 }
 
 /** The standing line under every official block (BRIEF-2: model output is never an evacuation order). */
-export const SUMMARY_NOT_AN_ORDER = "Fire-3d's modeled spread is experimental and is not an evacuation order. Follow local officials."
+export const SUMMARY_NOT_AN_ORDER = "Disaster Mapping's modeled spread is experimental and is not an evacuation order. Follow local officials."
 
 const sentence = (t: string) => (/[.!?]$/.test(t) ? t : `${t}.`)
 

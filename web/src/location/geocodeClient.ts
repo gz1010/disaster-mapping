@@ -1,4 +1,4 @@
-// Address, town and ZIP lookup through the Fire-3d API (owner: us-web; CONTRACT §6, §14.10). Street addresses go to the
+// Address, town and ZIP lookup through the Disaster Mapping API (owner: us-web; CONTRACT §6, §14.10). Street addresses go to the
 // Census Geocoder proxy; US towns and ZIP codes are matched locally by the backend (no upstream call). Coordinates and
 // incident names are resolved in the browser and never come here. The default timeout outlasts the proxy's own worst
 // case (two 10 s upstream attempts), so a slow Census reply surfaces as the proxy's clear 504 rather than a
@@ -39,9 +39,9 @@ export function plainSearchError(e: unknown): string {
           : 'Town and ZIP search is not available right now. Enter a street address, or click the map.'
       }
       default:
-        return e.status >= 500 ? 'The Fire-3d server had a problem with this search. Try again in a moment.' : 'This search could not be completed. Try again, or click the map.'
+        return e.status >= 500 ? 'The Disaster Mapping server had a problem with this search. Try again in a moment.' : 'This search could not be completed. Try again, or click the map.'
     }
   }
   if (e instanceof DOMException && e.name === 'TimeoutError') return 'The search took too long. Try again in a moment.'
-  return 'Cannot reach the Fire-3d server. Check your connection, then try again. Coordinates and map clicks still work.'
+  return 'Cannot reach the Disaster Mapping server. Check your connection, then try again. Coordinates and map clicks still work.'
 }

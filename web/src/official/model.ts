@@ -1,8 +1,8 @@
 // Pure model behind the official hooks (owner: official-web; CONTRACT §13 I5): turns the evacuation, NWS and CAL
 // FIRE answers into explicit states for a point or for the open fire. Honesty rules (BRIEF-2 §3, §5):
-// - "none listed" only where Fire-3d actually checked (inside the queried area, for the current time); elsewhere "not
+// - "none listed" only where Disaster Mapping actually checked (inside the queried area, for the current time); elsewhere "not
 //   checked"; past dates say so; outages say so. No state is ever an all-clear.
-// - official wording, issuer and the issuer's own times are kept; Fire-3d's fetch time is only "checked".
+// - official wording, issuer and the issuer's own times are kept; Disaster Mapping's fetch time is only "checked".
 // Tested in model.test.ts.
 import type { ExtrasQueryState } from '../extras/hooks'
 import {
@@ -78,9 +78,9 @@ export interface OfficialZone {
   aggregator?: string
   /** What `listedMs` means: "listed by Cal OES", "added to the Oregon state layer". */
   listedPhrase?: string
-  /** False when `status` is not the source's own text (Oregon's level number rendered by Fire-3d). */
+  /** False when `status` is not the source's own text (Oregon's level number rendered by Disaster Mapping). */
   verbatim?: boolean
-  /** Says so: '"Level 3" is Fire-3d's wording of Oregon OEM's level number; Oregon OEM defines it as "…"'. */
+  /** Says so: '"Level 3" is Disaster Mapping's wording of Oregon OEM's level number; Oregon OEM defines it as "…"'. */
   levelNote?: string | null
   /** "Evacuation for: Other, as recorded by Oregon OEM" (not a fire). */
   hazardNote?: string | null
@@ -101,7 +101,7 @@ export interface EvacuationSourceInfo {
   url: string | null
   homeState: string | null
   answered: boolean
-  /** When Fire-3d checked it. */
+  /** When Disaster Mapping checked it. */
   checkedMs: number | null
   /** The layer's own last update. */
   updatedMs: number | null
@@ -111,7 +111,7 @@ export interface EvacuationSourceInfo {
 export interface EvacuationOfficial {
   state: EvacuationState
   zones: OfficialZone[]
-  /** When Fire-3d checked the source (null = not checked; several sources: the oldest check). */
+  /** When Disaster Mapping checked the source (null = not checked; several sources: the oldest check). */
   checkedMs: number | null
   /** The source's own last update of its statewide layer (one source only; else per source in `sources`). */
   sourceUpdatedMs: number | null
@@ -393,7 +393,7 @@ export function evacuationAtPointState(i: EvacuationAtPointInput): EvacuationOff
   const env = envelopeState(i.point)
   if (env) return env
   const r = atPoint(i.point!.data!, i.lon, i.lat, i.fire, i.pointState)
-  return r ?? notChecked('Not checked here: Fire-3d reads official evacuation zones only near the selected fire and the selected point.')
+  return r ?? notChecked('Not checked here: Disaster Mapping reads official evacuation zones only near the selected fire and the selected point.')
 }
 
 /** Zones grouped by (official wording, issuer), most urgent first. */
@@ -412,7 +412,7 @@ export interface ZoneGroup {
   aggregator: string
   /** "listed by Cal OES", "added to the Oregon state layer". */
   listedPhrase: string
-  /** False for Oregon's levels (Fire-3d's wording of OEM's level number, with OEM's definition). */
+  /** False for Oregon's levels (Disaster Mapping's wording of OEM's level number, with OEM's definition). */
   verbatim: boolean
 }
 
@@ -474,7 +474,7 @@ export interface FireWeatherOfficial {
   /** "National Weather Service" or "National Weather Service via Iowa Environmental Mesonet archive". */
   credit: string
   sourceUrl: string
-  /** 'not_checked' = outside the area Fire-3d checked (state 'unavailable'); 'demo'; or the backend's reason code. */
+  /** 'not_checked' = outside the area Disaster Mapping checked (state 'unavailable'); 'demo'; or the backend's reason code. */
   reasonCode?: string | null
   reason?: string | null
   /** Always present: "A fire weather alert is a weather warning, not an evacuation order." etc. */
@@ -663,7 +663,7 @@ function notCheckedAt(d: FireWeatherResponse, pointState: string | null | undefi
     alerts: [],
     ...fwBase(d),
     reasonCode: 'not_checked',
-    reason: where ? `Fire-3d did not check NWS fire weather alerts in ${where} for this answer.` : 'Fire-3d checks NWS fire weather alerts in the lower 48 states only.',
+    reason: where ? `Disaster Mapping did not check NWS fire weather alerts in ${where} for this answer.` : 'Disaster Mapping checks NWS fire weather alerts in the lower 48 states only.',
     caveat: FW_CAVEAT,
   }
 }
@@ -723,7 +723,7 @@ export interface OfficialBadge {
 const BADGE_RANK: Record<NonNullable<OfficialBadge['level']>, number> = { order: 3, warning: 2, local: 1, 'fire-weather': 0 }
 const higher = (a: OfficialBadge['level'], b: NonNullable<OfficialBadge['level']>): NonNullable<OfficialBadge['level']> => (a != null && BADGE_RANK[a] >= BADGE_RANK[b] ? a : b)
 
-/** A local officials' message's badge level from its verbatim event (never from its text: Fire-3d does not read it). */
+/** A local officials' message's badge level from its verbatim event (never from its text: Disaster Mapping does not read it). */
 export function localBadgeLevel(event: string): 'order' | 'local' {
   return /^(evacuation immediate|shelter in place warning)$/i.test(event.trim()) ? 'order' : 'local'
 }

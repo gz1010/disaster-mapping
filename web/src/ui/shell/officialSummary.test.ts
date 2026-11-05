@@ -53,7 +53,7 @@ describe('Public official summary lines', () => {
     expect(calfireLine({ state: 'unavailable' } as CalFireOfficial, nowMs).tone).toBe('muted')
     // no record vs an outage: an unreachable source is never reported as "no record"
     expect(calfireLine({ state: 'unavailable', reason: 'No CAL FIRE record is linked to this fire.' } as CalFireOfficial, nowMs).text).toBe('No record for this fire.')
-    expect(calfireLine({ state: 'unavailable', reason: 'Could not reach the Fire-3d server.', unreachable: true } as CalFireOfficial, nowMs).text).toBe('Unavailable right now.')
+    expect(calfireLine({ state: 'unavailable', reason: 'Could not reach the Disaster Mapping server.', unreachable: true } as CalFireOfficial, nowMs).text).toBe('Unavailable right now.')
   })
 
   it('always lists the three sources in order', () => {
@@ -70,7 +70,7 @@ describe('evacuation summary line (brief 3)', () => {
     expect(evacuationLine({ ...na, notAvailableIn: ['North Carolina', 'South Carolina'] }, false)).toMatchObject({ text: 'Not available in these states (North Carolina, South Carolina).' })
     // no state named (outside the lower 48): the backend's own sentence, else "here"
     expect(evacuationLine(na, false)).toMatchObject({ text: 'Not available here.', source: null })
-    expect(evacuationLine({ ...na, reason: 'Fire-3d covers the lower 48 states only. Follow local officials.' }, false).text).toBe('Fire-3d covers the lower 48 states only.')
+    expect(evacuationLine({ ...na, reason: 'Disaster Mapping covers the lower 48 states only. Follow local officials.' }, false).text).toBe('Disaster Mapping covers the lower 48 states only.')
     expect(evacuationLine({ state: 'none-listed', zones: [], checkedMs: 1, sourceUpdatedMs: 1, sourceUrl: null, caveat: '', checkedBy: 'Oregon OEM' }, false).source).toBe('Oregon OEM')
     expect(evacuationLine({ state: 'none-listed', zones: [], checkedMs: 1, sourceUpdatedMs: 1, sourceUrl: null, caveat: '' }, false).source).toBe('Cal OES') // brief-2 shape
     // still checking (no answer): no source is guessed, in any state (Black Cove, NC read "Checking… (Cal OES)")

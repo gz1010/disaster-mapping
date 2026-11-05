@@ -63,7 +63,7 @@ function CloseFlood() {
   )
 }
 
-/** A flood resolved from its bundle or Fire-3d's last sight (rule 13): FLOOD_LAST_KNOWN with that date. */
+/** A flood resolved from its bundle or Disaster Mapping's last sight (rule 13): FLOOD_LAST_KNOWN with that date. */
 function LastKnownNote() {
   const summary = useFlood((s) => openFloodSummary(s))
   const resolved = useFlood((s) => s.resolvedFrom)

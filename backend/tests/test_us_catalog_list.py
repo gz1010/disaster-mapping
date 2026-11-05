@@ -265,7 +265,7 @@ def test_api_list_gzip_state_and_detail(world) -> None:
         d = client.get(f"/api/incidents/{pine['id']}")
         assert d.status_code == 200 and d.json()["manifest"] is None and d.json()["summary"]["record_source"] == "wfigs"
         ak = client.post(f"/api/incidents/2026-tanana-{ID['4D4D4D4D'][:6].lower()}/build")
-        assert ak.status_code == 422 and ak.json()["detail"] == "Fire-3d does not support Alaska, Hawaii or US territories yet."
+        assert ak.status_code == 422 and ak.json()["detail"] == "Disaster Mapping does not support Alaska, Hawaii or US territories yet."
         assert client.post("/api/incidents/2026-nothing-abcdef/build").status_code == 404
 
 

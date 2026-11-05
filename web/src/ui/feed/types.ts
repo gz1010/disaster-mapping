@@ -38,13 +38,13 @@ export interface FeedItem {
   id: string
   topic: FeedTopic
   kind: FeedKind
-  /** Event time (epoch ms UTC). Official items: the issuer's time, else the source's own time (never Fire-3d's
+  /** Event time (epoch ms UTC). Official items: the issuer's time, else the source's own time (never Disaster Mapping's
    *  fetch time; see `timeNotGiven`). */
   tMs: number
   /** Plain-language title. */
   title: string
   detail: string | null
-  /** Who / what produced it, e.g. "NASA FIRMS (VIIRS, NOAA-20)", "Fire-3d reconstruction (...)", "You". */
+  /** Who / what produced it, e.g. "NASA FIRMS (VIIRS, NOAA-20)", "Disaster Mapping reconstruction (...)", "You". */
   source: string
   /** Machine-generated (event detection, model output) rather than reported by a person or agency. */
   automated: boolean
@@ -80,7 +80,7 @@ export interface FeedItem {
   issuedMs?: number | null
   updatedMs?: number | null
   expiresMs?: number | null
-  /** When Fire-3d last checked the source ("Checked by Fire-3d …"). */
+  /** When Disaster Mapping last checked the source ("Checked by Disaster Mapping …"). */
   checkedMs?: number | null
   /** [w, s, e, n] the map fits when the item is selected (its official area). */
   bounds?: [number, number, number, number] | null

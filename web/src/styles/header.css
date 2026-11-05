@@ -276,7 +276,7 @@
   }
 }
 
-/* the bar's items drop the less useful text first on medium screens: the "Fire-3d" word (the logo stays) gives the
+/* the bar's items drop the less useful text first on medium screens: the "Disaster Mapping" word (the logo stays) gives the
    place and the dates room on laptops (review H5-DF-6), then the place line goes */
 @media (max-width: 1400px) {
   .fx-bar .tb-brand-name {

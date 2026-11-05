@@ -1,4 +1,4 @@
-// What "the fire" is when Fire-3d measures how far an official area lies from it (owner: official-web): the newest
+// What "the fire" is when Disaster Mapping measures how far an official area lies from it (owner: official-web): the newest
 // mapped perimeter at or before the given time (thinned), the satellite heat detections up to that time (VIIRS /
 // MODIS / Landsat, thinned; GOES pixels are too coarse) and the reported location; plus the analysis area (the AOI
 // quadrilateral) used for "Cal OES does not say which fire this is for". Pure, tested in fire.test.ts.

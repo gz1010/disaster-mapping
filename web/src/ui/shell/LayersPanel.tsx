@@ -320,7 +320,7 @@ export function LayersPanel() {
                   <SourceRow key={l.key} k={l.key} label={l.label} desc={l.desc} />
                 ))}
               </ul>
-              <p className="mw-set-note">Fire-3d's modeled spread is experimental and is not an evacuation instruction. Follow local officials.</p>
+              <p className="mw-set-note">Disaster Mapping's modeled spread is experimental and is not an evacuation instruction. Follow local officials.</p>
             </Section>
             {!fireView && (
               <Section title="Forecast shown">

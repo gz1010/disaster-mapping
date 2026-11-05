@@ -59,7 +59,7 @@ export interface RecordStatus extends CalFireStatus {
 }
 
 export const SYNTHETIC_RECORD_REASON = 'Not available: synthetic or local data.'
-export const RECORD_NOT_CHECKED_REASON = 'Agency record not checked: this Fire-3d server does not offer it.'
+export const RECORD_NOT_CHECKED_REASON = 'Agency record not checked: this Disaster Mapping server does not offer it.'
 
 const fireWords = (n: string) => n.toLowerCase().replace(/\b(fire|incident)\b/g, '').replace(/[^a-z0-9]+/g, ' ').trim()
 /** "TIMBER" and "Timber Fire" name the same fire. */
@@ -224,7 +224,7 @@ export function wfigsRecordFeedItems(d: IncidentRecordResponse | null, ctx: Reco
       kind: 'official',
       tMs: t ?? d.retrieved_ms ?? d.now_ms,
       title: `${issuer} record: ${acres}, ${pct}${c.is_active ? '' : ', not listed as active'}`,
-      detail: `The protecting agency's numbers as published by NIFC WFIGS (IRWIN), with the record's own update time. Fire-3d does not record changes to this record yet.`,
+      detail: `The protecting agency's numbers as published by NIFC WFIGS (IRWIN), with the record's own update time. Disaster Mapping does not record changes to this record yet.`,
       source: `${issuer} incident record`,
       automated: false,
       key: true,

@@ -1,4 +1,4 @@
-// Telling the user's camera moves from Fire-3d's own (owner: map; brief-3 integration review round 2, R1). MapLibre
+// Telling the user's camera moves from Disaster Mapping's own (owner: map; brief-3 integration review round 2, R1). MapLibre
 // ends a wheel zoom, and any move that a programmatic call stops, without an originalEvent, so MapController also
 // looks at input on the map itself: a move that ends while the pointer is down, or within USER_INPUT_MS of an input on
 // the map, counts as the user's (it ends the opening framing, an official area's or a fire card's focus hold, and on

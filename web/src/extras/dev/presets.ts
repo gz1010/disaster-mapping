@@ -1,5 +1,5 @@
 // Dev page presets (extras-dev.html only; never part of the app). Real incidents: the live Cooley bundle, the Eaton
-// and Palisades 2025 replays, and the area of the live Bryson Fire (no Fire-3d bundle; reported location from the
+// and Palisades 2025 replays, and the area of the live Bryson Fire (no Disaster Mapping bundle; reported location from the
 // CAL FIRE active-incident list on 2026-10-17) to show current official evacuation zones.
 
 export interface DevTime {

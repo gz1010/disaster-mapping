@@ -86,7 +86,7 @@ export function DemoBadge() {
   )
 }
 
-/** Command: the incident identifier (Fire-3d id; the agency's incident ID in the tooltip, §14.5) with a copy button. */
+/** Command: the incident identifier (Disaster Mapping id; the agency's incident ID in the tooltip, §14.5) with a copy button. */
 export function IncidentIdChip() {
   const id = useStore((s) => s.incidentId)
   const agencyId = useStore((s) => (s.summary && s.summary.id === s.incidentId ? agencyIdLine(s.summary) : null))
@@ -101,7 +101,7 @@ export function IncidentIdChip() {
       })
       .catch(() => undefined)
   return (
-    <span className="mw-id-chip" data-tip={agencyId ?? 'Fire-3d incident identifier'}>
+    <span className="mw-id-chip" data-tip={agencyId ?? 'Disaster Mapping incident identifier'}>
       <span className="mw-id-label">ID</span>
       <span className="mw-mono mw-id-value">{id}</span>
       <button type="button" className="mw-icon-btn is-sm" aria-label={copied ? 'Incident ID copied' : 'Copy incident ID'} onClick={copy}>

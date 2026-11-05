@@ -46,7 +46,7 @@ export const USGS_IMAGERY_MAXZOOM = envInt('VITE_USGS_IMAGERY_MAXZOOM', 16)
 export const USGS_IMAGERY_CREDIT = 'USDA, USGS The National Map: Orthoimagery'
 /** When the photos were taken, at the latest. Source: the same MapServer's copyrightText, "USDA, USGS The National
  *  Map: Orthoimagery. Data refreshed June, 2024.v1.2" (audit-2 opening-map, read 2026-10-17 and again 2026-10-18; its
- *  description adds "NAIP Data is from 2017-2021 for CONUS"). Every fire in Fire-3d started later, so the photos show
+ *  description adds "NAIP Data is from 2017-2021 for CONUS"). Every fire in Disaster Mapping started later, so the photos show
  *  the land before the fire: intact roofs can appear inside a burned area. */
 export const USGS_PHOTOS_LATEST_MS = Date.UTC(2024, 5, 30, 23, 59)
 export const USGS_PHOTOS_DATE_TEXT = 'June 2024 or earlier'

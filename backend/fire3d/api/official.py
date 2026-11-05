@@ -1,7 +1,7 @@
 """Official information endpoints (BRIEF-2 U-R6, U-R7; brief 3 CONTRACT 14.5-14.7): CAL FIRE status history, NWS
 fire weather alerts and the local officials' messages relayed by NWS (with FEMA's archive for past days).
 
-* ``GET /api/official/calfire?incident=<id>``: CAL FIRE's current record of the incident, every change Fire-3d has
+* ``GET /api/official/calfire?incident=<id>``: CAL FIRE's current record of the incident, every change Disaster Mapping has
   recorded since it first checked (``sources.calfire_history``) and caveats. Each call is a check: it records the
   current record. A fire whose record is NIFC WFIGS's answers ``not_covered``.
 * ``GET /api/official/fire-weather?incident=<id>&at_ms=<ms>&margin_km=15``: NWS Red Flag Warnings and Fire Weather
@@ -19,7 +19,7 @@ NIFC WFIGS, with or without a bundle; :func:`fill_from_catalog`).
 Both carry the official envelope (docs/redesign/CONTRACT.md section 13, official-backend). An upstream failure is not
 an HTTP error: the answer is 200 with ``status: "unavailable"`` (CAL FIRE, live NWS) or
 ``"not_available_for_past_dates"`` (archive), so an empty list never stands in for "no alerts". Errors: 400 bad id,
-404 unknown incident, 429 Fire-3d's own request limit. JSON is ``Cache-Control: no-store``. Route functions are plain
+404 unknown incident, 429 Disaster Mapping's own request limit. JSON is ``Cache-Control: no-store``. Route functions are plain
 ``def`` (FastAPI runs them in its threadpool).
 """
 
@@ -66,7 +66,7 @@ LOCAL_SOURCE: dict[str, str] = {
     "license": nws.NWS_SOURCE["license"],
     "terms_url": nws.NWS_SOURCE["terms_url"],
 }
-LOCAL_CAVEAT = ("Fire-3d lists only the local alerts the National Weather Service relays; most are not relayed (about "
+LOCAL_CAVEAT = ("Disaster Mapping lists only the local alerts the National Weather Service relays; most are not relayed (about "
                 "1 in 20 fire and evacuation alerts in 2024-26). No alert here is not an all-clear: follow local "
                 "officials.")
 ARCHIVE_CAVEAT = ("Archived copy from FEMA (OpenFEMA, published about a day later); FEMA does not validate message "
@@ -77,7 +77,7 @@ ARCHIVE_RECENT_REASON = ("FEMA publishes its archive about a day later; messages
                          "National Weather Service.")
 ARCHIVE_POINT_REASON = "The FEMA archive is checked for a chosen fire only."
 NWS_PAST_POINT_REASON = "Past local alerts are checked for a chosen fire only."
-LOWER48_ONLY_REASON = "Fire-3d checks local officials' alerts in the lower 48 states only."
+LOWER48_ONLY_REASON = "Disaster Mapping checks local officials' alerts in the lower 48 states only."
 ARCHIVE_ENABLED = True                 # the background OpenFEMA prefetch (us-pipeline cut-line item a)
 ARCHIVE_PENDING_REASON = "FEMA's archive is being fetched; ask again in a minute."
 
@@ -315,12 +315,12 @@ def calfire_payload(incident_id: str) -> dict[str, Any]:
         out.update(status="unavailable", reason_code="upstream_error" if unreachable else "not_covered",
                    reason=("CAL FIRE's incident list could not be reached just now." if unreachable else
                            "CAL FIRE's incident lists no longer include this incident.")
-                          + " Showing the last record Fire-3d saw.")
+                          + " Showing the last record Disaster Mapping saw.")
     cav = out["caveats"]
     cav.append("These are CAL FIRE's own numbers and update time, quoted as published; they can lag what is "
                "happening on the ground.")
     if hist:
-        cav.append("Fire-3d records CAL FIRE's changes only since it first checked this incident (recording_since_ms); "
+        cav.append("Disaster Mapping records CAL FIRE's changes only since it first checked this incident (recording_since_ms); "
                    "earlier changes are not available. A new CAL FIRE update time without new numbers is not listed "
                    "as a change.")
     if not cur.get("is_active") and not changes:
@@ -523,7 +523,7 @@ def _archive_channel(ref: IncidentRef | None, at: int, now: int, area: BBox, poi
                                                            "not mean there were none."), [], credit
     alerts = nws.place_local(openfema.answer(window, at, doc), area, point, fips, at, point_county=point_county)
     if doc.get("truncated"):
-        credit.append("FEMA's archive had more messages in this period than Fire-3d reads; some may be missing.")
+        credit.append("FEMA's archive had more messages in this period than Disaster Mapping reads; some may be missing.")
     return _channel("openfema_archive", "available", None, int(doc["fetched_ms"]), None), alerts, credit
 
 
@@ -703,7 +703,7 @@ def _flood_local_alerts(bbox: str, at_ms: int | None) -> dict[str, Any]:
 # ----------------------------------------------------------------------------------------------------------------
 @router.get("/api/official/calfire")
 def get_calfire(incident: str = Query(..., min_length=1, max_length=160)) -> Response:
-    """CAL FIRE's record of the incident plus the status changes Fire-3d has recorded."""
+    """CAL FIRE's record of the incident plus the status changes Disaster Mapping has recorded."""
     return _json(calfire_payload(incident))
 
 

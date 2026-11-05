@@ -61,7 +61,7 @@ describe('the Public fire view’s card has no model output (decision a; review 
     expect(isModelCaveat(ensembleCaveat(31))).toBe(true)
     expect(isModelCaveat(MODEL_SPOTTING_CAVEAT)).toBe(true)
     expect(isModelCaveat(MODEL_EDGE_CAVEAT)).toBe(true)
-    expect(isModelCaveat('Outside the modeled area: Fire-3d models only the incident’s analysis area, so the forecast and fire reconstruction say nothing about this spot. Its risk is unknown, not low.')).toBe(false)
+    expect(isModelCaveat('Outside the modeled area: Disaster Mapping models only the incident’s analysis area, so the forecast and fire reconstruction say nothing about this spot. Its risk is unknown, not low.')).toBe(false)
     expect(isModelCaveat('One point check does not establish the safety of a route or an area.')).toBe(false)
   })
 })

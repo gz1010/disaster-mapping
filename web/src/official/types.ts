@@ -22,7 +22,7 @@ export interface OfficialEnvelope {
   reason_code: string | null
   reason: string | null
   source: OfficialSource
-  /** When Fire-3d fetched the data from the source (its check time), epoch ms. */
+  /** When Disaster Mapping fetched the data from the source (its check time), epoch ms. */
   retrieved_ms: number | null
   /** The source's own last update time, epoch ms. */
   source_updated_ms: number | null
@@ -54,7 +54,7 @@ export interface CalFireCurrent {
 export interface CalFireChange {
   /** CAL FIRE's "Updated" time of the new record (null = not given). */
   updated_ms: number | null
-  /** When Fire-3d first saw the change. */
+  /** When Disaster Mapping first saw the change. */
   seen_ms: number
   acres?: [number | null, number | null]
   percent_contained?: [number | null, number | null]
@@ -69,7 +69,7 @@ export interface CalFireResponse extends OfficialEnvelope {
   current: CalFireCurrent | null
   /** Oldest first (the endpoint's order is not relied on). */
   changes: CalFireChange[]
-  /** When Fire-3d started recording this incident's changes (null = never recorded). */
+  /** When Disaster Mapping started recording this incident's changes (null = never recorded). */
   recording_since_ms: number | null
   caveats: string[]
   kind?: string
@@ -234,7 +234,7 @@ export interface NwsAlert {
   nws_headline?: string | null
   /** Additive (backend): 'in_effect' | 'upcoming' | 'ended' at the request time (the web computes its own). */
   phase?: string | null
-  /** Fire-3d only (never from the backend): the alert left the live NWS feed before its end time; when it was last
+  /** Disaster Mapping only (never from the backend): the alert left the live NWS feed before its end time; when it was last
    *  checked missing. */
   dropped_ms?: number | null
   /** Brief 3 (CONTRACT §14.6; required since the integration): IANA zone of the alert's area (its first zone's outline,

@@ -1,4 +1,4 @@
-// Typed helpers for the Fire-3d HTTP API (SPEC 6). All paths are relative to VITE_API_BASE ('' = same origin;
+// Typed helpers for the Disaster Mapping HTTP API (SPEC 6). All paths are relative to VITE_API_BASE ('' = same origin;
 // the Vite dev server proxies /api to the backend).
 import type {
   AccuracyRegionsResponse,
@@ -160,12 +160,12 @@ export function describeError(e: unknown): string {
     } catch {
       detail = e.body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
     }
-    // 503: a source Fire-3d needs cannot be reached right now (e.g. "The fire lists could not be reached right now; try
+    // 503: a source Disaster Mapping needs cannot be reached right now (e.g. "The fire lists could not be reached right now; try
     // again later."), not a fault of the server
     const what = e.status === 404 ? 'Not found' : e.status === 503 ? 'Unavailable right now' : e.status >= 500 ? 'Server error' : `Request failed`
     return `${what}${detail ? `: ${detail}` : ''} (HTTP ${e.status})`
   }
   if (e instanceof DOMException && (e.name === 'TimeoutError' || e.name === 'AbortError')) return 'The request timed out'
-  if (e instanceof TypeError && /fetch|network|load/i.test(e.message)) return 'Cannot reach the Fire-3d API'
+  if (e instanceof TypeError && /fetch|network|load/i.test(e.message)) return 'Cannot reach the Disaster Mapping API'
   return e instanceof Error ? e.message : String(e)
 }

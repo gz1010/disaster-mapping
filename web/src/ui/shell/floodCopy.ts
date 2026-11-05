@@ -4,7 +4,7 @@
 // for the cases where the request itself fails (no answer to read the reason from).
 // The wording guard (floodCopy.test.ts, also used by the other flood roles' tests): no string here, in any other
 // `*[Ff]lood*[Cc]opy*.ts` file (test files excepted) or in a rendered flood view says "safe", "low risk", "all clear",
-// "dry", "receded", "ended", "no danger", ... in Fire-3d's own voice (PLAN-5 §5.1). Text an issuer wrote (NWS, FEMA,
+// "dry", "receded", "ended", "no danger", ... in Disaster Mapping's own voice (PLAN-5 §5.1). Text an issuer wrote (NWS, FEMA,
 // Cal OES) is rendered inside an element with `data-verbatim` (its issuer named next to it) and is not scanned.
 import { NOT_ALL_CLEAR, PROTOTYPE_LINE } from './fixedCopyText'
 
@@ -30,12 +30,12 @@ export const FLOOD_LISTS_DOWN = 'The flood lists (NWS warnings and river gauges)
 /** (B) */
 export const FLOOD_LISTS_503 = 'The flood lists could not be reached right now; try again later.'
 export const FLOOD_NOT_LISTED = 'This flood is no longer listed.'
-export const FLOOD_LAST_KNOWN = 'This flood is no longer in the NWS lists Fire-3d reads. Shown: what Fire-3d last saw on {date}. Not an all-clear. Follow local officials.'
+export const FLOOD_LAST_KNOWN = 'This flood is no longer in the NWS lists Disaster Mapping reads. Shown: what Disaster Mapping last saw on {date}. Not an all-clear. Follow local officials.'
 /** (B) */
 export const GAUGE_ONLY_CAVEAT = 'No NWS flood product names this gauge right now.'
 /** (B) backend-flood-sources BFS-R2: a gauge-only flood at a tide or lake gauge (copy.py GAUGE_ONLY_COASTAL_CAVEAT). */
 export const GAUGE_ONLY_COASTAL_CAVEAT =
-  'No NWS Flood or Flash Flood product names this gauge right now. It may measure tidal or lake water: Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products, which may be in effect here.'
+  'No NWS Flood or Flash Flood product names this gauge right now. It may measure tidal or lake water: Disaster Mapping does not read NWS Coastal Flood or Lakeshore Flood products, which may be in effect here.'
 export const WATCHES_HIDDEN = '{n} Flood Watches hidden · Show'
 export const WATCHES_HIDDEN_ONE = '1 Flood Watch hidden · Show'
 export const FLOOD_HERE_IN_FIRES = 'NWS flood products are in effect here · Show floods'
@@ -45,7 +45,7 @@ export const PAST_RULE_NOTE =
   'Past years list river floods that reached or were forecast to reach moderate or major flood stage at an NWS gauge, and flash floods NWS tagged considerable or catastrophic or called an emergency. Smaller floods are not listed; not an all-clear.'
 /** (B) backend-flood-live BFL-R4: a past flood's build answers 409 with this text (floods/history.py PAST_NO_BUNDLE). */
 export const PAST_NO_BUNDLE =
-  "Fire-3d prepares 3D data for current floods only: NWS's forecast maps, the model and river forecasts are not kept for a past flood's dates."
+  "Disaster Mapping prepares 3D data for current floods only: NWS's forecast maps, the model and river forecasts are not kept for a past flood's dates."
 export const PAST_RULE_NOTE_FALLBACK =
   'Past years list NWS river Flood Warnings at river gauges and NWS Flash Flood Emergencies. Other flash floods are not listed; not an all-clear.'
 
@@ -97,7 +97,7 @@ export const CIRCLE_MEANING = {
 /** The title's date line (never "ENDED"). */
 export const DATE_LINE = {
   present: '{MON D YYYY} — PRESENT',
-  seenSince: 'SEEN BY FIRE-3D SINCE {MON D YYYY}',
+  seenSince: 'SEEN BY DISASTER MAPPING SINCE {MON D YYYY}',
   past: '{MON D YYYY} — LAST NWS PRODUCT {MON D YYYY}',
 } as const
 
@@ -152,7 +152,7 @@ export const RFC_FIM_LABEL = 'NWS forecast flooded area (next 5 days)'
 export const RFC_FIM_MAPPED = 'Mapped'
 export const RFC_FIM_MAPPED_SUB = "NWS's experimental 5-day forecast map · issued {time} · see the map"
 export const RFC_FIM_AREA_COMMAND =
-  "Forecast flooded area (next 5 days): {area}, measured by Fire-3d from NWS's experimental map of this flood's forecast reaches. It includes the river channel."
+  "Forecast flooded area (next 5 days): {area}, measured by Disaster Mapping from NWS's experimental map of this flood's forecast reaches. It includes the river channel."
 /** (B) */
 export const RFC_FIM_NOTE =
   'Where NWS river forecasts say water could reach in the next 5 days (the most at any time). A forecast, not today\'s water. NWS calls this map experimental.'
@@ -181,10 +181,10 @@ export const SAT_EDGE = 'Edge of the satellite image'
 export const SAT_OUTSIDE_POINT = 'This spot is outside the {date} satellite image: no satellite view of it.'
 /** (B) */
 export const SAT_NOT_SET_UP =
-  "NASA Earthdata login is not set up on this server. Fire-3d shows NASA's public optical images (Landsat and Sentinel-2), which cannot see through clouds and arrive about a day later. Radar images that see through clouds need the login."
+  "NASA Earthdata login is not set up on this server. Disaster Mapping shows NASA's public optical images (Landsat and Sentinel-2), which cannot see through clouds and arrive about a day later. Radar images that see through clouds need the login."
 export const SAT_NOT_SET_UP_SHORT = 'No radar images: NASA login not set up'
 /** (B) */
-export const SAT_LOGIN_REFUSED = "The NASA Earthdata login on this server was refused (it may have expired). Fire-3d shows NASA's public optical images only until it is renewed."
+export const SAT_LOGIN_REFUSED = "The NASA Earthdata login on this server was refused (it may have expired). Disaster Mapping shows NASA's public optical images only until it is renewed."
 export const SAT_PICTURE_ONLY = 'Satellite water: NASA picture, {date} (not measured here)'
 /** (B) */
 export const SAT_UNAVAILABLE = 'Satellite water could not be loaded right now. That is not an all-clear.'
@@ -205,7 +205,7 @@ export const NFHL_DOWN = 'FEMA flood zones could not be loaded right now.'
 export const MODEL_LABEL = 'Model output (NOAA National Water Model) · experimental'
 /** (B) */
 export const MODEL_CAVEAT = 'Experimental model output (NOAA National Water Model). It is not an NWS forecast and not advice on when to evacuate. Follow local officials.'
-export const MODEL_SEPARATE = "Fire-3d shows NOAA's National Water Model separately, as experimental model output. Not an all-clear. Follow local officials."
+export const MODEL_SEPARATE = "Disaster Mapping shows NOAA's National Water Model separately, as experimental model output. Not an all-clear. Follow local officials."
 export const MODEL_UNAVAILABLE = 'Model series unavailable right now'
 /** From recur_cat {p} % (n = 100 / p); ">50" → MODEL_AEP_HIGH. */
 export const MODEL_AEP = 'Model flow about a 1 in {n} chance in any year (NWM)'
@@ -281,7 +281,7 @@ export const HYDRO = {
   stage: 'Stage {unit}',
   flow: 'Flow {unit}',
   axisName: 'River level shown as',
-  interpolated: 'Fire-3d drew this value between two readings or forecast steps (straight line).',
+  interpolated: 'Disaster Mapping drew this value between two readings or forecast steps (straight line).',
   // flow mode on a gauge whose NWS flood levels are river stages (feet): no flood lines on the flow axis
   flowNoStages: 'NWS flood levels for this gauge are river stages; see the stage view',
   // a forecast point without a current NWS forecast (forecasts are issued as needed during high water)
@@ -313,7 +313,7 @@ export const HYDRO = {
   flowStageOnly: 'This gauge reports river stage only; no flow readings (see the stage view)',
   stageLineTip: 'NWS flood level at this gauge ({category}): {value} {unit}. NWS sets these levels; they are not a forecast.',
   pinnedTip: 'This NWS flood level is outside the chart ({dir}).',
-  latestTip: 'The newest reading from this gauge. Fire-3d marks it stale when it is more than 3 hours old.',
+  latestTip: 'The newest reading from this gauge. Disaster Mapping marks it stale when it is more than 3 hours old.',
   modelTip: 'Experimental model output (NOAA National Water Model), drawn on the flow axis only and never converted to a river stage. Not an NWS forecast.',
   originalUnits: '{value} in the original units',
 } as const
@@ -371,7 +371,7 @@ export const FLOOD_COMMAND = {
   lastUpdateSub: 'newest NWS product or member gauge reading',
   noUpdateTime: 'No update time given',
   // area figures (each on its own line with its caveat; C6)
-  areaTitle: 'Area figures (Fire-3d measurements)',
+  areaTitle: 'Area figures (Disaster Mapping measurements)',
   demoNote: 'Demo data: a simulated flood, not an NWS product or gauge reading.',
   // the bar's gauge line ("SHRN5 · 15.2 FT · MINOR · 12 MIN AGO")
   gaugeStatusTip: 'The primary river gauge: its newest reading, NWS category and age. Opens the list of gauges.',
@@ -426,7 +426,7 @@ export const FLOOD_COMMAND = {
 
 /** Forensic's strings (also in ui/forensic-flood/floodForensicCopy.ts, owned by web-flood-forensic). */
 export const FORENSIC_FLOOD = {
-  notPrepared: "Fire-3d has not prepared this flood's 3D terrain yet.",
+  notPrepared: "Disaster Mapping has not prepared this flood's 3D terrain yet.",
   prepare: 'Prepare 3D data (about 1 min)',
   barHeight: 'Bar height: river stage at the gauge (scaled), not water depth',
   demo: 'Demo · simulated data: terrain, water layers and gauges are synthetic',
@@ -449,7 +449,7 @@ export const FLOOD_OVERVIEW = {
   switchName: 'Show: fires or floods',
   fires: 'Fires',
   floods: 'Floods',
-  titleNoEvent: 'Fire-3d · Wildfires and floods',
+  titleNoEvent: 'Disaster Mapping · Wildfires and floods',
   skipToList: 'Skip to the flood list',
   mapLabel: 'Flood map',
   reload: 'Reload the flood lists (NWS and river gauges)',
@@ -531,7 +531,7 @@ export const FLOOD_PUBLIC = {
   labelWatchArea: 'Watch area (NWS)',
   labelRiverForecast: 'River forecast (NWS)',
   labelStarted: 'Started',
-  labelSeenSince: 'Seen by Fire-3d since',
+  labelSeenSince: 'Seen by Disaster Mapping since',
   labelProduct: '{event} (NWS)',
   labelNoProduct: 'NWS flood product',
   labelEvacuations: 'Evacuations',
@@ -558,7 +558,7 @@ export const FLOOD_PUBLIC = {
   issued: 'issued {time}',
   startedNws: 'first NWS product of this flood',
   startedGauge: 'first reading at flood stage at a member gauge',
-  startedFirstSeen: 'first listed by NWS products or gauges Fire-3d reads',
+  startedFirstSeen: 'first listed by NWS products or gauges Disaster Mapping reads',
   updatedWhat: 'newest NWS product or member gauge reading',
   nwsAlertLink: 'NWS product',
   gaugePageLink: 'NWS gauge page',
@@ -594,14 +594,14 @@ export const FLOOD_PUBLIC = {
   keyForecastChecking: 'NWS forecast flooded area · checking…',
   satStatusUnavailable: 'SATELLITE WATER · UNAVAILABLE',
   // map data (bundle) preparation (C10)
-  notPrepared: "Fire-3d has not prepared this flood's map data yet (terrain and frozen copies of the water layers).",
+  notPrepared: "Disaster Mapping has not prepared this flood's map data yet (terrain and frozen copies of the water layers).",
   prepare: 'Prepare map data (about 1 min)',
-  prepareFailed: "Fire-3d's last preparation of this flood's map data failed.",
+  prepareFailed: "Disaster Mapping's last preparation of this flood's map data failed.",
   prepareAgain: 'Prepare again (about 1 min)',
   preparing: "Preparing this flood's map data (about 1 min)",
   prepareNotListed: 'Only listed floods can be prepared.',
   // the job could not be read for a while (review WFP-R9): it may still be running on the server
-  prepareLost: 'Fire-3d lost contact with the preparation ({error}); it may still be running.',
+  prepareLost: 'Disaster Mapping lost contact with the preparation ({error}); it may still be running.',
   // a flood without a member gauge has no NWS river forecast point (review WFP-R12)
   noForecastNoGauge: 'This flood has no river gauge; NWS river forecasts are made at gauges.',
   // phones
@@ -659,7 +659,7 @@ export const FLOOD_PUBLIC = {
 } as const
 
 // ------------------------------------------------------------------------------------------------ the guard
-/** PLAN-5 §5.1: words Fire-3d never says in its own voice (case-insensitive, word-bounded: "extended" and
+/** PLAN-5 §5.1: words Disaster Mapping never says in its own voice (case-insensitive, word-bounded: "extended" and
  *  "recommended" never match). RegExps, so the string scan below does not read them as copy. */
 export const BANNED_PATTERNS: readonly RegExp[] = [
   /\bsafe(ly|ty)?\b/i,

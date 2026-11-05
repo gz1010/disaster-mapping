@@ -163,9 +163,9 @@ def test_state_not_available_also_for_past_dates_and_incidents(router: Router, c
 
 def test_outside_the_lower_48(router: Router, client: TestClient) -> None:
     ak = client.get("/api/extras/evacuations", params={"bbox": "-150.0,61.1,-149.8,61.25"}).json()
-    assert ak["reason_code"] == "state_not_available" and ak["reason"] == "Fire-3d does not support Alaska, Hawaii or US territories yet."
+    assert ak["reason_code"] == "state_not_available" and ak["reason"] == "Disaster Mapping does not support Alaska, Hawaii or US territories yet."
     mx = client.get("/api/extras/evacuations", params={"bbox": "-117.1,32.45,-116.95,32.52"}).json()
-    assert mx["reason"] == "Outside the United States: Fire-3d has no data here." and mx["states"] == []
+    assert mx["reason"] == "Outside the United States: Disaster Mapping has no data here." and mx["states"] == []
     assert router.calls == []
 
 

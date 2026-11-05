@@ -287,7 +287,7 @@ describe('plainSearchError', () => {
     expect(plainSearchError(api(504))).toMatch(/did not answer in time/)
     expect(plainSearchError(api(400, '{"detail":"This looks like coordinates."}'))).toBe('This looks like coordinates.')
     expect(plainSearchError(api(503, '{"detail":"Town and ZIP search is not available on this server (HTTP 503)."}'))).toBe('Town and ZIP search is not available on this server.')
-    expect(plainSearchError(new TypeError('Failed to fetch'))).toMatch(/Cannot reach the Fire-3d server/)
+    expect(plainSearchError(new TypeError('Failed to fetch'))).toMatch(/Cannot reach the Disaster Mapping server/)
     expect(plainSearchError(new DOMException('timeout', 'TimeoutError'))).toMatch(/took too long/)
   })
 })
@@ -388,7 +388,7 @@ describe('national search (brief 3, §14.10, W6)', () => {
     expect(noted).toEqual({ kind: 'none', message: "No listed fire, US city, town, county or ZIP code matches 'Horse Gulch'. Landmarks, businesses and street names without a house number are not searched (e.g. 83702)." })
     // fires matched but no place: the place sentence stays, and the fires are listed
     expect(noPlaceMessage('x')).toBe('No US city, town, county or ZIP code matches “x”.')
-    expect(OUTSIDE_LOWER48_WARNING).toBe('This point is outside the area Fire-3d covers (the lower 48 states).')
+    expect(OUTSIDE_LOWER48_WARNING).toBe('This point is outside the area Disaster Mapping covers (the lower 48 states).')
   })
   it('a bare lon-first pair lands in the lower 48 (Atlanta), and the parser flags a pair inside neither order', () => {
     const atl = planSearch('-84.39, 33.75', NATIONAL)
@@ -405,7 +405,7 @@ describe('national search (brief 3, §14.10, W6)', () => {
     expect(areaLabel(zip)).toBe('ZIP 83702, ID near Boise (ZIP area, approximate)')
     const anc: GeocodeMatch = { ...boise, name: 'Anchorage', state: 'AK', state_name: 'Alaska', county: null, supported: false, matched_address: 'Anchorage, AK' }
     expect(areaSub(anc)).toBe(`city · town center, approximate · ${NOT_SUPPORTED_NOTE}`)
-    expect(NOT_SUPPORTED_NOTE).toBe('Fire-3d does not support Alaska, Hawaii or US territories yet.')
+    expect(NOT_SUPPORTED_NOTE).toBe('Disaster Mapping does not support Alaska, Hawaii or US territories yet.')
   })
 })
 

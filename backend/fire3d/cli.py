@@ -359,7 +359,7 @@ def _cmd_serve(args: argparse.Namespace) -> int:
     import uvicorn
 
     if args.port == 8000:
-        print("note: port 8000 belongs to another local app; the Fire-3d API uses 8710", file=sys.stderr)
+        print("note: port 8000 belongs to another local app; the Disaster Mapping API uses 8710", file=sys.stderr)
     for flag, env, attr in ((args.live, "FIRE3D_LIVE", "LIVE_ENABLED"), (args.auto_build, "FIRE3D_AUTO_BUILD_LIVE", "AUTO_BUILD_LIVE")):
         if flag is not None:
             os.environ[env] = "1" if flag else "0"     # for --reload subprocesses
@@ -370,7 +370,7 @@ def _cmd_serve(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="python -m fire3d.cli", description="Fire-3d backend CLI (Wildfire Forensics & Forecast)")
+    p = argparse.ArgumentParser(prog="python -m fire3d.cli", description="Disaster Mapping backend CLI (wildfires and floods: maps, forensics and forecasts)")
     p.add_argument("-v", "--verbose", action="store_true", help="debug logging")
     sub = p.add_subparsers(dest="command", metavar="<command>")
 

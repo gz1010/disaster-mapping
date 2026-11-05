@@ -125,8 +125,8 @@ def test_local_alerts_flood_scope_and_wording(local_client) -> None:
     assert flood["caveats"][0] == fcopy.LOCAL_FLOOD_CAVEAT
     arch = next(c for c in flood["channels"] if c["id"] == "openfema_archive")
     assert arch["status"] == "not_checked" and arch["reason"] == fcopy.LOCAL_FLOOD_ARCHIVE_REASON
-    own = orjson.dumps({k: v for k, v in flood.items() if k != "alerts"}).decode().lower().replace("fire-3d", "")
-    assert "fire" not in own                                                         # flood wording (the app's name aside)
+    own = orjson.dumps({k: v for k, v in flood.items() if k != "alerts"}).decode().lower()
+    assert "fire" not in own                                                         # flood wording
     fire = local_client.get("/api/official/local-alerts", params={"bbox": bbox}).json()
     assert [a["id"] for a in fire["alerts"]] == ["urn:oid:local.fire.1"]             # the fire default is unchanged
     assert fire["caveats"][0] == off.LOCAL_CAVEAT

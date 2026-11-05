@@ -116,11 +116,11 @@ export function CameraPanel({ state, frame, selectedId, onSelect, centre = null,
               </figcaption>
             </figure>
           )}
-          {selected.feature.properties.streaming_video && <p className="xs-dim">Caltrans also streams video from this camera; Fire-3d never plays video automatically.</p>}
+          {selected.feature.properties.streaming_video && <p className="xs-dim">Caltrans also streams video from this camera; Disaster Mapping never plays video automatically.</p>}
         </div>
       )}
       {data && Object.keys(data.excluded).length > 0 && (
-        <p className="xs-caveat">Not shown: {Object.entries(data.excluded).map(([k, v]) => `${k} (${v})`).join(', ')}: terms not verified by Fire-3d.</p>
+        <p className="xs-caveat">Not shown: {Object.entries(data.excluded).map(([k, v]) => `${k} (${v})`).join(', ')}: terms not verified by Disaster Mapping.</p>
       )}
       <SourceFooter sources={cameraSourcesShown(data)} />
     </section>

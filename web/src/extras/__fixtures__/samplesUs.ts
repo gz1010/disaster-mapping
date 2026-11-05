@@ -1,7 +1,7 @@
 // Brief 3 (us-official): evacuation answers of the backend for Oregon and Nevada, generated offline on 2026-10-23
 // from backend/fire3d/api/extras.py with the recorded Oregon OEM sample (backend/tests/data/evacuations/, 2026-08-15
 // 12:00Z snapshot of OEM's history layer, provenance in its PROVENANCE.md) mocked as the live layer. Zone outlines
-// are simplified (at most 24 vertices per ring) for the web; every other value is as the backend answered, except Fire-3d's fetch time
+// are simplified (at most 24 vertices per ring) for the web; every other value is as the backend answered, except Disaster Mapping's fetch time
 // (`retrieved_ms`), set to one minute before `now_ms`.
 import type { EvacuationsResponse } from '../types'
 
@@ -39,7 +39,7 @@ export const OR_EVAC_MEDFORD: EvacuationsResponse = {
   ],
   caveats: [
     'Shown as current status. Oregon OEM gives no issue time for a zone; the time shown is when the zone was added to the Oregon state layer.',
-    'Oregon levels are shown by Fire-3d as "Level 1-3" from OEM\'s level number, with OEM\'s definitions (Level 1: BE READY, Level 2: BE SET, Level 3: GO NOW).',
+    'Oregon levels are shown by Disaster Mapping as "Level 1-3" from OEM\'s level number, with OEM\'s definitions (Level 1: BE READY, Level 2: BE SET, Level 3: GO NOW).',
   ],
   issuing_authority:
     'Local, tribal and state emergency officials in Oregon (their GIS staff enter each zone); each zone names its county. Oregon OEM aggregates.',
@@ -886,7 +886,7 @@ export const OR_EVAC_KLAMATH_NONE: EvacuationsResponse = {
   ],
   caveats: [
     'Shown as current status. Oregon OEM gives no issue time for a zone; the time shown is when the zone was added to the Oregon state layer.',
-    'Oregon levels are shown by Fire-3d as "Level 1-3" from OEM\'s level number, with OEM\'s definitions (Level 1: BE READY, Level 2: BE SET, Level 3: GO NOW).',
+    'Oregon levels are shown by Disaster Mapping as "Level 1-3" from OEM\'s level number, with OEM\'s definitions (Level 1: BE READY, Level 2: BE SET, Level 3: GO NOW).',
     'Oregon OEM lists no evacuation zone here right now. That is not an all-clear: follow local officials.',
   ],
   issuing_authority:
@@ -925,7 +925,7 @@ export const EVAC_RENO_NOT_AVAILABLE: EvacuationsResponse = {
   incident_id: null,
   sources: [],
   caveats: [],
-  issuing_authority: 'Local emergency officials. Fire-3d has no official evacuation zone source for this area.',
+  issuing_authority: 'Local emergency officials. Disaster Mapping has no official evacuation zone source for this area.',
   zones: { type: 'FeatureCollection', features: [] },
   counts: {},
   coverage: [],

@@ -1,4 +1,4 @@
-/* Fire-3d theme: dark cinematic "digital twin" (SPEC 9.0 palette, 9.5 look & feel).
+/* Disaster Mapping theme: dark cinematic "digital twin" (SPEC 9.0 palette, 9.5 look & feel).
    Tokens are CSS variables; components use the utility classes at the bottom or their own CSS (styles/*.css).
    Scene overlays can position themselves inside the uncovered canvas area with --safe-top/right/bottom/left
    (kept up to date by the app shell, also when the panels are collapsed with "H"). */

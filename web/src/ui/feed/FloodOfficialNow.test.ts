@@ -1,6 +1,6 @@
 // "Official now" of a flood (brief 5, PLAN-5 §4.5, D23, D24; CONTRACT §16.4): NWS products verbatim (data-verbatim),
 // Emergency first and open, NO_PRODUCT only for an available answer, the river forecast with its issuer and own time,
-// flood-worded evacuations, MODEL_SEPARATE; no banned word in Fire-3d's own words; model output never a row.
+// flood-worded evacuations, MODEL_SEPARATE; no banned word in Disaster Mapping's own words; model output never a row.
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

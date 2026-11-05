@@ -260,7 +260,7 @@ def _read(p: opera.Pass, bounds: BBox, crs_epsg: int, width: int, height: int) -
 
 def flood_satellite(flood_id: str | None, bbox: BBox, *, now: int, time_zone: str, at_ms: int | None = None,
                     grid: Grid | None = None) -> SatResult:
-    """The satellite water answer for an area (never raises for an upstream failure; Fire-3d's own limit raises
+    """The satellite water answer for an area (never raises for an upstream failure; Disaster Mapping's own limit raises
     SourceBusy)."""
     ref = min(int(at_ms), now) if at_ms is not None else now
     login = opera.login_state()

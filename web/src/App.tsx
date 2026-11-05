@@ -88,7 +88,7 @@ function useDocumentTitle() {
   const name = fireName ?? floodName
   const live = fireName ? fireLive : floodLive
   useEffect(() => {
-    document.title = name ? `${name}${live ? ' · live' : ''} · Fire-3d` : FLOOD_OVERVIEW.titleNoEvent
+    document.title = name ? `${name}${live ? ' · live' : ''} · Disaster Mapping` : FLOOD_OVERVIEW.titleNoEvent
   }, [name, live])
 }
 
@@ -263,7 +263,7 @@ function CreditsFooter({ narrow, fold = narrow }: { narrow: boolean; fold?: bool
   )
 }
 
-/** An open fire without Fire-3d's analysis: a short notice (top centre) instead of a card over the map. */
+/** An open fire without Disaster Mapping's analysis: a short notice (top centre) instead of a card over the map. */
 function useNotPrepared(): { name: string; failed: boolean } | null {
   const s = useStore(
     useShallow((st) => ({
@@ -289,7 +289,7 @@ function NotPreparedNotice({ name, failed }: { name: string; failed: boolean }) 
   return (
     <div className="banner banner-info mw-notprepared" role="status">
       <span className="banner-text">
-        {failed ? `The last preparation of the ${name} analysis failed.` : `Fire-3d has not prepared an analysis of the ${name} yet.`} The map shows{' '}
+        {failed ? `The last preparation of the ${name} analysis failed.` : `Disaster Mapping has not prepared an analysis of the ${name} yet.`} The map shows{' '}
         {issuer ? `${issuer}'s` : "the agency's"} reported location and official information.
       </span>
       <button type="button" className="btn btn-sm btn-gold" onClick={() => void openFire(id, 'prepare')}>

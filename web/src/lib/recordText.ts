@@ -33,7 +33,7 @@ export function recordBlockText(b: RecordBlock, tf: TimeFmt, refMs?: number): st
 }
 
 /** The status of the fire's own record (§14.5, round 3 item 2): that agency's own active flag (`ownRecordActive`),
- *  never the merged listing's (Fire-3d lists a fire as active when either agency does). A record that is not active
+ *  never the merged listing's (Disaster Mapping lists a fire as active when either agency does). A record that is not active
  *  reads "Contained" at 100 % or with a containment date; when another agency still lists the fire as active it reads
  *  "Not listed as active" (the agency said no more than that), else the listing's word ("Out"). */
 export function recordStatus(s: IncidentSummary): { key: FireStatusKey; label: string; ownActive: boolean } {
@@ -54,7 +54,7 @@ export function containedLabel(s: Pick<IncidentSummary, 'contained_ms' | 'contai
   return kind === 'contained' ? 'contained' : kind === 'controlled' ? 'controlled' : kind === 'out' ? 'declared out' : null
 }
 
-/** Whether the fire's record section shows a plain agency name that Fire-3d added after an agency code
+/** Whether the fire's record section shows a plain agency name that Disaster Mapping added after an agency code
  *  ("USFS (USDA Forest Service) via NIFC WFIGS"), from the NWCG unit identifiers (credited next to it, §14.13): in the
  *  fire's own issuer label, or in another agency's record shown because it disagrees (the `recordBlocks` rule). */
 export function agencyNameShown(fire: IncidentSummary): boolean {

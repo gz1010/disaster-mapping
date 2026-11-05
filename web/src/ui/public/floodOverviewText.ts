@@ -1,6 +1,6 @@
 // Words of the national map in Floods (brief 5, PLAN-5 §4.3, §5.2): the bar status, the list rows, the leader labels'
 // second line, the official block and the "Show details" pill. Pure, tested in floodOverviewText.test.ts. Official
-// words only: a flood is named by its NWS product or its gauge's NWS category, never by Fire-3d's own inference, and a
+// words only: a flood is named by its NWS product or its gauge's NWS category, never by Disaster Mapping's own inference, and a
 // count is never "0" when a list could not be read.
 import type { FloodAlert, FloodAlertsResponse, FloodGaugeRef, FloodListResponse, FloodSummary, GaugeCategory, RiverGauge, RiverGaugesResponse } from '../../api/types'
 import { bearingDeg, distanceM } from '../../lib/geodesy'
@@ -145,7 +145,7 @@ export function floodCountPart(i: FloodCountInput): { text: string; tone: 'count
 }
 
 /** The bar status's tooltip: whose list it is, and that a place without a marker is not an all-clear. */
-export const FLOOD_COUNT_TIP = `Floods Fire-3d groups from NWS flood products in effect and river gauges at flood stage, lower 48 states. ${FLOOD_LIST_ABSENCE}`
+export const FLOOD_COUNT_TIP = `Floods Disaster Mapping groups from NWS flood products in effect and river gauges at flood stage, lower 48 states. ${FLOOD_LIST_ABSENCE}`
 
 /** The official block's line: "42 in effect in the lower 48 · checked 2 min ago" (null count: could not be read). */
 export function officialProductsLine(n: number | null, checkedMs: number | null, nowMs: number): string {

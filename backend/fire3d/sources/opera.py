@@ -22,7 +22,7 @@ Three routes, in this order:
    a measurement (:func:`gibs_dates`; a flood's picture date is one whose passes touch the flood's area).
 
 Every request goes through :mod:`fire3d.http` with its own limiter; errors raise ``nws.SourceError`` (``SourceBusy`` for
-Fire-3d's own limit) with secret-free text; :class:`LoginRefused` for a refused token.
+Disaster Mapping's own limit) with secret-free text; :class:`LoginRefused` for a refused token.
 """
 
 from __future__ import annotations
@@ -251,7 +251,7 @@ def _request(url: str, params: Any, *, ttl_s: float, limiter: fhttp.RateLimiter,
     if down is not None and down.down(host):
         raise SourceError(f"{name} could not be reached (it failed less than a minute ago)")
     if not limiter.try_acquire():
-        raise SourceBusy(f"{name}: Fire-3d's request limit is reached; try again in a minute")
+        raise SourceBusy(f"{name}: Disaster Mapping's request limit is reached; try again in a minute")
     try:
         resp = fhttp.request("GET", url, params=params, ttl_s=ttl_s, timeout=timeout, retries=RETRIES,
                              expect_json=expect_json)
@@ -313,7 +313,7 @@ def egis_granules(bbox: BBox, end_ms: int, days: int = SEARCH_DAYS, *, now_ms: i
         doc = resp.json()
     except ValueError:
         fhttp.evict_cache("GET", f"{EGIS_HLS}/query", params)
-        raise SourceError(f"{_EGIS_NAME} sent a reply Fire-3d could not read") from None
+        raise SourceError(f"{_EGIS_NAME} sent a reply Disaster Mapping could not read") from None
     if not isinstance(doc, dict) or "error" in doc or not isinstance(doc.get("features"), list):
         fhttp.evict_bad_answer(resp, "GET", f"{EGIS_HLS}/query", params)
         raise SourceError(f"{_EGIS_NAME} sent an unexpected reply")
@@ -367,7 +367,7 @@ def egis_export(p: Pass, bbox: BBox, width: int, height: int, sr: int = 4326) ->
     except Exception as e:  # noqa: BLE001 - ArcGIS answers errors as JSON with HTTP 200, or a cut-off image
         fhttp.evict_cache("GET", url, params)
         log.warning("%s: unusable image (%s)", _EGIS_NAME, type(e).__name__)
-        raise SourceError(f"{_EGIS_NAME} sent an image Fire-3d could not read") from None
+        raise SourceError(f"{_EGIS_NAME} sent an image Disaster Mapping could not read") from None
 
 
 # ----------------------------------------------------------------------------------------------------------------
@@ -431,7 +431,7 @@ def cmr_granules(short_name: str, bbox: BBox, end_ms: int, days: int = SEARCH_DA
         entries = ((resp.json() or {}).get("feed") or {}).get("entry") or []
     except (ValueError, AttributeError):
         fhttp.evict_cache("GET", CMR_GRANULES, params)
-        raise SourceError(f"{_CMR_NAME} sent a reply Fire-3d could not read") from None
+        raise SourceError(f"{_CMR_NAME} sent a reply Disaster Mapping could not read") from None
     rows = [g for g in (parse_cmr_entry(x) for x in entries) if g]
     return sorted(rows, key=lambda g: -g.acquired_ms), int(resp.fetched_ms)
 
@@ -457,7 +457,7 @@ def podaac_download(g: Granule) -> Path:
     if dest.is_file() and _is_tiff(dest.read_bytes()[:4]):
         return dest
     if not PODAAC_LIMITER.try_acquire():
-        raise SourceBusy(f"{_PODAAC_NAME}: Fire-3d's request limit is reached; try again in a minute")
+        raise SourceBusy(f"{_PODAAC_NAME}: Disaster Mapping's request limit is reached; try again in a minute")
     headers = {"Authorization": f"Bearer {tok}"}
     try:
         fhttp.stream_download(g.data_url, dest, headers=headers, timeout=120.0, retries=RETRIES, overwrite=True)

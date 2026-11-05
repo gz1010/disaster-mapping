@@ -3,7 +3,7 @@
 Written by the foundation agent on 2026-10-17. Authority: `docs/redesign/BRIEF.md` for UI behaviour, model
 semantics, honesty, providers and attribution; `SPEC.md` for data contracts, coordinates, time and the HTTP API.
 This file fixes how the four redesign agents (map-core, shell, location, timeline-feed) share state and talk to each
-other. The app is **Fire-3d** (never "FireTrace"). Change an interface here only together with every agent that uses
+other. The app is **Disaster Mapping** (called Fire-3d until brief 6; never "FireTrace"). Change an interface here only together with every agent that uses
 it; additive changes (new optional fields, new helpers) are fine and must be noted in your report.
 
 Everything below already exists in the repo as working code or a compiling skeleton. Skeleton files say so in their
@@ -549,18 +549,18 @@ core is complete. Backend `backend/fire3d/api/extras.py` (router already mounted
 in `extras.css` (classes `xs-*`), pure logic tested in `*.test.ts`. Dev-only proof page `web/extras-dev.html` (not a
 build input).
 
-| Source | Status | Provider (free, no key, official or officially sanctioned) | Cadence / Fire-3d caching |
+| Source | Status | Provider (free, no key, official or officially sanctioned) | Cadence / Disaster Mapping caching |
 |---|---|---|---|
 | Official evacuation zones | working, current status only | Cal OES "California Evacuation Aggregation Layer" (county GIS services + Genasys Protect) + Cal OES "County Evacuation Inventory" (which counties feed it) | Cal OES rebuilds every 5 min; cached 2 min (inventory 24 h) |
 | Public cameras | working, live only | Cal OES "California Webcams" (locations) → ALERTCalifornia wildfire cameras (UC San Diego) and Caltrans CCTV; status from the Caltrans CWWP2 district feeds | list 2 min, Caltrans status 6 h; frames 15 s (ALERTCalifornia) / 60 s (Caltrans), held in memory ≤ 10 min, never on disk |
-| Recent satellite imagery | working, live and past dates | Sentinel-2 L2A (Element 84 Earth Search STAC; true colour rendered by Fire-3d), Landsat 8/9 HLS L30 (NASA CMR + GIBS tiles), VIIRS daily NOAA-20/21 (CMR pass times + GIBS), GOES-West GeoColor every 10 min (GIBS) | catalogue 30 min near now, 30 days for the past; renders on disk (`data/cache/extras/sentinel2`, ≤ 300 MB) |
+| Recent satellite imagery | working, live and past dates | Sentinel-2 L2A (Element 84 Earth Search STAC; true colour rendered by Disaster Mapping), Landsat 8/9 HLS L30 (NASA CMR + GIBS tiles), VIIRS daily NOAA-20/21 (CMR pass times + GIBS), GOES-West GeoColor every 10 min (GIBS) | catalogue 30 min near now, 30 days for the past; renders on disk (`data/cache/extras/sentinel2`, ≤ 300 MB) |
 
 ### 12.1 Endpoints
 
 Query: `bbox=w,s,e,n` (WGS84 degrees; span ≤ 2° for evacuations and cameras, ≤ 0.8° for imagery) **or**
 `incident=<id>` (AOI bbox + `margin_km`, else ± 10 km around the reported location; default margins 15 / 25 / 5 km),
 plus `at_ms` (epoch ms; omit = now). Errors (`{"detail": "..."}`): 400 bad bbox, ids or families; 404 unknown
-incident; 429 Fire-3d's own per-source limit (Cal OES 60/min, Caltrans 20, frames 30, Earth Search 30, CMR 60, GIBS 30,
+incident; 429 Disaster Mapping's own per-source limit (Cal OES 60/min, Caltrans 20, frames 30, Earth Search 30, CMR 60, GIBS 30,
 renders 8). An upstream failure is not an HTTP error: the list endpoints answer 200 with `status: "unavailable"`.
 JSON is `Cache-Control: no-store`.
 
@@ -570,7 +570,7 @@ Every list response carries this envelope (mirrored in `web/src/extras/types.ts`
 { kind: 'evacuations' | 'cameras' | 'imagery'
   status: 'available' | 'unavailable' | 'not_available_for_past_dates'; reason: string | null
   reason_code: 'past_date' | 'upstream_error' | 'not_covered' | null
-  retrieved_ms: number | null       // when Fire-3d fetched it from the source
+  retrieved_ms: number | null       // when Disaster Mapping fetched it from the source
   source_updated_ms: number | null  // the source's own update time (Cal OES layer edit; imagery: newest catalogue listing)
   requested_at_ms: number | null; now_ms: number; bbox: [w, s, e, n]; incident_id: string | null
   sources: { id, name, publisher, url, license, terms_url, attribution, disclaimer, cadence }[]; caveats: string[] }
@@ -703,7 +703,7 @@ Every list response carries this envelope (mirrored in `web/src/extras/types.ts`
   Labels are the official wording verbatim; the zone name or id is added from z 12.5. This deviates from Cal OES's
   own symbology (red Order, yellow Warning, purple Shelter), because red, orange and yellow mean fire information
   here (BRIEF §5).
-- Always say "Fire-3d's modeled spread is not an evacuation instruction". "No zones listed" is never an all-clear.
+- Always say "Disaster Mapping's modeled spread is not an evacuation instruction". "No zones listed" is never an all-clear.
 - **Cameras**: map icons only. An image loads on "Show latest image" and is shown unmodified (`object-fit: contain`:
   ALERTCalifornia's information bar and partner logos stay), with the credit, the licence and "Image updated <time>
   by the camera server's clock". No video, no autoplay, no auto-refresh.
@@ -841,7 +841,7 @@ Written early on 2026-10-18 so map, location and official-web could build agains
 **Incident lists** (`useStore.catalog`, `state/catalog.ts`): `live` (`?mode=live`), `season` (new:
 `?mode=historical&year=2026&min_acres=300`; rows of another year are dropped, so a server ignoring `year=` cannot leak
 2025 rows), `historical` (`?mode=historical&year=2025&min_acres=<minAcres>`). Per list `listLoading`, `listErrors`,
-`updatedMs` (Fire-3d's check time, not CAL FIRE's); `loading` / `error` are their union. Each list applies on
+`updatedMs` (Disaster Mapping's check time, not CAL FIRE's); `loading` / `error` are their union. Each list applies on
 arrival; an older answer never overwrites a newer one. `loadCatalog({ lists?, modes?, minAcres? })`.
 
 **Overview filter and helpers** (`useWorkspace.overviewFilter: 'active' | 'season' | 'past'`, default `'season'`;
@@ -1093,7 +1093,7 @@ mountOfficialLayers(map, { beforeId?: string | string[]; topBeforeId?: string | 
   `FeedInput` adds `preset`, `groupPasses`, `wallMs`.
 - `useExtrasFeedItems()` (unchanged call in App.tsx) now also returns the evacuation rows whatever the toggle says, CAL
   FIRE change / final-record rows and NWS rows.
-- Official rows are timed by the issuer, else by the source's own time, never by Fire-3d's fetch (`timeNotGiven`). They
+- Official rows are timed by the issuer, else by the source's own time, never by Disaster Mapping's fetch (`timeNotGiven`). They
   are seekable only inside the observed record (`time_range.start_ms` … `now_ms`); not seekable means never "later".
 
 **Forensic Key Events (U-R11).** Each row shows its kind as a glyph (the feed's kind icons: observation, estimate,
@@ -1128,9 +1128,9 @@ in SPEC §6. Tests: `backend/tests/test_official_*.py` (recorded samples in `bac
 reason_code: 'past_date' | 'upstream_error' | 'not_covered' | null, reason: string | null,
 source: { name, url, credit, license?, terms_url? }, retrieved_ms, source_updated_ms, requested_at_ms, now_ms,
 incident_id: string | null, caveats: string[] }`.
-- `retrieved_ms` is when Fire-3d fetched the source, never an issue time. `source_updated_ms` is the source's own time.
+- `retrieved_ms` is when Disaster Mapping fetched the source, never an issue time. `source_updated_ms` is the source's own time.
 - An upstream failure answers 200 with a status, so an empty list never stands in for "none".
-- HTTP errors: 400 invalid id, 404 unknown incident, 422 bad query, 429 Fire-3d's own request limit (NWS and IEM
+- HTTP errors: 400 invalid id, 404 unknown incident, 422 bad query, 429 Disaster Mapping's own request limit (NWS and IEM
   30 requests/min each).
 - `Cache-Control: no-store`. Show every `caveats` string, or at least the not-an-all-clear and not-an-evacuation-order
   ones.
@@ -1143,7 +1143,7 @@ recording_since_ms }`.
 - `changes`: oldest first, `{ updated_ms, seen_ms, acres?: [old, new], percent_contained?: [old, new],
   is_active?: [old, new], final?: [old, new] }`.
   - Only the fields that changed are present.
-  - `updated_ms` is CAL FIRE's time for the new record (use it as the row time); `seen_ms` is when Fire-3d first saw it.
+  - `updated_ms` is CAL FIRE's time for the new record (use it as the row time); `seen_ms` is when Disaster Mapping first saw it.
   - A new `Updated` time without new values is recorded but is not a change.
 - `agencies` is CAL FIRE's `AgencyNames` verbatim: free text, sometimes starting with ", ", or null when empty.
 - `incident_url` is CAL FIRE's incident page (https only), also in `source.url`.
@@ -1153,11 +1153,11 @@ recording_since_ms }`.
 - States:
   - `available`.
   - `unavailable` + `not_covered`: a demo or fixture bundle (no network call), or CAL FIRE no longer lists the fire.
-  - `unavailable` + `upstream_error`: CAL FIRE unreachable. `current` / `changes` then hold the last record Fire-3d
+  - `unavailable` + `upstream_error`: CAL FIRE unreachable. `current` / `changes` then hold the last record Disaster Mapping
     recorded, or `null` / `[]` when there is none.
 - Caveats:
   - "These are CAL FIRE's own numbers and update time, …"
-  - "Fire-3d records CAL FIRE's changes only since it first checked this incident (recording_since_ms); …"
+  - "Disaster Mapping records CAL FIRE's changes only since it first checked this incident (recording_since_ms); …"
   - For an inactive fire with no recorded change: "CAL FIRE's list keeps only the latest record, so the
     update-by-update history of a past fire is not available. This is CAL FIRE's final record." (or "latest record").
   - When CAL FIRE edited the record more than 7 days after containment (Eaton: Aug 2026): "CAL FIRE edited this
@@ -1225,7 +1225,7 @@ area_bbox, reported_location }`.
 - When nothing is in effect or upcoming: "No Red Flag Warning or Fire Weather Watch … right now. That is not an
   all-clear: follow local officials." (live), or "… is in the archive for this area at the selected time. That is
   not an all-clear." (archive).
-- NWS User-Agent: "Fire-3d/0.1 (research prototype)". The optional env `FIRE3D_NWS_CONTACT` (a website or email,
+- NWS User-Agent: "Disaster-Mapping/0.1 (research prototype)". The optional env `FIRE3D_NWS_CONTACT` (a website or email,
   sanitized) is appended inside the parentheses, for NWS requests only. No personal data by default.
 - Credits:
   - live: "National Weather Service" (public domain, open data, https://www.weather.gov/disclaimer);
@@ -1676,7 +1676,7 @@ export interface ListSource {
   id: 'calfire' | 'wfigs'
   name: string                          // "CAL FIRE" | "NIFC WFIGS (IRWIN)"
   status: 'available' | 'unavailable'
-  retrieved_ms: number | null           // when Fire-3d fetched that list (never an issue time)
+  retrieved_ms: number | null           // when Disaster Mapping fetched that list (never an issue time)
   reason: string | null                 // plain words when unavailable, or when stale (14.16)
   stale?: boolean                       // 14.16 (final verification): could not be refreshed; an older copy is shown
 }
@@ -1764,7 +1764,7 @@ From `docs/redesign/contract3/us-catalog.md` (M1, M3) and the integration.
   when `catalog.resolve_listed` resolves it (a CAL FIRE or WFIGS record, never a manifest alone) and
   `is_supported(summary)`. `pipeline.is_catalog_incident(incident_id, summary)` keeps its signature (`app.py:184`
   imports it) and becomes `summary is not None and summary.id == incident_id and catalog.resolve_listed(incident_id)
-  is not None`. Answers: unknown id → HTTP 404 "unknown incident"; Alaska, Hawaii or a territory → HTTP 422 "Fire-3d
+  is not None`. Answers: unknown id → HTTP 404 "unknown incident"; Alaska, Hawaii or a territory → HTTP 422 "Disaster Mapping
   does not support Alaska, Hawaii or US territories yet."; a bundle-only id (`fixture-demo`, `fixture-east`, any local
   or synthetic bundle) → HTTP 409 "'{id}' is a local or synthetic bundle; it cannot be rebuilt." (no "CAL FIRE
   catalog" wording; a non-forced build of a ready bundle-only id still returns it untouched, as `test_api.py` expects
@@ -1788,7 +1788,7 @@ From `us-catalog.md` (M3, cut-line f, review round 1) and `us-pipeline.md` (§14
   copies `RECORD_IDENTITY_FIELDS` when the listed row is another record than the bundle's (`live.record_identity`), so
   a pinned bundle never shows CAL FIRE's numbers under a NIFC WFIGS issuer.
 - Build gate (`pipeline.is_catalog_incident`, `pipeline.BuildRefused`, `gate_refusal`; `api/app.py` the same texts):
-  404 "unknown incident '<id>'"; 422 "Fire-3d does not support Alaska, Hawaii or US territories yet."; 409 "'<id>' is
+  404 "unknown incident '<id>'"; 422 "Disaster Mapping does not support Alaska, Hawaii or US territories yet."; 409 "'<id>' is
   a local or synthetic bundle; it cannot be rebuilt."; 409 "'<alias>' is listed as '<id>'."; plus `landfire_gate`
   (14.12.3). The `test_api.py` hand-off was done by the integration: the API tests assert these texts.
 - **Source lists unreachable** (integration part 2; us-pipeline review R8): `resolve_listed` raises
@@ -2070,9 +2070,9 @@ interface IncidentRecordResponse extends OfficialEnvelope {           // kind 'i
   NIFC WFIGS lists its member fires separately." (never one member's record). A bundle-only or synthetic id
   (`fixture-demo`, `fixture-east`, any id that `get_summary` answers only from a manifest): `unavailable` +
   `not_covered`, reason "This is synthetic or local data; it has no agency record." An id nobody knows: HTTP 404.
-- `source_updated_ms` = `current.updated_ms`; `retrieved_ms` = Fire-3d's fetch; WFIGS down: `unavailable` +
+- `source_updated_ms` = `current.updated_ms`; `retrieved_ms` = Disaster Mapping's fetch; WFIGS down: `unavailable` +
   `upstream_error`, `current: null`. Caveats always include: "These are the protecting agency's numbers as published
-  by NIFC WFIGS (IRWIN), with the record's own update time. Fire-3d does not record changes to this record yet." and
+  by NIFC WFIGS (IRWIN), with the record's own update time. Disaster Mapping does not record changes to this record yet." and
   "No record or no change is not an all-clear: follow local officials."
 - Agency names: `backend/fire3d/data/nwcg_agency_codes.json` `{ "meta": {source, checked}, "codes": {"USFS": "USDA
   Forest Service", ...} }` for the codes in use (B 2.1); an unknown code is shown verbatim. `us-catalog` checks the
@@ -2128,7 +2128,7 @@ From `us-catalog.md` (M4), `us-pipeline.md` (§14.5), `us-official.md` (M4) and 
 - Fire card (review round 1, R1, round 3 item 2): `.fc-official` takes its status from the record's own agency
   (`lib/recordText.ts` `recordStatus`, built on `ownRecordActive`): "Not listed as active" / "Contained" when the
   record itself is not active, with "<issuer> record last edited …" instead of "Updated by …"; the ACTIVE title chip
-  (Fire-3d's listing, either agency) stays outside `.fc-official`. Map hovers (`map/hoverText.ts`) follow the same rule
+  (Disaster Mapping's listing, either agency) stays outside `.fc-official`. Map hovers (`map/hoverText.ts`) follow the same rule
   and list each disagreeing record with its own issuer and time.
 - Credits (review R5 of us-web, and the integration): "Agency names: NWCG unit identifiers" under the fire card's
   record when a plain agency name is shown (`agencyNameShown`), and in an open fire's "Data sources" note
@@ -2254,7 +2254,7 @@ interface LocalAlertsResponse extends OfficialEnvelope {          // kind 'local
 - **Credits**: live "National Weather Service (relayed local officials' messages)"; archive "FEMA IPAWS archive via
   OpenFEMA" plus the required notice "This product uses the Federal Emergency Management Agency's OpenFEMA API, but is
   not endorsed by FEMA" (terms: https://www.fema.gov/about/openfema/terms-conditions; no FEMA or DHS logos).
-- **Caveats** (always): "Fire-3d lists only the local alerts the National Weather Service relays; most are not relayed
+- **Caveats** (always): "Disaster Mapping lists only the local alerts the National Weather Service relays; most are not relayed
   (about 1 in 20 fire and evacuation alerts in 2024-26). No alert here is not an all-clear: follow local officials."
   Archive: "Archived copy from FEMA (OpenFEMA, published about a day later); FEMA does not validate message content.
   Replays can list more than was visible live."
@@ -2287,7 +2287,7 @@ From `us-pipeline.md` (§14.7, review round 1) and `us-official.md` (M5, review 
   type above); `sender_name` is verbatim and can carry the sender's COG number ("200277,LA City Public Alerts,City of
   Los Angeles"), shown as sent.
 - **Integration:** an area that touches no lower-48 state answers `unavailable` + `state_not_available`, both
-  channels `not_checked` with "Fire-3d checks local officials' alerts in the lower 48 states only." and the reason
+  channels `not_checked` with "Disaster Mapping checks local officials' alerts in the lower 48 states only." and the reason
   that sentence plus the 14.14 coverage sentence, with no NWS request (before, a box at Tijuana or Anchorage answered
   `available` with no alerts; review round 2, N2). The web reads it as "not checked", never "none" or an outage.
 - Web (`official/localAlerts.ts`, new): `localAlertsState` ("none" only when a channel answered; HTTP 404 → not
@@ -2402,8 +2402,8 @@ whose status was not kept up to date in 2026; not shown."
 **14.8.3 Rules**
 - A bbox that touches no `available` state: `status: 'unavailable'`, `reason_code: 'state_not_available'`, reason
   "Official evacuation zones are not available in this state ({Montana}). Follow local officials." No upstream request.
-  Outside the lower 48: "Fire-3d does not support Alaska, Hawaii or US territories yet." / "Outside the United States:
-  Fire-3d has no data here."
+  Outside the lower 48: "Disaster Mapping does not support Alaska, Hawaii or US territories yet." / "Outside the United States:
+  Disaster Mapping has no data here."
 - Mixed states (OR/CA, CA/NV, OR/WA): fetch each available adapter the bbox touches; every other state adds the caveat
   "{Nevada}: official evacuation zones are not available in this state". A failed source is `unavailable` in
   `sources[]`, never "none".
@@ -2468,7 +2468,7 @@ From `us-official.md` (M2, M3, review round 1).
   **Integration:** the 14.8.2 additions are required in `web/src/extras/types.ts` (`EvacSource extends ExtrasSource`
   with the per-source fields and `aggregator`; `EvacuationsResponse.sources: EvacSource[]`, `states`, the ten zone
   props); the recorded brief-2 web sample carries them as the brief-3 backend adds them.
-- Oregon: `normalize_oregon` as specified; standing caveats (no issue time; levels are Fire-3d's rendering with OEM's
+- Oregon: `normalize_oregon` as specified; standing caveats (no issue time; levels are Disaster Mapping's rendering with OEM's
   definitions); OEM's "If there are no records … no evacuations" sentence is never repeated. The live Oregon layer is
   empty off-season; zones with content come from the recorded 2026-08-15 history snapshot (tests, dev preset).
 - Cameras outside California: `state_not_available` with `sources: []` (review R5) and the 14.14 sentence.
@@ -2615,13 +2615,13 @@ From `us-web.md` (M1, M3, late changes), `us-official.md` (M1, M6) and `us-pipel
   words (`city | town | village | borough | cdp | county | …`) with `place_type_label`. Parsing: "Springfield, IL",
   "Springfield IL", "83702 ID", "ID 83702"; a bare "Springfield" lists the largest matches across states (state
   shown). Messages: no match → "No US city, town, county or ZIP code matches '<q>'."; an Alaska or Hawaii match keeps
-  its row and adds the note "Fire-3d does not support Alaska, Hawaii or US territories yet."; national examples in
+  its row and adds the note "Disaster Mapping does not support Alaska, Hawaii or US territories yet."; national examples in
   errors ("e.g. 600 E Mariposa St, Altadena; Boise, ID; 83702").
 - **Web** (`us-web`): `location/search.ts` state words are the 48 + DC codes and names (`lib/usStates.ts`, new),
   "Town, ST" is parsed, incident search matches the state; wording says "US" (no "California"). Lat/lon order (W8,
   `lib/geodesy.ts`): a bare pair with no letters and both values within ±90 tries both orders and picks the one inside
   the lower-48 box `[-124.85, 24.40, -66.89, 49.38]`; if neither is inside, it reads lat, lon and warns "This point is
-  outside the area Fire-3d covers (the lower 48 states)." The box is a parsing heuristic, never a coverage claim
+  outside the area Disaster Mapping covers (the lower 48 states)." The box is a parsing heuristic, never a coverage claim
   (coverage comes from `/api/geo/lookup`). Tests: Atlanta "-84.39, 33.75", Miami, Boston, Houston, Los Angeles,
   Seattle.
 
@@ -2636,7 +2636,7 @@ From `us-catalog.md` (M5) and `us-web.md` (M5, late changes).
   "e.g. 150 N Capitol Blvd, Boise, ID; Springfield, IL; 83702" (`SEARCH_EXAMPLES`); ZIP matches are titled "ZIP 83702,
   ID"; `noPlaceMessage` uses curly quotes.
 - Coverage at a point from `/api/geo/lookup` only (`location/geoLookup.ts`); Alaska, Hawaii and territories replace
-  the nearest-fires rows with "Fire-3d lists fires in the lower 48 states only, so fires here are not listed. Follow
+  the nearest-fires rows with "Disaster Mapping lists fires in the lower 48 states only, so fires here are not listed. Follow
   local officials." (new wording); the overview location card credits "Boundaries: U.S. Census Bureau TIGERweb · Time
   zones: USDOT BTS NTAD" when the lookup answered, and (integration) an open fire's "Data sources" note credits both.
 
@@ -2687,7 +2687,7 @@ From `us-web.md` (M2, cut line b/c, review round 1).
   strip never describe a fire other than the one the map shows with its card; the close comes before the flight,
   because the map releases the hold whenever the open fire changes. Forensic only opens the card.
 - **Part 1 review fixes, round 2 (R1, the map marker):** the hold also survives the marker click itself
-  (`map/userInput.ts` `MapInput`). The map tells the user's moves from Fire-3d's own by input on the map within 400 ms
+  (`map/userInput.ts` `MapInput`). The map tells the user's moves from Disaster Mapping's own by input on the map within 400 ms
   of a move's end; the card's own layout change restarted the flight with the new safe-area padding within that time
   after the click, and that restart's moveend counted as the user's move and ended the hold (the zoom focus then
   opened Lower Sugarloaf at both the national view and regional zoom). Now a click handled as a request (a fire's
@@ -2932,8 +2932,8 @@ vendor evacuation systems (out of scope).
 
 - No evacuation feed: "Official evacuation zones are not available in this state ({State}). Follow local officials."
   Short form (cards, phones): "Evacuation zones: not available in this state".
-- Not supported: "Fire-3d does not support Alaska, Hawaii or US territories yet." Outside the US: "Outside the United
-  States: Fire-3d has no data here."
+- Not supported: "Disaster Mapping does not support Alaska, Hawaii or US territories yet." Outside the US: "Outside the United
+  States: Disaster Mapping has no data here."
 - Cameras: "Public cameras: California only (ALERTCalifornia, Caltrans). Not available in this state."
 - Accuracy: 14.4. Untested: "Accuracy not yet tested here." Always: "Outside the modeled area is unknown, not low."
 - National list down: "The national fire list (NIFC) is unavailable right now; only California fires (CAL FIRE) are
@@ -2948,9 +2948,9 @@ vendor evacuation systems (out of scope).
 #### 14.14 as built
 
 - Used as written, plus: the plural not-available sentence ("… not available in these states (Nevada, Utah). Follow
-  local officials."); the cameras sentence as the backend's `CAMERAS_NOT_AVAILABLE`; "Fire-3d lists fires in the lower
+  local officials."); the cameras sentence as the backend's `CAMERAS_NOT_AVAILABLE`; "Disaster Mapping lists fires in the lower
   48 states only, so fires here are not listed. Follow local officials." (Alaska, Hawaii and territories on the
-  overview location card); "Fire-3d checks local officials' alerts in the lower 48 states only." (local alerts outside
+  overview location card); "Disaster Mapping checks local officials' alerts in the lower 48 states only." (local alerts outside
   the lower 48).
 
 ### 14.15 As-built notes
@@ -3100,8 +3100,8 @@ The final check's fixes, from an independent review panel's findings (report
 - **Query bounds** (panel F5): every `at_ms` query parameter is `0 <= at_ms <= timeutil.MAX_QUERY_MS`
   (4,102,444,800,000 = 2100-01-01T00:00Z); larger values answer 422, never 500.
 - **Region files missing or unreadable** (panel SR-m3): `regions.RegionsUnavailable`, answered by the API as HTTP 503
-  "Fire-3d's region files (states, counties and time zones) could not be read on this server, so the state, county
-  and time zone are unknown here. Reinstall Fire-3d." (`regions.REGIONS_UNAVAILABLE_TEXT`), never a 500; `zone_of`
+  "Disaster Mapping's region files (states, counties and time zones) could not be read on this server, so the state, county
+  and time zone are unknown here. Reinstall Disaster Mapping." (`regions.REGIONS_UNAVAILABLE_TEXT`), never a 500; `zone_of`
   still falls back to UTC, labelled, never Pacific.
 - **Official wording** (panel SR-m1): local officials' alerts with status `unavailable` read "Unavailable right now."
   (Official now) and "Local officials' alerts: unavailable right now" (location card); fire weather answered
@@ -3136,7 +3136,7 @@ The clean re-check after 14.16 found nine minor problems (R1-R9, report `docs/re
   the ones NIFC WFIGS sends that were missing: FWS, DNRF, FFP, NNSA, OES, DOC. Codes PMS 931 does not name or names
   twice stay verbatim (`meta.not_named`: ARNG, DEC, DFFM, INTER, SHP, SP, TRIBE, USMC).
 - **Freshness wording** (R7). The overview's source line and the phone peek say the newest record's age, never
-  "updated" beside an older check: "newest record 10 min old" (`overview.newestRecordText`), then when Fire-3d
+  "updated" beside an older check: "newest record 10 min old" (`overview.newestRecordText`), then when Disaster Mapping
   fetched the lists: "list checked 2 min ago"; sources fetched at different times (1 min or more apart, whatever
   the list count) "lists checked in the last 30 min", or "sources checked in the last 8 min" for the Active list built
   from CAL FIRE and NIFC WFIGS copies kept for different times (orchestrator follow-up after the final re-check); a
@@ -3388,7 +3388,7 @@ switches; `useMapRuntime.tint` (in effect) and `tintRequest`. `MapAtmosphere` ap
   when the replay and today differ; tooltip = `zoneLine`); one-line `CommandRow`s (a button with `aria-expanded` /
   `aria-controls`: tone dot, **title** — verdict, mono meta = issuer · the item's own time · checked; open = the previous
   body unchanged with Show / Source / More); rows with an evacuation order or warning, an NWS alert in effect or a local
-  officials' alert in effect start open (and open once when they become one); foot `COMMAND_OFFICIAL_FOOT` ("Fire-3d's
+  officials' alert in effect start open (and open once when they become one); foot `COMMAND_OFFICIAL_FOOT` ("Disaster Mapping's
   modeled spread is experimental and is not an evacuation order. Not an all-clear. Follow local officials."); the rows
   scroll between head and foot with a fade while more is below; "View all updates" opens the glass panel
   (`.is-command-panel`: the same rows, `DataStatus`, `UpdatesFeed`; "Show fewer" returns; focus moves to the panel
@@ -3533,7 +3533,7 @@ Where this differs from §15.1-15.4, this paragraph is what the code does.
   `setDevice(deviceFromPosition(pos))` + `selectLocation(deviceSelection(d), { fly: true, zoom: deviceZoom(accuracy) })`
   (`source 'device'`, label "Your location", approximate when coarser than 100 m or unknown). Denied / unavailable /
   timeout / unsupported / insecure: `LOCATE_MESSAGES` under the button (dismissable; never a default place). Memory only:
-  not in the URL, not in browser storage. The point is checked like a map click (Fire-3d's own `/api/geo/lookup`,
+  not in the URL, not in browser storage. The point is checked like a map click (Disaster Mapping's own `/api/geo/lookup`,
   `/api/extras/evacuations`, `/api/official/local-alerts`), so the card's line is now "Your location from your browser
   (not saved or added to the link)" (`location/locationCheck.ts`; H2's "it stays in your browser" was not exact).
 - *Click → fire view* (decision b): `state/fireCard.ts openFireView(id)` = `setFireCard(null)` + `selectIncident(id,
@@ -3641,7 +3641,7 @@ Where this differs from §15.1-15.4, this paragraph is what the code does.
   record endpoint (`useOfficialNow().calfire`) when it has them, else the list row; quiet states end with "not an
   all-clear"; never "N/A". Foot (sticky when the facts scroll): OFFICIAL badge (DEMO for synthetic data) + "<record
   issuer> · NWS · <evacuation source> · checked <age>", `NOT_ALL_CLEAR` + the record's link ("NIFC WFIGS" / "CAL
-  FIRE"). Between rows and foot, `MapDataState`: unprepared "Fire-3d has not prepared this fire's map data yet." +
+  FIRE"). Between rows and foot, `MapDataState`: unprepared "Disaster Mapping has not prepared this fire's map data yet." +
   "Prepare map data (1-3 min)" (`openFire(id, 'prepare')`), failed "… last preparation … failed." + "Prepare again",
   building "Preparing this fire's map data (1-3 min) · <step>" with a progress bar, prepared without a perimeter
   "Estimated burned area from satellite detections: in Command ›".
@@ -3890,7 +3890,7 @@ rule is scoped to `.app`, `.fx-bar`, `.minibar`, `.fx-empty*` or a Forensic-only
 - *Place and dates* (H5-DF-6): `.fx-place` is a wrapping flex row: one line ("Monterey County · Oct 19, 2026 – present")
   while it fits, else the dates on a line of their own under the place; the " · " sits in the 18 px before the dates and
   is clipped (`clip-path`) when they wrap; each line ellipsises only when it alone is too long (the dates' inner span
-  carries the ellipsis). The "Fire-3d" word hides at ≤ 1400 px (the logo stays), so at 1281-1400 px the dates show whole
+  carries the ellipsis). The "Disaster Mapping" word hides at ≤ 1400 px (the logo stays), so at 1281-1400 px the dates show whole
   (1366 px: was cut to "Oct 19, 2026 – pr…"); the place line still hides at ≤ 1280 px.
 - *Timeline NOW / T₀* (H5-DF-5): the word starts 14 px right of its mark (`Timeline.tsx NOW_LABEL_DX`), clear of the
   16 px knob and its 3 px ring at the default time; the time bubble keeps the space above the handle. The
@@ -3949,7 +3949,7 @@ changed; no backend source, HTTP contract or H2 frozen file changed.
   what the app does; every data-source credit is unchanged.
 - *Left for later* (details in the report's `known_issues`): Safari trackpad and touch twists are checked only with
   synthetic events (a person should try them on a Mac and a phone); every measurement used SwiftShader (no GPU; the
-  hazard circle's CPU cost on a laptop is not measured); a checked device point reaches Fire-3d's server like a map
+  hazard circle's CPU cost on a laptop is not measured); a checked device point reaches Disaster Mapping's server like a map
   click (keeping it out of server logs needs a backend change); Command's readout scrolls on real fires at 1440×1000;
   phones keep Command's default controls row and some 26-32 px Forensic dock buttons; the fire view has no skip link of
   its own (`App.tsx` is frozen); and BRIEF-4's later list (search suggestions, Forensic search, the globe intro,
@@ -4355,7 +4355,7 @@ export interface FloodMapResponse extends FloodEnvelope {
   reference_ms: number | null      // rfc_fim reference_time (forecast base)
   updated_ms: number | null        // service update_time
   /** rfc_fim: union area of the polygons on the flood's member gauges' reaches (layer-3 feature_id join), never a bbox
-   *  crop; null when the join fails. Fire-3d's measurement, includes the river channel; shown in Command only. */
+   *  crop; null when the join fails. Disaster Mapping's measurement, includes the river channel; shown in Command only. */
   stats: { area_km2: number } | null
   coverage_note: string            // RFC_FIM_NOTE | CATFIM_NOTE | NFHL_NOTE
   outside_note: string | null      // RFC_FIM_OUTSIDE (rfc_fim)
@@ -4756,8 +4756,8 @@ any flood colour (`floodStyle.test.ts`: hue 75°-165° with saturation above 25 
 | `RFC_FIM_OUTSIDE` | Outside NWS's mapped area, flooding is unknown, not absent. |
 | `CATFIM_NOTE` | What NWS maps for {category} flooding at this gauge (experimental map library). Not a forecast. |
 | `SAT_CAVEAT` | Water seen by satellite (NASA OPERA), {date, time}. It includes the river's normal water. Clouds ({n}% of this area), trees, buildings and the days between passes hide water: dry pixels do not mean no flooding. |
-| `SAT_NOT_SET_UP` | NASA Earthdata login is not set up on this server. Fire-3d shows NASA's public optical images (Landsat and Sentinel-2), which cannot see through clouds and arrive about a day later. Radar images that see through clouds need the login. |
-| `SAT_LOGIN_REFUSED` | The NASA Earthdata login on this server was refused (it may have expired). Fire-3d shows NASA's public optical images only until it is renewed. |
+| `SAT_NOT_SET_UP` | NASA Earthdata login is not set up on this server. Disaster Mapping shows NASA's public optical images (Landsat and Sentinel-2), which cannot see through clouds and arrive about a day later. Radar images that see through clouds need the login. |
+| `SAT_LOGIN_REFUSED` | The NASA Earthdata login on this server was refused (it may have expired). Disaster Mapping shows NASA's public optical images only until it is renewed. |
 | `SAT_UNAVAILABLE` | Satellite water could not be loaded right now. That is not an all-clear. |
 | `NFHL_NOTE` | FEMA's 1%-annual-chance (100-year) floodplain, used for flood insurance. It is not a map of current flooding, and places outside it can flood. Provided as is by FEMA. |
 | `NFHL_NO_MAP` | FEMA has no digital flood map here. |
@@ -4773,13 +4773,13 @@ by the real API since backend-flood-live M2 (the fixture server keeps its canned
 
 | Name | Text |
 |---|---|
-| `GAUGE_ONLY_COASTAL_CAVEAT` | No NWS Flood or Flash Flood product names this gauge right now. It may measure tidal or lake water: Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products, which may be in effect here. |
+| `GAUGE_ONLY_COASTAL_CAVEAT` | No NWS Flood or Flash Flood product names this gauge right now. It may measure tidal or lake water: Disaster Mapping does not read NWS Coastal Flood or Lakeshore Flood products, which may be in effect here. |
 | `RFC_DOWN` | NWS river forecast points could not be reached right now; forecast flood categories may be missing. |
 | `STALE_NWS` / `STALE_GAUGES` / `STALE_RFC` | NWS flood products / River gauges / NWS river forecasts could not be refreshed right now; an earlier copy is shown. |
 | `STALE_IEM` | IEM's copy of NWS flood warnings could not be refreshed right now; an earlier copy links the gauges. |
 | `IEM_JOIN_DOWN` | IEM's copy of NWS flood warnings could not be reached right now; some river gauges may not be linked to their NWS warning. |
 | `IEM_JOIN_NAME` | Iowa Environmental Mesonet (copy of NWS flood warnings, used to link river gauges) |
-| `PAST_NOT_YET` | Fire-3d does not list past floods yet. That is not an all-clear. |
+| `PAST_NOT_YET` | Disaster Mapping does not list past floods yet. That is not an all-clear. |
 | `FLOOD_NOT_LISTED_DETAIL`, `FLOOD_ROUTE_NOT_LISTED` | This flood is not listed. |
 | `GAUGE_DETAIL_DOWN` | NOAA's gauge detail service could not be reached right now; this gauge shows the NWS gauge map's reading only (no forecast, no impacts). That is not an all-clear. |
 | `NEARBY_GAUGES_DOWN` | Gauges near this flood could not be loaded right now. That is not an all-clear. |
@@ -4787,8 +4787,8 @@ by the real API since backend-flood-live M2 (the fixture server keeps its canned
 | `SAT_BEFORE_ARCHIVE` | NASA's satellite water images start in 2023; none exists for this date. |
 | `SAT_CAVEAT_NO_CLOUD_SHARE` | Water seen by satellite (NASA OPERA), {date_time}. It includes the river's normal water. Clouds, trees, buildings and the days between passes hide water: dry pixels do not mean no flooding. |
 | `SAT_CAVEAT_RADAR` | Water seen by radar satellite (NASA OPERA), {date_time}. It includes the river's normal water. Trees, buildings, steep slopes and the days between passes hide water: dry pixels do not mean no flooding. |
-| `SAT_PICTURE_REASON` | Fire-3d could not load a measured satellite water image of this area from the last 10 days; NASA's picture of {date} is not measured here. That is not an all-clear. |
-| `SAT_SAVED_COPY` | NASA's satellite water service could not be reached right now; this is the image Fire-3d saved when it prepared this flood. |
+| `SAT_PICTURE_REASON` | Disaster Mapping could not load a measured satellite water image of this area from the last 10 days; NASA's picture of {date} is not measured here. That is not an all-clear. |
+| `SAT_SAVED_COPY` | NASA's satellite water service could not be reached right now; this is the image Disaster Mapping saved when it prepared this flood. |
 | `SATELLITE_IMAGE_GONE` | This satellite image is no longer kept; reload the flood to get the newest one. |
 | `RFC_FIM_PAST` | NWS forecast flooded-area maps are not kept for past dates. |
 | `CATFIM_TODAY` | NWS category flood maps are a static library: this is today's map, not one made at that time. Not a forecast. |
@@ -4798,14 +4798,14 @@ by the real API since backend-flood-live M2 (the fixture server keeps its canned
 | `MODEL_NO_REACH` / `MODEL_NO_GAUGE` | This gauge has no National Water Model reach, so there is no model series for it. / This flood has no river gauge, so there is no model series for it. |
 | `NFHL_PARTLY_MAPPED` | FEMA's digital flood map covers only part of this area; outside it, FEMA's floodplain is not shown. |
 | `NFHL_AVAILABILITY_UNKNOWN` | Whether FEMA has a digital flood map for all of this area could not be checked right now. |
-| `NFHL_TRUNCATED` | FEMA's map has more flood zones in this area than Fire-3d draws; some of the floodplain may be missing here. |
+| `NFHL_TRUNCATED` | FEMA's map has more flood zones in this area than Disaster Mapping draws; some of the floodplain may be missing here. |
 | `ALERTS_PAST_NOT_YET` / `GAUGES_PAST_NOT_YET` | Past NWS flood products / river gauge readings are not served yet (…). |
 | `BUILD_SYNTHETIC` | This is a synthetic bundle (test data); it cannot be rebuilt. |
-| `BUILD_OUTSIDE_L48` | Fire-3d prepares floods in the lower 48 states and DC only. |
+| `BUILD_OUTSIDE_L48` | Disaster Mapping prepares floods in the lower 48 states and DC only. |
 | `GAUGE_NOT_FOUND` | NOAA has no river gauge with this id. |
 | `TERRAIN_DOWN` / `NAIP_DOWN` | Terrain (USGS 3DEP) could not be loaded; the 3D view needs it. / The aerial photo (USGS NAIP) could not be loaded for this area. |
 | `GAUGES_NONE` | This flood has no river gauge. |
-| `LOCAL_FLOOD_CAVEAT` | Fire-3d lists only the local officials' alerts the National Weather Service relays; most are not relayed. No alert here is not an all-clear: follow local officials. |
+| `LOCAL_FLOOD_CAVEAT` | Disaster Mapping lists only the local officials' alerts the National Weather Service relays; most are not relayed. No alert here is not an all-clear: follow local officials. |
 | `LOCAL_FLOOD_ARCHIVE_REASON` | FEMA's archive of local alerts is not checked for floods in this version. |
 | `LOCAL_FLOOD_NWS_DOWN` | Local officials' alerts relayed by NWS are not shown; that does not mean there are none. Follow local officials. |
 | `ARCHIVE_DOWN`, `ARCHIVE_PARTIAL`, `YEAR_NOT_KEPT`, `PAST_AREA_ALERTS`, `PAST_AREA_GAUGES`, `PAST_ALERTS_DOWN`, `NO_USGS_SITE`, `PAST_GAUGE_NOT_KEPT`, `PAST_BEFORE_FLOOD`, `PAST_NO_BUNDLE` | past floods (`history.PAST_STRINGS`; texts in `contract5/backend-flood-live.md`) |

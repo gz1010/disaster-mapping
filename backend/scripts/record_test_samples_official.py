@@ -66,7 +66,7 @@ from fire3d import http as fhttp
 from fire3d.sources import nws, sentinel
 from fire3d.timeutil import iso_to_ms
 
-config.USER_AGENT = "Fire-3d/0.1 test-sample recorder (research prototype; a few requests per run)"
+config.USER_AGENT = "Disaster-Mapping/0.1 test-sample recorder (research prototype; a few requests per run)"
 NWS_HEADERS = {"User-Agent": config.USER_AGENT, "Accept": "application/geo+json"}
 TTL_S = 7 * 86400.0                        # only matters with --cache-dir (re-runs reuse the answers)
 PAUSE_S = 1.2                              # between real requests

@@ -1,4 +1,4 @@
-"""Paths, environment, constants and SSL setup for Fire-3d.
+"""Paths, environment, constants and SSL setup for Disaster Mapping.
 
 Imported (directly or indirectly) by every backend module. At import time it:
   * loads ``<repo>/.env`` with a tiny KEY=VALUE parser (real environment variables win),
@@ -127,7 +127,7 @@ AOI_BBOX_SCALE = 1.3
 FALLBACK_MIN_RADIUS_M = 1000.0
 
 # HTTP client (fire3d/http.py)
-USER_AGENT = "Fire-3d/0.1 (research prototype)"
+USER_AGENT = "Disaster-Mapping/0.1 (research prototype)"
 HTTP_MAX_CONCURRENCY = 4
 HTTP_CACHE_DIR_NAME = "http"
 

@@ -1,5 +1,5 @@
 // Evacuation rows of a flood (brief 5, PLAN-5 D23, C5): flood wording; no flood view renders "fire" in an evacuation
-// row in Fire-3d's own words (an issuer's verbatim words, inside data-verbatim, may name a fire zone as such).
+// row in Disaster Mapping's own words (an issuer's verbatim words, inside data-verbatim, may name a fire zone as such).
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -85,7 +85,7 @@ afterEach(() => {
 
 describe('flood evacuation rows (D23, C5)', () => {
   for (const [name, data] of answers)
-    it(`${name}: flood wording, never "fire" in Fire-3d's own words, no banned word`, () => {
+    it(`${name}: flood wording, never "fire" in Disaster Mapping's own words, no banned word`, () => {
       const s = DETAIL().summary
       ssrState(useFlood, { floodId: s.id, summary: s } as never)
       ssrState(useExtrasRuntime, { evac: { data, loading: false, error: null, refresh: () => undefined } } as never)

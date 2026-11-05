@@ -41,7 +41,7 @@ from fire3d import config  # noqa: E402
 from fire3d import http as fhttp  # noqa: E402
 from fire3d.sources import evacuations as evac  # noqa: E402
 
-config.USER_AGENT = "Fire-3d/0.1 test-sample recorder (research prototype; a few requests per run)"
+config.USER_AGENT = "Disaster-Mapping/0.1 test-sample recorder (research prototype; a few requests per run)"
 
 HISTORY_URL = ("https://services.arcgis.com/uUvqNMGPm7axC2dD/arcgis/rest/services/2026_Wildfire_Evac_History/"
                "FeatureServer/0")

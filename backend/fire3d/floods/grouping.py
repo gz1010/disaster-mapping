@@ -59,7 +59,7 @@ INACTIVE_LISTED_H = 48
 # INACTIVE_LISTED_H keeps its id (NWS replaced a warning with a new one; catalog.continuations)
 CONTINUE_KINDS = ("flash", "areal")
 H_MS = 3_600_000
-# A gauge-only flood at a gauge that may measure tidal or lake water (review BFS-R2): Fire-3d does not read NWS
+# A gauge-only flood at a gauge that may measure tidal or lake water (review BFS-R2): Disaster Mapping does not read NWS
 # Coastal Flood or Lakeshore Flood products (D1), so it never says that no NWS flood product names such a gauge.
 TIDAL_PE_CODES = ("HM", "HC")        # SHEF codes of tidal / coastal water levels (every one in the recorded answers)
 COASTAL_NEAR_KM = 10.0               # a gauge this close to a recognised tide gauge may be tidal too
