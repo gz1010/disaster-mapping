@@ -857,6 +857,6 @@
  "servers": "API 8759 and Vite 5219, stopped at the end",
  "commits": [
   "f63e25c brief 5 integration: M1 real data (...)",
-  "brief 5 integration: part 1 report, as-built note, CONTRACT 16.14-16.16, string-table test"
+  "a3d111d brief 5 integration: part 1 report, as-built note, CONTRACT 16.14-16.16 (...), gates"
  ]
 }
