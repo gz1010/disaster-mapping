@@ -14,7 +14,7 @@
     "57c7cd8 brief 6 web-forensic-flood-3d: M4 drapes follow the playback pass",
     "6a6f36f brief 6 web-forensic-flood-3d: final (warning lines and hover follow the time history, phone dock, screenshots, report, as-built note, CONTRACT 17 pointer)",
     "e553bb0 brief 6 web-forensic-flood-3d: review fixes (R1 terrain shader fire/flood variants within 15 textures, R2-R9 code)",
-    "(next commit) brief 6 web-forensic-flood-3d: review fixes (screenshots, review report, as-built note, CONTRACT 17)"
+    "e7e7086 brief 6 web-forensic-flood-3d: review fixes (screenshots, review report, as-built note, CONTRACT 17)"
   ],
   "note_on_snapshot": "Most of M1-M3's code landed in the orchestrator's wave-2 snapshot ee6ac13 before the M1-M3 commit.",
   "files": [
