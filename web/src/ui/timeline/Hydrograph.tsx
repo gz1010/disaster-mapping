@@ -378,9 +378,13 @@ function Plot({ model: m, readout, width, height, pb, cursorMs }: { model: Hydro
     const list = m.thresholds.filter((t) => t.pinned === dir).sort((a, b) => (dir === 'above' ? b.value - a.value : a.value - b.value))
     list.forEach((t, i) => (pinnedRank[t.level] = i))
   }
+  // the labels on their lines start under the levels pinned to the top (brief 6: a small river range put "MINOR 2.0"
+  // over "MODERATE 4.0 ↑")
+  const pinnedAbove = m.thresholds.filter((t) => t.pinned === 'above').length
   const labels = spreadLevelLabels(
     m.thresholds.filter((t) => !t.pinned).map((t) => ({ key: t.level, y: y(t.value) })),
     height,
+    pinnedAbove ? 6 + pinnedAbove * 10 : Number.NEGATIVE_INFINITY,
   )
   return (
     <svg className="hg-svg" width={width + GUTTER} height={height} role="img" aria-label={plotLabel(m)}>
@@ -469,10 +473,10 @@ function readoutValue(m: HydrographModel, t: number): number | null {
 }
 
 /** Level labels at least 10 px apart (sorted top to bottom, pushed down, then kept inside). */
-function spreadLevelLabels(items: { key: string; y: number }[], height: number): Record<string, number> {
+function spreadLevelLabels(items: { key: string; y: number }[], height: number, minY = Number.NEGATIVE_INFINITY): Record<string, number> {
   const sorted = [...items].sort((a, b) => a.y - b.y)
   const out: Record<string, number> = {}
-  let last = -Infinity
+  let last = minY - 10
   for (const it of sorted) {
     const yy = Math.max(it.y, last + 10)
     out[it.key] = Math.min(yy, height - 4)
@@ -592,7 +596,7 @@ function dayLabels<T extends { x: number; label: string }>(days: readonly T[], m
   let lastRight = Number.NEGATIVE_INFINITY
   for (const d of days) {
     const w = d.label.length * 6.4 + 6
-    if (d.x + w > maxRight || d.x < lastRight) continue
+    if (d.x + w > maxRight || d.x < lastRight + 8) continue
     if (latest && d.x + w > latest[0] && d.x < latest[1]) continue
     out.push(d)
     lastRight = d.x + w

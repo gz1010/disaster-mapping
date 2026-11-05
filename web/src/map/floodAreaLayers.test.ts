@@ -1,10 +1,11 @@
-// The flood views' area layers (brief 5, PLAN-5 §4.4 map layers; D16, D25, C1, C2).
+// The flood views' area layers (brief 5, PLAN-5 §4.4 map layers; D16, D25, C1, C2; brief 6: at the chart's handle).
 import { describe, expect, it } from 'vitest'
 import { ALERTS, FIXTURE_NOW_MS, RFC_FIM, RFC_FIM_UNAVAILABLE, SATELLITE, SATELLITE_PICTURE_ONLY, SATELLITE_UNAVAILABLE } from '../api/__fixtures__/floods/edgeCases'
 import nfhl from '../api/__fixtures__/floods/maps-nfhl.json'
 import type { FloodMapResponse } from '../api/types'
 import { productsAt } from '../official/floodModel'
-import { AREA_LAYER_KEY, fimHatchImage, FLOOD_AREA_LAYERS, floodAreaLayers, imageCorners, mapFeatures, nfhlFeatures, nfhlStippleImage, satelliteEdge, satelliteImage, warningFeatures } from './floodAreaLayers'
+import { SQUARE, testPass, testTimeline, versionBuilder } from '../state/floodTimeline.testutil'
+import { AREA_LAYER_KEY, fimHatchImage, FLOOD_AREA_LAYERS, floodAreaLayers, imageCorners, mapFeatures, nfhlFeatures, nfhlStippleImage, satelliteAtHandle, satelliteEdge, satelliteImage, warningFeatures, warningsAtHandle } from './floodAreaLayers'
 
 const H = 3_600_000
 
@@ -68,5 +69,57 @@ describe('flood area layers', () => {
     const ids = floodAreaLayers().map((l) => l.id)
     expect(ids[0]).toBe(FLOOD_AREA_LAYERS.satellite)
     expect(ids.indexOf(FLOOD_AREA_LAYERS.warningsLine)).toBeGreaterThan(ids.indexOf(FLOOD_AREA_LAYERS.forecastFill))
+  })
+})
+
+// brief 6 (web-flood-playback M3): the satellite image and the warning areas follow the chart's handle
+describe('flood area layers at the handle (brief 6)', () => {
+  const NOW = FIXTURE_NOW_MS
+  const version = versionBuilder(NOW)
+  const before = testPass('DSWx-HLS_20261026T1800_L8', NOW - 9 * 24 * H, 'clear')
+  const cloud = testPass('DSWx-HLS_20261028T1800_S2A', NOW - 7 * 24 * H, 'no_view')
+  const partly = testPass('DSWx-HLS_20261102T1800_L9', NOW - 2 * 24 * H, 'partly_hidden', { caveat: 'Water seen by satellite (NASA OPERA), Nov 2. … dry pixels do not mean no flooding.' })
+  const w1 = version('w1', 'KABQ.FL.W.0019', 'NEW', NOW - 30 * H, NOW - 20 * H, { replaced_ms: NOW - 20 * H })
+  const w2 = version('w2', 'KABQ.FL.W.0019', 'EXT', NOW - 20 * H, null, { geometry: SQUARE(0.4) as never })
+  const zoned = version('z1', 'KABQ.FA.Y.0007', 'NEW', NOW - 25 * H, NOW - 22 * H, { geometry: null, ugcs: ['NMZ501'] })
+  const tl = testTimeline(NOW, [before, cloud, partly], [w1, zoned, w2], 'fixture-flood')
+  tl.products.zones = { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: SQUARE(1) as never, properties: { ugc: 'NMZ501', name: 'Zone', alert_ids: ['z1'] } }] }
+
+  it('at now (and after now) the satellite route’s own answer, as in brief 5', () => {
+    const sat = SATELLITE()
+    expect(satelliteAtHandle(sat, tl, null, NOW)).toBe(sat)
+    expect(satelliteAtHandle(sat, tl, NOW + 5 * H, NOW)).toBe(sat)
+    expect(satelliteAtHandle(sat, null, NOW - 3 * 24 * H, NOW)).toBe(sat)
+  })
+
+  it('before now the pass at or before the handle: its own image, date and caveat; never a no-view pass', () => {
+    const at = satelliteAtHandle(SATELLITE(), tl, NOW - 6 * 24 * H, NOW)!
+    expect(at.measured).toBe(true)
+    expect(at.image?.url).toBe(before.image!.url)
+    expect(at.granules[0].acquired_ms).toBe(before.acquired_ms)
+    expect(satelliteImage(at)?.url).toBe(before.image!.url)
+    expect(satelliteEdge(at).features).toHaveLength(1)
+    const p = satelliteAtHandle(SATELLITE(), tl, partly.acquired_ms, NOW)!
+    expect(p.image?.url).toBe(partly.image!.url)
+    expect(p.caveats).toEqual([partly.caveat])
+    // exactly at the no-view pass: still the earlier image (with its own date)
+    expect(satelliteAtHandle(SATELLITE(), tl, cloud.acquired_ms, NOW)!.granules[0].acquired_ms).toBe(before.acquired_ms)
+  })
+
+  it('before the first pass: no image, and the layer says so (never an all-clear)', () => {
+    const none = satelliteAtHandle(SATELLITE(), tl, NOW - 12 * 24 * H, NOW)!
+    expect(none.image).toBeNull()
+    expect(satelliteImage(none)).toBeNull()
+    expect(satelliteEdge(none).features).toHaveLength(0)
+    expect(none.reason).toMatch(/not an all-clear/)
+  })
+
+  it('warning areas: before now the versions shown at the handle (zone-based from the timeline’s zones); at now the live answer', () => {
+    const at = (t: number | null) => warningsAtHandle(ALERTS(), productsAt(ALERTS().alerts, null, NOW).alerts, tl, t, NOW).features.map((f) => (f.properties as { id: string }).id).sort()
+    expect(at(NOW - 26 * H)).toEqual(['w1'])
+    expect(at(NOW - 24 * H)).toEqual(['w1', 'z1'])
+    expect(at(NOW - 10 * H)).toEqual(['w2'])
+    // at now: brief 5's rule on the live answer (its own ids)
+    expect(at(null)).toEqual(warningFeatures(productsAt(ALERTS().alerts, null, NOW).alerts, ALERTS().zones).features.map((f) => (f.properties as { id: string }).id).sort())
   })
 })

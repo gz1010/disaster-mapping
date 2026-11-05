@@ -25,3 +25,15 @@ store), `ui/timeline/floodPlaybackCopy.ts` (strings, under the flood wording gua
   the changes of what is drawn).
 - 2026-11-05: **M1 done.** `state/floodTimeline.ts` (+ 18 tests), `state/floodTimelineData.ts` (+ 5 tests),
   `ui/timeline/floodPlaybackCopy.ts`.
+- 2026-11-05: **M2 done** (commit "M2 Play and step controls"): `ui/timeline/HydrographPlayback.tsx` (row, keys, timer,
+  pass marks), `hydrographPlaybackView.ts` (view model, step words), `floodPlayback.ts` (store: playing, engaged; hand
+  move pauses; NOW ends the stepping), `hydrographModel` (`startMs`, `ticks` inputs), CSS; brief 5's "no play button"
+  test updated deliberately. Checked live: Space / comma / full stop (keydown on the page), Play from the latest step
+  restarts at the first, reduced motion one step per press.
+- 2026-11-05: **M3**: `map/floodAreaLayers.ts` `satelliteAtHandle` / `warningsAtHandle`; declared edits (no brief-6
+  owner) in `map/floodController.ts` (image, edge and warning areas at the handle; redraw on a new timeline) and
+  `map/FloodLegend.tsx` (the chip's date is the pass at the handle); `useSatelliteAtHandle` in
+  `state/floodTimelineData.ts`. The orchestrator's wave-2 snapshot commit (ee6ac13) carried these files mid-step.
+  Also fixed in the chart: the level labels on their lines start under the levels pinned to the top ("MINOR 2.0" over
+  "MODERATE 4.0 ↑" on Calcasieu), day labels keep 8 px apart. Screenshots: fixture steps 1-2, Calcasieu steps 1-2
+  (Oct 25 pass; NWS Flood Warning issued Nov 4), Forensic dock.
