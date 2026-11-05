@@ -1,5 +1,5 @@
 #!/bin/bash
-# Fire-3d cloud environment setup script.
+# Disaster Mapping cloud environment setup script.
 # Paste this into the "Setup script" field of your cloud environment at claude.ai/code (see docs/cloud/SETUP.md).
 # It runs as root on Ubuntu 24.04 before Claude starts, and is cached when it finishes within about five minutes.
 # Project dependencies (uv sync, npm ci) install later, in .claude/hooks/cloud_install.sh.

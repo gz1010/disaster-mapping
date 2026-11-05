@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fire-3d dev runner: backend API on :8710 + Vite on :5173 together; Ctrl-C stops both.
+# Disaster Mapping dev runner: backend API on :8710 + Vite on :5173 together; Ctrl-C stops both.
 #
 #   ./dev.sh             real API  (uvicorn fire3d.api.app:app; live refresh loop + live auto-build on)
 #   ./dev.sh --no-live   real API without the live refresh loop / auto-build (FIRE3D_LIVE=0)
@@ -10,7 +10,7 @@
 #
 # Env: API_PORT (8710), WEB_PORT (5173), VITE_API_TARGET (default http://localhost:$API_PORT),
 #      FIRE3D_DATA_DIR / FIRE3D_CACHE_DIR (backend data locations), FIRE3D_LIVE, FIRE3D_AUTO_BUILD_LIVE.
-# Port 8000 belongs to another local app: never use it for Fire-3d.
+# Port 8000 belongs to another local app: never use it for Disaster Mapping.
 set -uo pipefail
 set -m   # job control: each background job gets its own process group, so cleanup can kill whole trees
 

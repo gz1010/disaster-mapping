@@ -1,6 +1,6 @@
-# Fire-3d: notes for Claude
+# Disaster Mapping: notes for Claude
 
-Fire-3d is a research prototype: a wildfire app built on real data.
+Disaster Mapping (called Fire-3d until brief 6) is a research prototype: a wildfire app built on real data.
 - **Backend:** FastAPI with Python 3.12 (uv), in `backend/`.
 - **Web app:** React 19 with MapLibre and three.js (R3F), in `web/`.
 
@@ -50,7 +50,7 @@ Start with these:
 - **Git:** never commit `data/` or `.env`. Add a dependency only when it is clearly needed, and say why.
 - **Running locally:**
   - Port 8000 belongs to another app: never use it.
-  - Ports 8710, 5173 and 5180 are the user's own Fire-3d servers.
+  - Ports 8710, 5173 and 5180 are the user's own Disaster Mapping servers.
   - The user owns git: commit only when asked.
 - **In cloud sessions:** commit your work to the session branch with clear messages and push it often. Never force-push.
 

@@ -34,5 +34,13 @@ Role: rename-docs (builder). Ports: API 8761, Vite 5221. Owned files: see BRIEF-
 - Found: flood bundles built before the rename keep the old name in stored notes (satellite login note in
   data/floods/*/manifest.json and satellite.json) until rebuilt; note for backend-flood-time-3d / final-check.
 
-## M3 docs
-- pending
+## M3 docs (done)
+- README.md rewritten for Disaster Mapping (fires and floods): glossary, official / measured / experimental, the three
+  views for fires and floods, using the map (Zoom dimming), Mac step by step (clone gz1010/disaster-mapping, uv sync
+  --frozen, npm ci, .env keys, ./dev.sh --no-live, demo data), how it works, the fire forecast, known limits (everywhere,
+  fires, floods), troubleshooting, every credit table, docs map, About the name. Anchors and file links checked.
+- CLAUDE.md name only; docs/validation.md title; docs/cloud/SETUP.md (name, repository); environment-setup.sh and dev.sh
+  header comments.
+- contract6/rename-docs.md (as built) and reports/brief6-rename-docs.json written.
+- Gates (final): web typecheck, lint (55 warnings, all src/scene), 139 test files / 1809 tests, build: all pass;
+  backend 1441 passed.
