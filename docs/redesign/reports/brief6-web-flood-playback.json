@@ -5,7 +5,8 @@
   "milestones": {
     "M1": "0d8b0c6 brief 6 web-flood-playback: M1 floodTimeline (state/floodTimeline.ts, state/floodTimelineData.ts, ui/timeline/floodPlaybackCopy.ts, tests)",
     "M2": "f8aa42b brief 6 web-flood-playback: M2 Play and step controls on the river-level chart (part of the files were in the orchestrator's wave-2 snapshot ee6ac13)",
-    "M3": "9e70372 brief 6 web-flood-playback: M3 2D map follows the handle (floodAreaLayers satelliteAtHandle / warningsAtHandle; declared edits in floodController.ts and FloodLegend.tsx were in snapshot ee6ac13)"
+    "M3": "9e70372 brief 6 web-flood-playback: M3 2D map follows the handle (floodAreaLayers satelliteAtHandle / warningsAtHandle; declared edits in floodController.ts and FloodLegend.tsx were in snapshot ee6ac13)",
+    "final": "446e634 brief 6 web-flood-playback: final (same-polygon fix, report, as-built note, CONTRACT 17 pointer)"
   },
   "files": [
     "web/src/state/floodTimeline.ts",
