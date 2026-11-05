@@ -193,14 +193,52 @@ axis, NOAA's National Water Model as a separate, dotted, experimental line. Drag
 products in effect at that time. NWS category flood maps, the FEMA floodplain and the model's flooded area are layers
 you can turn on (all off by default).
 
+**Flood time steps (Command and Forensic).** Above the river-level chart a small row reads, for example, "3 satellite
+passes and 1 NWS product change from Oct 25 · Play steps through them". **Play** (or `Space`) and the **step buttons**
+(or the comma and full stop keys) move the chart's handle from one *step* to the next: each satellite pass that saw the
+ground, and each time NWS issued, changed, cancelled or ended a warning. At each step the map shows that pass's own
+image with its own date and age ("Satellite pass Oct 29, 11:54 CDT · 7 days before now · no view of 61% of the area"),
+with grey hatching where clouds or missing data hid the ground, and the NWS warning areas that were in effect then.
+**Nothing is drawn between two passes**: no water is invented between images, and the row says so ("Shown: satellite
+image of Oct 29 (6 days before the handle) · No satellite image after Oct 29 yet"). Older NWS versions come from NWS
+and, for earlier products of the same event, from the Iowa Environmental Mesonet's archive; the **NWS · n** button at
+a past step lists each one with its issuer, its own issue and end times, NWS's own words and a link (archived copies
+are marked so). The readout and the point card judge the selected spot by what the map shows at that step. Layers that
+describe *now* (the NWS forecast flooded area, FEMA, NWS category maps, the model) stay drawn and are tagged "now" ("As
+of now, not this time: NWS forecast area"). Play never starts by itself, stops at the latest step, and with your
+system's reduced-motion setting each press shows one step. **Next** after the latest step, or **NOW**, returns to the
+present. The Public view has no time steps: it always shows now.
+
 **Forensic (3D).** **Prepare 3D data (about 1 min)** builds the flood's terrain bundle; then the flood layers are draped
 on 3D terrain, the gauges stand as bars (bar height is the river stage, scaled, not water depth), the Evidence tab keeps
-every saved version of each NWS product, and the river-level chart sits in the dock. 3D data is prepared for current
-floods only (NWS's forecast maps, the model and river forecasts are not kept for past dates).
+every saved version of each NWS product, and the river-level chart sits in the dock with the same Play and step
+controls. 3D data is prepared for current floods only (NWS's forecast maps, the model and river forecasts are not kept
+for past dates). Floods are often on flat land, so the 3D flood view adds four things:
+
+- **River view.** A flood opens in a lower, closer look along its main river (the **River view** button brings it
+  back; "Frame flood" still shows the whole area).
+- **Height boost.** In flat places heights are drawn taller, from the relief of the flood's own area: the view dock
+  reads, for example, "Height ×10 · auto", and the key "Height ×10: heights drawn 10 times taller, distances true". You
+  can pick another factor there (×1 to ×20). On very flat floods the key says "Still flat at ×10: raise it, or use River
+  view."
+- **Estimated depth.** Inside the mapped water only (the satellite pass shown, or NWS's forecast flooded area where it
+  has no image), a see-through water surface is tinted by an estimated depth: deeper is darker blue. The depth comes
+  from the height of the terrain along the water's edge (the published FwDET method, Cohen et al.). It is labelled
+  "Estimated depth (from the terrain at the water's edge), experimental": errors of a metre or more are common, and it
+  is never drawn where no water was mapped. Layers → From the terrain → "Depth of" picks which water it is of.
+- **Height above the river.** Off by default (Layers → From the terrain). It tints land 0–1, 1–2 and 2–5 m above the
+  nearest river channel, computed from the terrain and NOAA's river lines. It is labelled "Height above the river (from
+  terrain). Not a flood map": it shows low ground near a river, not where water is.
+
+Moving the chart's handle (or Play) also changes the satellite pass draped in 3D, its depth surface and the NWS warning
+lines. A pass whose cells are not in the 3D data is shown as its picture only, with no depth surface, and the key says
+so.
 
 **Try floods without the network.** `cd backend && uv run python scripts/make_fixture.py --only flood` writes
 `fixture-flood`, a synthetic "Ridge Fork River flood" in New Mexico with fictional issuers ("NWS Example Office
-(synthetic)"); open it at `/?flood=fixture-flood` (it is marked DEMO and is never listed with real floods).
+(synthetic)"); then `uv run python scripts/flood_3d.py fixture-flood` adds its four simulated satellite passes (for
+the time steps) and its 3D terrain products (height boost, depth, height above the river). Open it at
+`/?flood=fixture-flood` (it is marked DEMO and is never listed with real floods).
 `scripts/serve_fixture.py` also serves seven synthetic demo floods (flash flood emergency, watch only, past, …).
 
 ## Using the map
@@ -330,7 +368,7 @@ another local app owns it on the development machine.
 
   ```bash
   (cd backend && uv run python scripts/make_fixture.py)              # fixture-demo and fixture-live (fires)
-  (cd backend && uv run python scripts/make_fixture.py --only flood) # fixture-flood
+  (cd backend && uv run python scripts/make_fixture.py --only flood && uv run python scripts/flood_3d.py fixture-flood) # fixture-flood
   (cd backend && uv run python scripts/make_fixture.py --only east)  # optional: fixture-east, a small fire in North Carolina
   # then open http://localhost:5173/?incident=fixture-live  or  http://localhost:5173/?flood=fixture-flood
   ```
