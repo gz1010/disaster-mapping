@@ -1,27 +1,34 @@
 // The flood view's point check (brief 5, PLAN-5 §4.4 "Selected point", §4.5 readout; D24, D25, C1, C2; CONTRACT
 // §16.12): what each flood layer says about one spot, each line from its own answer and in its own words, never merged:
-//   NWS products     inside the area of each product in effect at the handle's time (productsAt: after now, the products
-//                    in effect now with CURSOR_FUTURE_PRODUCTS), else the distance to the nearest one
+//   NWS products     inside the area of each product shown at the handle's time (productsShown: before now, the products
+//                    in effect then; at now also the ones still to start, "starting {time}"; after now the products in
+//                    effect now and the ones issued for that time, with CURSOR_FUTURE_PRODUCTS or CURSOR_FUTURE_ISSUED),
+//                    else the distance to the nearest one
 //   forecast area    inside / the distance to the NWS forecast flooded area (5-day maximum, experimental), or "not
 //                    mapped here" only when the map answered (D24)
 //   satellite        the image's class at the spot: water, no water (dry pixels do not mean no flooding), clouds,
 //                    no data, or outside the image (C2); its date always
 //   FEMA             in the 1 % floodplain (zone), "Not in FEMA's mapped 1% floodplain" only where FEMA says a digital
 //                    map exists (C19), "FEMA has no digital flood map here"; background only (when its layer is on)
-//   model            only when given (Command, switched on): flooded at the analysis time, labelled experimental
-// Unavailable answers say so with their own "could not be reached" text; NOTHING_COVERS when no layer covers the spot.
+//   NWS category map only when given (Command, switched on; D22): inside / outside what NWS maps for the gauge's
+//                    category, "none" for an empty answer, its own "could not be loaded" text (D24; review WFC-R9)
+//   model            only when given (Command, switched on): flooded at the analysis time, labelled experimental; its
+//                    own outage text while it could not be loaded (review WFC-R9)
+// Unavailable answers say so with their own "could not be reached" text; NOTHING_COVERS when no layer covers the spot
+// (the narrower NOTHING_COVERS_OFFICIAL when FEMA, the category map or the model says "inside": review WFC-R8). The
+// products follow productsShown (ui/timeline/hydrographModel.ts): the same rule as the map (review WFC-R1).
 // Pure and tested (floodCheck.test.ts). Used by the point card (location/FloodPointCard.tsx) and Command's readout.
-import type { FloodAlert, FloodAlertsResponse, FloodMapResponse, ModelOutputResponse, RiverGauge, SatelliteWaterResponse } from '../api/types'
+import type { FloodAlert, FloodAlertsResponse, FloodMapResponse, ModelOutputResponse, RiverGauge, RiverGaugesResponse, SatelliteWaterResponse } from '../api/types'
 import { distanceToAreas } from '../lib/areaDistance'
 import { bearingDeg, distanceM } from '../lib/geodesy'
 import { distance } from '../lib/plainLanguage'
 import { fmtAt, fmtClock, fmtDayDate, fmtRelative, timeFmt, type TimeFmt } from '../lib/time'
-import { fimMapped, productsAt, rfcName, type AnswerState } from '../official/floodModel'
+import { fimMapped, rfcName, type AnswerState } from '../official/floodModel'
 import type { Units } from '../state/workspace'
 import {
   ALERTS_UNAVAILABLE,
+  CATFIM_UNAVAILABLE,
   CREST_LINE,
-  CURSOR_FUTURE_PRODUCTS,
   fillCopy,
   FLOOD_COMMAND,
   FLOOD_PUBLIC,
@@ -37,12 +44,14 @@ import {
   IN_FLOODPLAIN,
   INSIDE_FIM,
   INSIDE_WARNING,
+  INSIDE_WARNING_UPCOMING,
   MODEL_AT_POINT,
   NEAR_FIM,
   NFHL_DOWN,
   NFHL_NO_MAP,
   NFHL_OUTSIDE,
   NOTHING_COVERS,
+  NOTHING_COVERS_OFFICIAL,
   RFC_FIM_UNAVAILABLE,
   SAT_CLOUD_POINT,
   SAT_NODATA_POINT,
@@ -51,6 +60,7 @@ import {
 } from '../ui/shell/floodCopy'
 import { fmtStage } from '../ui/public/floodOverviewText'
 import { nfhlEffective, polygonsOf } from '../ui/public/floodView'
+import { futureProductsNote, isUpcoming, productEnd, productStart, productsShown } from '../ui/timeline/hydrographModel'
 
 /** A DSWx class at the spot: 0 not water, 1 open water, 2 partial water, 252 snow/ice, 253 cloud, 254 ocean, 255 no
  *  data; `'noview'` when only the picture says "no view" (clouds and no data share its grey hatch, D25); `'clear'` when
@@ -69,12 +79,16 @@ export interface FloodCheckLine {
   /** The spot is inside this layer. */
   inside?: boolean
   tone?: 'alert' | 'quiet' | 'warn'
+  /** The NWS category flood map's line (kind 'official'; its own tag in Command's readout). */
+  layer?: 'catfim'
 }
 
 export interface FloodPointCheck {
   lines: FloodCheckLine[]
   /** The handle is after now: the products shown are those in effect now (C1). */
   future: boolean
+  /** After now: an issued product's own period covers the handle's time (CURSOR_FUTURE_ISSUED; review WFC-R1). */
+  issuedForCursor: boolean
   /** No mapped flood layer covers the spot (every answer that could say so answered). */
   nothing: boolean
 }
@@ -97,6 +111,12 @@ export interface FloodPointInput {
   satClass?: SatClassAt
   nfhl: FloodMapResponse | null
   model: ModelOutputResponse | null
+  /** The model answer's state while its layer is on (Command; review WFC-R9): `unavailable` and `loading` say so. */
+  modelState?: AnswerState
+  /** NWS's category flood map (Command, switched on; D22), its state, and the gauge and category it was asked for. */
+  catfim?: FloodMapResponse | null
+  catfimState?: AnswerState
+  catfimFor?: { lid: string; category: string } | null
   gauges: RiverGauge[]
   rivers: string[]
   cursorMs: number | null
@@ -126,8 +146,9 @@ export function checkPoint(i: FloodPointInput): FloodPointCheck {
   let allAnswered = true
   const dist = (km: number) => distance(km * 1000, units).text
 
-  // NWS products at the handle's time (C1)
-  const { alerts, future } = productsAt(i.alerts, i.cursorMs, i.nowMs)
+  // NWS products at the handle's time (C1): the map's own rule (review WFC-R1)
+  const shown = productsShown(i.alerts, i.cursorMs, i.nowMs)
+  const { alerts, future } = shown
   const status = i.alertsStatus ?? 'available'
   if (status === 'unavailable' || status === 'failed') {
     lines.push({ key: 'alerts', kind: 'official', text: ALERTS_UNAVAILABLE, tone: 'warn' })
@@ -138,15 +159,20 @@ export function checkPoint(i: FloodPointInput): FloodPointCheck {
     for (const a of alerts) {
       const d = distanceToAreas(productAreas(a, i.zones), [lon, lat])
       if (!d) continue
-      const end = a.ends_ms ?? a.expires_ms
       const atf = timeFmt(a.time_zone || tf.tz, tf.clock)
+      const at = (ms: number) => (Number.isFinite(ms) ? fmtAt(ms, atf, { zone: true, year: 'auto', refMs: i.nowMs }) : '—')
       if (d.inside) {
         covered = true
-        lines.push({ key: `in-${a.id}`, kind: 'official', event: a.event, inside: true, tone: 'alert', text: fillCopy(INSIDE_WARNING, { event: a.event, time: end != null ? fmtAt(end, atf, { zone: true, year: 'auto', refMs: i.nowMs }) : '—' }) })
+        // a product NWS has issued that is still to start says so, with its own start (review WFC-R1)
+        const text = isUpcoming(a, i.nowMs)
+          ? fillCopy(INSIDE_WARNING_UPCOMING, { event: a.event, start: at(productStart(a)), time: at(productEnd(a)) })
+          : fillCopy(INSIDE_WARNING, { event: a.event, time: at(productEnd(a)) })
+        lines.push({ key: `in-${a.id}`, kind: 'official', event: a.event, inside: true, tone: 'alert', text })
       } else if (!nearest || d.km < nearest.km) nearest = { km: d.km, a }
     }
     if (!lines.some((l) => l.inside) && nearest) lines.push({ key: 'near-warning', kind: 'official', event: nearest.a.event, text: fillCopy(FLOOD_PUBLIC.nearWarning, { distance: dist(nearest.km), event: nearest.a.event }) })
-    if (future) lines.push({ key: 'future', kind: 'note', text: CURSOR_FUTURE_PRODUCTS, tone: 'quiet' })
+    const note = futureProductsNote(shown)
+    if (note) lines.push({ key: 'future', kind: 'note', text: note, tone: 'quiet' })
   }
 
   // the NWS forecast flooded area (experimental; D24)
@@ -234,19 +260,46 @@ export function checkPoint(i: FloodPointInput): FloodPointCheck {
     }
   } else if (i.nfhlState === 'unavailable') lines.push({ key: 'nfhl', kind: 'background', text: NFHL_DOWN, tone: 'warn' })
 
-  // model output (Command only, switched on): never merged with the lines above
+  // NWS's category flood map (Command, switched on; D22): its own line, never merged with the forecast area; its state
+  // when it could not be loaded or maps nothing for this gauge (review WFC-R9)
+  const cat = catfimCheck(i.catfim ?? null, i.catfimState ?? 'none', [lon, lat], i.catfimFor ?? null)
+  if (cat) lines.push(cat)
+
+  // model output (Command only, switched on): never merged with the lines above; its outage said (review WFC-R9)
   const model = i.model
   if (model && model.model_output === true && model.status === 'available' && model.features) {
     const d = distanceToAreas(
       model.features.features.flatMap((f) => polygonsOf(f.geometry)),
       [lon, lat],
     )
-    if (d?.inside) lines.push({ key: 'model', kind: 'model', text: fillCopy(MODEL_AT_POINT, { time: model.reference_ms != null ? fmtAt(model.reference_ms, tf, { zone: true }) : '—' }) })
-  }
+    if (d?.inside) lines.push({ key: 'model', kind: 'model', inside: true, text: fillCopy(MODEL_AT_POINT, { time: model.reference_ms != null ? fmtAt(model.reference_ms, tf, { zone: true }) : '—' }) })
+  } else if (model && model.status !== 'available') lines.push({ key: 'model', kind: 'model', text: model.reason ?? FLOOD_COMMAND.modelUnavailable, tone: 'warn' })
+  else if (!model && i.modelState === 'unavailable') lines.push({ key: 'model', kind: 'model', text: FLOOD_COMMAND.modelUnavailable, tone: 'warn' })
+  else if (!model && i.modelState === 'loading') lines.push({ key: 'model', kind: 'model', text: FLOOD_COMMAND.modelChecking, tone: 'quiet' })
 
+  // FEMA, the category map or the model says "inside": the sentence names the layers that do not cover the spot, so it
+  // never reads "no mapped flood layer" next to an "inside" line (review WFC-R8)
   const nothing = !covered && allAnswered && (i.alerts.length > 0 || status === 'available')
-  if (nothing) lines.push({ key: 'nothing', kind: 'note', text: NOTHING_COVERS, tone: 'quiet' })
-  return { lines, future, nothing }
+  const otherInside = lines.some((l) => l.inside && (l.kind === 'background' || l.kind === 'model' || l.layer === 'catfim'))
+  if (nothing) lines.push({ key: 'nothing', kind: 'note', text: otherInside ? NOTHING_COVERS_OFFICIAL : NOTHING_COVERS, tone: 'quiet' })
+  return { lines, future, issuedForCursor: shown.issuedForCursor, nothing }
+}
+
+/** The NWS category flood map's line at a spot (Command, switched on; D22, D24; review WFC-R9): inside / outside its
+ *  polygons with the gauge and category, "none" for an available answer with no polygons, the answer's own reason
+ *  (else CATFIM_UNAVAILABLE) when it could not be loaded, "checking" while asked; null while not asked. */
+export function catfimCheck(resp: FloodMapResponse | null, state: AnswerState, point: [number, number], asked: { lid: string; category: string } | null = null): FloodCheckLine | null {
+  const base = { key: 'catfim', kind: 'official' as const, layer: 'catfim' as const }
+  if (resp && resp.map === 'catfim') {
+    if (resp.status !== 'available') return { ...base, text: resp.reason ?? CATFIM_UNAVAILABLE, tone: 'warn' }
+    const l = catfimLine(resp, point)
+    if (l) return { ...base, text: l.text, inside: l.inside, tone: l.inside ? undefined : 'quiet' }
+    const category = resp.category ?? asked?.category ?? null
+    return { ...base, text: category && asked?.lid ? fillCopy(FLOOD_COMMAND.catfimNoneFor, { category, lid: asked.lid }) : FLOOD_COMMAND.catfimNone, tone: 'quiet' }
+  }
+  if (state === 'unavailable') return { ...base, text: CATFIM_UNAVAILABLE, tone: 'warn' }
+  if (state === 'loading') return { ...base, text: FLOOD_COMMAND.catfimChecking, tone: 'quiet' }
+  return null
 }
 
 // ------------------------------------------------------------------------------------------------ the nearest gauge
@@ -287,6 +340,56 @@ export function nearestFloodGauge(gauges: readonly RiverGauge[], point: [number,
   return near.find((x) => x.onRiver) ?? near.find((x) => rank(x.gauge.observed.category) >= 1) ?? null
 }
 
+/** The point's box for the nearest-gauge check: ± READOUT_GAUGE_KM (the `/api/official/river-gauges?bbox=` query). */
+export function pointGaugeBox(point: [number, number], km = READOUT_GAUGE_KM): [number, number, number, number] {
+  const [lon, lat] = point
+  const dLat = km / 111.32
+  const dLon = km / (111.32 * Math.max(0.2, Math.cos((lat * Math.PI) / 180)))
+  return [lon - dLon, lat - dLat, lon + dLon, lat + dLat]
+}
+
+/** Does the flood's gauges answer cover the point's ±25 km (its `area_bbox` holds the whole box)? Otherwise the
+ *  readout asks for the point's own box, as the point card does (review WFC-R2). */
+export function floodAnswerCovers(resp: Pick<RiverGaugesResponse, 'status' | 'area_bbox'> | null | undefined, point: [number, number]): boolean {
+  const a = resp?.status === 'available' ? resp.area_bbox : null
+  if (!a || a.length !== 4) return false
+  const b = pointGaugeBox(point)
+  return b[0] >= a[0] && b[1] >= a[1] && b[2] <= a[2] && b[3] <= a[3]
+}
+
+export interface NearGaugeChoice {
+  pick: NearestGauge | null
+  /** Without a pick: 'none' (NO_GAUGE_NEAR: an answer covering the point's 25 km is available), 'checking', or
+   *  'unavailable' (that answer's reason, else GAUGES_UNAVAILABLE). Null with a pick. */
+  absence: 'none' | 'checking' | 'unavailable' | null
+  reason: string | null
+}
+
+/** The readout's gauge for a spot (PLAN-5 §4.3, §4.5; D24; review WFC-R2): the flood's gauges and, when they do not
+ *  cover the point's 25 km, the point's own gauges answer; the flood's rivers first, then at action stage or above.
+ *  NO_GAUGE_NEAR only when an answer covering the point's 25 km is available; "checking" while it loads; its own
+ *  "could not be reached" text when it failed. Gauges of the point's answer that belong to the flood keep `member`. */
+export function chooseNearGauge(i: {
+  point: [number, number]
+  rivers: readonly string[]
+  flood: RiverGaugesResponse | null
+  floodState: AnswerState
+  cover: RiverGaugesResponse | null
+  coverState: AnswerState
+  memberLids?: readonly string[]
+}): NearGaugeChoice {
+  const needCover = !floodAnswerCovers(i.flood, i.point)
+  const own = i.flood?.status === 'available' ? i.flood.gauges : []
+  const members = new Set(i.memberLids ?? [])
+  const extra = needCover && i.cover?.status === 'available' ? i.cover.gauges.filter((g) => !own.some((o) => o.lid === g.lid)).map((g) => (members.has(g.lid) && !g.member ? { ...g, member: true } : g)) : []
+  const pick = nearestFloodGauge([...own, ...extra], i.point, i.rivers)
+  if (pick) return { pick, absence: null, reason: null }
+  const [st, resp] = needCover ? [i.coverState, i.cover] : [i.floodState, i.flood]
+  if (st === 'available') return { pick: null, absence: 'none', reason: null }
+  if (st === 'loading' || st === 'none') return { pick: null, absence: 'checking', reason: null }
+  return { pick: null, absence: 'unavailable', reason: resp && resp.status !== 'available' ? (resp.reason ?? null) : null }
+}
+
 // ------------------------------------------------------------------------------------------------ Command's readout (pure)
 /** The UTM zone of a point (the bundle's grid when it has one). */
 export function utmZoneOf(lon: number, gridZone: number | null | undefined): number {
@@ -301,7 +404,8 @@ export interface LineTag {
 }
 
 /** The outlined tag of a check line: what the layer is and how old (PLAN-5 §4.5). */
-export function lineTag(l: Pick<FloodCheckLine, 'kind'>, ctx: { fim: FloodMapResponse | null; satellite: SatelliteWaterResponse | null; nfhl?: FloodMapResponse | null; nowMs: number; tf: TimeFmt }): LineTag | null {
+export function lineTag(l: Pick<FloodCheckLine, 'kind' | 'layer'>, ctx: { fim: FloodMapResponse | null; satellite: SatelliteWaterResponse | null; nfhl?: FloodMapResponse | null; nowMs: number; tf: TimeFmt }): LineTag | null {
+  if (l.layer === 'catfim') return { text: FLOOD_COMMAND.tagCatfim, cls: 'is-catfim', tip: FLOOD_COMMAND.tagCatfimTip }
   switch (l.kind) {
     case 'official':
       return { text: FLOOD_COMMAND.tagOfficial, cls: 'is-official', tip: FLOOD_COMMAND.tagOfficialTip }

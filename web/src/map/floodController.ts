@@ -13,7 +13,7 @@ import type { FilterSpecification, GeoJSONSource, Map as MapLibreMap, PointLike 
 import { apiPathUrl, getRiverGauges } from '../api/floods'
 import type { FloodSummary, RiverGauge } from '../api/types'
 import { useFloodOfficial } from '../official/floodHooks'
-import { memberGaugesOf, officialAlerts, productsDrawn } from '../official/floodModel'
+import { memberGaugesOf, officialAlerts } from '../official/floodModel'
 import { openFloodSummary, useFlood } from '../state/flood'
 import { getSlot } from '../state/floodCatalog'
 import { shownFloods } from '../state/floodOverview'
@@ -52,11 +52,13 @@ import {
   FLOOD_CMD_LAYERS,
   FLOOD_CMD_SOURCES,
   floodCommandLayers,
+  labelPoints,
   highFlowFeatures,
   modelFeatures,
 } from './floodCommandLayers'
 import { useFloodLayerData } from '../state/floodLayerData'
 import { gaugeKey as hydroGaugeKey, gaugeOf, useHydroData, withChartReading } from '../ui/timeline/hydrographData'
+import { productsShown } from '../ui/timeline/hydrographModel'
 import { floodLayerShown } from './floodProfile'
 import { VECTOR_SOURCE } from './basemapStyle'
 import {
@@ -335,14 +337,20 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
       : ''
     if (key !== areaKey) {
       areaKey = key
-      const alerts = mine ? productsDrawn(officialAlerts(off.alerts.data), fl.cursorMs, nowMs).alerts : []
+      // the products at the chart's handle: the point check's own rule (productsShown; review WFC-R1)
+      const alerts = mine ? productsShown(officialAlerts(off.alerts.data), fl.cursorMs, nowMs).alerts : []
       setData(FLOOD_AREA_SOURCES.warnings, mine ? warningFeatures(alerts, off.alerts.data?.zones) : EMPTY_FC)
       setData(FLOOD_AREA_SOURCES.forecast, mine ? mapFeatures(off.fim.data) : EMPTY_FC)
       setData(FLOOD_AREA_SOURCES.floodplain, mine ? nfhlFeatures(off.nfhl.data) : EMPTY_FC)
       setData(FLOOD_AREA_SOURCES.satelliteEdge, mine ? satelliteEdge(off.satellite.data) : EMPTY_FC)
       // Command's own layers, each from its own answer (never merged)
-      setData(FLOOD_CMD_SOURCES.catfim, mineExtra ? catfimFeatures(extra.catfim.data) : EMPTY_FC)
-      setData(FLOOD_CMD_SOURCES.model, mineExtra ? modelFeatures(extra.model.data) : EMPTY_FC)
+      const catfimFc = mineExtra ? catfimFeatures(extra.catfim.data) : EMPTY_FC
+      const modelFc = mineExtra ? modelFeatures(extra.model.data) : EMPTY_FC
+      setData(FLOOD_CMD_SOURCES.catfim, catfimFc)
+      setData(FLOOD_CMD_SOURCES.model, modelFc)
+      // point labels inside the largest polygons (review WFC-R13)
+      setData(FLOOD_CMD_SOURCES.catfimPoints, labelPoints(catfimFc))
+      setData(FLOOD_CMD_SOURCES.modelPoints, labelPoints(modelFc))
       setData(FLOOD_CMD_SOURCES.highFlow, mineExtra ? highFlowFeatures(extra.highFlow.data) : EMPTY_FC)
     }
     syncImage(mine ? satelliteImage(off.satellite.data) : null)

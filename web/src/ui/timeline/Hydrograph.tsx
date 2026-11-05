@@ -7,10 +7,13 @@
 //     with its issuer and issue time, the model dotted amber "MODEL · NWM · EXPERIMENTAL".
 //   - The handle reads values; there is no play button (D13). Drag, or keys on the slider (←/→ one hour, Shift six,
 //     Home / End); "NOW" brings it back. It sets useFlood.cursorMs: the map, the readout and the point check follow
-//     (productsAt: after now they keep the NWS products in effect now, and the chart says CURSOR_FUTURE_PRODUCTS, C1).
+//     (productsShown: after now they keep the NWS products in effect now and add the ones NWS issued for that time; the
+//     chart says CURSOR_FUTURE_PRODUCTS, or CURSOR_FUTURE_ISSUED when one covers the handle's time; C1, WFC-R1).
+//   - The handle's words sit in their own row above the plot, sized for the lines shown (the value; the model's line in
+//     flow mode); the future note is a wrapped line under them, never cut and never over the plot or the key (WFC-R3).
 //   - Flow mode: NWS flow on the handle's first line, the model on its own line (C28); no model without a reach.
 //   - Empty states: PLAN-5 §5.5. Nothing animates (reduced motion needs nothing more).
-import { Fragment, useCallback, useId, useMemo, useRef, useState, type KeyboardEvent as RKeyboardEvent, type PointerEvent as RPointerEvent } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as RKeyboardEvent, type PointerEvent as RPointerEvent } from 'react'
 import type { FloodAlert, RiverGauge } from '../../api/types'
 import { HOUR_MS, type TimeFmt } from '../../lib/time'
 import { CATEGORY_COLORS, FLOOD_ALERT, FLOOD_TOKENS, gaugeTone } from '../../map/floodStyle'
@@ -22,7 +25,6 @@ import { useWorkspace } from '../../state/workspace'
 import { Popover, Segmented } from '../controls'
 import { useNow } from '../hooks'
 import {
-  CURSOR_FUTURE_PRODUCTS,
   fillCopy,
   GAUGE_CATEGORY_DISPLAY,
   HYDRO,
@@ -36,7 +38,9 @@ import {
   clampCursor,
   cursorLabel,
   cursorReadout,
+  futureProductsNote,
   HYDRO_GAP_MS,
+  productsShown,
   stepCursor,
   unitLabels,
   xFrac,
@@ -146,7 +150,7 @@ export function Hydrograph({ variant, floodId, lid, products, gauges, atMs = nul
             </p>
           </div>
         ) : (
-          <HydroChart variant={variant} model={model} tf={tf} plotRef={plotRef} plotW={plotW} past={atMs != null} />
+          <HydroChart variant={variant} model={model} tf={tf} plotRef={plotRef} plotW={plotW} past={atMs != null} products={prods} />
         )}
       </div>
     </section>
@@ -188,14 +192,18 @@ function HydroTop({
       </span>
       {model && (
         <span className="hg-key" aria-label="Chart lines">
-          <span className="hg-key-item is-observed">
-            <LineGlyph kind="observed" />
-            {model.observedLabel}
-          </span>
+          {/* a stage-only gauge on the flow axis has no measured line to key (review WFC-R5) */}
+          {!model.stageOnly && (
+            <span className="hg-key-item is-observed">
+              <LineGlyph kind="observed" />
+              {model.observedLabel}
+            </span>
+          )}
+          {/* the NWS forecast keeps its issuer and its own issue time in both variants (review WFC-R11) */}
           {model.forecastLabel && (
-            <span className="hg-key-item is-forecast">
+            <span className="hg-key-item is-forecast" title={model.forecastLabel}>
               <LineGlyph kind="forecast" />
-              {variant === 'dock' ? model.forecastLabel.replace(/ · ISSUED .*$/, '') : model.forecastLabel}
+              {variant === 'dock' ? (model.forecastLabelShort ?? model.forecastLabel) : model.forecastLabel}
             </span>
           )}
           {model.axis === 'flow' && model.modelState === 'available' && (
@@ -230,21 +238,44 @@ function LineGlyph({ kind }: { kind: 'observed' | 'forecast' | 'model' }) {
 }
 
 // ------------------------------------------------------------------------------------------------ the chart
-function HydroChart({ variant, model, tf, plotRef, plotW, past }: { variant: HydrographVariant; model: HydrographModel | null; tf: TimeFmt; plotRef: (el: HTMLDivElement | null) => void; plotW: number; past: boolean }) {
+function HydroChart({
+  variant,
+  model,
+  tf,
+  plotRef,
+  plotW,
+  past,
+  products,
+}: {
+  variant: HydrographVariant
+  model: HydrographModel | null
+  tf: TimeFmt
+  plotRef: (el: HTMLDivElement | null) => void
+  plotW: number
+  past: boolean
+  products: readonly FloodAlert[]
+}) {
   const cursorMs = useFlood((s) => s.cursorMs)
   const helpId = useId()
   const H = PLOT_H[variant]
   const readout = model ? cursorReadout(model, cursorMs, tf) : null
   const tx = model ? clampX(xFrac(model, readout!.t) * plotW, plotW) : 0
+  // after now: the products the map keeps, and whether NWS issued one for the handle's time (C1; review WFC-R1)
+  const futureNote = model && readout?.future ? futureProductsNote(productsShown(products, cursorMs, model.nowMs)) : null
   return (
     <>
       <HandleRow variant={variant} readout={readout} x={tx} plotW={plotW} />
+      {futureNote && (
+        <p className="hg-future-note" aria-live="polite">
+          {futureNote}
+        </p>
+      )}
       <div className="hg-plot" ref={plotRef} style={{ height: H }}>
         {model && readout && (
           <>
             <Plot model={model} readout={readout} width={plotW} height={H} />
             <PlotOverlays model={model} plotW={plotW} height={H} past={past} />
-            <Slider model={model} readout={readout} plotW={plotW} height={H} helpId={helpId} />
+            <Slider model={model} readout={readout} plotW={plotW} height={H} helpId={helpId} futureNote={futureNote} />
           </>
         )}
       </div>
@@ -279,27 +310,28 @@ function useWidth(): [(el: HTMLDivElement | null) => void, number] {
   return [ref, w]
 }
 
-/** The handle's words above the plot, at the handle: the time and value; the model on its own line (flow); the
- *  future-products note after now (C1). */
+/** One line of the handle's words (px): the row is as tall as the lines it shows. */
+export const HANDLE_LINE_PX: Record<HydrographVariant, number> = { slim: 16, dock: 14 }
+
+/** The handle's words above the plot, at the handle: the time and value; the model on its own line (flow). The row is
+ *  sized for its lines, so nothing spills over the plot (review WFC-R3); the future note is its own wrapped line. */
 function HandleRow({ variant, readout, x, plotW }: { variant: HydrographVariant; readout: CursorReadout | null; x: number; plotW: number }) {
-  if (!readout) return <div className="hg-handle-row" />
+  const lines = readout ? 1 + (readout.modelLine ? 1 : 0) : 1
+  const height = lines * HANDLE_LINE_PX[variant]
+  const row = `hg-handle-row${variant === 'dock' ? ' is-dock' : ''}`
+  if (!readout) return <div className={row} style={{ height }} />
   const align = x < 170 ? 'is-start' : x > plotW - 170 ? 'is-end' : ''
   const style = { left: align === 'is-start' ? 0 : align === 'is-end' ? undefined : x, right: align === 'is-end' ? 0 : undefined }
   const cls = readout.kind === 'forecast' ? 'is-forecast' : readout.kind === 'none' ? 'is-none' : readout.stale ? 'is-stale' : 'is-observed'
   const tip = [readout.interpolated ? HYDRO.interpolated : null, readout.original].filter(Boolean).join(' ')
   return (
-    <div className={`hg-handle-row${variant === 'dock' ? ' is-dock' : ''}`} aria-live="polite">
+    <div className={row} style={{ height }} data-lines={lines} aria-live="polite">
       <span className={`hg-handle-label ${align}`} style={style} title={tip || undefined}>
         <span className="hg-hl-line">
           <time dateTime={new Date(readout.t).toISOString()}>{readout.timeText}</time>
           <span className={`hg-hl-value ${cls}`}> · {readout.line1}</span>
         </span>
         {readout.modelLine && <span className="hg-hl-line is-model">{readout.modelLine}</span>}
-        {readout.future && (
-          <span className="hg-hl-line is-future" title={CURSOR_FUTURE_PRODUCTS}>
-            {variant === 'dock' ? HYDRO.futureNote : CURSOR_FUTURE_PRODUCTS}
-          </span>
-        )}
       </span>
     </div>
   )
@@ -383,9 +415,9 @@ function Plot({ model: m, readout, width, height }: { model: HydrographModel; re
       {m.crest && (
         <path
           d={`M${x(m.crest.t) - 4} ${y(m.crest.v) - 8}L${x(m.crest.t) + 4} ${y(m.crest.v) - 8}L${x(m.crest.t)} ${y(m.crest.v) - 3}Z`}
-          className={`hg-crest${m.crest.atEnd ? ' is-end' : ''}`}
+          className={`hg-crest${m.crest.atEnd || m.crest.falling ? ' is-end' : ''}`}
         >
-          <title>{m.crest.atEnd ? HYDRO.highAtEndTip : HYDRO.crestTip}</title>
+          <title>{crestTip(m.crest)}</title>
         </path>
       )}
       {m.productTicks.map((p, i) => (
@@ -460,7 +492,7 @@ function PlotOverlays({ model: m, plotW, height, past }: { model: HydrographMode
         <span
           className={`hg-crest-label${m.crest.atEnd ? ' is-end' : ''}`}
           style={{ left: crestAt, top: Math.max(0, crestY - 22) }}
-          title={m.crest.atEnd ? HYDRO.highAtEndTip : HYDRO.crestTip}
+          title={crestTip(m.crest)}
         >
           {m.crest.label}
         </span>
@@ -474,6 +506,12 @@ function PlotOverlays({ model: m, plotW, height, past }: { model: HydrographMode
   )
 }
 
+/** The crest mark's tooltip: a crest, the forecast high still rising at its end (C7), or the highest value of a falling
+ *  forecast (its first step, below the latest reading: not a peak still to come; review WFC-R14). */
+function crestTip(c: NonNullable<HydrographModel['crest']>): string {
+  return c.atEnd ? HYDRO.highAtEndTip : c.falling ? HYDRO.highestFallingTip : HYDRO.crestTip
+}
+
 /** Where the crest label starts: centred on the crest, kept after the NOW label and inside the plot. */
 function crestLeft(label: string, crestX: number, nowX: number, plotW: number): number | null {
   const w = label.length * 6.2 + 4
@@ -485,7 +523,7 @@ function crestLeft(label: string, crestX: number, nowX: number, plotW: number): 
 }
 
 /** The handle as a slider over the plot: drag or keys; aria-valuetext is the handle's words. */
-function Slider({ model: m, readout, plotW, height, helpId }: { model: HydrographModel; readout: CursorReadout; plotW: number; height: number; helpId: string }) {
+function Slider({ model: m, readout, plotW, height, helpId, futureNote }: { model: HydrographModel; readout: CursorReadout; plotW: number; height: number; helpId: string; futureNote: string | null }) {
   const ref = useRef<HTMLDivElement | null>(null)
   const dragging = useRef(false)
   const set = (t: number | null) => useFlood.getState().setCursor(t)
@@ -517,7 +555,7 @@ function Slider({ model: m, readout, plotW, height, helpId }: { model: Hydrograp
       aria-valuemin={m.startMs}
       aria-valuemax={m.endMs}
       aria-valuenow={clampCursor(m, readout.t)}
-      aria-valuetext={[cursorLabel(readout), readout.modelLine, readout.future ? CURSOR_FUTURE_PRODUCTS : null].filter(Boolean).join('. ')}
+      aria-valuetext={[cursorLabel(readout), readout.modelLine, futureNote].filter(Boolean).join('. ')}
       onKeyDown={onKey}
       onPointerDown={(e) => {
         dragging.current = true
@@ -570,30 +608,80 @@ function AxisRow({ model: m, plotW }: { model: HydrographModel; plotW: number })
 // ------------------------------------------------------------------------------------------------ the gauge picker
 /** The list of the flood's gauges (members first, then nearby gauges labelled "not part of this flood"); picking one
  *  shows it in the river-level chart (useFlood.setGauge). Used by the chart's picker and Command's bar gauge line. */
-export function GaugeList({ floodId, lid, gauges, onPick }: { floodId: string; lid: string | null; gauges?: readonly RiverGauge[]; onPick?: () => void }) {
+/** Keys in the gauge list (review WFC-R10): the option to focus next, or null for other keys. */
+export function listKeyTarget(key: string, index: number, count: number): number | null {
+  if (count <= 0) return null
+  if (key === 'ArrowDown') return Math.min(count - 1, index + 1)
+  if (key === 'ArrowUp') return Math.max(0, index - 1)
+  if (key === 'Home') return 0
+  if (key === 'End') return count - 1
+  return null
+}
+
+export function GaugeList({ floodId, lid, gauges, onPick, onClose }: { floodId: string; lid: string | null; gauges?: readonly RiverGauge[]; onPick?: () => void; onClose?: () => void }) {
   const summary = useFlood((s) => (s.floodId === floodId ? openFloodSummary(s) : null))
   const offGauges = useFloodOfficial((s) => (s.floodId === floodId ? s.gauges.data : null))
   const list = useMemo(() => gauges ?? officialGauges(offGauges, summary), [gauges, offGauges, summary])
   const members = list.filter((g) => g.member)
   const nearby = list.filter((g) => !g.member)
+  const box = useRef<HTMLDivElement | null>(null)
+  const titleId = useId()
+  const options = () => Array.from(box.current?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? [])
+  // opened: the focus moves to the current gauge (else the first), once the list is placed and visible (WFC-R10)
+  useEffect(() => {
+    let tries = 0
+    let raf = 0
+    const focus = () => {
+      const all = options()
+      const target = all.find((o) => o.getAttribute('aria-selected') === 'true') ?? all[0]
+      target?.focus({ preventScroll: false })
+      if (target && document.activeElement !== target && tries++ < 5) raf = requestAnimationFrame(focus)
+    }
+    raf = requestAnimationFrame(focus)
+    return () => cancelAnimationFrame(raf)
+  }, [])
   const pick = (g: RiverGauge) => {
     if (useFlood.getState().floodId === floodId) useFlood.getState().setGauge(g.lid)
     onPick?.()
   }
+  const onKey = (e: RKeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      onClose?.()
+      return
+    }
+    const all = options()
+    const next = listKeyTarget(e.key, all.indexOf(document.activeElement as HTMLButtonElement), all.length)
+    if (next == null) return
+    e.preventDefault()
+    all[next]?.focus()
+  }
+  // one tab stop: the current gauge, else the first one listed
+  const tabLid = list.some((g) => g.lid === lid) ? lid : ((members[0] ?? nearby[0])?.lid ?? null)
   return (
-    <div role="listbox" aria-label={HYDRO.pickGauge}>
+    <div role="listbox" aria-label={HYDRO.pickGauge} ref={box} onKeyDown={onKey}>
       {[
-        { title: HYDRO.pickerMembers, list: members },
-        { title: HYDRO.pickerNearby, list: nearby },
+        { title: HYDRO.pickerMembers, list: members, key: 'members' },
+        { title: HYDRO.pickerNearby, list: nearby, key: 'nearby' },
       ].map(
         (grp) =>
           grp.list.length > 0 && (
-            <Fragment key={grp.title}>
-              <p className="hg-picker-title">{grp.title}</p>
+            <div key={grp.title} role="group" aria-labelledby={`${titleId}-${grp.key}`}>
+              <p className="hg-picker-title" id={`${titleId}-${grp.key}`}>
+                {grp.title}
+              </p>
               {grp.list.map((g) => {
                 const cat = (g.observed.category in GAUGE_CATEGORY_DISPLAY ? g.observed.category : 'unknown') as GaugeCategoryKey
                 return (
-                  <button key={g.lid} type="button" role="option" aria-selected={g.lid === lid} className={`hg-picker-item${g.lid === lid ? ' is-current' : ''}`} onClick={() => pick(g)}>
+                  <button
+                    key={g.lid}
+                    type="button"
+                    role="option"
+                    aria-selected={g.lid === lid}
+                    tabIndex={g.lid === tabLid ? 0 : -1}
+                    className={`hg-picker-item${g.lid === lid ? ' is-current' : ''}`}
+                    onClick={() => pick(g)}
+                  >
                     <Diamond tone={gaugeTone(g.observed.category)} size={10} />
                     <span className="hg-picker-name">
                       <strong>{g.lid}</strong> · <span data-verbatim="">{g.name}</span>
@@ -602,7 +690,7 @@ export function GaugeList({ floodId, lid, gauges, onPick }: { floodId: string; l
                   </button>
                 )
               })}
-            </Fragment>
+            </div>
           ),
       )}
     </div>
@@ -613,6 +701,11 @@ export function GaugeList({ floodId, lid, gauges, onPick }: { floodId: string; l
 function GaugePicker({ gauges, lid, floodId }: { gauges: readonly RiverGauge[]; lid: string | null; floodId: string }) {
   const [open, setOpen] = useState(false)
   const anchor = useRef<HTMLButtonElement | null>(null)
+  // a pick or Escape returns the focus to this button (review WFC-R10)
+  const close = useCallback(() => {
+    setOpen(false)
+    anchor.current?.focus()
+  }, [])
   const current = gauges.find((g) => g.lid === lid) ?? null
   const tone = gaugeTone(current?.observed.category)
   const label = `${HYDRO.pickGauge}${lid ? ` (${lid})` : ''}`
@@ -632,7 +725,7 @@ function GaugePicker({ gauges, lid, floodId }: { gauges: readonly RiverGauge[]; 
         <Diamond tone={tone} size={12} />
       </button>
       <Popover anchor={anchor} open={open} onClose={() => setOpen(false)} placement="top-start" width={340} className="hg-picker" label={HYDRO.pickGauge}>
-        <GaugeList floodId={floodId} lid={lid} gauges={gauges} onPick={() => setOpen(false)} />
+        <GaugeList floodId={floodId} lid={lid} gauges={gauges} onPick={close} onClose={close} />
       </Popover>
     </>
   )

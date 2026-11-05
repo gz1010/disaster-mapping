@@ -12,9 +12,11 @@
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
   pointer-events: auto;
 }
+/* the dock is at least 112 px; it grows with the handle's lines and the future note (never over the key or the plot;
+   review WFC-R3) inside Forensic's taller dock */
 .hg.is-dock {
   gap: 12px;
-  height: 112px;
+  min-height: 112px;
 }
 .hg-body {
   position: relative;
@@ -198,20 +200,15 @@
   opacity: 0.7;
 }
 
-/* the handle's words */
+/* the handle's words: a row as tall as its lines (set inline: 16 px a line, 14 in the dock), above the plot, so the
+   words never print over the plot, the crest label or the key (review WFC-R3) */
 .hg-handle-row {
   position: relative;
-  min-height: 32px;
+  flex: none;
   margin-top: 2px;
 }
 .hg-handle-row.is-dock {
-  position: absolute;
-  z-index: 1;
-  top: 22px;
-  right: 82px;
-  left: 0;
-  min-height: 0;
-  margin: 0;
+  margin-top: 1px;
   pointer-events: none;
 }
 .hg-handle-label {
@@ -252,14 +249,14 @@
   color: var(--m-forecast);
   font-size: 10.5px;
 }
-.hg-hl-line.is-future {
-  max-width: min(680px, 70vw);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 10px;
+/* after now: the products note, its own line under the handle's words, wrapped (never cut) */
+.hg-future-note {
+  margin: 2px 0 0;
+  font: 400 10px / 14px var(--m-font-mono);
   letter-spacing: 0.04em;
   color: var(--m-text-2);
-  text-transform: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* the plot */

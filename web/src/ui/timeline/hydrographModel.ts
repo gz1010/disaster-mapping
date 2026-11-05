@@ -18,9 +18,54 @@
 import type { FloodAlert, GaugeCategory, ModelOutputResponse, ModelSeries, RiverGauge } from '../../api/types'
 import { productsAt } from '../../official/floodModel'
 import { HOUR_MS, MINUTE_MS, fmtAt, fmtClock, fmtDayDate, fmtRelative, localDayTicks, type TimeFmt } from '../../lib/time'
-import { fillCopy, GAUGE_CATEGORY_DISPLAY, HYDRO, HYDROGRAPH_EMPTY, HYDROGRAPH_MARKS, PAST_NO_FORECAST } from '../shell/floodCopy'
+import { CURSOR_FUTURE_ISSUED, CURSOR_FUTURE_PRODUCTS, fillCopy, GAUGE_CATEGORY_DISPLAY, HYDRO, HYDROGRAPH_EMPTY, HYDROGRAPH_MARKS, PAST_NO_FORECAST } from '../shell/floodCopy'
 
 export { productsAt }
+
+// ------------------------------------------------------------------------------------------------ products shown
+type ProductTimes = Pick<FloodAlert, 'onset_ms' | 'effective_ms' | 'sent_ms' | 'ends_ms' | 'expires_ms' | 'phase'>
+
+/** A product's own start (NWS's onset, else effective, else sent) and end (ends, else expires). */
+export const productStart = (a: Pick<FloodAlert, 'onset_ms' | 'effective_ms' | 'sent_ms'>): number => a.onset_ms ?? a.effective_ms ?? a.sent_ms ?? Number.NEGATIVE_INFINITY
+export const productEnd = (a: Pick<FloodAlert, 'ends_ms' | 'expires_ms'>): number => a.ends_ms ?? a.expires_ms ?? Number.POSITIVE_INFINITY
+
+/** Issued by NWS, not ended, and still to start at `nowMs` (its rows say "Starting soon"). */
+export function isUpcoming(a: ProductTimes, nowMs: number): boolean {
+  return a.phase !== 'ended' && productStart(a) > nowMs && productEnd(a) > nowMs
+}
+
+export interface ShownProducts<T> {
+  alerts: T[]
+  /** The handle is after now (C1). */
+  future: boolean
+  /** After now: a shown product's own period (its start to its end) covers the handle's time, so NWS has issued a
+   *  product for that time (CURSOR_FUTURE_ISSUED); false: none does (CURSOR_FUTURE_PRODUCTS). */
+  issuedForCursor: boolean
+}
+
+/** The NWS products the flood views draw and check at the river-level chart's handle (C1; review WFC-R1). One rule for
+ *  the map, the point check (location/floodCheck.ts), the chart's note and, through its notes, Forensic's drapes:
+ *  - before now: the products in effect at the handle's time (productsAt);
+ *  - at now (null): the products in effect now, and the ones NWS has issued that are still to start ("Starting soon");
+ *  - after now: the products in effect now (an NWS end time is not a forecast of when flooding stops), and every
+ *    issued product still to start whose own period covers the handle's time. */
+export function productsShown<T extends ProductTimes>(alerts: readonly T[], cursorMs: number | null, nowMs: number): ShownProducts<T> {
+  const r = productsAt(alerts, cursorMs, nowMs)
+  const at = cursorMs != null && Number.isFinite(cursorMs) ? cursorMs : null
+  if (at != null && at < nowMs) return { alerts: r.alerts, future: false, issuedForCursor: false }
+  const covers = (a: T, t: number) => productStart(a) <= t && t < productEnd(a)
+  const later = alerts.filter((a) => !r.alerts.includes(a) && isUpcoming(a, nowMs) && (at == null || at <= nowMs || covers(a, at)))
+  const shown = [...r.alerts, ...later]
+  const future = r.future
+  return { alerts: shown, future, issuedForCursor: future && at != null && shown.some((a) => covers(a, at)) }
+}
+
+/** The note shown with the products after now (C1): CURSOR_FUTURE_ISSUED when NWS has issued a product for the handle's
+ *  time, else CURSOR_FUTURE_PRODUCTS; null at or before now. Never "NWS has issued none" while one exists (WFC-R1). */
+export function futureProductsNote(s: Pick<ShownProducts<unknown>, 'future' | 'issuedForCursor'>): string | null {
+  if (!s.future) return null
+  return s.issuedForCursor ? CURSOR_FUTURE_ISSUED : CURSOR_FUTURE_PRODUCTS
+}
 
 export type HydroAxis = 'stage' | 'flow'
 export type HydroUnits = 'us' | 'metric'
@@ -116,14 +161,22 @@ export interface HydrographModel {
   thresholds: HydroThreshold[]
   bands: HydroBand[]
   latest: (HydroMark & { stale: boolean; ageText: string }) | null
-  crest: (HydroMark & { atEnd: boolean }) | null
+  /** `atEnd`: the highest value is the last step (C7); `falling`: it is the first step and below the latest reading, so
+   *  not a peak still to come ("HIGHEST NWS FORECAST …", hollow caret; review WFC-R14, a gap next to PLAN C7). */
+  crest: (HydroMark & { atEnd: boolean; falling: boolean }) | null
   productTicks: HydroProductTick[]
   dayTicks: HydroDayTick[]
   /** PLAN-5 §5.5 sentences that apply (and the flow axis' "no flood lines" note). */
   empty: string[]
   observedLabel: string
   forecastLabel: string | null
+  /** The dock's key: the forecast's issuer and a short issue time ("ISSUED 20:47", or "ISSUED NOV 3 20:47" on another
+   *  day; review WFC-R11); the full label is its tooltip. */
+  forecastLabelShort: string | null
   modelLabel: string
+  /** The flow axis of a gauge that reports river stage only (stage readings, no flow): no measured line to key, and the
+   *  chart says so instead of "no readings" (review WFC-R5). */
+  stageOnly: boolean
   /** The gauge has NWS flood levels for this axis. */
   hasLevels: boolean
 }
@@ -414,18 +467,23 @@ export function buildHydrograph(input: HydrographInput): HydrographModel {
       })()
     : null
 
-  // the crest: the highest forecast step; "HIGH … AT END · STILL RISING" when it is the last step (C7)
+  // the crest: the highest forecast step; "HIGH … AT END · STILL RISING" when it is the last step (C7); "HIGHEST NWS
+  // FORECAST …" when it is the first step and below the latest reading (a falling forecast: no peak to come; WFC-R14)
   let crest: HydrographModel['crest'] = null
   if (fcIn.length) {
     let top = fcIn[0]
     for (const p of fcIn) if (p.v > top.v) top = p
     const lastStep = forecastAll[forecastAll.length - 1]
     const atEnd = top.t >= lastStep.t || (axis === 'stage' && gauge.forecast?.crest_at_end === true)
+    const falling = !atEnd && top === fcIn[0] && fcIn.length > 1 && latestPt != null && top.v < latestPt.v
     const value = fmtValue(top.v, axis, units)
+    const day = upper(`${fmtDayDate(top.t, tf.tz, { weekday: true }).split(' ')[0]} ${fmtClock(top.t, tf)}`)
     const label = atEnd
       ? fillCopy(HYDROGRAPH_MARKS.highAtEnd, { value, UNIT: unit })
-      : fillCopy(HYDROGRAPH_MARKS.crest, { value, UNIT: unit, 'DAY HH:MM': upper(`${fmtDayDate(top.t, tf.tz, { weekday: true }).split(' ')[0]} ${fmtClock(top.t, tf)}`) })
-    crest = { t: top.t, v: top.v, label, atEnd }
+      : falling
+        ? upper(fillCopy(HYDRO.highestFalling, { value, UNIT: unit, 'DAY HH:MM': day }))
+        : fillCopy(HYDROGRAPH_MARKS.crest, { value, UNIT: unit, 'DAY HH:MM': day })
+    crest = { t: top.t, v: top.v, label, atEnd, falling }
   }
 
   const productTicks: HydroProductTick[] = input.products
@@ -442,8 +500,12 @@ export function buildHydrograph(input: HydrographInput): HydrographModel {
 
   const dayTicks: HydroDayTick[] = localDayTicks(startMs, endMs, tf.tz).map((t) => ({ t, label: upper(fmtDayDate(t, tf.tz, { weekday: true })) }))
 
+  // the flow axis of a gauge that reports stage only: say so, never "NWS: Data Not Current" (review WFC-R5)
+  const stageRows = axis === 'flow' && !observedIn.length ? seriesPoints(s?.observed, 'stage', units, s?.stage_unit ?? gauge.observed.unit, null).filter((p) => p.t >= startMs && p.t <= Math.max(nowMs, startMs)) : []
+  const stageOnly = axis === 'flow' && !observedIn.length && stageRows.length > 0
   const empty: string[] = []
-  if (!observedIn.length) empty.push(input.past ? HYDRO.noReadingsPast : HYDROGRAPH_EMPTY.noReadings)
+  if (stageOnly) empty.push(HYDRO.flowStageOnly)
+  else if (!observedIn.length) empty.push(input.past ? HYDRO.noReadingsPast : HYDROGRAPH_EMPTY.noReadings)
   if (!gauge.thresholds) empty.push(HYDROGRAPH_EMPTY.noStages)
   else if (!hasLevels && axis === 'flow') empty.push(HYDRO.flowNoStages)
   if (!fcIn.length) empty.push(input.past ? PAST_NO_FORECAST : gauge.is_forecast_point ? HYDRO.noForecastNow : HYDROGRAPH_EMPTY.noForecast)
@@ -453,6 +515,14 @@ export function buildHydrograph(input: HydrographInput): HydrographModel {
   const rfc = gauge.forecast?.producer?.trim() || gauge.rfc?.trim() || 'RFC'
   const forecastLabel = fcIn.length
     ? upper(issued != null ? fillCopy(HYDRO.forecast, { rfc, time: monoTime(issued, tf) }) : fillCopy(HYDRO.forecastNoTime, { rfc }))
+    : null
+  const sameDay = issued != null && fmtDayDate(issued, tf.tz) === fmtDayDate(nowMs, tf.tz)
+  const forecastLabelShort = fcIn.length
+    ? upper(
+        issued != null
+          ? fillCopy(HYDRO.forecast, { rfc, time: sameDay ? fmtClock(issued, tf) : `${fmtDayDate(issued, tf.tz)} ${fmtClock(issued, tf)}` })
+          : fillCopy(HYDRO.forecastNoTime, { rfc }),
+      )
     : null
 
   return {
@@ -483,8 +553,10 @@ export function buildHydrograph(input: HydrographInput): HydrographModel {
     empty,
     observedLabel: upper(fillCopy(HYDRO.observed, { source: observedSource(gauge) })),
     forecastLabel,
+    forecastLabelShort,
     modelLabel: upper(HYDRO.model),
     hasLevels,
+    stageOnly,
   }
 }
 

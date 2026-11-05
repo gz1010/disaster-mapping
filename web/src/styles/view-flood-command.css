@@ -164,6 +164,16 @@
 .mw[data-view='command-flood'] .cfv-official .ffo .on-foot {
   margin-top: 10px;
 }
+/* flood rows are long: while more rows are below, the scroller's bottom fades (Command fire's mask, view-command.css)
+   and keeps room above the fade (review WFC-R12) */
+.mw[data-view='command-flood'] .mw-updates-panel.is-column.has-more .on-rows {
+  padding-bottom: 20px;
+}
+
+/* the flood layers' own credit line in the foot (map/floodLayerCredits.ts; review WFC-R4) */
+.mw[data-view='command-flood'] .cfv-credits {
+  display: block;
+}
 
 /* ------------------------------------------------------------------------------------------------ the chart */
 .mw[data-view='command-flood'] .cfv-chart {
@@ -191,11 +201,20 @@
   flex-wrap: wrap;
   justify-content: flex-end;
 }
+/* the reading shortens with an ellipsis on a narrow bar; its age (amber when stale) always stays (review WFC-R15) */
 .cfv-gauge-text {
+  display: inline-flex;
+  min-width: 0;
+  overflow: hidden;
+  white-space: pre;
+}
+.cfv-gauge-main {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: pre;
+}
+.cfv-gauge-age {
+  flex: none;
 }
 /* Official now's evacuation row: the row's own label says "Evacuations"; the inner block keeps its value and lines */
 .mw[data-view='command-flood'] .ffo .ffe-command .ffe-label {

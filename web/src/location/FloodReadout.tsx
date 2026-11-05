@@ -32,7 +32,7 @@ import { fmtStage } from '../ui/public/floodOverviewText'
 import { fillCopy, FLOOD_COMMAND, FLOOD_LAST_KNOWN, GAUGE_NOT_DEFINED, GAUGE_OTHER_STREAM, GAUGES_UNAVAILABLE, NO_GAUGE_NEAR } from '../ui/shell/floodCopy'
 import { ReadoutRow } from '../ui/shell/Readout'
 import { CopyButton } from './CoordinateStrip'
-import { areaFigures, catfimLine, categoryWords, checkPoint, forecastRow, lineTag, nearestFloodGauge, utmZoneOf, type NearestGauge } from './floodCheck'
+import { areaFigures, categoryWords, checkPoint, forecastRow, lineTag, nearestFloodGauge, utmZoneOf, type NearestGauge } from './floodCheck'
 import { coordinateLine } from './readoutText'
 import { useNarrow } from './useNarrow'
 import { useChartGauge, withChartReading } from '../ui/timeline/hydrographData'
@@ -104,11 +104,16 @@ function LineText({ text, event }: { text: string; event?: string }) {
 // ------------------------------------------------------------------------------------------------ the point check
 const asked = (st: AnswerState): AnswerState => (st === 'none' ? 'loading' : st)
 
+/** The CatFIM answer's gauge and category ("ZZRF1|moderate"). */
+function catfimAsked(tag: string | null): { lid: string; category: string } | null {
+  const [lid, category] = (tag ?? '').split('|')
+  return lid && category ? { lid, category } : null
+}
+
 function PointLayers({ sel, summary }: { sel: SelectedLocation; summary: FloodSummary }) {
   const fl = useFlood(useShallow((s) => ({ cursorMs: s.cursorMs, floodplain: s.layers.floodplain, model: s.layers.model, catfim: s.layers.catfim })))
   const off = useFloodOfficial(useShallow((s) => ({ alerts: s.alerts, fim: s.fim, satellite: s.satellite, nfhl: s.nfhl })))
-  const model = useFloodLayerData((s) => (s.floodId === summary.id ? s.model.data : null))
-  const catfim = useFloodLayerData((s) => (s.floodId === summary.id ? s.catfim.data : null))
+  const extra = useFloodLayerData(useShallow((s) => (s.floodId === summary.id ? { model: s.model, catfim: s.catfim, catfimFor: s.catfimFor } : null)))
   const units = useWorkspace((s) => s.units)
   const tf = useTimeFormatFor(summary.time_zone)
   const nowMs = useNow(60_000)
@@ -126,8 +131,13 @@ function PointLayers({ sel, summary }: { sel: SelectedLocation; summary: FloodSu
     satClass,
     nfhl: fl.floodplain ? off.nfhl.data : null,
     nfhlState: fl.floodplain ? answerState(off.nfhl) : 'none',
-    // model output only while its layer is on (D12); never merged with the lines above
-    model: fl.model ? model : null,
+    // model output only while its layer is on (D12); never merged with the lines above; its outage said (WFC-R9)
+    model: fl.model ? (extra?.model.data ?? null) : null,
+    modelState: fl.model ? asked(answerState(extra?.model)) : 'none',
+    // NWS's category flood map (Command, switched on; D22): its own line, before NOTHING_COVERS (WFC-R8, WFC-R9)
+    catfim: fl.catfim ? (extra?.catfim.data ?? null) : null,
+    catfimState: fl.catfim ? asked(answerState(extra?.catfim)) : 'none',
+    catfimFor: catfimAsked(extra?.catfimFor ?? null),
     gauges: [],
     rivers: summary.rivers,
     cursorMs: fl.cursorMs,
@@ -135,15 +145,13 @@ function PointLayers({ sel, summary }: { sel: SelectedLocation; summary: FloodSu
     tf,
     units,
   })
-  // NWS's category flood map (Command, switched on; D22): its own line, after the checks
-  const cat = fl.catfim ? catfimLine(catfim, [sel.lon, sel.lat]) : null
   return (
     <section className="ffr-layers" aria-label={FLOOD_COMMAND.layersAtPoint}>
       <ul className="ffr-lines">
         {c.lines.map((l) => {
           const tag = lineTag(l, { fim: off.fim.data, satellite: off.satellite.data, nfhl: off.nfhl.data, nowMs, tf })
           return (
-            <li key={l.key} className={`ffr-line is-${l.kind}${l.inside ? ' is-inside' : ''}${l.tone ? ` is-${l.tone}` : ''}`}>
+            <li key={l.key} className={`ffr-line is-${l.layer ?? l.kind}${l.inside ? ' is-inside' : ''}${l.tone ? ` is-${l.tone}` : ''}`}>
               {tag && (
                 <span className={`cro-tag ffr-tag ${tag.cls}`} data-tip={tag.tip}>
                   {tag.text}
@@ -153,14 +161,6 @@ function PointLayers({ sel, summary }: { sel: SelectedLocation; summary: FloodSu
             </li>
           )
         })}
-        {cat && (
-          <li className={`ffr-line is-catfim${cat.inside ? ' is-inside' : ' is-quiet'}`}>
-            <span className="cro-tag ffr-tag is-catfim" data-tip={FLOOD_COMMAND.tagCatfimTip}>
-              {FLOOD_COMMAND.tagCatfim}
-            </span>{' '}
-            {cat.text}
-          </li>
-        )}
       </ul>
     </section>
   )
