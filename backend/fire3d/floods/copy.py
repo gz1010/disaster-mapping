@@ -127,6 +127,24 @@ NFHL_PARTLY_MAPPED = ("FEMA's digital flood map covers only part of this area; o
                       "shown.")
 NFHL_TRUNCATED = ("FEMA's map has more flood zones in this area than Fire-3d draws; some of the floodplain may be missing "
                   "here.")
+# Review fixes (review5-backend-flood-bundle-api R3-R5, R7-R9)
+SAT_CAVEAT_NO_CLOUD_SHARE = ("Water seen by satellite (NASA OPERA), {date_time}. It includes the river's normal water. "
+                             "Clouds, trees, buildings and the days between passes hide water: dry pixels do not mean "
+                             "no flooding.")
+SAT_CAVEAT_RADAR = ("Water seen by radar satellite (NASA OPERA), {date_time}. It includes the river's normal water. "
+                    "Trees, buildings, steep slopes and the days between passes hide water: dry pixels do not mean no "
+                    "flooding.")
+SAT_PICTURE_REASON = ("Fire-3d could not load a measured satellite water image of this area from the last 10 days; "
+                      "NASA's picture of {date} is not measured here. That is not an all-clear.")
+SAT_SAVED_COPY = ("NASA's satellite water service could not be reached right now; this is the image Fire-3d saved when "
+                  "it prepared this flood.")
+CATFIM_NOT_COVERED = "No NWS category flood map for this flood (no river gauge with a flood category)."
+CATFIM_NOTE_ANY = "What NWS maps for each flood category at a river gauge (experimental map library). Not a forecast."
+NFHL_AVAILABILITY_UNKNOWN = ("Whether FEMA has a digital flood map for all of this area could not be checked right "
+                             "now.")
+MODEL_NO_GAUGE = "This flood has no river gauge, so there is no model series for it."
+GAUGES_PAST_NOT_YET = ("Past river gauge readings are not served yet (the archive comes with a later step). That is "
+                       "not an all-clear.")
 ALERTS_PAST_NOT_YET = ("Past NWS flood products are not served yet (the archive comes with a later step). That is not "
                        "an all-clear: follow local officials.")
 # HTTP error details of the build and per-flood routes
@@ -149,12 +167,17 @@ BUNDLE_STRINGS: dict[str, str] = {
     "GAUGE_DETAIL_DOWN": GAUGE_DETAIL_DOWN, "NEARBY_GAUGES_DOWN": NEARBY_GAUGES_DOWN, "SAT_NO_IMAGE": SAT_NO_IMAGE,
     "SAT_BEFORE_ARCHIVE": SAT_BEFORE_ARCHIVE, "RFC_FIM_PAST": RFC_FIM_PAST, "CATFIM_TODAY": CATFIM_TODAY,
     "MODEL_PAST": MODEL_PAST, "MODEL_DOWN": MODEL_DOWN, "MODEL_NO_REACH": MODEL_NO_REACH,
-    "NFHL_PARTLY_MAPPED": NFHL_PARTLY_MAPPED, "NFHL_TRUNCATED": NFHL_TRUNCATED, "ALERTS_PAST_NOT_YET": ALERTS_PAST_NOT_YET,
+    "NFHL_PARTLY_MAPPED": NFHL_PARTLY_MAPPED, "NFHL_TRUNCATED": NFHL_TRUNCATED,
+    "ALERTS_PAST_NOT_YET": ALERTS_PAST_NOT_YET, "GAUGES_PAST_NOT_YET": GAUGES_PAST_NOT_YET,
     "BUILD_SYNTHETIC": BUILD_SYNTHETIC, "BUILD_OUTSIDE_L48": BUILD_OUTSIDE_L48,
     "FLOOD_ROUTE_NOT_LISTED": FLOOD_ROUTE_NOT_LISTED, "GAUGE_NOT_FOUND": GAUGE_NOT_FOUND,
     "SATELLITE_IMAGE_GONE": SATELLITE_IMAGE_GONE, "TERRAIN_DOWN": TERRAIN_DOWN, "NAIP_DOWN": NAIP_DOWN,
     "GAUGES_NONE": GAUGES_NONE, "LOCAL_FLOOD_CAVEAT": LOCAL_FLOOD_CAVEAT,
     "LOCAL_FLOOD_ARCHIVE_REASON": LOCAL_FLOOD_ARCHIVE_REASON, "LOCAL_FLOOD_NWS_DOWN": LOCAL_FLOOD_NWS_DOWN,
+    "SAT_CAVEAT_NO_CLOUD_SHARE": SAT_CAVEAT_NO_CLOUD_SHARE, "SAT_CAVEAT_RADAR": SAT_CAVEAT_RADAR,
+    "SAT_PICTURE_REASON": SAT_PICTURE_REASON, "SAT_SAVED_COPY": SAT_SAVED_COPY,
+    "CATFIM_NOT_COVERED": CATFIM_NOT_COVERED, "CATFIM_NOTE_ANY": CATFIM_NOTE_ANY,
+    "NFHL_AVAILABILITY_UNKNOWN": NFHL_AVAILABILITY_UNKNOWN, "MODEL_NO_GAUGE": MODEL_NO_GAUGE,
 }
 
 
@@ -163,11 +186,21 @@ def catfim_note(category: str) -> str:
     return CATFIM_NOTE.format(category=category)
 
 
-def sat_caveat(date_time: str, cloud_pct: float | int | None) -> str:
-    """SAT_CAVEAT with the image's absolute date and time (in the flood's zone, e.g. "Oct 31, 2026, 4:06 PM MDT")
-    and the cloud share of the area (rounded; "?" when unknown). Never a relative age."""
-    n = "?" if cloud_pct is None else str(int(round(float(cloud_pct))))
-    return SAT_CAVEAT.format(date_time=date_time, n=n)
+def sat_caveat(date_time: str, cloud_pct: float | int | None, *, radar: bool = False) -> str:
+    """The satellite caveat with the image's absolute date and time (in the flood's zone, e.g. "Oct 31, 2026, 4:06 PM
+    MDT"; never a relative age): ``SAT_CAVEAT`` with the measured cloud share of the area (rounded);
+    ``SAT_CAVEAT_NO_CLOUD_SHARE`` when the share is unknown (a NASA picture); ``SAT_CAVEAT_RADAR`` for radar
+    (DSWx-S1), which sees through clouds but not under trees, among buildings or behind steep slopes."""
+    if radar:
+        return SAT_CAVEAT_RADAR.format(date_time=date_time)
+    if cloud_pct is None:
+        return SAT_CAVEAT_NO_CLOUD_SHARE.format(date_time=date_time)
+    return SAT_CAVEAT.format(date_time=date_time, n=str(int(round(float(cloud_pct)))))
+
+
+def sat_picture_reason(date: str) -> str:
+    """SAT_PICTURE_REASON for NASA's picture of ``date`` ("Oct 30, 2026")."""
+    return SAT_PICTURE_REASON.format(date=date)
 
 
 # ----------------------------------------------------------------------------------------------------------------
@@ -180,11 +213,26 @@ CREDIT_NWPS = "NOAA National Water Prediction Service (NWS)"
 CREDIT_NWC_EXPERIMENTAL = "NOAA/NWS National Water Center (experimental)"
 CREDIT_NWM = "NOAA/NWS National Water Center, National Water Model (experimental model output)"
 CREDIT_NFHL = "Flood zones: FEMA National Flood Hazard Layer (effective)"
-CREDIT_OPERA_HLS = ("Water seen by satellite: NASA JPL OPERA DSWx-HLS (PO.DAAC, doi:10.5067/OPDSW-PL3V1); contains "
-                    "modified Copernicus Sentinel data")
-CREDIT_OPERA_S1 = "NASA JPL OPERA DSWx-S1 (PO.DAAC); contains modified Copernicus Sentinel data"
+CREDIT_COPERNICUS = "contains modified Copernicus Sentinel data"
+CREDIT_OPERA_HLS_BASE = "Water seen by satellite: NASA JPL OPERA DSWx-HLS (PO.DAAC, doi:10.5067/OPDSW-PL3V1)"
+CREDIT_OPERA_S1_BASE = "NASA JPL OPERA DSWx-S1 (PO.DAAC)"
+CREDIT_OPERA_HLS = f"{CREDIT_OPERA_HLS_BASE}; {CREDIT_COPERNICUS}"
+CREDIT_OPERA_S1 = f"{CREDIT_OPERA_S1_BASE}; {CREDIT_COPERNICUS}"
+OPERA_ROUTE_VIA = {"earthdata_gis": " via NASA Earthdata GIS", "gibs": " via NASA GIBS", "podaac": ""}
+CREDIT_3DEP = "Terrain: USGS 3D Elevation Program (3DEP)"
+CREDIT_NAIP = "Aerial photo: USDA NAIP via USGS The National Map"
+CREDIT_TIGERWEB_COUNTIES = "Boundaries: U.S. Census Bureau TIGERweb"
 CREDIT_USGS = "U.S. Geological Survey (provisional data)"
 USGS_OBSERVATIONS = "Observations courtesy of U.S. Geological Survey"
+
+
+def opera_credit(product: str, route: str) -> str:
+    """The OPERA credit line (CONTRACT 16.15, PLAN-5 2 exact) with its route before the Copernicus clause: "Water
+    seen by satellite: NASA JPL OPERA DSWx-HLS (PO.DAAC, doi:10.5067/OPDSW-PL3V1) via NASA Earthdata GIS; contains
+    modified Copernicus Sentinel data" (Earthdata GIS), "... via NASA GIBS; ..." (GIBS picture), no route for
+    PO.DAAC."""
+    base = CREDIT_OPERA_S1_BASE if product == "DSWx-S1" else CREDIT_OPERA_HLS_BASE
+    return f"{base}{OPERA_ROUTE_VIA.get(route, '')}; {CREDIT_COPERNICUS}"
 
 
 def rfc_credit(rfc_name: str | None, office: str | None) -> str:

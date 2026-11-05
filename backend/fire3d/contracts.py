@@ -1046,6 +1046,9 @@ class FloodManifest(ContractModel):
     data_sources: list[DataSource]
     warnings: list[str]
     built_ms: int                       # also the cache-buster (?v=built_ms)
+    # brief 5 backend-flood-live (additive): when the flood live loop last appended NWS product versions or gauge
+    # readings to warnings.json / gauges.json (built_ms stays; absent or null: never since the build)
+    refreshed_ms: int | None = Optional_()
 
 
 class FloodDetailResponse(ContractModel):

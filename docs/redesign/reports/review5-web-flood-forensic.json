@@ -1,0 +1,151 @@
+{
+  "role": "web-flood-forensic (review fixes)",
+  "brief": "BRIEF-5 (floods across the lower 48)",
+  "reviewed_role": "web-flood-forensic",
+  "summary": "All 14 findings were checked against the code and the running app (API 8756 with FIRE3D_LIVE=0, Vite 5216, SwiftShader screenshots of fixture-flood, the real St. Johns River bundle and fixture-live). Fixed: the blocker (R1: the 3D hover readout is now scene/flood/floodProbe.ts, with no negative model line, FEMA's 'outside' only where FEMA's map covers the whole area, the satellite pass's own point sentences (outside the image, no data, clouds) that wrap instead of being cut, the NWS product at the spot, and NOTHING_COVERS when no layer covers it), 3 majors (R2 the backend's notes on 'ok' layers and every layer's caveats in the key and the Layers tab; R3 FEMA's effective date in the key (NFHL_LABEL) and every row note on its own line; R4 the amber 'NWS products in effect now…' line in the scene key whenever the handle is after now), 6 minors (R5 time-bound absence in the dock from the saved copy; R6 the overview card's product from warnings.json at build time, with the outage text when the copy could not be read; R7 'A gauge below flood stage is not an all-clear.' and the answer's caveats under the gauges card; R8 bar labels mirror before the right column and hide under the panels and the key; R9 the phone picker is the colour diamond plus the gauge id; R10 floodAssets.test.ts) and 4 nits (R11 CatFIM category in words; R12 unused copy removed; R13 token colours in the CSS; R14 fire regression retaken at 40 s). While checking R6 the Flood overview card itself was found laid out in two columns (the base .kv grid): fixed. No finding was skipped. The code fixes were committed by the orchestrator's work-in-progress snapshot 8e756a7 during a usage-limit pause; the rest is in 'brief 5 web-flood-forensic: review fixes'.",
+  "findings": [
+    {
+      "id": "WFF-R1",
+      "severity": "blocker",
+      "outcome": "fixed",
+      "what": "New pure scene/flood/floodProbe.ts (floodProbeRows), rendered by SceneOverlays' FloodProbeReadout. NWS: the products drawn at the handle (warningsAt) whose area holds the spot, INSIDE_WARNING with the product's own end time in the issuer's zone. SATELLITE: the pass's own sentences: water, 'saw no water at this spot; dry pixels do not mean no flooding', SAT_CLOUD_POINT, SAT_NODATA_POINT, SAT_OUTSIDE_POINT outside image.bounds_lonlat (C2), snow and ocean; without a measured image the layer's reason. NWS FCST: inside, or 'Outside NWS's mapped forecast area: flooding is unknown, not absent.'. FEMA (while on): its zone; NFHL_OUTSIDE only when layer_status.floodplain.reason is null (FEMA's map covers the whole area, C19), NFHL_NO_MAP when FEMA has none, else 'No FEMA zone is drawn here, but FEMA's digital map may not cover this spot. Not an all-clear.'. Category map and model: a line only inside (MODEL_AT_POINT with the analysis time), never 'not flooded'. Note: NOTHING_COVERS when no NWS product, forecast area or satellite water covers the spot (NOTHING_COVERS_OFFICIAL when only FEMA / the category map / the model does); the copy's outage text when warnings.json could not be read (D24). Values wrap (.fxf-probe-row grid, no ellipsis); the readout is wider (300 px estimate for placement).",
+      "verified": "floodProbe.test.ts (8 cases + category words); screenshots brief5-web-flood-forensic-fix-probe.png (fixture, FEMA and model on: NWS Flood Watch row, the full satellite sentence, 'unknown, not absent', NFHL_OUTSIDE, no model row) and brief5-web-flood-forensic-fix-stjohns-fema.png (real St. Johns bundle, partial FEMA map: 'No satellite view of this spot on the Oct 26 pass.', FEMA 'may not cover this spot. Not an all-clear.', NOTHING_COVERS)."
+    },
+    {
+      "id": "WFF-R2",
+      "severity": "major",
+      "outcome": "fixed",
+      "what": "floodForensicView: layerNote() returns layer_status[k].reason of an 'ok' layer; layerUnavailable() returns the backend's reason for a layer made with nothing to draw (e.g. NFHL_NO_MAP) instead of 'Not in this bundle'. The Layers tab shows the note under the row. sceneKeyItems() carries per item `notes` (SAT_NOT_SET_UP_SHORT for login 'not_configured', any other reason in full; FEMA's partial-coverage reason; the forecast and model reasons) and `more` for the key's fold-out 'About these layers' (satellite.json caveats + login_note, RFC_FIM_NOTE + RFC_FIM_OUTSIDE, NFHL_NOTE, CATFIM_NOTE with the category in words, MODEL_CAVEAT, warnings.json and gauges.json caveats).",
+      "verified": "floodForensicView.test.ts ('ok' status with a reason, FEMA no-map reason, notes and caveats per item); screenshots fixture (key 'No radar images: NASA login not set up', the full login note in the Layers tab), fix-probe (fold-out open: SAT_CAVEAT and the login note), fix-stjohns-fema (FEMA partial note under the key line and the row)."
+    },
+    {
+      "id": "WFF-R3",
+      "severity": "major",
+      "outcome": "fixed",
+      "what": "The key's FEMA line is NFHL_LABEL with FEMA's effective date (floodplainEffective: layer_status.floodplain.time_ms as a calendar date in UTC), else the label without a date. The Layers rows' notes (FEMA 'effective {date}', aerial photo 'taken before this flood', the satellite image's day with its year, the category map's category in words and gauge) are on their own line under the row (.fxf-row-meta), so the narrow column's container rule no longer hides them.",
+      "verified": "floodForensicView.test.ts (NFHL_LABEL with the date); screenshots fixture ('effective Aug 3, 2021' under FEMA floodplain), fix-probe (key line 'FEMA 1% annual-chance floodplain (“100-year floodplain”), background · effective Aug 3, 2021'), fix-stjohns-fema ('effective Jan 29, 2021')."
+    },
+    {
+      "id": "WFF-R4",
+      "severity": "major",
+      "outcome": "fixed",
+      "what": "sceneKeyItems takes cursorMs and adds an amber 'future' item with futureProductsNote(warningsAt(...)) (CURSOR_FUTURE_PRODUCTS, or CURSOR_FUTURE_ISSUED when an issued product covers the handle's time) whenever the handle is after now; FloodForensic passes useFlood.cursorMs. On phones, where the key is folded, the same line shows on its own glass strip under the folded key. The dock's products column uses the same note. keyFuture (unused) was removed in favour of the shared note.",
+      "verified": "floodForensicView.test.ts ('with the handle after now…'); screenshot brief5-web-flood-forensic-cursor-future.png (dock minimised, handle at now+30 h: the amber key line in full)."
+    },
+    {
+      "id": "WFF-R5",
+      "severity": "minor",
+      "outcome": "fixed",
+      "what": "dockNoProduct(): before now, 'No NWS flood product was in effect at {time} in the copy saved with the 3D data. That is not an all-clear: follow local officials.'; at or after now, NO_PRODUCT only while the copy is fresh (COPY_FRESH_MS 30 min; the live loop appends versions every 15 min), else the copy names its own time. The column also shows 'Copy saved with the 3D data · {time} ({age})'.",
+      "verified": "floodForensicView.test.ts (dockNoProduct, 2 cases); screenshot brief5-web-flood-forensic-fix-past-dock.png (handle 40 h before now, column open)."
+    },
+    {
+      "id": "WFF-R6",
+      "severity": "minor",
+      "outcome": "fixed",
+      "what": "overviewProduct(warnings.json, built_ms, now): the copy's outage text (its reason, else ALERTS_UNAVAILABLE) when its status is not 'available' (D24); else the highest product in effect when the 3D data was prepared (warningsAt at min(built_ms, now)), shown verbatim with its sender and 'in effect when the 3D data was prepared ({time})'; else the absence sentence with the build time and 'not an all-clear'. The live list (highestProduct) is no longer used. While verifying, the card was found in two columns (the base .kv grid wrapped its rows): .kv.fxf-kv now has one column.",
+      "verified": "floodForensicView.test.ts (overviewProduct, 2 cases); screenshot fix-past-dock (Flood overview open: 'Flood Warning (NWS Example Office (synthetic)) in effect when the 3D data was prepared (Nov 4, 22:00 MST)', rows laid out correctly)."
+    },
+    {
+      "id": "WFF-R7",
+      "severity": "minor",
+      "outcome": "fixed",
+      "what": "GaugesCard shows gauges.json's caveats and GAUGE_NOT_ALL_CLEAR ('A gauge below flood stage is not an all-clear.') whenever a listed gauge reads below flood stage, above the bar-height line.",
+      "verified": "Screenshots fixture and fix-stjohns-fema (River gauges card). No unit test (component-only change; the string is under the wording guard)."
+    },
+    {
+      "id": "WFF-R8",
+      "severity": "minor",
+      "outcome": "fixed",
+      "what": "gaugeBarMath.placeBarLabel (pure): right of the anchor, mirrored to the left when it would run under the right-hand panels and there is room (the Telemetry columns' rule, with useSceneStore.viewInsets), hidden when it would still run under the UI, overlap a box over the scene (scene key column, demo badge, entry controls, prototype pill: floodOverlayRects, kept current by FloodForensic with a ResizeObserver) or when its anchor is under a panel. GaugeBars drives ScreenLabel's fade / flip / screen refs every frame (instant under reduced motion).",
+      "verified": "gaugeBarMath.test.ts (placeBarLabel, 3 cases); screenshot fixture: ZZRF2's label now ends left of its anchor instead of running under the right column (the reviewer's fixture.png cut it at x≈1088)."
+    },
+    {
+      "id": "WFF-R9",
+      "severity": "minor",
+      "outcome": "fixed",
+      "what": "Under NARROW_QUERY the dock's gauge picker shows only the category diamond and the gauge id (each option keeps the category in its accessible name and the tooltip), so the plot keeps the dock's width.",
+      "verified": "Screenshot brief5-web-flood-forensic-phone.png (390×844 @2x): picker '◆ ZZRF1', plot about 230 px, handle label 'NOV 4 22:00 MST · 17.6 FT OBSERVED · MODERATE' in full."
+    },
+    {
+      "id": "WFF-R10",
+      "severity": "minor",
+      "outcome": "fixed",
+      "what": "web/src/scene/flood/floodAssets.test.ts with a stubbed fetch: a layer whose layer_status is not 'ok' is never fetched or drawn; a raster of the wrong size is dropped; noView from 253 / 255 cells and CatFIM rasterised on the render grid; a second flood disposes the first flood's textures; a stale load is disposed, never shown.",
+      "verified": "5 tests pass."
+    },
+    {
+      "id": "WFF-R11",
+      "severity": "nit",
+      "outcome": "fixed",
+      "what": "catfimCategoryLabel / catfimCategoryWord (floodProbe.ts) map the category through GAUGE_CATEGORY_DISPLAY: key 'NWS category flood map: Moderate flooding (NWS) · experimental', Layers row 'Moderate flooding (NWS) · ZZRF1', CATFIM_NOTE 'What NWS maps for moderate flooding…'.",
+      "verified": "floodProbe.test.ts and floodForensicView.test.ts; screenshot brief5-web-flood-forensic-model-on.png."
+    },
+    {
+      "id": "WFF-R12",
+      "severity": "nit",
+      "outcome": "fixed",
+      "what": "Removed analysisPlaceholder, dockPlaceholder, where and keyFuture (replaced by the shared futureProductsNote, R4). A scan finds no FLOOD_FORENSIC key without a use outside the copy file.",
+      "verified": "grep over every key of floodForensicCopy.ts: 0 unused."
+    },
+    {
+      "id": "WFF-R13",
+      "severity": "nit",
+      "outcome": "fixed",
+      "what": "forensic-flood.css takes the flood colours from var(--m-flood*), var(--m-alert), var(--m-cat-*); the remaining hex values are not token colours (greys, swatch textures, the pale pink of NWS sender text).",
+      "verified": "No token value (#7fd4ff, #ee7aa0, #f5c060, #cfeaff, #ff9a3c, #ff4d4d, #c766ff, #dff4ff, #2a8ce6, #f2e04a) is left as raw hex in the file; 16 var(--m-…) uses."
+    },
+    {
+      "id": "WFF-R14",
+      "severity": "nit",
+      "outcome": "fixed",
+      "what": "Retook brief5-web-flood-forensic-fire-regression.png with --wait 40000 (SwiftShader, quality low).",
+      "verified": "Side by side with brief4-final-forensic-fixture-live.png: the same labels (FRONT 01, FRONT 02, IGNITION), no ghosted FRONT 03."
+    }
+  ],
+  "files": [
+    "web/src/scene/flood/floodProbe.ts",
+    "web/src/scene/flood/floodProbe.test.ts",
+    "web/src/scene/flood/floodAssets.test.ts",
+    "web/src/scene/flood/floodOverlayRects.ts",
+    "web/src/scene/flood/gaugeBarMath.ts",
+    "web/src/scene/flood/gaugeBarMath.test.ts",
+    "web/src/scene/flood/GaugeBars.tsx",
+    "web/src/scene/flood/floodGeo.ts",
+    "web/src/scene/flood/floodGeo.test.ts",
+    "web/src/scene/overlays/SceneOverlays.tsx",
+    "web/src/ui/forensic-flood/floodForensicView.ts",
+    "web/src/ui/forensic-flood/floodForensicView.test.ts",
+    "web/src/ui/forensic-flood/floodForensicCopy.ts",
+    "web/src/ui/forensic-flood/FloodForensic.tsx",
+    "web/src/ui/forensic-flood/FloodLayersTab.tsx",
+    "web/src/ui/forensic-flood/FloodRightPanel.tsx",
+    "web/src/ui/forensic-flood/FloodDock.tsx",
+    "web/src/styles/forensic-flood.css",
+    "docs/redesign/reports/review5-web-flood-forensic.json",
+    "docs/redesign/reports/brief5-web-flood-forensic.json",
+    "docs/redesign/contract5/web-flood-forensic.md",
+    "docs/redesign/progress/brief5-web-flood-forensic.md"
+  ],
+  "screenshots": [
+    "docs/screenshots/brief5-web-flood-forensic-fixture.png",
+    "docs/screenshots/brief5-web-flood-forensic-fix-probe.png",
+    "docs/screenshots/brief5-web-flood-forensic-fix-stjohns-fema.png",
+    "docs/screenshots/brief5-web-flood-forensic-fix-past-dock.png",
+    "docs/screenshots/brief5-web-flood-forensic-cursor-future.png",
+    "docs/screenshots/brief5-web-flood-forensic-model-on.png",
+    "docs/screenshots/brief5-web-flood-forensic-phone.png",
+    "docs/screenshots/brief5-web-flood-forensic-fire-regression.png"
+  ],
+  "gates": "backend: 1383 passed; web: typecheck ok, lint 55 warnings (all in src/scene, none added), 135 files / 1780 passed / 2 skipped (not flood tests), build ok",
+  "known_issues": [
+    "Under SwiftShader a layer checkbox switched by script just before the capture can show its old state in the PNG (fix-probe: FEMA reads 3/3 in the group count but its box is drawn empty; model-on: the CatFIM box half drawn). The DOM is correct (aria-checked true, checked with Playwright); it is a capture timing artefact of software rendering.",
+    "On phones most gauge bar labels are hidden: a ~40-character label next to its anchor runs off a 390 px screen on both sides, so the R8 rule hides it; the dock chart and the River gauges card carry the values.",
+    "With the dock's products column open, the Hydrograph's title row ('ZZRF1 · RIDGE FORK RIVER…') touches its '--- FORECAST' legend in the narrower chart (web-flood-command's component).",
+    "GAUGE_NOT_ALL_CLEAR under the gauges card has no unit test of its own (component change; checked in the screenshots)."
+  ],
+  "commits": [
+    "8e756a7 brief 5 part 2: work-in-progress snapshot after a usage-limit pause (holds this step's code fixes for R1-R13)",
+    "brief 5 web-flood-forensic: review fixes (card grid fix, screenshots, reports, as-built note, progress)"
+  ]
+}

@@ -13,12 +13,12 @@
 //     Forensic (web-flood-command's hydrographModel re-exports it).
 //   - Evacuations in flood wording (D23): "None listed" with its source and check time, Oregon's wildfire-only feed
 //     answers OR_EVAC_FIRE_ONLY, Cal OES zones keep their own status and event type verbatim; never a fire row's words.
-import type { FloodAlert, FloodAlertsResponse, FloodMapResponse, FloodSummary, RiverGauge, RiverGaugesResponse, SatelliteWaterResponse } from '../api/types'
+import type { FloodAlert, FloodAlertsResponse, FloodGaugeRef, FloodMapResponse, FloodSummary, GaugeReading, RiverGauge, RiverGaugesResponse, SatelliteWaterResponse } from '../api/types'
 import type { EvacuationsResponse, EvacZoneFeature } from '../extras/types'
 import { statusLabel, statusText } from '../extras/evacuation'
 import { evacStyleGroup } from '../extras/style'
 import { fmtAt, fmtRelative, type TimeFmt } from '../lib/time'
-import { EVAC_NONE_LISTED, EVAC_NONE_LISTED_SUB, fillCopy, FLOOD_PUBLIC, OR_EVAC_FIRE_ONLY } from '../ui/shell/floodCopy'
+import { EVAC_NONE_LISTED, EVAC_NONE_LISTED_SUB, EVAC_UNAVAILABLE, fillCopy, FLOOD_PUBLIC, OR_EVAC_FIRE_ONLY } from '../ui/shell/floodCopy'
 
 // ------------------------------------------------------------------------------------------------ answers
 /** One official answer as the views hold it (the query's state and the envelope). */
@@ -211,16 +211,51 @@ export function mainAlert(resp: unknown, nowMs: number): FloodAlert | null {
 }
 
 // ------------------------------------------------------------------------------------------------ gauges
-/** The flood's member gauges (primary first); never a nearby gauge (C4). */
-export function memberGaugesOf(resp: unknown): RiverGauge[] {
-  return isRiverGauges(resp) && resp.status === 'available' ? resp.gauges.filter((g) => g.member === true) : []
+const finite = (v: number | null | undefined): v is number => typeof v === 'number' && Number.isFinite(v)
+
+/** One reading per gauge (review WFP-R2): the flood list's reading of its primary gauge (`summary.primary_gauge`, NWS's
+ *  national gauge layer) and the per-flood gauges answer (NWPS) can differ, and either can be the newer one (the
+ *  per-flood answer has lagged the list by about 3 hours). Every view of the gauge (the leader's diamond, the stage
+ *  row with its own time, the map's label) uses the newer reading, so a colour never sits next to another reading's
+ *  category. A tie keeps the gauges answer (it carries the flow and the gauge's own zone). */
+export function withNewerReading(g: RiverGauge, ref: Pick<FloodGaugeRef, 'lid' | 'observed_category' | 'observed_value' | 'unit' | 'observed_ms'> | null | undefined): RiverGauge {
+  if (!ref || ref.lid !== g.lid || !finite(ref.observed_ms)) return g
+  if (finite(g.observed.valid_ms) && g.observed.valid_ms >= ref.observed_ms) return g
+  const observed: GaugeReading = { value: ref.observed_value, unit: ref.unit ?? g.observed.unit, flow: null, flow_unit: null, category: ref.observed_category, valid_ms: ref.observed_ms }
+  return { ...g, observed }
 }
 
-/** The primary member gauge: the summary's primary gauge when the answer has it as a member, else the first member. */
+/** The flood's member gauges (primary first); never a nearby gauge (C4). With the summary, the primary gauge carries
+ *  the newer of its two readings (withNewerReading). */
+export function memberGaugesOf(resp: unknown, summary?: Pick<FloodSummary, 'primary_gauge'> | null): RiverGauge[] {
+  const members = isRiverGauges(resp) && resp.status === 'available' ? resp.gauges.filter((g) => g.member === true) : []
+  const ref = summary?.primary_gauge
+  return ref ? members.map((g) => withNewerReading(g, ref)) : members
+}
+
+/** The primary member gauge: the summary's primary gauge when the answer has it as a member (with the newer of its two
+ *  readings, review WFP-R2), else the first member. */
 export function primaryMemberGauge(resp: unknown, summary: Pick<FloodSummary, 'primary_gauge'> | null): RiverGauge | null {
-  const members = memberGaugesOf(resp)
+  const members = memberGaugesOf(resp, summary)
   const lid = summary?.primary_gauge?.lid
   return (lid ? members.find((g) => g.lid === lid) : null) ?? members[0] ?? null
+}
+
+/** The reading the flood view shows for the summary's primary gauge (the leader's diamond; review WFP-R2): the gauges
+ *  answer's member reading when it is newer, else the list's own; null without a primary gauge. */
+export function primaryGaugeReading(summary: Pick<FloodSummary, 'primary_gauge'> | null, resp: unknown): Pick<GaugeReading, 'category' | 'value' | 'unit' | 'valid_ms'> | null {
+  const ref = summary?.primary_gauge
+  if (!ref) return null
+  const g = memberGaugesOf(resp, summary).find((m) => m.lid === ref.lid)
+  if (g) return g.observed
+  return { category: ref.observed_category, value: ref.observed_value, unit: ref.unit, valid_ms: ref.observed_ms }
+}
+
+/** NWS's highest forecast value is for a time that has passed (and is not the last step, C7): not a crest still to
+ *  come (integration, the real Rio Grande at Alamosa: the 23:00 crest of an 18:00 forecast was shown at 02:50 as
+ *  "FORECAST CREST"). The forecast after it is not higher. */
+export function forecastPassed(f: Pick<NonNullable<RiverGauge['forecast']>, 'max_ms' | 'crest_at_end'> | null | undefined, nowMs: number): boolean {
+  return f != null && !f.crest_at_end && typeof f.max_ms === 'number' && Number.isFinite(f.max_ms) && f.max_ms < nowMs
 }
 
 /** "Example River Forecast Center (synthetic)", else the RFC code, else "River Forecast Center". */
@@ -254,6 +289,8 @@ export interface FloodEvacFact {
   /** Who answered ("Cal OES"), null when nobody. */
   who: string | null
   checkedMs: number | null
+  /** More about the row (a failed request's own error): the sub-line's tooltip. */
+  tip?: string | null
 }
 
 const httpsUrl = (u: string | null | undefined): string | null => (typeof u === 'string' && /^https:\/\//.test(u) ? u : null)
@@ -267,7 +304,8 @@ const OR_EVAC_KEY = "Oregon's evacuation feed covers wildfires only"
 export function floodEvacuation(q: Answer<EvacuationsResponse> | null | undefined, tf: TimeFmt, nowMs: number): FloodEvacFact {
   const base = { verbatim: false, subVerbatim: null, link: null, who: null, checkedMs: null } as const
   if (!q || (!q.data && !q.loading && !q.error)) return { ...base, state: 'not-checked', value: FLOOD_PUBLIC.checking, sub: null }
-  if (!q.data) return q.loading ? { ...base, state: 'loading', value: FLOOD_PUBLIC.checking, sub: null } : { ...base, state: 'unavailable', value: FLOOD_PUBLIC.unavailable, sub: q.error }
+  // a failed request with no answer: flood wording, never an all-clear; the request's own error in the tooltip (WFP-R5)
+  if (!q.data) return q.loading ? { ...base, state: 'loading', value: FLOOD_PUBLIC.checking, sub: null } : { ...base, state: 'unavailable', value: FLOOD_PUBLIC.unavailable, sub: EVAC_UNAVAILABLE, tip: q.error }
   const d = q.data
   // Oregon's feed is wildfire-only: for a flood the backend answers it not-available with OR_EVAC_FIRE_ONLY (in the
   // source's reason, the state's note or the answer's reason)
@@ -280,12 +318,13 @@ export function floodEvacuation(q: Answer<EvacuationsResponse> | null | undefine
     const notHere = d.reason_code === 'state_not_available'
     const firstLink = (d.states ?? []).flatMap((s) => s.links)[0]
     const value = notHere ? 'Not available in this state' : FLOOD_PUBLIC.unavailable
-    const reason = orNote ?? restAfter(stripFollow(d.reason), value)
+    const reason = orNote ?? (restAfter(stripFollow(d.reason), value)?.replace(/[\s.]+$/, '') || null)
     return {
       ...base,
       state: notHere ? 'not-available' : 'unavailable',
       value,
-      sub: [reason, 'follow local officials'].filter(Boolean).join(' · ') || null,
+      // never an all-clear (D24, review WFP-R5): the backend's own reason, then the rule
+      sub: [reason, reason && /not an all-clear/i.test(reason) ? null : NOT_ALL_CLEAR_FOLLOW].filter(Boolean).join(' · ') || null,
       link: firstLink && httpsUrl(firstLink.url) ? { url: firstLink.url, label: firstLink.label } : null,
       who,
       checkedMs,
@@ -331,6 +370,7 @@ function zoneStatus(z: EvacZoneFeature): string {
   return statusLabel(z.properties) ?? statusText(z.properties)
 }
 
+const NOT_ALL_CLEAR_FOLLOW = 'not an all-clear: follow local officials'
 const stripFollow = (s: string | null | undefined): string | null => (s ? s.replace(/\s*Follow local officials\.?\s*$/i, '').trim() || null : null)
 
 /** The backend's reason less what the value already says ("Official evacuation zones are not available in this state

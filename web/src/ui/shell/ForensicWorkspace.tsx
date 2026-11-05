@@ -12,13 +12,14 @@
 // 120 px top gradient keeps the bar readable over the terrain (no vignette and no tint in Forensic).
 // Brief 5 (PLAN-5 §4.3): the "open an event first" page carries the Fires | Floods switch next to its title and lists
 // fires or floods by it; the prototype line and "Not an all-clear" stay at its foot, phones included. A flood picked
-// here opens its 3D branch (ui/forensic-flood, web-flood-forensic); until that branch is mounted, an open flood keeps
-// this page.
+// here (or open from the map) shows its 3D branch, ui/forensic-flood/FloodForensic.tsx (web-flood-forensic): the fire
+// Header, Timeline, Charts and panels below stay fire-only and untouched. The safe-area hook both share lives in
+// ui/forensic-flood/safeArea.ts.
 import { BarChart3, Crosshair, Map as MapIcon, PanelBottomClose, PanelBottomOpen } from 'lucide-react'
-import { lazy, Suspense, useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import { lazy, Suspense, useRef, useState } from 'react'
 import type { IncidentSummary } from '../../api/types'
 import { useSceneStore } from '../../scene/sceneStore'
-import { pickFlood } from '../../state/flood'
+import { pickFlood, useFlood } from '../../state/flood'
 import { useStore } from '../../state/store'
 import { isDemoBundle, useWorkspace } from '../../state/workspace'
 import { BottomDock } from '../BottomDock'
@@ -30,7 +31,8 @@ import { FireCard } from './FireCard'
 import { FixedCopy } from './FixedCopy'
 import { NARROW_QUERY, useMediaQuery } from './hooks'
 import { switchWorkspace } from './handoff'
-import { parseDockSide, safeInsetsFor, type ChromeRect, type DockSide } from './layout'
+import { FloodForensic } from '../forensic-flood/FloodForensic'
+import { useSafeArea } from '../forensic-flood/safeArea'
 import { HazardSwitch } from '../public/HazardSwitch'
 import { FLOOD_OVERVIEW } from './floodCopy'
 import { FloodList } from './FloodListPanel'
@@ -41,44 +43,6 @@ import '../../styles/forensic-entry.css'
 
 const sceneOff = import.meta.env.VITE_SCENE === 'off'
 const Scene = lazy(() => import('../../scene/Scene'))
-
-/** Publish the uncovered canvas area as CSS vars (measured from the panels, so it follows responsive sizes; the scene
- *  reads them into sceneStore.viewInsets for camera framing and positions its overlays with them). Each panel docks
- *  to the edge its --chrome-side names (styles/forensic-narrow.css: the right column docks to the bottom on phones).
- *  `layoutKey` re-measures when a panel moves without resizing (the dock follows the phone sheet). */
-function useSafeArea(collapsed: boolean, refs: { header: RefObject<HTMLElement | null>; right: RefObject<HTMLElement | null>; dock: RefObject<HTMLElement | null> }, layoutKey: string) {
-  useLayoutEffect(() => {
-    const root = document.documentElement
-    const update = () => {
-      const gap = parseFloat(getComputedStyle(root).getPropertyValue('--gap')) || 12
-      const items: ChromeRect[] = []
-      const add = (el: HTMLElement | null | undefined, fallback: DockSide) => {
-        if (!el) return
-        const r = el.getBoundingClientRect()
-        const side = parseDockSide(getComputedStyle(el).getPropertyValue('--chrome-side'))
-        items.push({ left: r.left, top: r.top, right: r.right, bottom: r.bottom, side: side === 'none' ? fallback : side })
-      }
-      add(refs.header.current, 'top')
-      if (!collapsed) {
-        add(refs.right.current, 'right')
-        add(refs.dock.current, 'bottom')
-      }
-      const ins = safeInsetsFor(items, window.innerWidth, window.innerHeight, gap)
-      root.style.setProperty('--safe-top', `${ins.top}px`)
-      root.style.setProperty('--safe-right', `${ins.right}px`)
-      root.style.setProperty('--safe-bottom', `${ins.bottom}px`)
-      root.style.setProperty('--safe-left', `${ins.left}px`)
-    }
-    update()
-    const ro = new ResizeObserver(update)
-    for (const r of [refs.header, refs.right, refs.dock]) if (r.current) ro.observe(r.current)
-    window.addEventListener('resize', update)
-    return () => {
-      ro.disconnect()
-      window.removeEventListener('resize', update)
-    }
-  }, [collapsed, refs.header, refs.right, refs.dock, layoutKey])
-}
 
 /** No fire focused: Forensic shows one fire at a time, so it offers the map (zoom in on a fire) and the list (and the
  *  fire card) first, with the prototype line and "Not an all-clear" at the bottom as in the fire's view. */
@@ -157,6 +121,9 @@ function EntryControls({ narrow, dockFull, onDock, sheetOpen, onSheet }: { narro
 
 export default function ForensicWorkspace() {
   const noFire = useStore((s) => s.incidentId == null)
+  const flood = useFlood((s) => s.floodId != null)
+  // fire and flood are never open together (state/flood.ts); a flood gets its own 3D branch
+  if (flood && noFire) return <FloodForensic />
   if (noFire) return <OpenFireFirst />
   return <ForensicScene />
 }

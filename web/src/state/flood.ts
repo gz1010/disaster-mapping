@@ -17,7 +17,8 @@ import { ApiError, describeError } from '../api/client'
 import { getJob } from '../api/client'
 import { getFlood, getFloods, postFloodBuild } from '../api/floods'
 import type { FloodDetailResponse, FloodManifest, FloodSummary, JobStatus } from '../api/types'
-import { activeBuildJob, jobFinished, pollDelay } from './floodBuild'
+import { activeBuildJob, jobFinished, POLL_LOST_AFTER, pollDelay, pollJobGone, pollRetryDelay } from './floodBuild'
+import { fillCopy, FLOOD_PUBLIC } from '../ui/shell/floodCopy'
 import { EMPTY_SLOT, findFloodIn, getSlot, slotApply, slotFail, slotKey, slotPending, type FloodListKey, type FloodListSlot } from './floodCatalog'
 import { crossingHazard, replacingHistory } from './floodNav'
 import { WATCHES_SHOWN_BY_DEFAULT } from './floodOverview'
@@ -26,8 +27,10 @@ import { useWorkspace } from './workspace'
 
 export type { FloodListKey, FloodListSlot } from './floodCatalog'
 
-/** Flood map layers (CONTRACT §16.10-16.11). What a view draws is this AND its profile (map/floodProfile.ts). */
-export type FloodLayerKey = 'events' | 'gauges' | 'warnings' | 'forecastArea' | 'satellite' | 'channel' | 'floodplain' | 'model' | 'catfim'
+/** Flood map layers (CONTRACT §16.10-16.11). What a view draws is this AND its profile (map/floodProfile.ts).
+ *  Additive (web-flood-command, wave 3): 'modelHighFlow', the National Water Model's high-flow reaches (Command's
+ *  Layers drawer, PLAN-5 §4.5; model output, off by default). */
+export type FloodLayerKey = 'events' | 'gauges' | 'warnings' | 'forecastArea' | 'satellite' | 'channel' | 'floodplain' | 'model' | 'catfim' | 'modelHighFlow'
 
 /** FEMA floodplain, model output and NWS category maps start off (D12, D21, D22); everything else on. */
 export const DEFAULT_FLOOD_LAYERS: Record<FloodLayerKey, boolean> = {
@@ -40,6 +43,7 @@ export const DEFAULT_FLOOD_LAYERS: Record<FloodLayerKey, boolean> = {
   floodplain: false,
   model: false,
   catfim: false,
+  modelHighFlow: false,
 }
 
 export type FloodSource = 'list' | 'marker' | 'url' | 'search' | 'history' | 'card' | null
@@ -250,17 +254,32 @@ function pollBuild(floodId: string, job: JobStatus): void {
       }
       return
     }
+    schedule(j, pollDelay(j))
+  }
+  // one failed request is not a failed job (review WFP-R9): keep the last known status and ask again after a growing
+  // wait; a 404 (the server no longer knows the job) ends it; after a few failures in a row the views say contact was
+  // lost, and the poller goes on
+  let failures = 0
+  const schedule = (j: JobStatus, delay: number) => {
     pollTimer = setTimeout(() => {
       getJob(j.id)
         .then((next) => {
           if (!still()) return
-          useFlood.setState({ job: next })
+          failures = 0
+          useFlood.setState({ job: next, ...(useFlood.getState().buildError ? { buildError: null } : {}) })
           void step(next)
         })
         .catch((e: unknown) => {
-          if (still()) useFlood.setState({ buildError: describeError(e), job: { ...j, status: 'error', error: describeError(e) } })
+          if (!still()) return
+          failures += 1
+          if (pollJobGone(e instanceof ApiError ? e.status : null)) {
+            useFlood.setState({ buildError: describeError(e), job: { ...j, status: 'error', error: describeError(e) } })
+            return
+          }
+          if (failures >= POLL_LOST_AFTER) useFlood.setState({ buildError: fillCopy(FLOOD_PUBLIC.prepareLost, { error: describeError(e) }) })
+          schedule(j, pollRetryDelay(failures))
         })
-    }, pollDelay(j))
+    }, delay)
   }
   void step(job)
 }

@@ -216,7 +216,7 @@ describe('evacuations in flood wording (D23, C5)', () => {
     const nm = floodEvacuation({ data: evacNm as unknown as EvacuationsResponse, loading: false, error: null }, tf, FIXTURE_NOW_MS)
     expect(nm.state).toBe('not-available')
     expect(nm.value).toBe('Not available in this state')
-    expect(nm.sub).toBe('New Mexico · follow local officials')
+    expect(nm.sub).toBe('New Mexico · not an all-clear: follow local officials')
     expect(floodEvacuation({ data: null, loading: false, error: 'API 503' }, tf, FIXTURE_NOW_MS).value).toBe('Unavailable right now')
     expect(floodEvacuation({ data: null, loading: true, error: null }, tf, FIXTURE_NOW_MS).value).toBe('Checking…')
   })
@@ -239,5 +239,45 @@ describe('productsDrawn: upcoming products are drawn at now, never after now (C1
   })
   it('a cursor after now: the products in effect now only', () => {
     expect(productsDrawn([warn, watch], now + 10 * H, now)).toEqual({ alerts: [warn], future: true })
+  })
+})
+
+// ------------------------------------------------------------------------------------------------ review fixes
+import { primaryGaugeReading, withNewerReading } from './floodModel'
+import { EVAC_UNAVAILABLE } from '../ui/shell/floodCopy'
+
+describe('one reading per gauge (review WFP-R2)', () => {
+  const summary = DETAIL().summary
+  const pg = summary.primary_gauge!
+  const answered = GAUGES().gauges.find((g) => g.lid === pg.lid)!
+  const t = answered.observed.valid_ms!
+  it('the newer of the list reading and the gauges answer, with its own time and category; a tie keeps the answer', () => {
+    const listNewer = { ...pg, observed_value: 2.03, observed_category: 'minor' as const, observed_ms: t + H }
+    expect(withNewerReading(answered, listNewer).observed).toMatchObject({ value: 2.03, category: 'minor', valid_ms: t + H, flow: null })
+    const listOlder = { ...listNewer, observed_ms: t - 3 * H }
+    expect(withNewerReading(answered, listOlder)).toBe(answered)
+    expect(withNewerReading(answered, { ...listNewer, observed_ms: t })).toBe(answered)
+    expect(withNewerReading(answered, { ...listNewer, lid: 'OTHER' })).toBe(answered)
+  })
+  it('memberGaugesOf / primaryMemberGauge / primaryGaugeReading use it for the primary gauge only', () => {
+    const s = { ...summary, primary_gauge: { ...pg, observed_value: 1.3, observed_category: 'no_flooding' as const, observed_ms: t + H } }
+    expect(primaryMemberGauge(GAUGES(), s)?.observed.category).toBe('no_flooding')
+    expect(memberGaugesOf(GAUGES(), s).find((g) => g.lid === pg.lid)?.observed.value).toBe(1.3)
+    expect(memberGaugesOf(GAUGES()).find((g) => g.lid === pg.lid)?.observed.value).toBe(answered.observed.value)
+    expect(primaryGaugeReading(s, GAUGES())?.category).toBe('no_flooding')
+    // the answer newer: the leader takes the answer's category, never the list's older one
+    expect(primaryGaugeReading({ ...s, primary_gauge: { ...s.primary_gauge, observed_category: 'minor', observed_ms: t - 3 * H } }, GAUGES())?.category).toBe(answered.observed.category)
+    // no gauges answer yet: the list's own reading
+    expect(primaryGaugeReading(s, null)).toMatchObject({ category: 'no_flooding', value: 1.3 })
+    expect(primaryGaugeReading({ ...s, primary_gauge: null }, GAUGES())).toBeNull()
+  })
+})
+
+describe('evacuations: a failed request (review WFP-R5)', () => {
+  it('flood wording, not an all-clear; the request error in the tooltip', () => {
+    const f = floodEvacuation({ data: null, loading: false, error: 'The Fire-3d server could not get data from this source.' }, tf, FIXTURE_NOW_MS)
+    expect(f).toMatchObject({ state: 'unavailable', sub: EVAC_UNAVAILABLE, tip: 'The Fire-3d server could not get data from this source.' })
+    expect(evacOwnWordsMentionFire(f)).toBe(false)
+    expect(floodWordingProblems(`${f.value} ${f.sub}`)).toEqual([])
   })
 })

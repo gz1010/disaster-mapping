@@ -1,0 +1,100 @@
+{
+  "role": "web-flood-public",
+  "brief": "BRIEF-5 (floods across the lower 48)",
+  "summary": "The Public flood view of the design (PLAN-5 4.4) is built and checked on the fixture server and on a real live flood (Grand River flood, Missouri) through the real API. The hazard circle is split into HazardDisc (thermal or water texture); the fire circle, title and chip draw byte-identical markup (checked before and after) and the fire view screenshot matches brief 4 apart from live ages. The water circle draws the design's SVG verbatim, still under reduced motion, with NWS product status words and one meaning per status. Facts per kind (river, flash/areal, watch only) come from official answers and member gauges only, each with issuer, own time and link; absence sentences only for available answers. The key names each layer with its own time (ages at render), the no-view hatch and the image edge; the map draws the satellite water image with its edge, the NWS forecast flooded area, NWS warning areas (products at the handle's time), the main channel, the flood's gauges and a FEMA toggle off by default; never the model or CatFIM. The leader ends at the primary member gauge or, for a flash flood, at a point of its largest NWS polygon. The point card gains a flood-view block (location/floodCheck.ts). The official flood web (floodModel, floodHooks with the shared useFloodOfficial store, FloodOfficialNow, FloodEvacRows in flood wording) and FloodLayersPanel are ready for Command. startFloodBuild, job polling and the manifest reload work against the real build route (a real flood prepared end to end). Review fixes (review5-web-flood-public.json, WFP-R1..R12): failed or loading satellite and forecast-area answers are said in the key, status, legend and point card (NOTHING_COVERS waits for every layer); one reading per gauge (the newer of the list and the gauges answer) for the leader diamond, stage row and map label; the image edge follows the satellite answer; amber stale facts; outage rows keep \"not an all-clear\"; the flood layers credited in the foot when the key is hidden; product time and link on the detection, damage and watch rows; snow, ocean and clear pixels never read as \"no water\"; build polling survives failed polls.",
+  "milestones": [
+    "M1 HazardDisc split, water texture, flood circle, title, status words (9ca467d)",
+    "M2 official flood model and hooks, facts per kind, key, evacuation rows, distance, preparation (a75891f)",
+    "M3 map area layers, leader, point check, official rows, Layers drawer, phones, screenshots (fe8211e; code also in the wave-2 snapshots 90f3d97, be6c394)",
+    "review fixes WFP-R1..R12 (1f329fe)"
+  ],
+  "files": [
+    "web/src/ui/shell/PublicFloodChrome.tsx",
+    "web/src/ui/shell/FloodLayersPanel.tsx",
+    "web/src/ui/shell/floodCopy.ts",
+    "web/src/ui/public/HazardDisc.tsx",
+    "web/src/ui/public/WaterTexture.tsx",
+    "web/src/ui/public/HazardCircle.tsx",
+    "web/src/ui/public/FireTitle.tsx",
+    "web/src/ui/public/DistanceChip.tsx",
+    "web/src/ui/public/FloodHazardCircle.tsx",
+    "web/src/ui/public/FloodTitle.tsx",
+    "web/src/ui/public/FloodFacts.tsx",
+    "web/src/ui/public/FloodKey.tsx",
+    "web/src/ui/public/floodView.ts",
+    "web/src/ui/public/floodView.test.ts",
+    "web/src/ui/feed/OfficialNow.tsx",
+    "web/src/ui/feed/FloodOfficialNow.tsx",
+    "web/src/ui/feed/FloodOfficialNow.test.ts",
+    "web/src/ui/feed/FloodEvacRows.tsx",
+    "web/src/ui/feed/FloodEvacRows.test.ts",
+    "web/src/official/floodModel.ts",
+    "web/src/official/floodModel.test.ts",
+    "web/src/official/floodHooks.ts",
+    "web/src/location/floodCheck.ts",
+    "web/src/location/floodCheck.test.ts",
+    "web/src/location/FloodPointCard.tsx",
+    "web/src/lib/areaDistance.ts",
+    "web/src/lib/areaDistance.test.ts",
+    "web/src/map/floodAreaLayers.ts",
+    "web/src/map/floodAreaLayers.test.ts",
+    "web/src/map/floodController.ts",
+    "web/src/map/FloodLeader.tsx",
+    "web/src/map/FloodLegend.tsx",
+    "web/src/state/flood.ts",
+    "web/src/state/floodBuild.ts",
+    "web/src/state/floodBuild.test.ts",
+    "web/src/styles/view-public.css",
+    "web/src/styles/view-flood-public.css",
+    "docs/redesign/contract5/web-flood-public.md",
+    "docs/redesign/progress/brief5-web-flood-public.md",
+    "docs/redesign/reports/review5-web-flood-public.json"
+  ],
+  "screenshots": [
+    "docs/screenshots/brief5-web-flood-public-fixture.png",
+    "docs/screenshots/brief5-web-flood-public-fixture-vs-render.png",
+    "docs/screenshots/brief5-web-flood-public-flash.png",
+    "docs/screenshots/brief5-web-flood-public-watch.png",
+    "docs/screenshots/brief5-web-flood-public-chip.png",
+    "docs/screenshots/brief5-web-flood-public-reduced-motion.png",
+    "docs/screenshots/brief5-web-flood-public-phone.png",
+    "docs/screenshots/brief5-web-flood-public-real.png",
+    "docs/screenshots/brief5-web-flood-public-fire-regression.png",
+    "docs/screenshots/brief5-web-flood-public-outage.png",
+    "docs/screenshots/brief5-web-flood-public-collapsed-credits.png",
+    "docs/screenshots/brief5-web-flood-public-phone-credits.png",
+    "docs/screenshots/brief5-web-flood-public-real-below-stage.png",
+    "docs/screenshots/brief5-web-flood-public-real-flash.png"
+  ],
+  "gates": {
+    "backend": "uv run pytest -q: 1340 passed, 0 skipped (after the review fixes)",
+    "web": "typecheck clean; lint 55 warnings, all in src/scene; vitest 121 files, 1603 passed, 2 skipped (pre-existing data-dependent fire tests: overlayModel real Eaton, fireBounds real bundles); build ok",
+    "test_skip_count": {
+      "backend": 0,
+      "web": 2
+    }
+  },
+  "checks": [
+    "Fire circle, title and chip: server-rendered markup byte-identical before and after the split (temporary capture, 3 fires x 2 sizes); fireView.ts, FireFacts.tsx, FireKey.tsx, PublicFireChrome.tsx untouched",
+    "Reduced motion: shot.mjs --reduced-motion reports 0 SVG animation elements and 0 running CSS animations",
+    "Real build route: startFloodBuild on flood-20261103-grand-river-flood-670960 went queued -> running (terrain, maps) -> done; the manifest (elevation, sky_view, naip, water_forecast, floodplain, water_model) loaded",
+    "Secrets: count-only scan of every file this role changed: FIRMS_MAP_KEY 0, EARTHDATA_TOKEN 0; no secret was read or printed",
+    "Ports 8754 / 5214 only; servers stopped at the end",
+    "Review fixes: Playwright probes on the fixture server (503 and delayed answers, panels collapsed, 390x844 credits) and the real API (Grand River, St Lucie River, Chatsworth flash flood); count-only secret scan of every changed file: FIRMS_MAP_KEY 0, EARTHDATA_TOKEN 0"
+  ],
+  "known_issues": [
+    "FloodOfficialNow and FloodLayersPanel variant 'command' are built and tested but not mounted: web-flood-command mounts them in its chrome.",
+    "productsAt lives in official/floodModel.ts (CONTRACT 16.12 names hydrographModel.ts, which web-flood-command owns); Command should re-export it.",
+    "NASA's GIBS picture (no measured image) is not drawn (DRAW_SAT_PICTURE = false): its colour map reads like a hazard map; the key and point card say 'no usable image' with the backend's reason.",
+    "The flood layers' credit lines are the key's last line and, while the key is hidden (panels collapsed, phones), are portalled into the foot bar's credits (#mw-credits, App.tsx); lib/dataCredits.ts and map/MapAttribution.tsx are not this role's, so the integration may fold them into floodCredits().",
+    "At 1024 px the key (with its credit lines) covers much of the map's bottom right and the facts scroll ('More below'); the 1024 px layout pass is below the cut line.",
+    "Clouds vs no data and the satellite image edge are drawn by the backend's PNG and the bounds; a satellite answer with granules but no image falls back to the key's 'no usable image'.",
+    "location/CoordinateStrip.tsx still says 'No fire open' in Floods (WFO-R9, the integration's).",
+    "The point check's satellite class comes from the bundle's water_satellite.bin only when it is the shown image; else from the PNG, where clouds and no data share one grey ('clouds or no data') and 'not water' and ocean share transparency ('shows no water … or did not check it there').",
+    "Public fire view (unchanged by this role): on phones its opened '© Credits' panel is transparent over the facts sheet; fixed for the flood view only (view-flood-public.css)."
+  ],
+  "cut_line_left": [
+    "GIBS picture fallback drawing (code path present, off: map/floodAreaLayers.ts DRAW_SAT_PICTURE)",
+    "The 1024 px layout pass beyond the fire view's"
+  ]
+}

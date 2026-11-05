@@ -64,6 +64,7 @@ export function FloodMapData() {
         <p className="pfv-prep-text">
           {FLOOD_PUBLIC.preparing}
           {prep.step ? <span className="pfv-prep-step"> · {prep.step}</span> : null}
+          {prep.error ? <span className="pfv-prep-step"> · {prep.error}</span> : null}
         </p>
         <ProgressBar value={prep.progress} tone="fire" label="Map data preparation" />
       </div>
@@ -107,7 +108,7 @@ function useFloodFacts(): { rows: FloodFactRow[]; source: ReturnType<typeof floo
 }
 
 function FactRowView({ r }: { r: FloodFactRow }) {
-  const value = r.verbatim ? <span data-verbatim="">{r.value}</span> : r.value
+  const value = r.verbatim ? <span data-verbatim="">{r.value}</span> : r.tip && !r.sub ? <span data-tip={r.tip}>{r.value}</span> : r.value
   const sub = r.sub || r.subVerbatim || r.link ? r.tip ? <span data-tip={r.tip}><Sub r={r} /></span> : <Sub r={r} /> : undefined
   return <ReadoutRow value={value} unit={r.unit} label={r.label} size={r.size} tone={r.tone} sub={sub} />
 }

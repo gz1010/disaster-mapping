@@ -211,6 +211,9 @@ export interface FloodManifest {
   data_sources: DataSource[]
   warnings: string[]
   built_ms: number // also the cache-buster (?v=built_ms)
+  /** brief 5 backend-flood-live (additive): when the flood live loop last appended NWS product versions or gauge
+   *  readings to warnings.json / gauges.json (built_ms stays); absent or null: never since the build. */
+  refreshed_ms?: number | null
 }
 
 // ---------------------------------------------------------------------------------------------------------------

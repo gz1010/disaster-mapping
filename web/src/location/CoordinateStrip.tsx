@@ -186,6 +186,8 @@ export function CoordinateStrip() {
     })),
   )
   const sel = useWorkspace((s) => s.selection)
+  // brief 5 (integration, WFO-R9): in Floods the overview names the hazard it lists
+  const floods = useWorkspace((s) => s.hazard === 'flood')
   const command = variant === 'full'
   const { summary, manifest } = st
   const zone = manifest?.grid.utm_zone ?? null
@@ -217,7 +219,7 @@ export function CoordinateStrip() {
       ) : (
         <div className="loc-coord is-empty">
           <span className="loc-coord-label">{st.incidentId ? 'Incident · reported location' : 'United States overview'}</span>
-          <span className="loc-coord-value mw-muted">{st.incidentId ? 'Loading…' : 'No fire open'}</span>
+          <span className="loc-coord-value mw-muted">{st.incidentId ? 'Loading…' : floods ? 'No flood open' : 'No fire open'}</span>
         </div>
       )}
       {sel ? (

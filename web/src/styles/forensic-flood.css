@@ -1,0 +1,828 @@
+/* The Forensic 3D flood view (brief 5, PLAN-5 §4.7; web-flood-forensic). The fire Forensic's layout and glass
+   (layout.css, forensic-entry.css, forensic-narrow.css, panel.css, dock.css) with the flood's parts: the name pill, the
+   scene key under the entry controls, the Layers-tab swatches, Evidence, Analysis, the cards, the dock's gauge chips
+   and NWS products column, and the "not prepared" page. Flood colours from map-tokens.css (no green; the category is
+   always written next to its colour). */
+
+/* ------------------------------------------------------------------------------------------------ top bar */
+.fxf-bar .fx-place {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.fxf-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  max-width: 340px;
+  min-width: 120px;
+  padding: 0 14px 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(200, 200, 200, 0.18);
+  background: rgba(14, 14, 14, 0.6);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  flex: 0 0 auto;
+}
+.fxf-name-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.fxf-demo-tag {
+  flex: none;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(232, 176, 74, 0.5);
+  color: var(--m-demo);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+}
+
+/* the demo badge with its second line (PLAN-5 §4.7) */
+.fx-demo-badge.fxf-demo-badge {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 3px;
+  height: auto;
+  padding: 5px 10px 6px;
+  border-radius: 10px;
+}
+.fxf-demo-sub {
+  font: 400 10.5px / 1.2 var(--font-sans, inherit);
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgba(232, 176, 74, 0.85);
+}
+
+/* ------------------------------------------------------------------------------------------------ scene key */
+.fxf-key {
+  width: 268px;
+  max-width: calc(100vw - var(--safe-left) - var(--safe-right) - 24px);
+  /* under the entry controls and the demo badge, above the dock: scrolls when the notes make it taller */
+  max-height: calc(100vh - var(--safe-top) - var(--safe-bottom) - 300px);
+  overflow-y: auto;
+  padding: 10px 12px 9px;
+  border-radius: 12px;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--text-body);
+}
+.fxf-key-title {
+  margin-bottom: 6px;
+  cursor: pointer;
+  list-style: none;
+}
+.fxf-key-title::-webkit-details-marker {
+  display: none;
+}
+.fxf-key-title::after {
+  content: ' ▾';
+  color: var(--text-3);
+}
+.fxf-key:not([open]) .fxf-key-title {
+  margin-bottom: 0;
+}
+.fxf-key:not([open]) .fxf-key-title::after {
+  content: ' ▸';
+}
+.fxf-key ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+}
+.fxf-key li {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+}
+.fxf-key li.is-stale > span {
+  color: var(--warn);
+}
+/* the layer's backend note under its line (review WFF-R2) */
+.fxf-key-note {
+  display: block;
+  margin-top: 2px;
+  font-size: 10.5px;
+  line-height: 1.3;
+  color: var(--text-3);
+}
+.fxf-key li.is-stale .fxf-key-note {
+  color: var(--text-3);
+}
+.fxf-key-future {
+  height: 0;
+  margin-top: 7px;
+  border-top: 2px dotted var(--m-demo);
+  border-radius: 0;
+}
+/* the fold-out with each drawn layer's caveats in its source's words (review WFF-R2) */
+.fxf-key-more {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(200, 200, 200, 0.12);
+}
+.fxf-key-more > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 10.5px;
+  color: var(--text-2);
+}
+.fxf-key-more > summary::-webkit-details-marker {
+  display: none;
+}
+.fxf-key-more > summary::after {
+  content: ' ▸';
+  color: var(--text-3);
+}
+.fxf-key-more[open] > summary::after {
+  content: ' ▾';
+}
+.fxf-key-more dl {
+  margin: 6px 0 0;
+  display: grid;
+  gap: 6px;
+}
+.fxf-key-more dt {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.fxf-key-more dd {
+  margin: 1px 0 0;
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: var(--text-2);
+}
+.fxf-key-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+/* phones: the amber "products in effect now" line stays outside the folded key (review WFF-R4) */
+p.fxf-key-future {
+  height: auto;
+  margin: 0;
+  max-width: 240px;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 10px;
+  font-size: 10.5px;
+  line-height: 1.3;
+  color: var(--warn);
+}
+.fxf-key-foot {
+  margin: 8px 0 0;
+  color: var(--text-3);
+  font-size: 10.5px;
+}
+.fxf-sw-key {
+  display: block;
+  width: 22px;
+  height: 12px;
+  margin-top: 2px;
+  border-radius: 3px;
+}
+.fxf-key-satellite,
+.fxf-chip-water {
+  background: rgba(42, 140, 230, 0.55);
+  box-shadow: inset 0 0 0 1.5px var(--m-flood-edge);
+}
+.fxf-key-noview,
+.fxf-chip-noview {
+  background:
+    repeating-linear-gradient(45deg, rgba(154, 154, 154, 0.85) 0 1.2px, transparent 1.2px 4px),
+    repeating-linear-gradient(-45deg, rgba(154, 154, 154, 0.85) 0 1.2px, transparent 1.2px 4px),
+    rgba(154, 154, 154, 0.25);
+}
+.fxf-key-edge {
+  height: 0;
+  margin-top: 7px;
+  border-top: 1.5px dashed #9a9a9a; /* the satellite "no view" grey (scene/flood/satClasses.ts SAT_NO_VIEW) */
+  border-radius: 0;
+}
+.fxf-key-forecast {
+  background:
+    repeating-linear-gradient(-45deg, rgba(127, 212, 255, 0.85) 0 1.2px, transparent 1.2px 5px),
+    rgba(42, 140, 230, 0.16);
+  box-shadow: inset 0 0 0 1px var(--m-flood-edge);
+}
+.fxf-key-warning {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--m-alert);
+}
+.fxf-key-floodplain {
+  background:
+    radial-gradient(circle, rgba(150, 170, 200, 0.9) 0 1px, transparent 1.4px) 0 0 / 4px 4px,
+    rgba(150, 170, 200, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(150, 170, 200, 0.6);
+}
+.fxf-key-catfim {
+  background:
+    repeating-linear-gradient(45deg, rgba(207, 234, 255, 0.85) 0 1.2px, transparent 1.2px 5px),
+    transparent;
+  box-shadow: inset 0 0 0 1px var(--m-flood-forecast);
+}
+.fxf-key-model {
+  background: radial-gradient(circle, var(--m-forecast) 0 1.3px, transparent 1.6px) 0 50% / 5px 12px repeat-x;
+  box-shadow: none;
+}
+.fxf-key-bar {
+  width: 22px;
+  background:
+    linear-gradient(90deg, transparent 10px, var(--m-flood-ink) 10px 12px, transparent 12px),
+    linear-gradient(180deg, transparent 2px, var(--m-cat-major) 2px 3px, transparent 3px 5px, var(--m-cat-moderate) 5px 6px, transparent 6px 8px, var(--m-cat-minor) 8px 9px, transparent 9px);
+}
+
+/* ------------------------------------------------------------------------------------------------ Layers tab */
+.fxf-sw-terrain {
+  background: linear-gradient(135deg, #8f8a78 0%, #57524a 38%, #2a2826 62%, #6a655a 100%);
+}
+.fxf-sw-naip {
+  background:
+    radial-gradient(circle at 30% 35%, #8a8466 0 18%, transparent 19%),
+    radial-gradient(circle at 72% 64%, #5d5a4c 0 22%, transparent 23%),
+    linear-gradient(120deg, #6c6858, #3f3d35 60%, #77715c);
+}
+.fxf-sw-floodplain {
+  background:
+    radial-gradient(circle, rgba(150, 170, 200, 0.95) 0 1.1px, transparent 1.5px) 0 0 / 4px 4px,
+    #151515;
+}
+.fxf-sw-satellite {
+  background:
+    linear-gradient(90deg, rgba(42, 140, 230, 0.75) 0 55%, transparent 55%),
+    repeating-linear-gradient(45deg, rgba(154, 154, 154, 0.8) 0 1px, transparent 1px 3.5px),
+    #151515;
+}
+.fxf-sw-forecastArea {
+  background: repeating-linear-gradient(-45deg, rgba(127, 212, 255, 0.9) 0 1.2px, transparent 1.2px 4.5px), rgba(42, 140, 230, 0.18);
+}
+.fxf-sw-warnings {
+  background: #151515;
+  box-shadow: inset 0 0 0 2px var(--m-alert);
+}
+.fxf-sw-gauges {
+  background:
+    linear-gradient(90deg, transparent 11px, var(--m-flood-ink) 11px 13px, transparent 13px),
+    linear-gradient(180deg, transparent 4px, var(--m-cat-moderate) 4px 5px, transparent 5px 9px, var(--m-cat-minor) 9px 10px, transparent 10px),
+    #151515;
+}
+.fxf-sw-catfim {
+  background: repeating-linear-gradient(45deg, rgba(207, 234, 255, 0.9) 0 1.2px, transparent 1.2px 4.5px), #151515;
+}
+.fxf-sw-model {
+  background: radial-gradient(circle, var(--m-forecast) 0 1.2px, transparent 1.6px) 0 50% / 5px 100% repeat-x, #151515;
+}
+.fxf-sw-contours {
+  background: repeating-radial-gradient(ellipse at 70% 120%, transparent 0 3px, rgba(232, 214, 170, 0.55) 3px 3.8px), #151515;
+}
+.fxf-sw-telemetry {
+  background: #101010;
+}
+.fxf-sw-telemetry::before {
+  content: 'ZZ';
+  font: 600 8.5px var(--font-mono);
+  color: var(--m-flood-ink);
+}
+/* a row's own meta (FEMA's effective date, the aerial photo "taken before this flood", the satellite image day, the
+   category map's category) on its own line: panel.css hides .lrow-meta in the narrow Layers column (review WFF-R3) */
+.fxf-row-meta {
+  margin: -3px 0 5px 34px;
+  font: 400 10px / 1.3 var(--font-mono);
+  letter-spacing: 0.02em;
+  color: var(--text-3);
+}
+.fxf-row-why {
+  margin: -2px 0 6px 34px;
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: var(--text-3);
+}
+.fxf-note {
+  font-size: 10.5px;
+  color: var(--text-2);
+}
+.fxf-chip-water,
+.fxf-chip-noview {
+  display: inline-block;
+  width: 14px;
+  height: 9px;
+  border-radius: 2px;
+}
+
+/* ------------------------------------------------------------------------------------------------ Analysis, Notes */
+.fxf-pad {
+  padding: 12px 14px;
+}
+.fxf-none {
+  margin: 8px 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+.fxf-analysis,
+.fxf-notes,
+.fxf-evidence {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px 16px;
+}
+.fxf-an-row {
+  display: grid;
+  gap: 4px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--hairline-soft);
+  background: var(--surface-1);
+}
+.fxf-an-row.is-on {
+  border-color: rgba(127, 212, 255, 0.45);
+}
+.fxf-an-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.fxf-an-lid {
+  font-size: 11.5px;
+  color: var(--text);
+}
+.fxf-an-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fxf-an-line {
+  font-size: 11px;
+}
+.fxf-an-sub,
+.fxf-an-foot {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-3);
+}
+.fxf-notes .notes-area {
+  min-height: 160px;
+}
+
+/* ------------------------------------------------------------------------------------------------ Evidence */
+.fxf-ev-section {
+  display: grid;
+  gap: 8px;
+}
+.fxf-ev-intro {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.fxf-ev-none {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.fxf-ev-product {
+  border-radius: 8px;
+  border: 1px solid var(--hairline-soft);
+  background: var(--surface-1);
+  overflow: hidden;
+}
+.fxf-ev-product.is-emergency {
+  border-color: rgba(238, 122, 160, 0.6);
+}
+.fxf-ev-product > header {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+.fxf-ev-event {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f4b8cc;
+}
+.fxf-ev-sender {
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+.fxf-ev-count {
+  margin-left: auto;
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+.fxf-ev-version {
+  border-top: 1px solid var(--hairline-soft);
+}
+.fxf-ev-version:first-of-type {
+  border-top: 0;
+}
+.fxf-ev-version > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text-2);
+}
+.fxf-ev-action {
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--hairline-strong);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+.fxf-ev-archived {
+  font-size: 10px;
+  color: var(--warn);
+}
+.fxf-ev-times {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 2px 10px;
+  margin: 0;
+  padding: 0 10px 6px;
+  font-size: 10.5px;
+}
+.fxf-ev-times div {
+  display: flex;
+  gap: 6px;
+}
+.fxf-ev-times dt {
+  color: var(--text-3);
+}
+.fxf-ev-times dd {
+  margin: 0;
+  color: var(--text-body);
+}
+.fxf-ev-text {
+  padding: 0 10px 6px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-body);
+}
+.fxf-ev-text p {
+  margin: 0 0 6px;
+}
+.fxf-ev-headline {
+  font-weight: 600;
+}
+.fxf-ev-pre {
+  white-space: pre-wrap;
+}
+.fxf-ev-instr {
+  color: var(--text-2);
+}
+.fxf-ev-area {
+  color: var(--text-3);
+}
+.fxf-ev-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 10px 8px;
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+.fxf-ev-foot a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--link);
+}
+.fxf-ev-sources {
+  margin: 0;
+  padding: 0 0 0 16px;
+  display: grid;
+  gap: 5px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-2);
+}
+.fxf-ev-sources b {
+  display: block;
+  font-weight: 600;
+  color: var(--text-body);
+}
+
+/* ------------------------------------------------------------------------------------------------ cards */
+.kv.fxf-kv {
+  display: grid;
+  /* one row per <div> (each row is its own dt / dd grid): never the base .kv's two columns */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px;
+  margin: 0;
+  font-size: 12px;
+}
+.fxf-kv div {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 8px;
+}
+.fxf-kv dt {
+  color: var(--text-3);
+}
+.fxf-kv dd {
+  margin: 0;
+  color: var(--text-body);
+}
+.fxf-kv-sub {
+  display: block;
+  margin-top: 1px;
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+.fxf-card-note {
+  margin: 8px 0 0;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--text-3);
+}
+.fxf-card-note.fxf-gauge-caveat {
+  margin-top: 4px;
+  color: var(--text-2);
+}
+.fxf-gauges {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 6px;
+}
+.fxf-gauge-row {
+  display: grid;
+  grid-template-columns: 10px 58px 64px minmax(0, 1fr) 14px;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+.fxf-gauge-dia {
+  width: 8px;
+  height: 8px;
+  transform: rotate(45deg);
+}
+.fxf-gauge-lid {
+  color: var(--text);
+}
+.fxf-gauge-val {
+  color: var(--text-body);
+  text-align: right;
+}
+.fxf-gauge-cat {
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fxf-gauge-row a {
+  color: var(--text-3);
+}
+
+.fxf-card-scroll {
+  max-height: 260px;
+  overflow-y: auto;
+}
+.fxf-more {
+  margin: 2px 0 4px;
+}
+
+/* ------------------------------------------------------------------------------------------------ dock */
+.fxf-pick {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  height: 26px;
+  margin: 10px 0 0 12px;
+  padding: 0 4px 0 9px;
+  border-radius: 7px;
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.03);
+  flex: none;
+}
+.fxf-pick i {
+  width: 7px;
+  height: 7px;
+  transform: rotate(45deg);
+  flex: none;
+}
+.fxf-pick select {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 10.5px;
+  padding: 0 6px 0 0;
+  max-width: 150px;
+  cursor: pointer;
+}
+.fxf-pick select option {
+  background: #161616;
+  color: var(--text);
+}
+/* phones: the diamond and the gauge id only, so the river chart keeps the dock's width (review WFF-R9) */
+.fxf-pick.is-narrow {
+  gap: 4px;
+  margin: 8px 0 0 6px;
+  padding: 0 2px 0 6px;
+}
+.fxf-pick.is-narrow select {
+  max-width: 52px;
+  font-size: 10px;
+  padding: 0;
+}
+.fxf-dock-main {
+  flex-direction: row;
+  align-items: stretch;
+}
+.fxf-dock-main > .hg {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.fxf-ke {
+  padding: 10px 12px 8px 14px;
+  gap: 8px;
+  overflow-y: auto;
+}
+.fxf-ke-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+}
+.fxf-ke-list li {
+  display: grid;
+  gap: 1px;
+}
+.fxf-ke-event {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #f4b8cc;
+}
+.fxf-ke-list li.is-emergency .fxf-ke-event {
+  color: #ff9ab8;
+}
+.fxf-ke-meta {
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+.fxf-ke-future {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--warn);
+}
+.fxf-ke-copy {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--text-3);
+}
+
+/* ------------------------------------------------------------------------------------------------ not prepared */
+.fxf-empty .fxf-empty-head {
+  position: relative;
+  height: calc(var(--bar-top) + var(--header-h) + 8px);
+  padding: var(--bar-top) 20px 0;
+}
+.fxf-empty-main {
+  flex: 1 1 auto;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  min-height: 0;
+  overflow: auto;
+}
+.fxf-prep {
+  width: min(520px, 100%);
+  padding: 22px 24px;
+  display: grid;
+  gap: 12px;
+}
+.fxf-prep h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+}
+.fxf-prep-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-body);
+}
+.fxf-prep-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-3);
+}
+.fxf-prep-error {
+  margin: 0;
+  font-size: 12px;
+  color: var(--warn);
+}
+.fxf-btn-accent {
+  justify-self: start;
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+.fxf-btn-accent:hover {
+  background: var(--accent-hover);
+}
+.fxf-terrain-error {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--warn);
+}
+
+/* phones: the key stays short (the Layers sheet has the full legend) */
+@media (max-width: 760px) {
+  .fxf-key {
+    width: auto;
+    max-width: 240px;
+    font-size: 10.5px;
+  }
+  .fxf-key-foot {
+    display: none;
+  }
+  .fxf-name {
+    max-width: 200px;
+  }
+  .fxf-name-text {
+    font-size: 13px;
+  }
+}
+.fxf-prep .fx-empty-actions {
+  margin: 4px 0 0;
+  padding: 0;
+}
+
+/* ------------------------------------------------------------------------------------------------ hover readout */
+/* the 3D hover readout of a flood (scene/overlays/SceneOverlays.tsx + scene/flood/floodProbe.ts, review WFF-R1): the
+   values are sentences that wrap, never cut with an ellipsis */
+.sc-probe.fxf-probe {
+  width: 300px;
+  max-width: min(320px, calc(100vw - 32px));
+}
+.fxf-probe-row {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 3px;
+  line-height: 1.35;
+}
+.fxf-probe-row > span:first-child {
+  color: var(--text-3, #9a9a9a);
+  letter-spacing: 0.06em;
+}
+.fxf-probe-row > span:last-child {
+  font: 400 11px / 1.35 var(--font-ui, inherit);
+  white-space: normal;
+  color: var(--text, #f0f0f0);
+}
+.fxf-probe-row.is-alert > span:last-child {
+  color: #f4b8cc;
+}
+.fxf-probe-row.is-water > span:last-child {
+  color: var(--m-flood-edge);
+}
+.fxf-probe-row.is-quiet > span:last-child {
+  color: var(--text-2, #bdbdbd);
+}
+.fxf-probe-row.is-warn > span:last-child {
+  color: var(--warn);
+}
+.fxf-probe-row.is-model > span:last-child {
+  color: var(--m-forecast);
+}
+.fxf-probe-note {
+  margin: 6px 0 0;
+  padding-top: 5px;
+  border-top: 1px solid rgba(200, 200, 200, 0.14);
+  font: 400 11px / 1.35 var(--font-ui, inherit);
+  white-space: normal;
+  color: var(--text-2, #bdbdbd);
+}

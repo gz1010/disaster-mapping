@@ -2,13 +2,16 @@
 
 Commands:
   ``catalog --mode live|historical [--min-acres N] [--refresh]``  list incidents
+  ``catalog --hazard flood [--mode live|historical] [--year Y] [--refresh]``  list floods (brief 5)
   ``build <id-or-name> [--force] [--require-hrrr]``                build (or rebuild) a bundle, with progress
+  ``build-flood <id-or-name> [--force]``                            build (or rebuild) a flood bundle (brief 5)
   ``weather-probe``                                                 ask each Open-Meteo host once (exit 0 = overall ok)
   ``forecast <id-or-name> [--start ISO] [--horizon 72] [--ensemble auto] [--members N]``
   ``hindcast <id-or-name> --start ISO [...]``                      forecast from a past moment and print its skill
   ``serve [--port 8710] [--host 127.0.0.1] [--reload] [--live/--no-live] [--auto-build/--no-auto-build]``
 
-Incidents can be given by id or by (partial, case-insensitive) name, e.g. ``build eaton``. Modules are imported
+Incidents can be given by id or by (partial, case-insensitive) name, e.g. ``build eaton``; floods likewise from the
+live flood list, e.g. ``build-flood "grand river"``. Modules are imported
 lazily, so each command works as soon as the modules it needs exist. Errors are printed without secrets.
 """
 
@@ -124,7 +127,93 @@ def resolve_incident(ref: str) -> str:
 # ----------------------------------------------------------------------------------------------------------------
 # Commands
 # ----------------------------------------------------------------------------------------------------------------
+def _flood_rows(mode: str, year: int | None, refresh: bool) -> tuple[list[dict], dict]:
+    """(floods, list answer) of the live list or a year list (built here and now when it is not ready)."""
+    if mode == "historical":
+        from .floods import history
+
+        lst = history.year_list(year or history.default_year(), wait=True)
+    else:
+        from .floods import catalog as flood_catalog
+
+        lst = flood_catalog.public_list(flood_catalog.flood_list(refresh=refresh))
+    return list(lst.get("floods") or []), lst
+
+
+def _cmd_flood_catalog(args: argparse.Namespace) -> int:
+    rows, lst = _flood_rows(args.mode, args.year, args.refresh)
+    label = f"{args.mode} floods" + (f" {lst.get('year')}" if lst.get("year") else "")
+    print(f"{len(rows)} {label}" + (f" (rule: {lst['past_rule']})" if lst.get("past_rule") else ""))
+    for src in lst.get("sources") or []:
+        if src.get("status") != "available" or src.get("stale"):
+            print(f"  source {src['id']}: {src['status']}{' (stale)' if src.get('stale') else ''}: "
+                  f"{config.mask_secrets(src.get('reason') or '')}")
+    for s in rows:
+        g = s.get("primary_gauge") or {}
+        reading = (f"{g['lid']} {g['observed_value']:g} {g.get('unit') or ''} {g.get('observed_category')}"
+                   if g.get("observed_value") is not None else "-")
+        print(f"  {s['id']:<52} {s['name'][:34]:<34} {s['level']:<10} {s.get('max_category') or '-':<8} "
+              f"{s.get('state') or '?':<3} {reading:<28} {s.get('bundle_status')}")
+    return 0
+
+
+def resolve_flood(ref: str) -> str:
+    """A flood id from an id or a (partial, case-insensitive) name in the live flood list."""
+    from types import SimpleNamespace
+
+    from .floods import catalog as flood_catalog
+    from .floods import store
+
+    ref = ref.strip()
+    if store.valid_id(ref):
+        return ref
+    rows = flood_catalog.flood_list().get("floods") or []
+    cands = [SimpleNamespace(id=s["id"], name=s["name"], mode="live", acres=float(s.get("gauges_in_flood") or 0))
+             for s in rows]
+    found = match_incidents(ref, cands)
+    if not found:
+        raise SystemExit(f"no listed flood matches {ref!r}")
+    if len(found) > 1:
+        others = ", ".join(f"{s.name} ({s.id})" for s in found[1:6])
+        print(f"'{ref}' -> {found[0].name} ({found[0].id}); other matches: {others}", file=sys.stderr)
+    return found[0].id
+
+
+def _cmd_build_flood(args: argparse.Namespace) -> int:
+    from .floods import build as flood_build
+    from .floods import catalog as flood_catalog
+    from .floods import history as flood_history
+    from .floods import store
+
+    flood_id = resolve_flood(args.flood)
+    live_ids = {s["id"] for s in flood_catalog.flood_list().get("floods") or []}
+    if flood_id not in live_ids and flood_history.find(flood_id) is not None:
+        # a past (year-list) flood: the API answers 409 with the same text (review BFL-R4)
+        print(f"refused (HTTP 409 in the API): {flood_history.PAST_NO_BUNDLE}", file=sys.stderr)
+        return 1
+    print(f"building flood {flood_id}{' (force)' if args.force else ''} into {store.flood_dir(flood_id)}", flush=True)
+    t0 = time.monotonic()
+    try:
+        m = flood_build.build_flood(flood_id, progress=_progress_printer(), force=args.force)
+    except flood_build.BuildRefused as e:      # the API answers the same text with e.status
+        print(f"refused (HTTP {e.status} in the API): {config.mask_secrets(e.detail)}", file=sys.stderr)
+        return 1
+    size = sum(p.stat().st_size for p in store.flood_dir(flood_id).rglob("*") if p.is_file()) / 1e6
+    print(f"built {m['id']}: {m['name']}, status={m['status']} in {time.monotonic() - t0:.0f} s, {size:.1f} MB")
+    g = m["grid"]
+    print(f"  area {g['extent_m'] / 1000:g} km {g['crs']}, elevation {g['elev_min_m']:.0f}-{g['elev_max_m']:.0f} m"
+          + (f"; {m['aoi_note']}" if m.get("aoi_note") else ""))
+    for k, st in sorted((m.get("layer_status") or {}).items()):
+        reason = f": {config.mask_secrets(st['reason'])}" if st.get("reason") else ""
+        print(f"  layer {k:<16} {st['status']}{reason}")
+    for w in m.get("warnings") or []:
+        print(f"  warning: {config.mask_secrets(w)}")
+    return 0
+
+
 def _cmd_catalog(args: argparse.Namespace) -> int:
+    if getattr(args, "hazard", "fire") == "flood":
+        return _cmd_flood_catalog(args)
     from .catalog import get_catalog
 
     rows = get_catalog(args.mode, min_acres=args.min_acres, refresh=args.refresh)
@@ -289,7 +378,14 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--mode", choices=("live", "historical"), default="live")
     c.add_argument("--min-acres", type=float, default=None)
     c.add_argument("--refresh", action="store_true", help="bypass the catalog cache")
+    c.add_argument("--hazard", choices=("fire", "flood"), default="fire", help="fires (default) or floods (brief 5)")
+    c.add_argument("--year", type=int, default=None, help="floods: the year of a historical list (default this year)")
     c.set_defaults(func=_cmd_catalog)
+
+    bf = sub.add_parser("build-flood", help="build (or rebuild) a flood bundle (terrain, water layers, NWS copies)")
+    bf.add_argument("flood", help="flood id or name (from the live flood list)")
+    bf.add_argument("--force", action="store_true", help="rebuild even if the bundle is ready")
+    bf.set_defaults(func=_cmd_build_flood)
 
     b = sub.add_parser("build", help="build (or rebuild) an incident bundle")
     b.add_argument("incident", help="incident id or name")

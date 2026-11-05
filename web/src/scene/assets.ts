@@ -10,11 +10,17 @@
 // UV (u = x/extent + .5, v = .5 - z/extent). uint8 layers sample as value/255 (fuel: code/255 -> use nearest;
 // canopyCover: percent/255; skyView/water: 0..1). Arrival textures hold hours since manifest.time_origin_ms, with
 // NEVER clamped to 60000. CPU arrays are as stored (row 0 = north).
+// Brief 5 (PLAN-5 §4.7, CONTRACT §16.12, C10): the scene also shows an open flood. IncidentAssets.manifest is typed
+// SceneManifest (the manifest fields the scene reads), which a fire IncidentManifest satisfies and a flood fills with
+// ignition null, so nothing is cast; a flood's assets (scene/flood/floodAssets.ts) carry every fire texture and array
+// as null plus their `flood` part. useSceneAssets() picks the open event's assets (the fire's, or the flood's).
 import { useEffect } from 'react'
 import type * as THREE from 'three'
 import { create } from 'zustand'
 import { bundleUrl } from '../api/client'
-import type { ForecastManifest, IncidentManifest } from '../api/types'
+import type { ForecastManifest, Ignition, IncidentManifest } from '../api/types'
+import { useFlood } from '../state/flood'
+import { useFloodAssets, type FloodSceneAssets } from './flood/floodAssets'
 import { sampleBilinear } from '../lib/geo'
 import {
   arrivalFieldTexture,
@@ -29,9 +35,13 @@ import {
 } from '../lib/raster'
 import { useStore } from '../state/store'
 
+/** The manifest fields the scene reads (CONTRACT §16.12): a fire IncidentManifest satisfies it; a flood sets ignition
+ *  null (scene/flood/floodAssets.ts sceneManifestOf). */
+export type SceneManifest = Pick<IncidentManifest, 'id' | 'grid' | 'time_origin_ms' | 'time_range' | 'built_ms' | 'status' | 'mode'> & { ignition: Ignition | null }
+
 export interface IncidentAssets {
   ready: boolean
-  manifest: IncidentManifest
+  manifest: SceneManifest
   /** Addition: the forecast whose rasters are loaded (null when none). */
   forecast: ForecastManifest | null
   /** Addition: identity key "<id>@<built_ms>#<run>" (changes whenever any part changes). */
@@ -77,6 +87,8 @@ export interface IncidentAssets {
   }
   /** Terrain elevation in metres (not exaggerated) at local (x, z), bilinear. */
   heightAt(x: number, z: number): number
+  /** Brief 5: an open flood's own part (drapes, frozen official copies, framing); absent for a fire. */
+  flood?: FloodSceneAssets
 }
 
 type ForecastTextureKey = 'arrivalP10' | 'arrivalP50' | 'arrivalP90' | 'burnProbability' | 'forecastPacked' | 'forecastField'
@@ -322,6 +334,15 @@ export function useIncidentAssets(): IncidentAssets | null {
     void syncIncidentAssets()
   }, [mKey, fKey])
   return assetStore((s) => s.assets)
+}
+
+/** The open event's scene assets: the flood's while a flood is open (fire and flood are never open together), else the
+ *  fire's. Both loaders run (each answers null when its event is not open). */
+export function useSceneAssets(): IncidentAssets | null {
+  const fire = useIncidentAssets()
+  const flood = useFloodAssets()
+  const floodOpen = useFlood((s) => s.floodId != null)
+  return floodOpen ? flood : fire
 }
 
 /** True while base or forecast assets are loading. */

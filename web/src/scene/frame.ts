@@ -1,6 +1,8 @@
 // Derived framing data of an incident (cached per raster): the fire's bounding box and centroid (observed burned
 // area, else the forecast's p90 reach, else the ignition), its active time span, and the line intervals used by
 // the terrain overlays (contours by AOI extent, isochrone step by fire duration and zoom).
+// Brief 5 (PLAN-5 §4.7): an open flood is framed by its own box (its bbox_lonlat: NWS areas and member gauges, kept
+// inside the bundle's area; scene/flood/floodGeo.ts floodFrameOf), never by an ignition (a flood has none).
 import type { IncidentAssets } from './assets'
 
 export interface FireFrame {
@@ -63,6 +65,7 @@ function scan(arr: ArrayLike<number>, w: number, h: number, extent: number, limi
 
 /** Fire frame of the current assets (observed arrival, then forecast p90, then ignition / AOI centre). */
 export function fireFrame(assets: IncidentAssets): FireFrame {
+  if (assets.flood) return floodFrame(assets.flood.frame)
   const key = (assets.arrays.observedArrival ?? assets.arrays.arrivalP90 ?? assets.manifest) as object
   const hit = cache.get(key)
   if (hit) return hit
@@ -79,6 +82,15 @@ export function fireFrame(assets: IncidentAssets): FireFrame {
   }
   cache.set(key, f)
   return f
+}
+
+/** A flood's frame (no fire, no time span): its box and its centre. */
+function floodFrame(f: { minX: number; maxX: number; minZ: number; maxZ: number; cx: number; cz: number }): FireFrame {
+  const hit = cache.get(f)
+  if (hit) return hit
+  const out: FireFrame = { hasFire: false, minX: f.minX, maxX: f.maxX, minZ: f.minZ, maxZ: f.maxZ, cx: f.cx, cz: f.cz, firstH: 0, lastH: 0 }
+  cache.set(f, out)
+  return out
 }
 
 /** Union of the observed fire box and the forecast's p90 reach (for framing a live incident with a forecast). */

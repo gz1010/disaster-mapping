@@ -255,3 +255,84 @@ def test_nfhl_down_raises_and_availability_failure_is_unknown(monkeypatch, flood
     monkeypatch.setattr(fhttp, "_transport", route_transport([(FEMA, r"/28/query$", zones), (FEMA, r"/query$", reset)]))
     res = nfhl.nfhl(BOX)
     assert res.features and res.availability == "unknown" and res.effective_min_ms is None and res.notes
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Answers (floods/maps.py): FEMA "could not be checked" vs measured partial coverage (review R7); CatFIM and the model
+# series for a flood with no gauge (reviews R4, R9)
+# ---------------------------------------------------------------------------------------------------------------
+NO_GAUGE = {"id": "flood-20261104-conejos-river-flood-abcdef", "bbox_lonlat": [-106.2, 37.0, -106.0, 37.1],
+            "lon": -106.1, "lat": 37.05, "gauges": [], "primary_gauge": None}
+
+
+def test_nfhl_answer_partial_coverage_is_measured(maps_transport):
+    from fire3d.floods import copy as fcopy
+    from fire3d.floods import maps
+
+    res = nfhl.nfhl(BOX)
+    assert res.availability == "unknown" and "partly mapped" in res.notes and "availability unknown" not in res.notes
+    a = maps.nfhl_answer({**NO_GAUGE, "id": "flood-x"}, now=0, area=BOX)
+    assert a["availability"] == "unknown" and fcopy.NFHL_PARTLY_MAPPED in a["caveats"]
+    assert fcopy.NFHL_AVAILABILITY_UNKNOWN not in a["caveats"]
+
+
+def test_nfhl_answer_availability_not_read_is_not_a_claim(monkeypatch, flood_iso, no_backoff):
+    """FEMA's availability layer could not be read: the answer says it could not be checked, never that FEMA's map
+    covers only part of the area."""
+    from fire3d.floods import copy as fcopy
+    from fire3d.floods import maps
+
+    def reset(req):
+        raise httpx.ConnectError("Connection reset by peer", request=req)
+
+    monkeypatch.setattr(fhttp, "_transport", route_transport([
+        (FEMA, r"/28/query$", NFHL_DIR / "zones.json"), (FEMA, r"/3/query$", NFHL_DIR / "panels.json"),
+        (FEMA, r"/0/query$", reset)]))
+    a = maps.nfhl_answer({**NO_GAUGE, "id": "flood-x"}, now=0, area=BOX)
+    assert a["status"] == "available" and a["availability"] == "unknown"
+    assert a["caveats"] == [fcopy.NFHL_AVAILABILITY_UNKNOWN] and fcopy.NFHL_PARTLY_MAPPED not in a["caveats"]
+    # zones but no availability polygon (FEMA disagrees with itself): could not be checked either
+    nfhl.reset_state()
+    monkeypatch.setattr(fhttp, "_transport", route_transport([
+        (FEMA, r"/28/query$", NFHL_DIR / "zones.json"), (FEMA, r"/3/query$", NFHL_DIR / "panels.json"),
+        (FEMA, r"/0/query$", {"type": "FeatureCollection", "features": []})]))
+    a = maps.nfhl_answer({**NO_GAUGE, "id": "flood-x"}, now=0, area=BOX)
+    assert a["availability"] == "unknown" and a["caveats"] == [fcopy.NFHL_AVAILABILITY_UNKNOWN]
+
+
+def test_catfim_for_a_flood_without_a_gauge_is_not_an_outage(monkeypatch, flood_iso):
+    from fire3d.floods import copy as fcopy
+    from fire3d.floods import maps
+
+    monkeypatch.setattr(fhttp, "_transport", route_transport([]))           # nothing may be asked
+    a = maps.catfim_answer(NO_GAUGE, now=0)
+    assert a["status"] == "unavailable" and a["reason_code"] == "not_covered"
+    assert a["reason"] == fcopy.CATFIM_NOT_COVERED == ("No NWS category flood map for this flood (no river gauge with "
+                                                       "a flood category).")
+    assert a["coverage_note"] == fcopy.CATFIM_NOTE_ANY and "flood flooding" not in orjson.dumps(a).decode()
+    assert fcopy.CATFIM_UNAVAILABLE not in orjson.dumps(a).decode()
+    b = maps.catfim_answer(NO_GAUGE, now=0, lid="AGYM7", category="bogus")
+    assert b["reason"] == fcopy.CATFIM_NOT_COVERED and b["coverage_note"] == fcopy.CATFIM_NOTE_ANY
+
+
+def test_catfim_outage_keeps_its_unavailable_reason(monkeypatch, flood_iso, no_backoff):
+    from fire3d.floods import copy as fcopy
+    from fire3d.floods import maps
+
+    def reset(req):
+        raise httpx.ConnectError("down", request=req)
+
+    monkeypatch.setattr(fhttp, "_transport", route_transport([(NOAA, r"catfim", reset)]))
+    a = maps.catfim_answer(NO_GAUGE, now=0, lid="AGYM7", category="moderate")
+    assert a["reason_code"] == "upstream_error" and a["reason"] == fcopy.CATFIM_UNAVAILABLE
+    assert a["coverage_note"] == fcopy.catfim_note("moderate")
+
+
+def test_model_series_for_a_flood_without_a_gauge(monkeypatch, flood_iso):
+    from fire3d.floods import copy as fcopy
+    from fire3d.floods import maps
+
+    monkeypatch.setattr(fhttp, "_transport", route_transport([]))
+    a = maps.model_answer("nwm_series", NO_GAUGE, now=0)
+    assert a["status"] == "unavailable" and a["lid"] is None and a["reason"] == fcopy.MODEL_NO_GAUGE
+    assert "This gauge" not in a["reason"] and a["model_output"] is True and a["caveats"] == [fcopy.MODEL_CAVEAT]

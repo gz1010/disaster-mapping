@@ -95,6 +95,12 @@ def recorded_client(client, monkeypatch, no_backoff):
     inp, now = recorded_flood_inputs()
     monkeypatch.setattr(catalog, "fetch_inputs", lambda: inp)
     monkeypatch.setattr(catalog, "now_ms", lambda: now)
+    # builds and routes run at the recording's "now" (satellite window, NWS phases): independent of the test day
+    from fire3d.api import floods as api_floods
+    from fire3d.floods import build as flood_build
+
+    monkeypatch.setattr(api_floods, "_now", lambda: now)
+    monkeypatch.setattr(flood_build, "now_ms", lambda: now)
     monkeypatch.setattr(terrain, "fetch_dem_info", lambda grid: (np.full(grid.shape, 250.0, np.float32),
                                                                  FetchInfo("https://3dep.test", now, False, 0.1), 0))
 

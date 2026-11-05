@@ -1,0 +1,97 @@
+{
+ "step": "brief 5 final check (PLAN-5 10.1)",
+ "role": "final-check",
+ "branch": "claude/cool-mayer-ki7to6",
+ "started_utc": "2026-11-05T10:39Z",
+ "finished_utc": "2026-11-05T11:30Z",
+ "summary": "Brief 5 (floods across the lower 48) passed its final check. The working tree was clean at c839471. All gates are green with no flood test skipped: backend 1406 passed, 0 skipped (380 flood tests); web typecheck ok, lint 55 warnings all in src/scene, 1793 tests passed + 2 skipped (two real-fire data tests, not floods), build ok. 22 final screenshots were taken and viewed (Floods overviews, Public, Command and Forensic flood views on the demo flood and on the real Peace River and Toccoa River / Ocoee River floods, the demo flash flood emergency and watch-only flood, the forecast cursor, a rotated map, reduced motion, phones), and the brief-4 fire set was re-shot: the fire views differ from brief 4 only in time-relative text (pixel difference 0.01-0.13 %), the overviews only in today's live fires and the Fires | Floods switch. A scratch Playwright smoke run passed 155 of 155 checks (switch and history, opening a flood from the list and from a map marker, MORE IN COMMAND, Back, fire to flood and back, rotation, reduced motion with a still water circle, both fixed lines and no banned word on 19 views, no console error). Count-only scans found no secret value in the tree, the diffs or the commit messages, no 'FireTrace' in code or UI and no banned safety word in UI strings. One small fix: the river chart's crest label is no longer covered by its own caret when the crest is near the top of the chart. Docs: CONTRACT 16.16 'Final check', SPEC 10 flood tests, two flood screenshots in the README.",
+ "files_changed": [
+  "web/src/ui/timeline/hydrographModel.ts (crestLeft, CREST_LABEL_ROOM)",
+  "web/src/ui/timeline/Hydrograph.tsx (uses them; crest label beside its caret when no room above)",
+  "web/src/ui/timeline/hydrographModel.test.ts (5 tests)",
+  "docs/screenshots/brief5-final-*.png (22)",
+  "docs/redesign/CONTRACT.md (16.16 Final check)",
+  "SPEC.md (10: Floods testing paragraph)",
+  "README.md (two flood screenshots in 'Floods (brief 5)')",
+  "docs/redesign/contract5/final-check.md",
+  "docs/redesign/progress/brief5-final-check.md",
+  "docs/redesign/reports/final-verification-5.json"
+ ],
+ "gates": "backend: uv run pytest -q -> 1406 passed, 0 skipped, 0 failed (no network; 380 flood tests, none skipped). web: npm run typecheck ok; npm run lint 55 warnings, all in src/scene (0 elsewhere, none added); npm test 136 files, 1793 passed + 2 skipped (overlayModel.test.ts and fireBounds.test.ts real-fire data tests that skip without the Eaton / Norte bundles; 1788 before the crest fix's 5 new tests); npm run build ok.",
+ "test_skips": {
+  "backend": 0,
+  "backend_flood": 0,
+  "web": 2,
+  "web_flood": 0
+ },
+ "verification": {
+  "git_start": "working tree clean at c839471 (nothing of the build uncommitted); an orchestrator work-in-progress snapshot (5b32b1d) committed this step's first screenshots and the fix mid-step",
+  "fire_regressions": "brief4-final-*.png vs brief5-final-fire-*.png pixel difference (>40 levels): Public fire view (fixture-live) 0.13 %, Command fire 0.12 %, Forensic fire 0.01 %: only ages, 'TIMES IN PST' (DST ended Nov 1) and NOW. Overviews: the title slot's Fires | Floods switch (decided, C23), today's live fires (Nov 5, 149 active, 1,330 this season) and the document title 'Fire-3d · Wildfires and floods'. A first Forensic fire shot at 25 s showed a third telemetry column (FRONT 03): the frozen scene/fx declutter fades it over several frames under SwiftShader; at 40 s it matches brief 4 (scene/fx has no brief-5 change).",
+  "smoke": {
+   "tool": "scratch Playwright script (session scratchpad smoke5.mjs, not in the repo), Chrome + SwiftShader, 1440x1000 and 390x844 @2x, real API on 8759 (FIRE3D_LIVE=0) and Vite on 5219",
+   "navigation": "14/14: switch is a radiogroup in the title slot, works with arrow keys, writes ?hazard=flood and no history entry; a list row opens its own flood with one entry; MORE IN COMMAND keeps the flood; browser Back returns to the flood overview and Forward reopens it; 'Back to all floods'; a map marker opens its flood (Toccoa River / Ocoee River); fire -> flood closes the fire with one entry and Back reopens the fire",
+   "rotation": "24/24: Public and Command flood views and the Floods overview (N, E, Q Q, turn button, compass click); Forensic flood (N, E, Q Q, turn button)",
+   "reduced_motion": "32/32 on 10 flood views incl. Forensic and phones: no running CSS / Web animation, no playing SVG animation, the water circle identical 1.5 s apart, E turns at once; control without reduced motion: the circle moves",
+   "fixed_copy_wording_console": "85/85 on 19 views (Fires and Floods overviews, the 2025 tab, Command overview, Public / Command flood fixture and real, Forensic flood, unprepared and entry page, the fire views, phones): 'Research prototype — not for operational use' and 'Not an all-clear. Follow local officials.' visible; no banned word outside data-verbatim (PLAN-5 5.1 list on flood views; CLAUDE.md's safe / low risk / FireTrace on fire views, where the flood-only list hits LANDFIRE's fuel-model name 'dry climate shrub (SH7)' and 'No danger category is given unless…', fire copy from brief 3/4); no 'fire' in a flood evacuation row; no console error (one basemap glyph range /fonts/Noto Sans Regular/66560-66815.pbf answered 404 from OpenFreeMap's font server: the provider's, not an app error)"
+  },
+  "scans": {
+   "secrets": "count only, no value printed: FIRMS_MAP_KEY 0 in 1869 tracked files, 0 in every diff and 0 in the commit messages since 1824908 (66 commits); EARTHDATA_TOKEN not set in this container (nothing to leak); 0 assignments of either name to a 20+ character value in tracked files or diffs; no tracked data/ or .env; 0 secret values and 0 'Bearer ' in this run's API, fixture server, Vite, screenshot and smoke logs",
+   "firetrace": "0 in code and UI (web/src, web/scripts, backend/fire3d, README); only the rule lines in docs and the two guard tests that ban it (floodCopy.test.ts, test_floods_copy.py)",
+   "safety_words": "0 'safe' / 'low risk' / 'minimal flood hazard' in UI strings: only comments, the CSS variables --safe-*, guard tests, sample official text in fixtures and the allowed 'does not establish the safety of a route or an area'; on screen 0 on every view checked (smoke)"
+  },
+  "servers": "API 8759 (real, FIRE3D_LIVE=0, then the fixture server for the flash and watch demo shots) and Vite 5219, all stopped at the end; fixture-flood regenerated relative to now before the screenshots"
+ },
+ "screenshots": [
+  "docs/screenshots/brief5-final-public-overview-floods.png (1440x1144; 43 live floods)",
+  "docs/screenshots/brief5-final-public-overview-floods-details.png (1440x1144; list, OFFICIAL NOW, tabs, legend)",
+  "docs/screenshots/brief5-final-command-overview-floods.png",
+  "docs/screenshots/brief5-final-public-flood-fixture.png (demo flood, compare handoff-4/renders/FloodView.jpg)",
+  "docs/screenshots/brief5-final-public-flood-real.png (Peace River flood, FL: major at Arcadia)",
+  "docs/screenshots/brief5-final-public-flood-flash.png (fixture server: demo Flash Flood Emergency, detection and damage threat rows, no member gauge)",
+  "docs/screenshots/brief5-final-public-flood-watch.png (fixture server: demo watch-only flood)",
+  "docs/screenshots/brief5-final-command-flood-fixture.png (selected point 36.80, -108.05)",
+  "docs/screenshots/brief5-final-command-flood-forecast-cursor.png (handle 30 h ahead: warning outline kept, CURSOR_FUTURE_PRODUCTS)",
+  "docs/screenshots/brief5-final-command-flood-real.png (Peace River, point 27.215, -81.87)",
+  "docs/screenshots/brief5-final-forensic-flood-fixture.png (quality low)",
+  "docs/screenshots/brief5-final-forensic-flood-unprepared.png (real Toccoa River / Ocoee River flood: Prepare 3D data)",
+  "docs/screenshots/brief5-final-rotated-public-flood.png (35 deg)",
+  "docs/screenshots/brief5-final-reduced-motion-public-flood.png (0 SVG animations, 0 running CSS animations)",
+  "docs/screenshots/brief5-final-phone-overview-floods.png (390x844 @2x)",
+  "docs/screenshots/brief5-final-phone-public-flood.png (390x844 @2x)",
+  "docs/screenshots/brief5-final-phone-command-flood.png (390x844 @2x)",
+  "docs/screenshots/brief5-final-fire-public-overview.png (1440x1144; vs brief4-final-public-overview-minimal.png)",
+  "docs/screenshots/brief5-final-fire-public-overview-details.png (1440x1144; vs brief4-final-public-overview-details.png)",
+  "docs/screenshots/brief5-final-fire-public-fire-fixture-live.png (vs brief4-final-public-fire-fixture-live.png, 0.13 %)",
+  "docs/screenshots/brief5-final-fire-command-fire-fixture-live.png (vs brief4-final-command-fire-fixture-live.png, 0.12 %)",
+  "docs/screenshots/brief5-final-fire-forensic-fixture-live.png (vs brief4-final-forensic-fixture-live.png, 0.01 %)"
+ ],
+ "known_issues": [
+  "Forensic Analysis-tab small multiples are below the cut line: each gauge's 'Chart' button shows it in the dock.",
+  "Copperhill, TN: the Ocoee River gauge flood and the Ducktown flash flood are one event listed twice; joining them would swap the flash rows (detection, damage threat) for river rows, so it is a decision for the user.",
+  "The EARTHDATA_TOKEN path is tested only with a fake token and a mock transport (no token here).",
+  "Refresh jobs (newer satellite pass, new NWS forecast map) were not due in integration part 2's run; backend-flood-live measured six earlier on Nov 5 with the same code.",
+  "A past flood's Command area line can read 'Water seen by satellite in this area: 0.0 mi²' under a cloudy pass; its caveat states the cloud share and that dry pixels do not mean no flooding.",
+  "data/floods/years/2026.json in this container is still schema 2 and rebuilds once on its first request (about 30 s); 2025 was rebuilt to schema 3 during the smoke run.",
+  "Phones (390 px), Command flood: the selected point's 'SELECTED' map label can touch a nearby gauge's label.",
+  "Fixture server only: list-only demo floods outside New Mexico show New Mexico's evacuation fixture and 'Satellite water · unavailable'.",
+  "A watch-only flood's third row reads 'No NWS river forecast for this gauge' although the flood has no gauge (PLAN-5 5.3 NO_RFC_FORECAST); its sub-line explains that river forecasts are made at gauges.",
+  "The one-time rotate hint covers part of the Command map for its first 12 s on a new browser (brief-4 behaviour).",
+  "Forensic logs three.js's 'THREE.Clock … deprecated' warning (since brief 4); OpenFreeMap's font server answers 404 for one rare glyph range near Copperhill (harmless).",
+  "NASA's GIBS picture fallback stays undrawn (its colours read like a hazard map); where no measured satellite pass exists the key says 'no usable image' with the reason."
+ ],
+ "cut_line_left": [
+  "Forensic Analysis-tab small multiples (one chart per gauge).",
+  "Flood search hits in the search results popover (an exact or unique flood name opens it).",
+  "A flood-specific phone layout of the list panel; the 1024 px layout pass beyond the fire view's.",
+  "A data-status block in Command's Official now (there is no flood updates feed).",
+  "The GIBS picture fallback drawing (code present, off)."
+ ],
+ "notes_for_others": "Smoke script and screenshot batch are in the session scratchpad (smoke5.mjs, fc5-shots.sh), not in the repo. The crest-label helper is now hydrographModel.crestLeft (pure, tested); Hydrograph.tsx keeps only components, so the lint baseline stays 55.",
+ "commits": [
+  "5b32b1d brief 5 final check: work-in-progress snapshot (final check mid-step) (orchestrator)",
+  "5476a4e brief 5 final check: M1 crest label beside its caret when no room above (slim and dock charts), final screenshot set (floods, flash and watch, phones, reduced motion, rotated; brief-4 fire set re-shot), progress",
+  "3e93f64 brief 5 final check: report final-verification-5.json (gates, screenshots, smoke, scans, user summary), as-built note, CONTRACT 16.16 'Final check', SPEC 10 flood tests, README flood screenshots",
+  "(this commit) brief 5 final check: report commit list"
+ ],
+ "user_summary": "Brief 5 is finished and checked: Fire-3d now shows floods in the lower 48 states as well as wildfires. Here is what you get, in plain words.\n\nWhere to find floods\n- At the top of the national map there is a small switch: Fires | Floods. Pick Floods and the map lists every flood the National Weather Service (NWS) is warning about right now, plus river gauges that read at flood stage. Each blue circle is one flood; a bigger circle groups several ('12 FLOODS'). Click one to open it.\n- 'Show details' opens the list, with tabs for today's floods and for past floods of 2026 and 2025 (the bigger ones: rivers that reached moderate or major flood stage, and flash floods NWS called considerable, catastrophic or an emergency). Flood Watches (flooding possible, not yet happening) are hidden until you turn on 'Show watches'.\n\nThe three flood views\n- Public: the place and dates, a round 'water circle' with the NWS status (for example FLOOD · WARNING), and seven plain facts, each with who said it and when: NWS's forecast flooded area, the river level measured at the main gauge, the NWS forecast peak (crest), the warning in effect, evacuations and the last official update.\n- Command: for experts. Click any spot on the map to see which layers cover it and the nearest gauge; 'Official now' lists every NWS message word for word; a river-level chart runs along the bottom. Drag its handle to see the river level and the NWS messages at another time.\n- Forensic: the flood layers draped on 3D terrain. Press 'Prepare 3D data (about 1 min)' the first time. River gauges appear as thin bars (bar height = river level at the gauge, scaled, not water depth).\n\nWhat the colours and lines mean\n- Pink outlines: NWS warning areas (official).\n- Solid blue: water seen by satellite. Grey hatching: the satellite could not see there (clouds or no data); a thin dashed grey line is the edge of the satellite picture.\n- Blue hatching: the NWS forecast flooded area for the next 5 days (NWS calls this map experimental).\n- Dashed blue outline: the river's main channel.\n- Diamonds are river gauges, coloured by NWS flood category: yellow = action stage (near flood stage), orange = minor flooding, red = moderate, purple = major; a grey hollow diamond = below flood stage. The category is always written next to the colour.\n- The light-blue dot with a label is the point you selected.\n- In the river chart: the solid light-blue line is measured (USGS), the dashed white line is the NWS forecast, the coloured horizontal lines are NWS flood levels, and the small caret marks the forecast crest.\n- Dotted amber: the National Water Model, a computer model (only in Command and Forensic, and only when you switch it on).\n\nOfficial versus experimental\n- Official: NWS warnings and their wording, NWS river forecasts and flood categories, FEMA's flood zones and evacuation orders. They always keep their sender, their own times and a link, and are never mixed with anything else.\n- Measured: river levels from USGS gauges (provisional data) and water seen by satellite.\n- Experimental: NWS's forecast and category flood maps (NWS's own label) and NOAA's National Water Model (model output, never in Public).\n- Fire-3d has no flood model of its own. Nothing here is advice on when to evacuate, and nothing is an all-clear: a gauge below flood stage, a missing warning or a dry-looking satellite pixel does not mean there is no flooding. Follow local officials.\n\nWhat the satellite layer can and cannot see\n- It shows water NASA's satellites (Landsat and Sentinel-2) measured on their last clear pass. That pass is often several days old (the age is shown, in amber after 3 days).\n- It cannot see through clouds, under trees or between buildings, and it includes the river's normal water. Grey hatching marks the places it could not see.\n\nOptional: the NASA token (adds radar images that see through clouds)\n1. Make a free account at urs.earthdata.nasa.gov and choose 'Generate Token' (it lasts about 60 days; note the date).\n2. Sign in once at search.earthdata.nasa.gov and download any one OPERA DSWx file, so NASA's archive approves your account.\n3. Put the line EARTHDATA_TOKEN=<your token> in the .env file in the Fire-3d folder (the same file as the FIRMS key), never in chat or git. Restart Fire-3d.\nWithout it everything works; the satellite line says 'No radar images: NASA login not set up'. The token path has only been tested with a fake token, so tell me if the radar images do not appear.\n\nWhat is left for later\n- One chart per gauge side by side in Forensic's Analysis tab (today: a 'Chart' button per gauge).\n- Flood names in the search suggestions, a phone-specific flood list, a closer look at mid-size (1024 px) screens.\n- Your decision: at Copperhill, Tennessee, one real event shows twice (as the Toccoa / Ocoee River flood and as the Ducktown flash flood). Joining them would show river facts instead of the flash-flood facts. Tell me which you prefer.\n- Try it yourself: switch to Floods, open a flood, press 'MORE IN COMMAND', drag the chart's handle, and turn on Reduce motion in macOS (the water circle should stand still)."
+}

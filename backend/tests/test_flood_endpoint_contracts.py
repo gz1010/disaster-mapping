@@ -23,9 +23,12 @@ import fire3d.http as fhttp
 from fire3d import config
 from fire3d import contracts as C
 from fire3d.api import app as app_mod
+from fire3d.api import floods as api_floods
 from fire3d.api.jobs import JobManager, set_manager
+from fire3d.floods import build as flood_build
 from fire3d.floods import catalog
 from fire3d.floods import copy as fcopy
+from fire3d.floods import satellite as flood_satellite
 from fire3d.sources import imagery, terrain
 from fire3d.sources.terrain import FetchInfo, RasterFetchError
 
@@ -49,6 +52,10 @@ def api(flood_iso: Path, flood_fixture_bundle: Path, monkeypatch: pytest.MonkeyP
     inp, now = recorded_flood_inputs()
     monkeypatch.setattr(catalog, "fetch_inputs", lambda: inp)
     monkeypatch.setattr(catalog, "now_ms", lambda: now)
+    # the routes and builds run at the recording's "now" (the satellite's 10-day window, NWS phases), so the answers
+    # do not depend on the day the tests run
+    monkeypatch.setattr(api_floods, "_now", lambda: now)
+    monkeypatch.setattr(flood_build, "now_ms", lambda: now)
     monkeypatch.setattr(terrain, "fetch_dem_info", lambda grid: (np.full(grid.shape, 250.0, np.float32),
                                                                  FetchInfo("https://3dep.test", now, False, 0.1), 0))
 
@@ -64,6 +71,7 @@ def api(flood_iso: Path, flood_fixture_bundle: Path, monkeypatch: pytest.MonkeyP
         lst = catalog.flood_list()
         c.fid = next(s["id"] for s in lst["floods"] if (s["primary_gauge"] or {}).get("lid") == "AGYM7")  # type: ignore
         c.calls = calls  # type: ignore[attr-defined]
+        c.now = now  # type: ignore[attr-defined]
         yield c
     m.shutdown()
     set_manager(None)
@@ -241,8 +249,105 @@ def test_model_and_satellite_down(api, monkeypatch):
 
 
 def test_satellite_picture_fallback_when_earthdata_gis_is_down(api, monkeypatch):
+    """Earthdata GIS down: NASA's picture of the newest day whose passes touch the flood's area (CMR lists the Oct 30
+    Landsat 9 pass over it), not GIBS's newest day worldwide (Oct 31; review R3)."""
     monkeypatch.setattr(fhttp, "_transport", route_transport([("gis.earthdata.nasa.gov", r".", _down)] + _routes()))
     sat = ok(api.get(f"/api/floods/{api.fid}/satellite"), C.SatelliteWaterResponse)
     assert sat["status"] == "available" and sat["measured"] is False and sat["stats"] is None and sat["image"] is None
-    assert sat["tiles"]["date"] == "2026-10-31" and sat["tiles"]["max_zoom"] == 12
-    assert "via NASA GIBS" in sat["source"]["credit"]
+    assert sat["tiles"]["date"] == "2026-10-30" and sat["tiles"]["max_zoom"] == 12
+    assert sat["reason_code"] == "upstream_error" and sat["reason"] == fcopy.sat_picture_reason("Oct 30, 2026")
+    assert sat["source"]["credit"] == fcopy.opera_credit("DSWx-HLS", "gibs")
+    assert sat["caveats"] == [fcopy.sat_caveat("Oct 30, 2026", None)] and "?" not in sat["caveats"][0]
+
+
+def _fresh(monkeypatch, routes) -> None:
+    """New upstream answers: the HTTP cache, the satellite route cache and the outage memories forgotten."""
+    from fire3d.sources import opera
+
+    shutil.rmtree(Path(config.CACHE_DIR) / config.HTTP_CACHE_DIR_NAME, ignore_errors=True)
+    flood_satellite.reset_state()
+    opera.reset_state()
+    fhttp.reset_down_memos()
+    monkeypatch.setattr(fhttp, "_transport", route_transport(routes))
+
+
+def _no_view_tiff(req: httpx.Request) -> httpx.Response:
+    """An Earthdata GIS export where the pass saw nothing of the area (all no data)."""
+    from rasterio.io import MemoryFile
+    from rasterio.transform import from_bounds
+
+    w, h = (int(v) for v in req.url.params["size"].split(","))
+    box = [float(v) for v in req.url.params["bbox"].split(",")]
+    with MemoryFile() as mem:
+        with mem.open(driver="GTiff", width=w, height=h, count=1, dtype="uint8", crs=f"EPSG:{req.url.params['bboxSR']}",
+                      nodata=255, transform=from_bounds(*box, w, h)) as ds:
+            ds.write(np.full((h, w), 255, np.uint8), 1)
+        return httpx.Response(200, content=mem.read(), headers={"content-type": "image/tiff"})
+
+
+def test_saved_satellite_image_only_when_nasa_cannot_be_reached(api, monkeypatch):
+    """Review R8: the bundle's frozen measured image is served only in an outage (with SAT_SAVED_COPY); when NASA
+    answered that it has no usable image of the last 10 days, that answer is served, never an older saved image."""
+    flood_build.build_flood(api.fid, now=api.now)
+    frozen = orjson.loads((Path(config.FLOODS_DIR) / api.fid / "satellite.json").read_bytes())
+    assert frozen["measured"] and fcopy.SAT_SAVED_COPY not in frozen["caveats"]
+    # Earthdata GIS down (the live answer is NASA's picture, upstream_error): the saved measured image
+    _fresh(monkeypatch, [("gis.earthdata.nasa.gov", r".", _down)] + _routes())
+    sat = ok(api.get(f"/api/floods/{api.fid}/satellite"), C.SatelliteWaterResponse)
+    assert sat["measured"] and sat["granules"] == frozen["granules"] and sat["image"] == frozen["image"]
+    assert sat["caveats"] == frozen["caveats"] + [fcopy.SAT_SAVED_COPY] and sat["now_ms"] == api.now
+    # NASA reachable, but its pass saw nothing of the area: NASA's own answer, not the older saved image
+    _fresh(monkeypatch, [("gis.earthdata.nasa.gov", r"/exportImage$", _no_view_tiff)] + _routes())
+    sat = ok(api.get(f"/api/floods/{api.fid}/satellite"), C.SatelliteWaterResponse)
+    assert sat["measured"] is False and sat["reason_code"] == "no_image" and fcopy.SAT_SAVED_COPY not in sat["caveats"]
+    assert sat["granules"] == [] and sat["image"] is None
+    # everything down: the saved image again
+    _fresh(monkeypatch, [("gis.earthdata.nasa.gov", r".", _down), ("cmr.earthdata.nasa.gov", r".", _down),
+                         ("gibs.earthdata.nasa.gov", r".", _down)] + _routes())
+    sat = ok(api.get(f"/api/floods/{api.fid}/satellite"), C.SatelliteWaterResponse)
+    assert sat["measured"] and sat["caveats"][-1] == fcopy.SAT_SAVED_COPY
+
+
+def test_one_gauge_names_its_river_and_its_fetch_time(api, monkeypatch):
+    """Review R10: ?lid= names the river from the NWS gauge map (as the flood answer does), and retrieved_ms is when
+    NOAA sent the data (a cached copy keeps its own time), never simply now. (The recorded riv_gauges envelope sample
+    is another area, so the envelope query around AGYM7 answers with the recorded national rows, which hold AGYM7.)"""
+    nwps_dir = Path(__file__).parent / "data" / "floods" / "nwps"
+    calls: list[httpx.Request] = []
+    monkeypatch.setattr(fhttp, "_transport", route_transport(
+        [("mapservices.weather.noaa.gov", r"/riv_gauges/MapServer/0/query$", nwps_dir / "riv_gauges_observed.json")]
+        + _routes(), calls))
+    one = ok(api.get("/api/official/river-gauges?lid=AGYM7"), C.RiverGaugesResponse)
+    env = [c for c in calls if c.url.host == "mapservices.weather.noaa.gov"]
+    assert len(env) == 1 and env[0].url.params["geometryType"] == "esriGeometryEnvelope"     # one small envelope
+    fl = ok(api.get(f"/api/official/river-gauges?flood={api.fid}"), C.RiverGaugesResponse)
+    agym7 = next(g for g in fl["gauges"] if g["lid"] == "AGYM7")
+    assert one["gauges"][0]["waterbody"] == agym7["waterbody"] == "Platte River"
+    assert one["retrieved_ms"] and fl["retrieved_ms"]
+    # an hour later the cached detail is served: its own fetch time, not the new "now"
+    later = api.now + 3_600_000
+    import fire3d.api.floods as af
+
+    af_now = af._now
+    try:
+        af._now = lambda: later  # type: ignore[assignment]
+        again = ok(api.get("/api/official/river-gauges?lid=AGYM7"), C.RiverGaugesResponse)
+        fl2 = ok(api.get(f"/api/official/river-gauges?flood={api.fid}"), C.RiverGaugesResponse)
+    finally:
+        af._now = af_now  # type: ignore[assignment]
+    assert again["now_ms"] == later and again["retrieved_ms"] == one["retrieved_ms"] != later
+    assert fl2["now_ms"] == later and fl2["retrieved_ms"] == fl["retrieved_ms"] != later
+
+
+def test_past_gauges_are_never_todays_readings(api):
+    past = 1700000000000
+    # backend-flood-live M2: a flood's or a gauge's past readings are USGS's (not reachable here: no reading at all),
+    # an area at a past time is not served; never today's readings
+    from fire3d.floods import history
+
+    for q in (f"flood={api.fid}", "lid=AGYM7&series=1"):
+        g = ok(api.get(f"/api/official/river-gauges?{q}&at_ms={past}"), C.RiverGaugesResponse)
+        assert all((x["observed"]["valid_ms"] or 0) <= past and x["forecast"] is None for x in g["gauges"])
+        assert fcopy.THRESHOLDS_TODAY in g["caveats"] or g["status"] == "unavailable"
+    g = ok(api.get(f"/api/official/river-gauges?bbox=-94.8,39.6,-94.6,39.8&at_ms={past}"), C.RiverGaugesResponse)
+    assert g["status"] == "not_available_for_past_dates" and g["gauges"] == [] and g["reason"] == history.PAST_AREA_GAUGES

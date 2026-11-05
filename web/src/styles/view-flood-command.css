@@ -1,0 +1,246 @@
+/* The Command flood view (brief 5, web-flood-command; PLAN-5 §4.5). Its layout is Command fire's
+   (styles/view-command.css, scoped to both Command chromes); this file holds what differs for floods: the bar's flood
+   name and gauge line, the readout's flood lines and tags, the river-level chart in the timeline slot, the legend's
+   model and category-map swatches. Tags match the Public flood view's point card (NWS pink, forecast and satellite
+   blues); the model is the modeled amber, dotted or dashed, never a water colour (it never shares a colour or a layer
+   with official or satellite water). No green (PLAN-5 §4.9). */
+
+/* ------------------------------------------------------------------------------------------------ top bar */
+.mw[data-view='command-flood'] .cfv-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 320px;
+  margin: 0;
+  padding: 0 4px;
+  overflow: hidden;
+  font: 600 18px / 1.2 var(--m-font-ui);
+  letter-spacing: -0.01em;
+  color: var(--m-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mw[data-view='command-flood'] .mw-header .tb-left .mw-demo-badge {
+  font: 600 10px / 1 var(--m-font-mono);
+}
+.cfv-gauge-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  max-width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  overflow: hidden;
+  font: 400 10.5px / 1 var(--m-font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--m-text-2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.cfv-gauge-status svg {
+  flex: none;
+  margin-right: 7px;
+}
+.cfv-gauge-status:hover,
+.cfv-gauge-status[aria-expanded='true'] {
+  background: var(--m-hover);
+  color: var(--m-text);
+}
+.cfv-gauge-status:focus-visible {
+  outline: 2px solid var(--m-flood-lead);
+  outline-offset: 1px;
+}
+.cfv-gauge-status .is-stale {
+  color: var(--m-stale);
+}
+
+/* ------------------------------------------------------------------------------------------------ readout */
+.ffr .ffr-lastknown {
+  margin-top: 10px;
+  font-size: 12.5px;
+  line-height: 18px;
+  color: var(--m-warn);
+}
+.ffr-layers {
+  margin-top: 12px;
+}
+.ffr-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ffr-line {
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--m-text-body);
+}
+.ffr-line.is-inside {
+  color: var(--m-text);
+}
+.ffr-line.is-quiet {
+  color: var(--m-text-2b);
+}
+.ffr-line.is-warn {
+  color: var(--m-stale);
+}
+.ffr-line.is-note {
+  font-size: 12px;
+  line-height: 17px;
+}
+.cro-tag.ffr-tag {
+  margin-right: 2px;
+  white-space: nowrap;
+}
+.cro-tag.ffr-tag.is-official {
+  border-color: var(--m-alert);
+  color: var(--m-alert);
+}
+.cro-tag.ffr-tag.is-forecast {
+  border-color: var(--m-flood-edge);
+  color: var(--m-flood-edge);
+}
+.cro-tag.ffr-tag.is-satellite {
+  border-color: var(--m-flood-forecast);
+  color: var(--m-flood-forecast);
+}
+.cro-tag.ffr-tag.is-fema {
+  border-color: rgba(170, 186, 214, 0.8);
+  color: rgb(190, 202, 224);
+}
+.cro-tag.ffr-tag.is-model {
+  border-style: dashed;
+  border-color: var(--m-forecast);
+  color: var(--m-forecast);
+}
+.mw .ffr .ffr-eyebrow {
+  margin: 8px 0 2px;
+}
+.ffr .ffr-gauge-name {
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--m-text);
+}
+.ffr .ffr-gauge-name .mw-mono {
+  font-size: 12px;
+  color: var(--m-flood-edge);
+}
+.ffr-gauge-nearby {
+  color: var(--m-text-3);
+}
+.ffr .ffr-note {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--m-text-2b);
+}
+.ffr .ffr-note.is-warn {
+  color: var(--m-stale);
+}
+.ffr .ffr-note .ffr-strong {
+  font-weight: 600;
+  color: var(--m-text);
+}
+.ffr .ro-sub a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.ffr-area + .ffr-area {
+  margin-top: 8px;
+}
+.ffr .ffr-area-text {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--m-text-body);
+}
+
+/* ------------------------------------------------------------------------------------------------ Official now */
+.mw[data-view='command-flood'] .cfv-official .ffo .on-foot {
+  margin-top: 10px;
+}
+/* flood rows are long: while more rows are below, the scroller's bottom fades (Command fire's mask, view-command.css)
+   and keeps room above the fade (review WFC-R12) */
+.mw[data-view='command-flood'] .mw-updates-panel.is-column.has-more .on-rows {
+  padding-bottom: 20px;
+}
+
+/* the flood layers' own credit line in the foot (map/floodLayerCredits.ts; review WFC-R4) */
+.mw[data-view='command-flood'] .cfv-credits {
+  display: block;
+}
+
+/* ------------------------------------------------------------------------------------------------ the chart */
+.mw[data-view='command-flood'] .cfv-chart {
+  pointer-events: auto;
+}
+
+/* ------------------------------------------------------------------------------------------------ legend */
+/* the NWS category flood map (experimental): a second hatch angle in water blue, outlined dashed */
+.ffk-sw.cfv-sw-catfim {
+  border: 1px dashed var(--m-flood-edge);
+  background: repeating-linear-gradient(45deg, rgba(127, 212, 255, 0.5) 0 1.5px, transparent 1.5px 5px);
+}
+/* model output: the modeled amber, a dotted edge on a faint amber fill (never a water colour) */
+.ffk-sw.cfv-sw-model {
+  border: 1.5px dotted var(--m-forecast);
+  background: rgba(245, 192, 96, 0.14);
+}
+.ffk-sw.cfv-sw-highflow {
+  height: 0;
+  border: 0;
+  border-top: 2px dotted var(--m-forecast);
+  border-radius: 0;
+}
+.fxm-legend.is-chips .cfv-chips {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+/* a Command layer that is on but not drawn says why on its chip (review WFC-R9) */
+.cfv-chips .cfv-chip-warn {
+  color: var(--m-stale);
+}
+.cfv-chips .cfv-chip-quiet {
+  color: var(--m-text-3);
+}
+/* the reading shortens with an ellipsis on a narrow bar; its age (amber when stale) always stays (review WFC-R15) */
+.cfv-gauge-text {
+  display: inline-flex;
+  min-width: 0;
+  overflow: hidden;
+  white-space: pre;
+}
+.cfv-gauge-main {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cfv-gauge-age {
+  flex: none;
+}
+/* Official now's evacuation row: the row's own label says "Evacuations"; the inner block keeps its value and lines */
+.mw[data-view='command-flood'] .ffo .ffe-command .ffe-label {
+  display: none;
+}
+.cro-tag.ffr-tag.is-catfim {
+  border-style: dashed;
+  border-color: var(--m-flood-edge);
+  color: var(--m-flood-edge);
+}
+
+@media (max-width: 760px) {
+  /* phones: the name gives way to the bar's buttons (ellipsis), as the fire title does */
+  .mw[data-view='command-flood'] .cfv-title {
+    max-width: calc(100vw - 250px);
+    font-size: 16px;
+  }
+}

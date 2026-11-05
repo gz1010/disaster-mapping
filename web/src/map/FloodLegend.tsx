@@ -5,24 +5,41 @@
 // here (model output is shown and keyed only in Command, switched on). Variants: 'row' (the overview's details),
 // 'chips' (Command's bottom row, with the scale), 'key' (only the details button, for the Public flood view's own key),
 // 'panel' (inline, the Layers panel below 1200 px).
+// Brief 5 web-flood-command: with a flood open, 'chips' are the Command flood view's chips (PLAN-5 §4.5): water seen by
+// satellite with its date, no satellite view, the NWS forecast flooded area, the NWS warning area, the four gauge
+// diamonds, and, only while switched on, the FEMA floodplain, the NWS category flood map (experimental) and the model
+// (NWM, experimental; its own amber dotted swatch, never a water colour); the selected location; the scale. The
+// details then also explain the model and the category map (their own caveats).
 import { ChevronDown, Info } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { useFlood } from '../state/flood'
+import { openFloodSummary, useFlood } from '../state/flood'
 import { useShallow } from 'zustand/react/shallow'
 import { useFloodOfficial } from '../official/floodHooks'
+import { answerState, fimMapped, shownGranule } from '../official/floodModel'
+import { extraLayerReason, extraLayerState, useFloodLayerData, type ExtraLayerState } from '../state/floodLayerData'
+import { useWorkspace } from '../state/workspace'
+import { fmtDayDate } from '../lib/time'
 import { satLoginNote } from '../ui/public/floodView'
 import {
+  CATFIM_LABEL,
+  CATFIM_UNAVAILABLE,
+  FLOOD_COMMAND,
+  MODEL_CAVEAT,
+  MODEL_LABEL,
   FLOOD_LIST_ABSENCE,
   FLOOD_LIST_ABSENCE_SHORT,
   FLOOD_OVERVIEW,
   FLOOD_PUBLIC,
+  fillCopy,
   GAUGE_CATEGORY_DISPLAY,
   NFHL_NOTE,
   NOT_ALL_CLEAR,
   RFC_FIM_LABEL,
   RFC_FIM_NOTE,
+  RFC_FIM_UNAVAILABLE,
   SAT_EDGE,
   SAT_NO_VIEW_KEY,
+  SAT_UNAVAILABLE,
 } from '../ui/shell/floodCopy'
 import { nationalGaugesDown, useNationalGauges } from './floodGaugeStatus'
 import { ScaleBar } from './MapAttribution'
@@ -51,6 +68,45 @@ function Row({ sw, children, title }: { sw: string; children: ReactNode; title?:
   )
 }
 
+/** A Command layer's chip with its state while on (review WFC-R9): its label when drawn, "none here", "could not be
+ *  loaded" (amber, the reason in its tooltip) or "checking". */
+function LayerChip({ sw, label, state, tip }: { sw: string; label: string; state: ExtraLayerState; tip?: string }) {
+  const word =
+    state === 'empty'
+      ? FLOOD_COMMAND.chipNone
+      : state === 'unavailable'
+        ? FLOOD_COMMAND.chipUnavailable
+        : state === 'checking'
+          ? FLOOD_COMMAND.chipChecking
+          : state === 'past'
+            ? FLOOD_COMMAND.chipPast
+            : null
+  return (
+    <li className={state === 'unavailable' ? 'cfv-chip-warn' : state === 'drawn' ? undefined : 'cfv-chip-quiet'} title={tip}>
+      <span className={`ffk-sw ${sw}`} aria-hidden="true" />
+      <span>
+        {label}
+        {word && ` · ${word}`}
+      </span>
+    </li>
+  )
+}
+
+/** The model's state under its legend details (review WFC-R9): "could not be loaded" with the reason, "none", or
+ *  "checking"; nothing when drawn. */
+function ModelStateNote({ state, reason }: { state: ExtraLayerState; reason: string | null }) {
+  if (state === 'drawn') return null
+  if (state === 'past') return <p className="fxm-legend-note">{reason ?? FLOOD_COMMAND.modelPast}</p>
+  if (state === 'unavailable')
+    return (
+      <>
+        <p className="fxm-legend-note ffk-unavailable">{FLOOD_COMMAND.modelUnavailable}</p>
+        {reason && reason !== FLOOD_COMMAND.modelUnavailable && <p className="fxm-legend-note">{reason}</p>}
+      </>
+    )
+  return <p className="fxm-legend-note">{state === 'empty' ? FLOOD_COMMAND.modelNone : FLOOD_COMMAND.modelChecking}</p>
+}
+
 export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant } = {}) {
   const [open, setOpen] = useState(false)
   const floodOpen = useFlood((s) => s.floodId != null)
@@ -61,8 +117,74 @@ export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant 
   const gaugesDown = useNationalGauges(nationalGaugesDown) && gaugesOn && !floodOpen
   // a flood view: what each of its layers is (the backend's own caveats; brief 5 web-flood-public)
   const view = useFloodOfficial(useShallow((s) => ({ satellite: s.satellite.data, fim: s.fim.data, nfhl: s.nfhl.data })))
+  // a request that failed with no answer still gets its line (review WFP-R1): never a layer that silently vanishes
+  const failed = useFloodOfficial(
+    useShallow((s) => ({
+      satellite: !s.satellite.data && answerState(s.satellite) === 'unavailable' ? s.satellite.error : null,
+      fim: !s.fim.data && answerState(s.fim) === 'unavailable' ? s.fim.error : null,
+    })),
+  )
   const floodplainOn = useFlood((s) => s.layers.floodplain)
+  const layers = useFlood((s) => s.layers)
+  const zone = useFlood((s) => openFloodSummary(s)?.time_zone ?? 'UTC')
+  const extra = useFloodLayerData(useShallow((s) => ({ model: s.model.data, highFlow: s.highFlow.data, catfim: s.catfim.data })))
+  // each Command layer's own state while on: drawn, none, could not be loaded, checking (review WFC-R9)
+  const extraAns = useFloodLayerData(useShallow((s) => ({ model: s.model, highFlow: s.highFlow, catfim: s.catfim, catfimFor: s.catfimFor })))
+  const st = { model: extraLayerState(extraAns.model), highFlow: extraLayerState(extraAns.highFlow), catfim: extraLayerState(extraAns.catfim) }
+  const [catLid, catCategory] = (extraAns.catfimFor ?? '').split('|')
+  const catfimNone = catLid && catCategory ? fillCopy(FLOOD_COMMAND.catfimNoneFor, { category: catCategory, lid: catLid }) : FLOOD_COMMAND.catfimNone
+  const hasSel = useWorkspace((s) => s.selection != null)
   const login = floodOpen ? satLoginNote(view.satellite) : null
+  const granule = shownGranule(view.satellite)
+  const viewChips = (
+    <ul className="fxm-legend-row fxo-legend-row cfv-chips" aria-label="Legend">
+      {layers.satellite && (
+        <li>
+          <span className="ffk-sw ffk-sw-sat" aria-hidden="true" />
+          <span>{granule && view.satellite?.measured ? fillCopy(FLOOD_COMMAND.chipSatellite, { date: fmtDayDate(granule.acquired_ms, zone) }) : FLOOD_COMMAND.chipSatelliteNone}</span>
+        </li>
+      )}
+      {layers.satellite && granule && view.satellite?.measured && (
+        <li>
+          <span className="ffk-sw ffk-sw-noview" aria-hidden="true" />
+          <span>{FLOOD_COMMAND.chipNoView}</span>
+        </li>
+      )}
+      {layers.forecastArea && fimMapped(view.fim) && (
+        <li>
+          <span className="ffk-sw ffk-sw-forecast" aria-hidden="true" />
+          <span>{FLOOD_COMMAND.chipForecast}</span>
+        </li>
+      )}
+      {layers.warnings && (
+        <li>
+          <span className="ffk-sw ffk-sw-warning" aria-hidden="true" />
+          <span>{FLOOD_COMMAND.chipWarning}</span>
+        </li>
+      )}
+      {layers.gauges &&
+        DIAMONDS.map((d) => (
+          <Row key={d.tone} sw={`diamond-${d.tone}`} title={`River gauge: ${d.label}`}>
+            {d.label.replace(' (NWS)', '').replace(' flooding', '').replace(' stage', '')}
+          </Row>
+        ))}
+      {layers.floodplain && (
+        <li>
+          <span className="ffk-sw ffk-sw-floodplain" aria-hidden="true" />
+          <span>{FLOOD_COMMAND.chipFloodplain}</span>
+        </li>
+      )}
+      {layers.catfim && <LayerChip sw="cfv-sw-catfim" label={FLOOD_COMMAND.chipCatfim} state={st.catfim} tip={extraLayerReason(extraAns.catfim) ?? (st.catfim === 'empty' ? catfimNone : undefined)} />}
+      {layers.model && <LayerChip sw="cfv-sw-model" label={FLOOD_COMMAND.chipModel} state={st.model} tip={extraLayerReason(extraAns.model) ?? undefined} />}
+      {layers.modelHighFlow && <LayerChip sw="cfv-sw-highflow" label={FLOOD_COMMAND.chipHighFlow} state={st.highFlow} tip={extraLayerReason(extraAns.highFlow) ?? undefined} />}
+      {hasSel && (
+        <li>
+          <span className="fxm-sw fxm-sw-selection" aria-hidden="true" />
+          <span>{FLOOD_COMMAND.chipSelected}</span>
+        </li>
+      )}
+    </ul>
+  )
   const compact = (
     <ul className="fxm-legend-row fxo-legend-row" aria-label="Legend">
       {!past && <Row sw="flood-large">{FLOOD_OVERVIEW.legendLarge}</Row>}
@@ -114,17 +236,27 @@ export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant 
       {floodOpen && view.satellite && (
         <section>
           <h3>
-            <span className="ffk-sw ffk-sw-sat" aria-hidden="true" /> {view.satellite.source.name}
+            <span className="ffk-sw ffk-sw-sat" aria-hidden="true" /> {view.satellite.source?.name ?? FLOOD_PUBLIC.layerSatellite}
           </h3>
-          {view.satellite.caveats.map((c, i) => (
+          {(view.satellite.caveats ?? []).map((c, i) => (
             <p key={i}>{c}</p>
           ))}
           <p>
             <span className="ffk-sw ffk-sw-noview" aria-hidden="true" /> {SAT_NO_VIEW_KEY} · <span className="ffk-sw ffk-sw-edge" aria-hidden="true" /> {SAT_EDGE}
           </p>
-          {view.satellite.reason && <p className="fxm-legend-note">{view.satellite.reason}</p>}
+          {view.satellite.status === 'unavailable' && <p className="fxm-legend-note ffk-unavailable">{SAT_UNAVAILABLE}</p>}
+          {view.satellite.reason && view.satellite.reason !== SAT_UNAVAILABLE && <p className="fxm-legend-note">{view.satellite.reason}</p>}
           {login?.short && <p className="fxm-legend-note ffk-login">{login.short}</p>}
           {login?.long && <p className="fxm-legend-note">{login.long}</p>}
+        </section>
+      )}
+      {floodOpen && !view.satellite && failed.satellite != null && (
+        <section>
+          <h3>
+            <span className="ffk-sw ffk-sw-sat" aria-hidden="true" /> {FLOOD_PUBLIC.layerSatellite}
+          </h3>
+          <p className="fxm-legend-note ffk-unavailable">{SAT_UNAVAILABLE}</p>
+          {failed.satellite && <p className="fxm-legend-note">{failed.satellite}</p>}
         </section>
       )}
       {floodOpen && view.fim && (
@@ -134,7 +266,18 @@ export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant 
           </h3>
           <p>{view.fim.coverage_note || RFC_FIM_NOTE}</p>
           {view.fim.outside_note && <p>{view.fim.outside_note}</p>}
-          {view.fim.status !== 'available' && view.fim.reason && <p className="fxm-legend-note">{view.fim.reason}</p>}
+          {view.fim.status === 'unavailable' && <p className="fxm-legend-note ffk-unavailable">{RFC_FIM_UNAVAILABLE}</p>}
+          {view.fim.status !== 'available' && view.fim.reason && view.fim.reason !== RFC_FIM_UNAVAILABLE && <p className="fxm-legend-note">{view.fim.reason}</p>}
+        </section>
+      )}
+      {floodOpen && !view.fim && failed.fim != null && (
+        <section>
+          <h3>
+            <span className="ffk-sw ffk-sw-forecast" aria-hidden="true" /> {RFC_FIM_LABEL}
+          </h3>
+          <p>{RFC_FIM_NOTE}</p>
+          <p className="fxm-legend-note ffk-unavailable">{RFC_FIM_UNAVAILABLE}</p>
+          {failed.fim && <p className="fxm-legend-note">{failed.fim}</p>}
         </section>
       )}
       {floodOpen && (
@@ -148,10 +291,47 @@ export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant 
       {floodOpen && floodplainOn && (
         <section>
           <h3>
-            <span className="ffk-sw ffk-sw-floodplain" aria-hidden="true" /> {view.nfhl?.source.name ?? 'FEMA'}
+            <span className="ffk-sw ffk-sw-floodplain" aria-hidden="true" /> {view.nfhl?.source?.name ?? 'FEMA'}
           </h3>
           <p>{view.nfhl?.coverage_note || NFHL_NOTE}</p>
           {view.nfhl && view.nfhl.status !== 'available' && view.nfhl.reason && <p className="fxm-legend-note">{view.nfhl.reason}</p>}
+        </section>
+      )}
+      {floodOpen && layers.catfim && (
+        <section>
+          <h3>
+            <span className="ffk-sw cfv-sw-catfim" aria-hidden="true" /> {CATFIM_LABEL}
+          </h3>
+          {/* each state in its own words: a failed request is never "checking" forever, an empty map says none (WFC-R9) */}
+          {st.catfim === 'drawn' && extra.catfim && <p>{extra.catfim.coverage_note}</p>}
+          {st.catfim === 'empty' && <p>{catfimNone}</p>}
+          {st.catfim === 'unavailable' && (
+            <>
+              <p className="fxm-legend-note ffk-unavailable">{CATFIM_UNAVAILABLE}</p>
+              {extraLayerReason(extraAns.catfim) && extraLayerReason(extraAns.catfim) !== CATFIM_UNAVAILABLE && <p className="fxm-legend-note">{extraLayerReason(extraAns.catfim)}</p>}
+            </>
+          )}
+          {st.catfim === 'checking' && <p className="fxm-legend-note">{FLOOD_COMMAND.catfimChecking}</p>}
+          {(extra.catfim?.caveats ?? []).map((c, i) => (
+            <p key={i} className="fxm-legend-note">
+              {c}
+            </p>
+          ))}
+        </section>
+      )}
+      {floodOpen && (layers.model || layers.modelHighFlow) && (
+        <section className="cfv-legend-model">
+          <h3>
+            <span className="ffk-sw cfv-sw-model" aria-hidden="true" /> {extra.model?.label ?? MODEL_LABEL}
+          </h3>
+          <p>{extra.model?.caveats?.[0] ?? MODEL_CAVEAT}</p>
+          {layers.model && <ModelStateNote state={st.model} reason={extraLayerReason(extraAns.model)} />}
+          {layers.modelHighFlow && (
+            <p>
+              <span className="ffk-sw cfv-sw-highflow" aria-hidden="true" /> {FLOOD_COMMAND.highFlowBody}
+            </p>
+          )}
+          {layers.modelHighFlow && <ModelStateNote state={st.highFlow} reason={extraLayerReason(extraAns.highFlow)} />}
         </section>
       )}
       <p className="fxm-legend-note">{FLOOD_LIST_ABSENCE}</p>
@@ -170,7 +350,7 @@ export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant 
   return (
     <section className={`mw-legend fxm-legend fxo-legend${chips ? ' is-chips' : ''}${key ? ' is-key' : ''}`} aria-label="Map legend">
       <div className="fxm-legend-anchor">
-        {!key && compact}
+        {!key && (chips && floodOpen ? viewChips : compact)}
         {chips && <ScaleBar />}
         <button type="button" className="fxm-legend-toggle" aria-expanded={open} aria-controls="fxo-legend-details" onClick={() => setOpen((o) => !o)} data-tip="What the flood layers mean">
           <Info size={13} aria-hidden="true" />

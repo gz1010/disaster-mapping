@@ -116,7 +116,8 @@ def test_recorded_day_outages_have_the_fixture_shapes(flood_iso: Path) -> None:
         assert s["primary_gauge"]["lid"] == want[s["id"]]["primary_gauge"]["lid"], s["name"]
     cat.reset_state()
     gd = cat.build_list(_down(inp, observed=True, forecast=True, rfc=True), t)
-    want = {i: r for i, r in ((i, cat.gauges_down_row(s)) for i, s in before.items()) if r}
+    reg = reg_mod.get_registry()                    # own keys: a gauge-only flood's products over its gauge are not its own
+    want = {i: r for i, r in ((i, cat.gauges_down_row(s, set(reg.keys_of(i)))) for i, s in before.items()) if r}
     got = {s["id"]: s for s in gd["floods"]}
     assert set(got) == set(want)
     for i, s in got.items():

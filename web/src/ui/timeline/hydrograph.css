@@ -1,0 +1,458 @@
+/* The river-level chart (brief 5, web-flood-command; PLAN-5 §4.6). Slim (Command): no card, full width under the map
+   like the fire's slim timeline (a 40 px gauge picker on the left; one mono line above with the gauge, the line key and
+   the stage / flow switch; the handle's words; the plot; day ticks and LATEST under it). Dock (Forensic): 112 px with
+   a 78 px plot. Lines: observed solid #7fd4ff, NWS forecast dashed #cfeaff, model dotted amber #f5c060 (flow only).
+   Text sits on the map's bottom gradient: a soft shadow keeps it readable. Nothing animates. */
+.hg {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  min-width: 0;
+  color: var(--m-text-2);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+  pointer-events: auto;
+}
+/* the dock is at least 112 px; it grows with the handle's lines and the future note (never over the key or the plot;
+   review WFC-R3) inside Forensic's taller dock */
+.hg.is-dock {
+  gap: 12px;
+  min-height: 112px;
+}
+.hg-body {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+.hg-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* the gauge picker (slim) */
+.hg-pick {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-top: 18px;
+  border: 1px solid rgba(200, 200, 200, 0.2);
+  border-radius: 50%;
+  background: rgba(14, 14, 14, 0.6);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  color: var(--m-text);
+  cursor: pointer;
+}
+.hg-pick:hover {
+  border-color: var(--m-border-strong);
+}
+.hg-pick:focus-visible {
+  outline: 2px solid var(--m-flood-lead);
+  outline-offset: 2px;
+}
+.hg-pick:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.hg-diamond {
+  display: block;
+  flex: 0 0 auto;
+}
+.hg-picker {
+  padding: 6px;
+}
+.hg-picker-title {
+  margin: 6px 8px 4px;
+  font: 400 10px / 14px var(--m-font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--m-text-4);
+}
+.hg-picker-item {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--m-text-2);
+  font: 400 12.5px / 1.35 var(--m-font);
+  text-align: left;
+  cursor: pointer;
+}
+.hg-picker-item:hover,
+.hg-picker-item:focus-visible {
+  background: var(--m-hover);
+  color: var(--m-text);
+}
+.hg-picker-item.is-current {
+  background: rgba(127, 212, 255, 0.1);
+  color: var(--m-text);
+}
+.hg-picker-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hg-picker-cat {
+  font: 400 10px / 14px var(--m-font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--m-text-3);
+}
+
+/* the top line: gauge · key · stage / flow */
+.hg-top {
+  display: flex;
+  align-items: center;
+  gap: 4px 16px;
+  min-width: 0;
+  min-height: 22px;
+  font: 400 10px / 16px var(--m-font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--m-text-3);
+}
+.hg-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--m-text-2);
+}
+.hg-tag {
+  margin-left: 8px;
+  padding: 0 5px;
+  border: 1px solid var(--m-border-strong);
+  border-radius: 4px;
+  color: var(--m-text-3);
+}
+.hg-key {
+  display: inline-flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 2px 14px;
+  min-width: 0;
+}
+.hg-key-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.hg-key-item.is-observed {
+  color: var(--m-flood-edge);
+}
+.hg-key-item.is-forecast {
+  color: var(--m-flood-forecast);
+}
+.hg-key-item.is-model {
+  color: var(--m-forecast);
+}
+.hg-glyph {
+  flex: 0 0 auto;
+}
+.hg-axis-switch {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+.hg-axis-switch .seg-btn {
+  font: 400 10px / 1 var(--m-font-mono);
+  letter-spacing: 0.08em;
+}
+
+/* lines (the key's glyphs share them) */
+.hg-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.hg-line.is-observed {
+  stroke: var(--m-flood-edge);
+  stroke-width: 1.6;
+}
+.hg-line.is-forecast {
+  stroke: var(--m-flood-forecast);
+  stroke-width: 1.4;
+  stroke-dasharray: 4 3;
+  stroke-linecap: butt;
+}
+.hg-line.is-model {
+  stroke: var(--m-forecast);
+  stroke-width: 1.6;
+  stroke-dasharray: 1 3;
+}
+.hg-line.is-model.is-medium_range_blend {
+  opacity: 0.7;
+}
+
+/* the handle's words: a row as tall as its lines (set inline: 16 px a line, 14 in the dock), above the plot, so the
+   words never print over the plot, the crest label or the key (review WFC-R3) */
+.hg-handle-row {
+  position: relative;
+  flex: none;
+  margin-top: 2px;
+}
+.hg-handle-row.is-dock {
+  margin-top: 1px;
+  pointer-events: none;
+}
+.hg-handle-label {
+  position: absolute;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(-50%);
+  font: 400 11.5px / 16px var(--m-font-mono);
+  color: var(--m-text);
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+.hg-handle-label.is-start,
+.hg-handle-label.is-end {
+  transform: none;
+}
+.hg-handle-label.is-end {
+  align-items: flex-end;
+}
+.hg-handle-row.is-dock .hg-handle-label {
+  font-size: 10.5px;
+  line-height: 14px;
+}
+.hg-hl-value.is-observed {
+  color: var(--m-flood-edge);
+}
+.hg-hl-value.is-forecast {
+  color: var(--m-flood-forecast);
+}
+.hg-hl-value.is-stale {
+  color: var(--m-stale);
+}
+.hg-hl-value.is-none {
+  color: var(--m-text-3);
+}
+.hg-hl-line.is-model {
+  color: var(--m-forecast);
+  font-size: 10.5px;
+}
+/* after now: the products note, its own line under the handle's words, wrapped (never cut) */
+.hg-future-note {
+  margin: 2px 0 0;
+  font: 400 10px / 14px var(--m-font-mono);
+  letter-spacing: 0.04em;
+  color: var(--m-text-2);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* the plot */
+.hg-plot {
+  position: relative;
+  min-width: 0;
+}
+.hg-plot.is-empty {
+  display: flex;
+  align-items: center;
+}
+.hg-svg {
+  position: absolute;
+  inset: 0 auto auto 0;
+  overflow: visible;
+}
+.hg-future {
+  fill: rgba(207, 234, 255, 0.035);
+}
+.hg-day {
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 1;
+}
+.hg-level-line {
+  stroke-width: 1;
+  opacity: 0.75;
+}
+.hg-level {
+  font: 400 9.5px var(--m-font-mono);
+  letter-spacing: 0.06em;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.75);
+  stroke-width: 3px;
+}
+.hg-now {
+  stroke: var(--m-text-body);
+  stroke-width: 1.2;
+  opacity: 0.7;
+}
+.hg-latest {
+  fill: var(--m-flood-edge);
+  stroke: #04121c;
+  stroke-width: 1;
+}
+.hg-latest.is-stale {
+  fill: var(--m-stale);
+}
+.hg-crest {
+  fill: var(--m-flood-forecast);
+}
+.hg-crest.is-end {
+  fill: none;
+  stroke: var(--m-flood-forecast);
+  stroke-width: 1.2;
+}
+.hg-product {
+  stroke-width: 2;
+}
+.hg-product.is-emergency {
+  stroke-width: 3;
+}
+.hg-cursor {
+  stroke: var(--m-flood-lead);
+  stroke-width: 1.2;
+}
+.hg-thumb {
+  fill: var(--m-flood-ink);
+  stroke: var(--m-flood-lead);
+  stroke-width: 2.5;
+}
+.hg-slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.hg-slider:focus-visible {
+  outline: 2px solid var(--m-flood-lead);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.hg-nowbtn {
+  position: absolute;
+  top: 1px;
+  z-index: 1;
+  margin-left: 3px;
+  padding: 0 3px;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  font: 400 9.5px / 13px var(--m-font-mono);
+  letter-spacing: 0.1em;
+  color: var(--m-text-3);
+  cursor: pointer;
+}
+.hg-nowbtn:hover,
+.hg-nowbtn:focus-visible {
+  color: var(--m-text);
+  background: var(--m-hover);
+}
+.hg-nowbtn.is-current {
+  color: var(--m-text-2);
+}
+.hg-crest-label {
+  position: absolute;
+  font: 400 9.5px / 12px var(--m-font-mono);
+  letter-spacing: 0.06em;
+  color: var(--m-flood-forecast);
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: help;
+}
+.hg-notes,
+.hg-empty {
+  font: 400 10px / 14px var(--m-font-mono);
+  letter-spacing: 0.05em;
+  color: var(--m-text-3);
+}
+.hg-notes {
+  position: absolute;
+  bottom: 8px;
+  left: 6px;
+  /* a backing so a line passing under the note never strikes it through (integration) */
+  padding: 0 4px;
+  border-radius: 2px;
+  background: rgba(14, 14, 14, 0.72);
+  max-width: calc(100% - 100px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: auto;
+}
+.hg-empty {
+  margin: 0;
+  padding-top: 6px;
+  white-space: normal;
+}
+.hg-empty strong {
+  color: var(--m-text-2);
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+/* under the plot: day labels and LATEST */
+.hg-axis {
+  position: relative;
+  height: 18px;
+  margin-top: 2px;
+  font: 400 10px / 18px var(--m-font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--m-text-3);
+}
+.hg.is-dock .hg-axis {
+  height: 14px;
+  line-height: 14px;
+  font-size: 9.5px;
+}
+.hg-dayl,
+.hg-latestl {
+  position: absolute;
+  top: 0;
+  white-space: nowrap;
+}
+.hg-dayl {
+  padding-left: 3px;
+}
+.hg-latestl {
+  color: var(--m-flood-edge);
+  cursor: help;
+}
+.hg-latestl.is-stale {
+  color: var(--m-stale);
+}
+
+/* dock (Forensic): the header holds the gauge, the key and the switch; the handle's words sit over the plot */
+.hg.is-dock .hg-top {
+  min-height: 18px;
+}
+.hg.is-dock .hg-plot {
+  margin-top: 2px;
+}
+
+@media (max-width: 760px) {
+  .hg {
+    gap: 12px;
+  }
+  .hg-key {
+    display: none;
+  }
+}
+@media (forced-colors: active) {
+  .hg-line.is-observed,
+  .hg-line.is-forecast,
+  .hg-line.is-model {
+    stroke: CanvasText;
+  }
+}

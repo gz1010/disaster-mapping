@@ -15,6 +15,7 @@ const NONE: Record<FloodLayerKey, boolean | 'toggle'> = {
   floodplain: false,
   model: false,
   catfim: false,
+  modelHighFlow: false,
 }
 
 export function floodProfile(chrome: MapChrome): Record<FloodLayerKey, boolean | 'toggle'> {
@@ -23,9 +24,9 @@ export function floodProfile(chrome: MapChrome): Record<FloodLayerKey, boolean |
       return { ...NONE, events: true, gauges: true }
     case 'public-flood':
       // never the model, never CatFIM (D12, D22); FEMA a toggle off by default (D21)
-      return { ...NONE, events: true, gauges: true, warnings: true, forecastArea: true, satellite: true, channel: true, floodplain: 'toggle', model: false, catfim: false }
+      return { ...NONE, events: true, gauges: true, warnings: true, forecastArea: true, satellite: true, channel: true, floodplain: 'toggle', model: false, catfim: false, modelHighFlow: false }
     case 'command-flood':
-      return { ...NONE, events: true, gauges: true, warnings: true, forecastArea: true, satellite: true, channel: true, floodplain: 'toggle', model: 'toggle', catfim: 'toggle' }
+      return { ...NONE, events: true, gauges: true, warnings: true, forecastArea: true, satellite: true, channel: true, floodplain: 'toggle', model: 'toggle', catfim: 'toggle', modelHighFlow: 'toggle' }
     default:
       // a fire view: no flood layer
       return { ...NONE }

@@ -13,7 +13,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useExtrasRuntime } from '../../extras/runtime'
 import { fmtAt, fmtRelative, timeFmt, zoneAbbr } from '../../lib/time'
 import { useFloodOfficial } from '../../official/floodHooks'
-import { officialState, floodAlertRows, primaryMemberGauge, rfcName, type FloodAlertRow } from '../../official/floodModel'
+import { officialState, floodAlertRows, forecastPassed, primaryMemberGauge, rfcName, type FloodAlertRow } from '../../official/floodModel'
 import { localAlertsState } from '../../official/localAlerts'
 import { fitOfficialBounds } from '../../official/select'
 import { openFloodSummary, useFlood } from '../../state/flood'
@@ -21,9 +21,12 @@ import { useTimeFormatFor } from '../../state/timeZone'
 import { useWorkspace } from '../../state/workspace'
 import { useNow } from '../hooks'
 import '../../styles/view-flood-public.css'
-import { ALERTS_UNAVAILABLE, fillCopy, FLOOD_PUBLIC, MODEL_SEPARATE, NO_PRODUCT, NO_RFC_FORECAST, PAST_NO_FORECAST } from '../shell/floodCopy'
+import { ALERTS_UNAVAILABLE, fillCopy, FLOOD_COMMAND, FLOOD_PUBLIC, MODEL_SEPARATE, NO_PRODUCT, NO_RFC_FORECAST, PAST_NO_FORECAST } from '../shell/floodCopy'
 import { fmtStage } from '../public/floodOverviewText'
 import { polygonsOf } from '../public/floodView'
+import { forecastBelowReading, forecastRow } from '../../location/floodCheck'
+import { useChartGauge } from '../timeline/hydrographData'
+import { forecastFalling } from '../timeline/hydrographModel'
 import { FloodEvacRows } from './FloodEvacRows'
 import { CommandRows, LocalAlertsRow, Row, SourceLink } from './OfficialNow'
 
@@ -99,18 +102,32 @@ export function FloodOfficialNow({ variant = 'command' }: { variant?: 'command' 
   const rows = floodAlertRows(off.alerts.data, { zone: summary?.time_zone ?? tf.tz, clock, nowMs, past })
   const g = primaryMemberGauge(off.gauges.data, summary)
   const f = g?.forecast ?? null
-  let forecast: { verdict: string; meta: string | null } | null = null
-  if (past) forecast = { verdict: PAST_NO_FORECAST, meta: null }
+  // the chart's own answer for the gauge (with its series) tells a falling forecast (review WFC-R14)
+  const chart = useChartGauge(g?.lid)
+  const falling = forecastFalling(chart && chart.lid === g?.lid ? chart : g)
+  let forecast: { verdict: string; meta: string | null; line: string | null } | null = null
+  if (past) forecast = { verdict: PAST_NO_FORECAST, meta: null, line: null }
   else if (g && g.is_forecast_point && f && f.max_value != null) {
     const gtf = timeFmt(g.time_zone || tf.tz, clock)
     const v = fmtStage(f.max_value, g.observed.unit ?? 'ft', 'us') ?? ''
     const when = f.max_ms != null ? fmtAt(f.max_ms, gtf, { weekday: true, zone: true, year: 'auto', refMs: nowMs }) : ''
     const issued = f.issued_ms != null ? fmtAt(f.issued_ms, gtf, { zone: true, year: 'auto', refMs: nowMs }) : ''
+    // the whole sentence (CREST_LINE, or FORECAST_HIGH_LINE when the highest value is the last step; C7)
+    const row = forecastRow(g, gtf, 'us', nowMs, false, falling)
     forecast = {
-      verdict: f.crest_at_end ? `high ${v} at the end of the forecast (${when}); still forecast to rise` : `crest ${v} ${when}`,
+      verdict: f.crest_at_end
+        ? `high ${v} at the end of the forecast (${when}); still forecast to rise`
+        : falling
+          ? fillCopy(FLOOD_COMMAND.highestForecastVerdict, { value: v, when })
+          : forecastPassed(f, nowMs)
+            ? fillCopy(FLOOD_COMMAND.highestPassedVerdict, { value: v, when })
+            : forecastBelowReading(g)
+            ? fillCopy(FLOOD_COMMAND.highestBelowVerdict, { value: v, when })
+            : `crest ${v} ${when}`,
       meta: `NWS ${rfcName(f)}${issued ? `, issued ${issued}` : ''}`,
+      line: row.sub || null,
     }
-  } else if (g) forecast = { verdict: NO_RFC_FORECAST, meta: g.name }
+  } else if (g) forecast = { verdict: NO_RFC_FORECAST, meta: g.name, line: null }
   const local = summary?.mode === 'live' && off.local.data ? localAlertsState(off.local) : null
   return (
     <section className={`on is-command ffo ffo-${variant}`} aria-labelledby="ffo-title">
@@ -131,7 +148,7 @@ export function FloodOfficialNow({ variant = 'command' }: { variant?: 'command' 
           )}
           {forecast && (
             <Row icon={null} label="River forecast" title="River forecast" verdict={forecast.verdict} meta={forecast.meta ?? undefined} source="NWS" tone="info">
-              <p className="on-meta">{f && f.max_value != null ? (forecast.meta ?? '') : forecast.verdict}</p>
+              <p className="on-meta">{forecast.line ?? (f && f.max_value != null ? (forecast.meta ?? '') : forecast.verdict)}</p>
               {f?.url && <SourceLink href={f.url}>{FLOOD_PUBLIC.forecastLink}</SourceLink>}
             </Row>
           )}

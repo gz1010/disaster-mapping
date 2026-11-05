@@ -120,4 +120,18 @@ describe('flood evacuation rows (D23, C5)', () => {
     ssrState(useExtrasRuntime, { evac: { data: answers[2][1], loading: false, error: null, refresh: () => undefined } } as never)
     expect(renderToStaticMarkup(createElement(FloodEvacRows))).toContain(OR_EVAC_FIRE_ONLY.replace(/'/g, '&#x27;'))
   })
+
+  // review WFC-R15: the not-an-all-clear caveat once per row (not repeated after a sub-line that already says it)
+  for (const [name, data] of answers)
+    it(`${name}: "not an all-clear" said at most once`, () => {
+      ssrState(useFlood, { floodId: 'fixture-flood', summary: DETAIL().summary } as never)
+      ssrState(useExtrasRuntime, { evac: { data, loading: false, error: null, refresh: () => undefined } } as never)
+      const html = renderToStaticMarkup(createElement(FloodEvacRows))
+      expect((stripVerbatim(html).match(/not an all-clear/gi) ?? []).length).toBeLessThanOrEqual(1)
+    })
+  it('a row that does not say it (loading) still ends with the caveat', () => {
+    ssrState(useFlood, { floodId: 'fixture-flood', summary: DETAIL().summary } as never)
+    ssrState(useExtrasRuntime, { evac: { data: null, loading: true, error: null, refresh: () => undefined } } as never)
+    expect(renderToStaticMarkup(createElement(FloodEvacRows))).toContain('Not an all-clear. Follow local officials.')
+  })
 })

@@ -73,11 +73,18 @@ def _no_fire(name: str | None) -> str | None:
     return name if name and "fire" not in name.lower() else None
 
 
+# Integration (2026-11-05, the real list): NWS waterbody values carry state notes ("Toccoa River (GA) / Ocoee River
+# (TN)") and position notes ("Loxahatchee River 500 ft downstream of US 1"); neither belongs in a flood's name.
+STATE_NOTE_RE = re.compile(r"\s*\((?:[A-Z]{2})\)")
+POSITION_NOTE_RE = re.compile(r"\s+\d+(?:\.\d+)?\s*(?:ft|feet|mi|miles?|km)\.?\s+(?:up|down)stream\b.*$", re.IGNORECASE)
+
+
 def clean_water(name: str | None) -> str | None:
-    """A gauge's waterbody for names and joins: datum notes removed; None for values that name no river."""
+    """A gauge's waterbody for names and joins: datum, state and position notes removed; None for values that name
+    no river."""
     if not name:
         return None
-    w = proper(DATUM_RE.sub("", name))
+    w = proper(POSITION_NOTE_RE.sub("", STATE_NOTE_RE.sub("", DATUM_RE.sub("", name))))
     if not w or w.lower() in GENERIC_WATER or re.search(r"\btid(?:e|al)\s+(?:gauge|gage|station)\b", w.lower()):
         return None
     return w
@@ -239,3 +246,12 @@ def dedupe_names(rows: list[dict]) -> None:
         for i, r in enumerate(sorted(group, key=lambda x: (x.get("_first_sent") or 0, x.get("_anchor") or "")), start=1):
             if i > 1:
                 r["name"] = f"{name[:-1]}, {i})" if name.endswith(")") else f"{name} ({i})"
+    # Integration: a state suffix that no longer separates two floods (the clash was settled by a place name) is
+    # dropped: "Salt River flood (AZ)" next to "Rio Verde flood (AZ)" reads "Salt River flood".
+    for r in rows:
+        st = r.get("state")
+        if not st or not r["name"].endswith(f" ({st})"):
+            continue
+        base = r["name"][: -len(f" ({st})")]
+        if not any(o is not r and (o["name"] == base or o["name"].startswith(base + " (")) for o in rows):
+            r["name"] = base

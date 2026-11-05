@@ -22,6 +22,11 @@ Layout (``data/floods/{id}/``)::
 * **Gate** (:func:`gate`): a flood the lists know (live list, alias, bundle or last-known summary), in the lower 48 or
   DC, not synthetic (``fixture-flood``: 409).
 * **Frozen files carry absolute times only** (C16): no relative age is ever written.
+* **Every source is credited** in ``manifest.data_sources`` (review R1): one entry per step that wrote a file or a
+  layer, named by its credit line (CONTRACT 16.15; the same text as that layer's ``layer_status.source``), with what
+  the bundle holds from it in ``detail`` (absolute UTC times) and when it was fetched. Gauges add each data
+  attribution NWPS names ("Observations courtesy of U.S. Geological Survey") and each RFC forecast's issuer; products
+  drawn as whole counties add the county shapes' source.
 * The build runs in ``.staging/`` inside the bundle folder (hidden from the files route) and swaps the files in at
   the end, the manifest last, so a rebuild never shows a half-written bundle; ``pipeline.bundle_lock`` keeps one build
   per flood (``store.bundle_state`` reports ``building`` while it runs).
@@ -175,6 +180,42 @@ def _status(status: str, reason: str | None, source: str, time_ms: int | None) -
     return {"status": status, "reason": reason, "source": source, "time_ms": time_ms}
 
 
+def _iso(ms: int | None) -> str:
+    """"2026-11-04T18:22Z" (UTC; absolute, never an age)."""
+    if ms is None:
+        return "time not stated"
+    return time.strftime("%Y-%m-%dT%H:%MZ", time.gmtime(int(ms) / 1000))
+
+
+def _credit(sources: list[dict], name: str, detail: str, fetched_ms: int | None, now: int) -> None:
+    """Add one ``DataSource`` (name = the credit line)."""
+    sources.append({"name": name, "detail": detail, "fetched_ms": int(fetched_ms or now)})
+
+
+def _gauge_credits(sources: list[dict], gz: dict, now: int) -> None:
+    """NWPS for gauges.json, each data attribution NWPS names for its gauges, and each RFC forecast's issuer."""
+    gauges = gz.get("gauges") or []
+    members = [g["lid"] for g in gauges if g.get("member")]
+    near = len(gauges) - len(members)
+    _credit(sources, fcopy.CREDIT_NWPS,
+            f"river gauges (gauges.json): {len(members)} in this flood"
+            + (f" ({', '.join(members)})" if members else "") + f", {near} nearby", gz.get("retrieved_ms"), now)
+    attr: dict[str, list[str]] = {}
+    rfc: dict[str, list[str]] = {}
+    for g in gauges:
+        for a in g.get("data_attribution") or []:
+            if a.get("text"):
+                attr.setdefault(a["text"], []).append(g["lid"])
+        fc = g.get("forecast") or {}
+        if g.get("member") and (fc.get("producer") or fc.get("producer_name") or fc.get("issuer")):
+            rfc.setdefault(fcopy.rfc_credit(fc.get("producer_name") or fc.get("producer"), fc.get("issuer")),
+                           []).append(f"{g['lid']} issued {_iso(fc.get('issued_ms'))}")
+    for text, lids in attr.items():
+        _credit(sources, text, f"river gauge observations: {', '.join(lids)}", gz.get("retrieved_ms"), now)
+    for text, items in rfc.items():
+        _credit(sources, text, f"official NWS river forecast: {'; '.join(items)}", gz.get("retrieved_ms"), now)
+
+
 def _swap_in(stage: Path, bdir: Path) -> None:
     """Move every staged file into the bundle folder (directories merged), drop old files the new build did not write,
     and keep the lock, the staging folder and canned answers."""
@@ -265,20 +306,22 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
         svf = terrain.sky_view_uint8(dem, grid.res_m)
         layers["sky_view"] = bundle.write_layer(stage, "sky_view", svf, "render", "0-255", "Sky-view factor (0-255)",
                                                 register=False)
-        sources.append({"name": "USGS 3DEP", "detail": f"elevation, {grid.res_m:.0f} m", "fetched_ms": dem_info.fetched_ms})
+        _credit(sources, fcopy.CREDIT_3DEP, f"elevation, {grid.res_m:.0f} m (layers/elevation.bin, sky_view.bin)",
+                dem_info.fetched_ms, now)
         if filled:
             warnings.append(f"Terrain: {filled} cells without elevation were filled from their neighbours.")
-        status["terrain"] = _status("ok", None, "Terrain: USGS 3D Elevation Program (3DEP)", dem_info.fetched_ms)
+        status["terrain"] = _status("ok", None, fcopy.CREDIT_3DEP, dem_info.fetched_ms)
         prog.report("terrain", 0.8, "Elevation written")
         try:
             img = f_naip.result()
             layers["naip"] = bundle.write_image_layer(stage, "naip", img.jpeg, img.width, img.height,
                                                       "Aerial photo (USGS NAIP), taken before this flood", register=False)
-            status["naip"] = _status("ok", None, "Aerial photo: USDA NAIP via USGS The National Map", img.info.fetched_ms)
-            sources.append({"name": "USGS NAIP", "detail": f"aerial photo, {img.width} px", "fetched_ms": img.info.fetched_ms})
+            status["naip"] = _status("ok", None, fcopy.CREDIT_NAIP, img.info.fetched_ms)
+            _credit(sources, fcopy.CREDIT_NAIP,
+                    f"aerial photo taken before this flood, {img.width} px (layers/naip.jpg)", img.info.fetched_ms, now)
         except Exception as e:  # noqa: BLE001 - optional layer
             log.info("NAIP %s: %s", fid, pipeline.short_error(e))
-            status["naip"] = _status("unavailable", fcopy.NAIP_DOWN, "Aerial photo: USDA NAIP via USGS The National Map", None)
+            status["naip"] = _status("unavailable", fcopy.NAIP_DOWN, fcopy.CREDIT_NAIP, None)
             warnings.append(fcopy.NAIP_DOWN)
         prog.report("terrain", 1.0, "Terrain ready")
 
@@ -292,9 +335,11 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
                 stage, "water_forecast", rasterize(fim["features"]["features"], grid), "render", None,
                 "NWS forecast flooded area, next 5 days (experimental; 0/255)", register=False)
             status["water_forecast"] = _status("ok", None, fcopy.CREDIT_NWC_EXPERIMENTAL, fim.get("reference_ms"))
-            sources.append({"name": "NWS RFC-based 5-day maximum inundation extent (experimental)",
-                            "detail": f"{len(fim['features']['features'])} reach polygons",
-                            "fetched_ms": fim.get("retrieved_ms") or now})
+            _credit(sources, fcopy.CREDIT_NWC_EXPERIMENTAL,
+                    "NWS forecast flooded area, next 5 days (RFC-based 5-day maximum inundation extent, "
+                    f"experimental): {len(fim['features']['features'])} reach polygons, forecast of "
+                    f"{_iso(fim.get('reference_ms'))} "
+                    f"(maps/rfc_fim.geojson, layers/water_forecast.bin)", fim.get("retrieved_ms"), now)
         else:
             reason = (fim or {}).get("reason") or fcopy.RFC_FIM_UNAVAILABLE
             status["water_forecast"] = _status("unavailable", reason, fcopy.CREDIT_NWC_EXPERIMENTAL, None)
@@ -310,9 +355,11 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
                 "FEMA floodplain (background): 0 none, 1 0.2 % band, 2 SFHA, 3 floodway", register=False)
             reason = None if nf.get("availability") == "mapped" else (nf["caveats"][0] if nf.get("caveats") else None)
             status["floodplain"] = _status("ok", reason, fcopy.CREDIT_NFHL, nf.get("effective_max_ms"))
-            sources.append({"name": "FEMA National Flood Hazard Layer (effective)",
-                            "detail": f"{len(nf['features']['features'])} zones, availability {nf.get('availability')}",
-                            "fetched_ms": nf.get("retrieved_ms") or now})
+            _credit(sources, fcopy.CREDIT_NFHL,
+                    f"FEMA 1% annual-chance floodplain and 0.2% band (background): {len(nf['features']['features'])} "
+                    f"zones, digital map availability {nf.get('availability')} "
+                    "(maps/nfhl.geojson, layers/floodplain.bin)",
+                    nf.get("retrieved_ms"), now)
         else:
             status["floodplain"] = _status("unavailable", fcopy.NFHL_DOWN, fcopy.CREDIT_NFHL, None)
             warnings.append(fcopy.NFHL_DOWN)
@@ -323,6 +370,9 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
                 name = f"catfim_{lid}_{cf['category'] or cat}"
                 bundle.write_json(stage / "maps" / f"{name}.geojson", compact_fc(cf["features"], grid))
                 files["maps"][name] = f"maps/{name}.geojson"
+                _credit(sources, fcopy.CREDIT_NWC_EXPERIMENTAL,
+                        f"NWS category flood map library (static stage-based CatFIM, experimental): {lid}, "
+                        f"{cf['category'] or cat} flooding (maps/{name}.geojson)", cf.get("retrieved_ms"), now)
         nwm = _result(f_nwm, "NWM")
         if nwm and nwm["status"] == "available":
             bundle.write_json(stage / "model" / "nwm_analysis.geojson", compact_fc(nwm["features"], grid))
@@ -331,6 +381,10 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
                 stage, "water_model", rasterize(nwm["features"]["features"], grid), "render", None,
                 "National Water Model analysis flooded area (experimental model output; 0/255)", register=False)
             status["water_model"] = _status("ok", None, fcopy.CREDIT_NWM, nwm.get("reference_ms"))
+            _credit(sources, fcopy.CREDIT_NWM,
+                    f"National Water Model analysis flooded area of {_iso(nwm.get('reference_ms'))} "
+                    "(experimental model output; model/nwm_analysis.geojson, layers/water_model.bin)",
+                    nwm.get("retrieved_ms"), now)
         else:
             status["water_model"] = _status("unavailable", (nwm or {}).get("reason") or fcopy.MODEL_DOWN, fcopy.CREDIT_NWM,
                                             None)
@@ -338,17 +392,25 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
 
         # ---- gauges and NWS products ----------------------------------------------------------------------------
         prog.report("gauges", 0.0, "River gauges and NWS products")
-        gz = _result(f_gauges, "gauges") or gauges_mod.flood_gauges({**summary, "gauges": []}, now=now, with_series=False,
-                                                                     include_nearby=False)
+        gz = _result(f_gauges, "gauges")
+        if gz is None:                    # the step failed (an unexpected error): an outage, never "no gauge" (R2)
+            gz = {**gauges_mod.envelope("river_gauges", now=now, flood_id=fid, status="unavailable",
+                                        reason=fcopy.GAUGES_UNAVAILABLE, reason_code="upstream_error",
+                                        caveats=[fcopy.GAUGE_NOT_ALL_CLEAR]),
+                  "gauges": [],
+                  "area_bbox": list(gauges_mod.pad_bbox(summary["bbox_lonlat"], gauges_mod.NEARBY_PAD_KM))}
         bundle.write_json(stage / "gauges.json", gz)
         members = [g for g in gz.get("gauges") or [] if g.get("member")]
         if gz["status"] == "available":
             obs = [g["observed"].get("valid_ms") for g in members if g["observed"].get("valid_ms")]
             reason = None if summary.get("gauges") else fcopy.GAUGES_NONE
             status["gauges"] = _status("ok", reason, fcopy.CREDIT_NWPS, max(obs) if obs else None)
+            _gauge_credits(sources, gz, now)
         else:
             status["gauges"] = _status("unavailable", fcopy.GAUGES_UNAVAILABLE, fcopy.CREDIT_NWPS, None)
             warnings.append(fcopy.GAUGES_UNAVAILABLE)
+        series_lids: list[str] = []
+        series_fetched: list[int] = []
         for g in members:
             if g.get("reach_id") and g.get("is_forecast_point"):
                 try:
@@ -359,6 +421,12 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
                 if ans["status"] == "available":
                     bundle.write_json(stage / "model" / f"nwm_series_{g['lid']}.json", ans)
                     files["model"][f"nwm_series_{g['lid']}"] = f"model/nwm_series_{g['lid']}.json"
+                    series_lids.append(g["lid"])
+                    series_fetched.append(ans.get("retrieved_ms") or now)
+        if series_lids:
+            _credit(sources, fcopy.CREDIT_NWM,
+                    f"National Water Model streamflow at {', '.join(series_lids)} (experimental model output; "
+                    f"model/nwm_series_<gauge>.json)", min(series_fetched), now)
         prog.report("gauges", 0.6, f"{len(members)} member gauges")
         al = _result(f_alerts, "flood-alerts") or zones._empty(now, fid, tuple(summary["bbox_lonlat"]), [], at_ms=None,
                                                                status="unavailable", reason=fcopy.ALERTS_UNAVAILABLE,
@@ -367,6 +435,13 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
         if al["status"] == "available":
             sent = [a.get("sent_ms") for a in al["alerts"] if a.get("sent_ms")]
             status["warnings"] = _status("ok", None, fcopy.CREDIT_NWS, max(sent) if sent else None)
+            _credit(sources, fcopy.CREDIT_NWS,
+                    f"NWS flood products, verbatim (warnings.json): {len(al['alerts'])}"
+                    + (f", newest sent {_iso(max(sent))}" if sent else ""), al.get("retrieved_ms"), now)
+            if fcopy.ZONES_AS_COUNTIES in (al.get("caveats") or []):
+                _credit(sources, fcopy.CREDIT_TIGERWEB_COUNTIES,
+                        "county shapes for NWS zone-based products drawn as whole counties (warnings.json)",
+                        al.get("retrieved_ms"), now)
         else:
             status["warnings"] = _status("unavailable", fcopy.ALERTS_UNAVAILABLE, fcopy.CREDIT_NWS, None)
             warnings.append(fcopy.ALERTS_UNAVAILABLE)
@@ -387,6 +462,16 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
             bundle.atomic_write_bytes(stage / "satellite.png", sat.png)
             files["satellite_image"] = "satellite.png"
         acq = ans["granules"][0]["acquired_ms"] if ans.get("granules") else None
+        if ans.get("measured") and ans.get("granules"):
+            g0 = ans["granules"][0]
+            _credit(sources, ans["source"]["credit"],
+                    f"{g0['product']}{', ' + g0['platform'] if g0.get('platform') else ''}, image of {_iso(acq)} "
+                    f"(satellite.json" + (", satellite.png" if sat.png is not None else "")
+                    + (", layers/water_satellite.bin)" if sat.grid_classes is not None else ")"),
+                    ans.get("retrieved_ms"), now)
+        elif ans.get("tiles"):
+            _credit(sources, ans["source"]["credit"], f"NASA picture of {ans['tiles']['date']} (not measured; "
+                    "satellite.json)", ans.get("retrieved_ms"), now)
         if sat.grid_classes is not None:
             layers["water_satellite"] = bundle.write_layer(
                 stage, "water_satellite", sat.grid_classes, "render", None,

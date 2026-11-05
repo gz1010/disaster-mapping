@@ -4,7 +4,8 @@
 //   Water         water seen by satellite, the NWS forecast flooded area, NWS warning areas, river gauges, the main
 //                 channel; Command also "NWS category flood maps (experimental)", off by default (D22)
 //   Background    the FEMA 1% annual-chance floodplain, off by default, with FEMA's effective date (D21)
-//   Model         Command only: the National Water Model's flooded area, off by default, experimental (D12)
+//   Model         Command only: the National Water Model's flooded area and its high-flow reaches, off by default,
+//                 experimental (D12)
 //   Evacuations   the official evacuation zones toggle (flood wording)
 // then the basemap, units and the way to Forensic. Public never offers the model or the NWS category maps (a note says
 // they are in Command). The toggles are useFlood.layers (map/floodProfile.ts says which view draws which).
@@ -15,11 +16,12 @@ import { floodProfile } from '../../map/floodProfile'
 import { BASEMAP_LABEL } from '../../map/providers'
 import { useFloodOfficial } from '../../official/floodHooks'
 import { openFloodSummary, useFlood, type FloodLayerKey } from '../../state/flood'
+import { catfimTarget } from '../../state/floodLayerData'
 import { useTimeFormatFor } from '../../state/timeZone'
 import { useWorkspace, type Basemap, type Units } from '../../state/workspace'
 import { Segmented } from '../controls'
 import { nfhlEffective } from '../public/floodView'
-import { fillCopy, FLOOD_PUBLIC } from './floodCopy'
+import { fillCopy, FLOOD_COMMAND, FLOOD_PUBLIC } from './floodCopy'
 import { switchWorkspace } from './handoff'
 import { NARROW_QUERY, useDrawerFocus, useMediaQuery } from './hooks'
 import { applyView } from './views'
@@ -69,6 +71,8 @@ export function FloodLayersPanel({ variant = 'public' }: { variant?: 'public' | 
   const narrow = useMediaQuery(NARROW_QUERY)
   const summary = useFlood((s) => openFloodSummary(s))
   const nfhl = useFloodOfficial((s) => s.nfhl.data)
+  const gauges = useFloodOfficial((s) => s.gauges.data)
+  const catfim = variant === 'command' ? catfimTarget(summary, gauges) : null
   const tf = useTimeFormatFor(summary?.time_zone)
   const heading = useRef<HTMLHeadingElement | null>(null)
   useDrawerFocus(open, heading, 'layers')
@@ -95,7 +99,9 @@ export function FloodLayersPanel({ variant = 'public' }: { variant?: 'public' | 
             {profile.warnings !== false && <FloodToggle k="warnings" label={FLOOD_PUBLIC.layerWarnings} desc={FLOOD_PUBLIC.layerWarningsDesc} />}
             {profile.gauges !== false && <FloodToggle k="gauges" label={FLOOD_PUBLIC.layerGauges} desc={FLOOD_PUBLIC.layerGaugesDesc} />}
             {profile.channel !== false && <FloodToggle k="channel" label={FLOOD_PUBLIC.layerChannel} desc={FLOOD_PUBLIC.layerChannelDesc} />}
-            {profile.catfim !== false && <FloodToggle k="catfim" label={FLOOD_PUBLIC.layerCatfim} desc={FLOOD_PUBLIC.layerCatfimDesc} />}
+            {profile.catfim !== false && (
+              <FloodToggle k="catfim" label={FLOOD_PUBLIC.layerCatfim} desc={catfim ? fillCopy(FLOOD_COMMAND.layerCatfimFor, { category: catfim.category, lid: catfim.lid }) : FLOOD_PUBLIC.layerCatfimDesc} />
+            )}
           </ul>
         </Section>
         {profile.floodplain !== false && (
@@ -109,6 +115,7 @@ export function FloodLayersPanel({ variant = 'public' }: { variant?: 'public' | 
           <Section title={FLOOD_PUBLIC.layersModel}>
             <ul className="mw-check-list">
               <FloodToggle k="model" label={FLOOD_PUBLIC.layerModel} desc={FLOOD_PUBLIC.layerModelDesc} />
+              {profile.modelHighFlow !== false && <FloodToggle k="modelHighFlow" label={FLOOD_COMMAND.layerHighFlow} desc={FLOOD_COMMAND.layerHighFlowDesc} />}
             </ul>
             <p className="mw-set-note">{FLOOD_PUBLIC.layersCommandNote}</p>
           </Section>

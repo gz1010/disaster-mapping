@@ -1,0 +1,169 @@
+{
+ "role": "review5-backend-flood-live (fix step)",
+ "reviewed_role": "backend-flood-live",
+ "reviewed_commits": [
+  "051975d M1 live loop",
+  "2d9cc95 M2 past floods",
+  "ca30bd4 report, as-built note, progress"
+ ],
+ "fix_commit_subject": "brief 5 backend-flood-live: review fixes",
+ "resumed_from": "No earlier fix attempt (no fix commit, no uncommitted edit in this role's paths at start). This step pushed a work-in-progress commit d6675b1; two orchestrator snapshots (fafbd02, d2dd41b) then picked up some later edits while it ran; the fix commit carries the rest.",
+ "summary": "BFL-R1..R10: all 10 fixed (R9 by wording in SPEC and the code; the web's PAST_RULE_NOTE string is handed to the integration). The loop now spends one budget a cycle for the prefetch and the append step's NWS and NWPS requests; due refreshes are warmed at a pace that leaves NWPS room and run outside the job workers; a refresh can no longer make a bundle worse; satellite pass keys tried survive a restart; product texts refused by Fire-3d's own limit are asked again. Year lists use each product's own time and the newest product's end, leave out floods still in effect, follow registry aliases and live VTEC keys, and name the issuing office. Past floods answer 409 PAST_NO_BUNDLE to Prepare and never answer today's model output.",
+ "findings": [
+  {
+   "id": "BFL-R1",
+   "severity": "blocker",
+   "title": "Refresh rebuilds removed member gauges, impacts, credits and NWM series (NWPS limit used up by the cycle)",
+   "verified": "Yes, in the code paths named: the cycle's prefetch (up to 20 series) and append reads (12 gauges x 2) were outside any shared budget; refresh jobs were submitted straight into the job workers in the same limiter window; merge_rebuilt_gauges kept the rebuilt gauge's fields ({**fresh}), dropped members missing from the rebuild and returned an unavailable rebuild unchanged (so a failed rebuild overwrote a good gauges.json); nothing put back lost nwm_series files or layers. A test with NWPS answering SourceBusy during a refresh reproduced the loss (members, impacts, reach, series).",
+   "outcome": "fixed",
+   "fix": "floods/live.py: (1) one budget a cycle: PREFETCH_MAX (20) covers the prefetch (at most 20 - APPEND_SHARE 8 = 12; caps hvtec 6, zones 3, series 3) and the append step's requests (alerts_cost for the products' NWS requests, exact _gauge_cost for NWPS gauge reads, at most GAUGE_READS_MAX). (2) Due refreshes go to STATE.pending; the loop's own runner (run_refreshes, task fire3d-flood-refreshes) warms each flood's NWPS gauge details, series and NWM reach series into the HTTP cache while more than NWPS_RESERVE (10) of NWPS's 30 slots a minute are free (warm_nwps, at most WARM_MAX_S 240 s), then submits the refresh job; the first-cycle auto-build warms the same way; no job worker waits. (3) refresh_job_fn snapshots the earlier files and runs keep_what_the_rebuild_lost after the rebuild: product versions merged (an unavailable rebuild keeps the earlier answer and layer_status); merge_rebuilt_gauges(older, rebuilt, members) -> (merged, kept): unavailable rebuild keeps the earlier gauges.json, a member read only from the gauge map keeps its earlier NWPS detail with the newer reading (keep_detail), a current member left out is put back, a gauge that left the flood stays as a nearby gauge with its history, GAUGE_DETAIL_DOWN dropped when no member is left without detail, credits re-added; earlier nwm_series files of members put back; naip, water_forecast, floodplain, water_model and water_satellite (outage only, never over NASA's no_image) that were ok keep their earlier files, layer entry, layer_status (own time) and credit; the manifest gains REFRESH_KEPT. (5) check_bundle --hazard flood notes member gauges of the summary missing from gauges.json, members with the map's reading only, and REFRESH_KEPT warnings.",
+   "tests": [
+    "test_floods_live.py::test_merge_rebuilt_gauges_never_loses_members_or_detail",
+    "test_floods_live.py::test_refresh_with_nwps_busy_keeps_member_gauges_detail_and_model_series (NWPS answers SourceBusy during the refresh: no member lost, impacts/reach/attribution/USGS id/thresholds as before, nwm_series file byte-identical, REFRESH_KEPT, check_bundle 0 problems)",
+    "test_floods_live.py::test_refresh_keeps_layers_the_rebuild_could_not_load (NOAA maps, FEMA and NASA down: four layers kept with their own times, check_bundle 0 problems)",
+    "test_floods_live.py::test_warm_nwps_paces_and_stops",
+    "test_floods_live.py::test_a_cycle_spends_one_budget",
+    "changed deliberately: test_refresh_bundles_appends_and_queues (refreshes go to the runner, then the job), test_append_new_versions_and_readings_to_a_ready_bundle (the products' requests come out of the budget)"
+   ],
+   "real_data": "Port 8760, FIRE3D_LIVE=1 FIRE3D_AUTO_BUILD_LIVE=0, a scratch copy of data/floods: first cycle prefetch 1 request, appended to 7 bundles, 6 refreshes rebuilt in 1-40 s, 0 'request limit is reached' lines (the reviewer saw 17). St. Johns members 6 -> 7 (SJWF1, DLAF1 kept), observed rows 21,478 -> 24,480, series 5 -> 5; Peace, Grand, Platte, Moenkopi kept every member, impact, reach, attribution and series (Platte series 2 -> 3); no layer lost; check_bundle 0 problems on all 8. Calcasieu's CWOL1 had left the flood (below action stage in NWS's list): in the second run it stays as a nearby gauge with its 621 observed rows and 11 impacts."
+  },
+  {
+   "id": "BFL-R2",
+   "severity": "blocker",
+   "title": "Year lists' last_product_ms / updated_ms were the warning's first product time",
+   "verified": "Yes: in the recorded CSV, LMK FL 50 has 47 rows, all with utc_prodissue 2025-04-03 17:27 (the issuance), product ids up to 202504261610; events_from computed 04-03 22:40. Also found: IEM keeps a long provisional utc_expire on the early rows of 'until further notice' warnings (31 of 125 events), so max(expire) overstated ended_ms.",
+   "outcome": "fixed",
+   "fix": "history.row_product_ms: the row's own product id time, else utc_polygon_begin, else utc_prodissue; events_from sets last_ms to the newest product's time and expire_ms to that product's expiry. last_product_ms, updated_ms and ended_ms follow. SCHEMA bumped to 2 (disk copies rebuilt once; the month answers come from the HTTP cache).",
+   "tests": [
+    "test_floods_history.py::test_last_product_is_each_events_newest_product (LMK FL 50 newest 2025-04-26 16:10 UTC, expiry 04-27 10:14; IND FL 21 ends at its newest product's 04-15 12:45)"
+   ],
+   "real_data": "Rebuilt 2025 list (1,977 floods): Rough River flood (KY, 2) last product 2025-04-26 16:10 UTC (was 04-03 22:40), ended 04-27 10:14; river rows ending more than a day after their last product 59 of 770 (was 601 of 769). Screenshot brief5-backend-flood-live-fix-past-rough-public.png: 'APR 3 2025 - LAST NWS PRODUCT APR 26 2025', 'Apr 26, 2025 11:10 CDT - LAST OFFICIAL UPDATE', the Apr 26 stage reading and the warning 'as of Apr 26, 2025'."
+  },
+  {
+   "id": "BFL-R3",
+   "severity": "blocker",
+   "title": "A Flash Flood Warning still in effect showed as a past flood under an alias id",
+   "verified": "Yes: the cached 2026 list (built 06:22 UTC) had 6 rows whose events ended after the build, among them Chatsworth (KFFC.FF.W.0081/0082) under flood-20261105-blue-ridge-flash-flood-2c43eb; the alias line blue-ridge -> toccoa was written after the build (reg.id_for already follows aliases at build time, so the stale disk copy, not assign, kept the old id); _with_live_rows matched by id only.",
+   "outcome": "fixed",
+   "fix": "history.build_rows(..., now=): a group whose newest product had not expired at build time is left out (the live list serves it); history.canonical_rows maps served year rows through the registry's aliases at request time (rows landing on one id merged, aliases updated), used by year_list and cached_rows (so find). api/floods._with_live_rows (every year) serves a year row as the live row holding its id or any of its VTEC keys, each once. _resolve gains a year-alias step (an old id of a year row -> the canonical year row, resolved_from 'alias'); an old id of a live flood goes to catalog's alias step.",
+   "tests": [
+    "test_floods_history.py::test_year_rows_leave_out_floods_still_in_effect",
+    "test_floods_history.py::test_year_ids_follow_aliases_written_after_the_build (alias key)",
+    "test_floods_history.py::test_a_year_row_whose_warning_is_live_is_served_as_the_live_flood (a still-active VTEC key held by a live flood under another id)"
+   ],
+   "real_data": "Rebuilt 2026 list (2,109 floods): 0 historical rows ending after now, 0 sharing a VTEC key with a live flood, no Chatsworth past row; GET .../flood-20261105-blue-ridge-flash-flood-2c43eb -> resolved_from 'alias', the canonical live flood. Screenshot brief5-backend-flood-live-fix-chatsworth-old-id.png: the old id opens the live 'Toccoa River / Ocoee' flood, 'FLASH FLOOD · EMERGENCY', 'NOV 5 2026 - PRESENT', 'In effect'."
+  },
+  {
+   "id": "BFL-R4",
+   "severity": "major",
+   "title": "'Prepare 3D data' for a listed past flood answered 'This flood is not listed. (HTTP 404)'",
+   "verified": "Yes: start_flood_build called build.gate, which uses catalog.resolve (no year step).",
+   "outcome": "fixed",
+   "fix": "start_flood_build resolves with _resolve; a year-list flood answers 409 with history.PAST_NO_BUNDLE ('Fire-3d prepares 3D data for current floods only: NWS's forecast maps, the model and river forecasts are not kept for a past flood's dates.'); the web shows a 409's detail verbatim. cli build-flood refuses a past flood with the same text (exit 1). An at_ms-aware build is not attempted (build.py is not this role's file, and today's maps are wrong for a past flood).",
+   "tests": [
+    "test_floods_history.py::test_a_past_flood_is_never_prepared_and_never_answers_todays_model",
+    "test_floods_history.py::test_cli_refuses_to_prepare_a_past_flood"
+   ],
+   "real_data": "POST /api/floods/flood-20250403-rough-river-flood-781c6b/build -> 409 PAST_NO_BUNDLE; cli build-flood -> refused, exit 1. Screenshot brief5-backend-flood-live-fix-past-rough-forensic.png: after the Prepare click the card shows PAST_NO_BUNDLE, not 'not listed'."
+  },
+  {
+   "id": "BFL-R5",
+   "severity": "minor",
+   "title": "The model route answered today's National Water Model output for a past flood",
+   "verified": "Yes: /model without at_ms on a year-list flood answered 'available' (the web never sends at_ms there).",
+   "outcome": "fixed",
+   "fix": "api/floods._past_at: a mode 'historical' summary asked without at_ms is answered at its last_product_ms (else ended_ms, updated_ms) by /model, /maps (rfc_fim, catfim; FEMA unchanged), /satellite, flood-alerts?flood= and river-gauges?flood=.",
+   "tests": [
+    "test_floods_history.py::test_a_past_flood_is_never_prepared_and_never_answers_todays_model (nwm_analysis and nwm_series not_available_for_past_dates; rfc_fim requested_at_ms = last product; flood-alerts archived)"
+   ],
+   "real_data": "Rough River (KY, 2): /model?kind=nwm_analysis and nwm_series -> not_available_for_past_dates; /maps?kind=rfc_fim -> not_available_for_past_dates at 2025-04-26. Screenshot brief5-backend-flood-live-fix-past-rough-command.png (model layer on: no model output drawn)."
+  },
+  {
+   "id": "BFL-R6",
+   "severity": "minor",
+   "title": "Every restart queued full rebuilds (satellite passes tried lived only in memory)",
+   "verified": "Yes: STATE.seen_passes was in memory only, and with no measured image (acq None) every listed pass counted as new.",
+   "outcome": "fixed",
+   "fix": "Pass keys tried are kept in data/floods/live_state.json ({seen_passes: {fid: {built_ms, keys}}}, at most 60 keys a flood, floods with a bundle only). new_passes: with a measured image, passes newer than it and not tried; without one, the passes listed at the first check after a build (sensed before it ran) are taken as the ones the build saw, so only passes that appear later count.",
+   "tests": [
+    "test_floods_live.py::test_satellite_passes_tried_survive_a_restart",
+    "test_floods_live.py::test_refresh_reason (unchanged, still green)"
+   ],
+   "real_data": "Restart on a fresh copy of the same bundles plus live_state.json: no 'satellite' refresh queued again (the first run had St. Johns and Moenkopi 'satellite'); only 'rfc_fim' (NWS's forecast maps had new times)."
+  },
+  {
+   "id": "BFL-R7",
+   "severity": "minor",
+   "title": "The append step's NWS requests (zones, product texts) were outside PREFETCH_MAX",
+   "verified": "Yes: append_bundle called zones.flood_alerts (up to 20 zone outlines and 6 product texts on NWS_LIMITER) for up to 8 bundles with no budget.",
+   "outcome": "fixed",
+   "fix": "alerts_cost(summary) (caches only): the national answer when its 2-min copy expired, uncached zone outlines up to ZONE_FETCH_MAX, uncached product texts up to HVTEC_FETCH_MAX (exact _hvtec_cost). append_bundle fetches the products' answer only when that fits the cycle's budget; else the products wait for a later cycle (the prefetch warms their zones and texts); gauges are still appended.",
+   "tests": [
+    "test_floods_live.py::test_append_products_wait_when_their_requests_do_not_fit",
+    "test_floods_live.py::test_alerts_cost_counts_uncached_zones_and_texts"
+   ]
+  },
+  {
+   "id": "BFL-R8",
+   "severity": "minor",
+   "title": "A product refused by Fire-3d's own limiter was marked tried and never retried",
+   "verified": "Yes: hvtec() added the id to hvtec_tried before calling nws.product_hvtec.",
+   "outcome": "fixed",
+   "fix": "The id is added only after NWS answered or failed (SourceError), never on SourceBusy.",
+   "tests": [
+    "test_floods_live.py::test_prefetch_asks_again_for_a_product_refused_by_the_own_limit"
+   ]
+  },
+  {
+   "id": "BFL-R9",
+   "severity": "minor",
+   "title": "PAST_RULE counts forecast or observed H-VTEC severity; the wording said 'reached'",
+   "verified": "Yes: H-VTEC's severity field is the forecast or observed flood severity; IEM's CSV does not say which (no crest time), so observed-only cannot be selected from the bulk route.",
+   "outcome": "fixed (backend wording); web string handed to the integration",
+   "fix": "SPEC 8.10 and history.py now say 'reached or were forecast to reach moderate or major flood stage' (max_category likewise forecast or observed, as for live floods). PAST_RULE_NOTE lives in web/src/ui/shell/floodCopy.ts (not this role's file): the as-built note asks the integration to change it to the same wording.",
+   "tests": []
+  },
+  {
+   "id": "BFL-R10",
+   "severity": "nit",
+   "title": "Year-list product refs had sender_name null",
+   "verified": "Yes: _product_ref set sender_name None.",
+   "outcome": "fixed",
+   "fix": "sender_of(wfo, names): NWS's own sender name from this server's cached national answer (office_names, no request), else 'NWS <office id>'.",
+   "tests": [
+    "test_floods_history.py::test_year_rows_name_the_issuing_office"
+   ],
+   "real_data": "2025 list senders include 'NWS Albuquerque NM' and 'NWS LMK'."
+  }
+ ],
+ "found_in_fix_step": [
+  {
+   "title": "Early rows' provisional expiry overstated ended_ms",
+   "detail": "IEM keeps a long provisional utc_expire on the early rows of 'until further notice' warnings (31 of 125 events in the sample); the event's end is now its newest product's expiry (part of R2)."
+  },
+  {
+   "title": "A cached NWPS answer could hide the list's newer reading",
+   "detail": "merge_gauges now applies the list's own reading after NWPS's answer whenever it is newer (the exact gauge cost made a cached NWPS read free, which exposed it)."
+  },
+  {
+   "title": "Gauges that leave a flood lost their history at the next refresh",
+   "detail": "Seen on Calcasieu (CWOL1 fell below action stage): such a gauge now stays as a nearby gauge with its earlier detail and observed rows."
+  }
+ ],
+ "verification": {
+  "tests": "backend 1404 passed, 0 skipped; 16 new tests (9 live, 7 history), 2 changed deliberately (named under R1)",
+  "real_data": "Two live runs on port 8760 with scratch copies of data/floods (FIRE3D_LIVE=1 FIRE3D_AUTO_BUILD_LIVE=0, the main HTTP cache): first cycle and a restart with the pass keys on disk; numbers per finding above. Servers on 8760 and 5220 stopped.",
+  "screenshots": [
+   "docs/screenshots/brief5-backend-flood-live-fix-past-rough-public.png",
+   "docs/screenshots/brief5-backend-flood-live-fix-chatsworth-old-id.png",
+   "docs/screenshots/brief5-backend-flood-live-fix-past-rough-forensic.png",
+   "docs/screenshots/brief5-backend-flood-live-fix-past-rough-command.png"
+  ]
+ },
+ "gates": {
+  "backend": "uv run pytest -q: 1404 passed, 0 skipped (no network); was 1383 at the role's end",
+  "web": "typecheck clean; lint 55 warnings, all in src/scene (an earlier run hit a duplicate-identifier error in web/src/ui/public/floodView.test.ts, the integration's in-progress file, fixed by its owner before the final run); npm test 1784 passed, 2 skipped (pre-existing); build OK; no web file changed by this step",
+  "secret_scan": "count-only: FIRMS_MAP_KEY configured, 0 in this step's diff, 0 in the last 30 commit messages, 0 in tracked files; EARTHDATA_TOKEN not configured here; 0 secret names or values in the two API logs"
+ },
+ "notes_for_others": "Integration: PAST_RULE_NOTE (web floodCopy.ts) -> 'river floods that reached or were forecast to reach moderate or major flood stage at an NWS gauge' (R9); CONTRACT 16.14 add PAST_NO_BUNDLE and REFRESH_KEPT; 16.8 PREFETCH_MAX is the cycle's whole background budget (APPEND_SHARE 8, caps 6/3/3, NWPS_RESERVE 10, WARM_MAX_S 240); 16.7 build 409 for a past flood and the default at_ms of a past flood's per-flood routes; data/floods/live_state.json is new (pass keys tried). Web (Forensic): for a mode 'historical' flood, say PAST_NO_BUNDLE up front instead of offering Prepare / Prepare again. Web (Command): for a past flood the model chip says 'could not be loaded' for a not_available_for_past_dates answer, and the slim hydrograph labels the past reading 'MINOR' (today's thresholds; the backend sends category unknown with THRESHOLDS_TODAY) and 'LATEST 11:00 · 10 MIN AGO' (age against the asked time). The first request after this commit rebuilds data/floods/years/*.json once (SCHEMA 2; about 25 s a year from the HTTP cache)."
+}

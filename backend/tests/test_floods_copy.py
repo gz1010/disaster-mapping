@@ -34,13 +34,36 @@ def guard(text: str) -> list[str]:
     return [p for p in BANNED if re.search(p, t, flags=re.IGNORECASE)]
 
 
-def _contract_table() -> dict[str, str]:
-    text = CONTRACT.read_text()
-    sec = text[text.index("### 16.14"):text.index("### 16.15")]
+AS_BUILT = "**As built: more backend-sent strings**"
+
+
+def _rows(sec: str) -> dict[str, str]:
     out = {}
     for m in re.finditer(r"^\| `([A-Z0-9_]+)` \| (.+?) \|$", sec, flags=re.MULTILINE):
         out[m.group(1)] = m.group(2).strip()
     return out
+
+
+def _contract_table() -> dict[str, str]:
+    """CONTRACT 16.14's planned table (the rows before the integration's as-built table)."""
+    text = CONTRACT.read_text()
+    sec = text[text.index("### 16.14"):text.index("### 16.15")]
+    return _rows(sec.split(AS_BUILT)[0])
+
+
+def test_as_built_strings_equal_the_code() -> None:
+    """The integration's as-built table in 16.14 (copy.py LIST_STRINGS / BUNDLE_STRINGS, history.PAST_STRINGS,
+    live.REFRESH_KEPT): every single-name row is the code's text word for word."""
+    from fire3d.floods import history, live
+
+    text = CONTRACT.read_text()
+    sec = text[text.index("### 16.14"):text.index("### 16.15")]
+    rows = _rows(sec.split(AS_BUILT)[1])
+    code = {**fcopy.LIST_STRINGS, **fcopy.BUNDLE_STRINGS, **history.PAST_STRINGS, "REFRESH_KEPT": live.REFRESH_KEPT}
+    assert len(rows) >= 20
+    for name, row in rows.items():
+        assert name in code, name
+        assert code[name] == row, name
 
 
 def test_strings_equal_contract_16_14() -> None:
@@ -55,9 +78,54 @@ def test_strings_equal_contract_16_14() -> None:
 def test_slots_are_absolute() -> None:
     cav = fcopy.sat_caveat("Oct 31, 2026, 12:06 PM MDT", 29.6)
     assert "Oct 31, 2026, 12:06 PM MDT" in cav and "Clouds (30% of this area)" in cav and "ago" not in cav
-    assert fcopy.sat_caveat("Oct 31, 2026", None).count("(?% of this area)") == 1
     assert fcopy.catfim_note("major") == ("What NWS maps for major flooding at this gauge (experimental map library). "
                                           "Not a forecast.")
+    assert fcopy.sat_picture_reason("Oct 30, 2026") == (
+        "Fire-3d could not load a measured satellite water image of this area from the last 10 days; NASA's picture "
+        "of Oct 30, 2026 is not measured here. That is not an all-clear.")
+
+
+def test_sat_caveat_without_a_cloud_share_and_for_radar() -> None:
+    """Review R5: no "?" ever reaches a user. A picture (no measured cloud share) drops the parenthesis; radar
+    (DSWx-S1) sees through clouds, so its caveat never says clouds hide water, and both keep "dry pixels do not mean
+    no flooding"."""
+    pic = fcopy.sat_caveat("Oct 31, 2026", None)
+    assert pic == ("Water seen by satellite (NASA OPERA), Oct 31, 2026. It includes the river's normal water. Clouds, "
+                   "trees, buildings and the days between passes hide water: dry pixels do not mean no flooding.")
+    radar = fcopy.sat_caveat("Nov 2, 2026, 7:01 AM CST", None, radar=True)
+    assert radar == ("Water seen by radar satellite (NASA OPERA), Nov 2, 2026, 7:01 AM CST. It includes the river's "
+                     "normal water. Trees, buildings, steep slopes and the days between passes hide water: dry pixels "
+                     "do not mean no flooding.")
+    assert fcopy.sat_caveat("Nov 2, 2026", 12.0, radar=True) == fcopy.sat_caveat("Nov 2, 2026", None, radar=True)
+    for text in (pic, radar):
+        assert "?" not in text and "dry pixels do not mean no flooding" in text and guard(text) == []
+    assert "Clouds" not in radar and "cloud" not in radar.lower()
+
+
+def test_opera_credit_lines_are_exact() -> None:
+    """Review R6: the route sits before the Copernicus clause (PLAN-5 2 "Credit line (exact)")."""
+    assert fcopy.opera_credit("DSWx-HLS", "earthdata_gis") == (
+        "Water seen by satellite: NASA JPL OPERA DSWx-HLS (PO.DAAC, doi:10.5067/OPDSW-PL3V1) via NASA Earthdata GIS; "
+        "contains modified Copernicus Sentinel data")
+    assert fcopy.opera_credit("DSWx-HLS", "gibs") == (
+        "Water seen by satellite: NASA JPL OPERA DSWx-HLS (PO.DAAC, doi:10.5067/OPDSW-PL3V1) via NASA GIBS; "
+        "contains modified Copernicus Sentinel data")
+    assert fcopy.opera_credit("DSWx-HLS", "podaac") == fcopy.CREDIT_OPERA_HLS == (
+        "Water seen by satellite: NASA JPL OPERA DSWx-HLS (PO.DAAC, doi:10.5067/OPDSW-PL3V1); contains modified "
+        "Copernicus Sentinel data")
+    assert fcopy.opera_credit("DSWx-S1", "podaac") == fcopy.CREDIT_OPERA_S1 == (
+        "NASA JPL OPERA DSWx-S1 (PO.DAAC); contains modified Copernicus Sentinel data")
+
+
+def test_bundle_strings_live_in_copy_and_pass_the_guard() -> None:
+    assert not set(fcopy.BUNDLE_STRINGS) & set(fcopy.CONTRACT_STRINGS)
+    for name, text in fcopy.BUNDLE_STRINGS.items():
+        assert guard(text) == [] and getattr(fcopy, name) == text, name
+    # review R4, R9: "not covered" is never said as an outage, and no slot fill reads "flood flooding"
+    assert "could not" not in fcopy.CATFIM_NOT_COVERED and "flood flooding" not in fcopy.CATFIM_NOTE_ANY
+    assert "gauge has no" not in fcopy.MODEL_NO_GAUGE and "no river gauge" in fcopy.MODEL_NO_GAUGE
+    # review R7: "could not be checked" is never a claim of partial coverage
+    assert "only part" not in fcopy.NFHL_AVAILABILITY_UNKNOWN and "could not be checked" in fcopy.NFHL_AVAILABILITY_UNKNOWN
 
 
 @pytest.mark.parametrize("name", sorted(fcopy.CONTRACT_STRINGS))

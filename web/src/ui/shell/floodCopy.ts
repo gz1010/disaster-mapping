@@ -33,13 +33,19 @@ export const FLOOD_NOT_LISTED = 'This flood is no longer listed.'
 export const FLOOD_LAST_KNOWN = 'This flood is no longer in the NWS lists Fire-3d reads. Shown: what Fire-3d last saw on {date}. Not an all-clear. Follow local officials.'
 /** (B) */
 export const GAUGE_ONLY_CAVEAT = 'No NWS flood product names this gauge right now.'
+/** (B) backend-flood-sources BFS-R2: a gauge-only flood at a tide or lake gauge (copy.py GAUGE_ONLY_COASTAL_CAVEAT). */
+export const GAUGE_ONLY_COASTAL_CAVEAT =
+  'No NWS Flood or Flash Flood product names this gauge right now. It may measure tidal or lake water: Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products, which may be in effect here.'
 export const WATCHES_HIDDEN = '{n} Flood Watches hidden · Show'
 export const WATCHES_HIDDEN_ONE = '1 Flood Watch hidden · Show'
 export const FLOOD_HERE_IN_FIRES = 'NWS flood products are in effect here · Show floods'
 export const DEMO_TAG = 'DEMO'
 export const PAST_PREPARING = 'Preparing past floods (the first time takes about 10 minutes)…'
 export const PAST_RULE_NOTE =
-  'Past years list river floods that reached moderate or major flood stage at an NWS gauge, and flash floods NWS tagged considerable or catastrophic or called an emergency. Smaller floods are not listed; not an all-clear.'
+  'Past years list river floods that reached or were forecast to reach moderate or major flood stage at an NWS gauge, and flash floods NWS tagged considerable or catastrophic or called an emergency. Smaller floods are not listed; not an all-clear.'
+/** (B) backend-flood-live BFL-R4: a past flood's build answers 409 with this text (floods/history.py PAST_NO_BUNDLE). */
+export const PAST_NO_BUNDLE =
+  "Fire-3d prepares 3D data for current floods only: NWS's forecast maps, the model and river forecasts are not kept for a past flood's dates."
 export const PAST_RULE_NOTE_FALLBACK =
   'Past years list NWS river Flood Warnings at river gauges and NWS Flash Flood Emergencies. Other flash floods are not listed; not an all-clear.'
 
@@ -57,6 +63,9 @@ export const BAR_STATUS = {
   loading: 'LOADING FLOODS',
   listDown: 'FLOOD LIST UNAVAILABLE',
   listsDown: 'FLOOD LISTS UNAVAILABLE',
+  // a year tab (integration): that year's past floods, not floods today
+  past: '{N} PAST FLOODS IN {YEAR}',
+  pastOne: '1 PAST FLOOD IN {YEAR}',
 } as const
 
 /** The hazard circle's status line (PLAN-5 §5.2, D19): the NWS product, never "ACTIVE", "ENDED", "OVER" or "CLEAR". */
@@ -77,6 +86,8 @@ export const CIRCLE_MEANING = {
   product: '{Sender} has a {event} in effect for this area until {time}.',
   watch: '{Sender} has a {event} in effect for this area until {time}: flooding is possible. Not an all-clear. Follow local officials.',
   gaugeOnly: 'No NWS flood product names this flood right now; a river gauge here reads at flood stage.',
+  /** A gauge at flood stage under a Flood Watch (the list keeps it gauge_only; integration). */
+  gaugeWatch: 'A river gauge here reads at flood stage; {Sender} has a {event} in effect for this area until {time}. Not an all-clear. Follow local officials.',
   noProductNow:
     'No NWS flood product is in effect here right now, and no gauge of this flood has read at flood stage in the last 6 hours. Not an all-clear. Follow local officials.',
   past: "Past flood: NWS's last product for it was sent {date}. Not an all-clear. Follow local officials.",
@@ -208,10 +219,21 @@ export const ALERTS_UNAVAILABLE = 'NWS flood products could not be reached right
 /** (B) */
 export const ZONES_AS_COUNTIES = "Drawn as whole counties; NWS's own zones may be smaller."
 export const NOTHING_COVERS = 'No mapped flood layer covers this spot. Unknown, not dry. Follow local officials.'
+/** NOTHING_COVERS when FEMA's floodplain, NWS's category map or the model says "inside" (review WFC-R8): the sentence
+ *  names the layers that do not cover the spot. */
+export const NOTHING_COVERS_OFFICIAL = 'No NWS flood product, NWS forecast flooded area or water seen by satellite covers this spot. Unknown, not dry. Follow local officials.'
 export const INSIDE_WARNING = 'Inside the NWS {event} area (until {time}).'
+/** A product NWS has issued that is still to start (its phase "Starting soon"; review WFC-R1). */
+export const INSIDE_WARNING_UPCOMING = 'Inside the NWS {event} area (starting {start}, until {time}).'
 export const CURSOR_FUTURE_PRODUCTS = 'NWS products in effect now; NWS has issued none for this future time. An NWS end time is not a forecast of when flooding stops.'
+/** After now, when an issued product's own period covers the handle's time (review WFC-R1): never "NWS has issued
+ *  none" while one exists. */
+export const CURSOR_FUTURE_ISSUED = 'NWS products in effect now and those NWS has issued for this time. An NWS end time is not a forecast of when flooding stops.'
 export const EVAC_NONE_LISTED = 'None listed'
 export const EVAC_NONE_LISTED_SUB = 'None listed in {source} for this area · checked {time} · not an all-clear: follow local officials.'
+/** The flood's evacuation answer could not be loaded (the request failed with no answer; review WFP-R5): flood wording,
+ *  never an all-clear. */
+export const EVAC_UNAVAILABLE = 'Official evacuation zones could not be loaded right now. That is not an all-clear: follow local officials.'
 /** (B) */
 export const OR_EVAC_FIRE_ONLY = "Oregon's evacuation feed covers wildfires only; flood evacuations are not shown here. Not an all-clear: follow local officials."
 export const INSIDE_FIM = 'Inside the NWS forecast flooded area (5-day maximum).'
@@ -240,6 +262,168 @@ export const HYDROGRAPH_MARKS = {
   highAtEnd: 'HIGH {value} {UNIT} AT END · STILL RISING',
   model: 'MODEL · NWM · EXPERIMENTAL · {flow} FT³/S ({run time})',
 } as const
+/** The hydrograph's own words (web-flood-command; PLAN-5 §4.6, §5.5): mono labels are upper case on screen. */
+export const HYDRO = {
+  title: 'River level',
+  observed: 'Observed · {source}',
+  forecast: 'Forecast · NWS {rfc} · issued {time}',
+  forecastNoTime: 'Forecast · NWS {rfc}',
+  model: 'Model · NWM · experimental',
+  observedWord: 'observed',
+  forecastWord: 'forecast (NWS)',
+  noValue: 'no reading at this time',
+  latest: 'Latest {time} · {age}',
+  // a past flood (integration): the last reading before its last NWS product, never an age against that time
+  latestPast: 'Last reading shown {time}',
+  stale: 'Stale',
+  now: 'Now',
+  backToNow: 'Back to now',
+  stage: 'Stage {unit}',
+  flow: 'Flow {unit}',
+  axisName: 'River level shown as',
+  interpolated: 'Fire-3d drew this value between two readings or forecast steps (straight line).',
+  // flow mode on a gauge whose NWS flood levels are river stages (feet): no flood lines on the flow axis
+  flowNoStages: 'NWS flood levels for this gauge are river stages; see the stage view',
+  // a forecast point without a current NWS forecast (forecasts are issued as needed during high water)
+  noForecastNow: 'No NWS river forecast for this gauge right now',
+  noGauge: 'No river gauge for this flood',
+  // a past flood: the chart is centred on its last NWS product
+  pastRef: 'Last NWS product',
+  backToPastRef: "Back to the flood's last NWS product",
+  noReadingsPast: 'No readings from this gauge in the 72 h before this time',
+  loading: 'Loading the river gauge…',
+  unavailable: 'River gauge readings could not be loaded right now. That is not an all-clear.',
+  sliderName: 'Time on the river-level chart',
+  sliderHelp: 'Arrow keys move one hour (Shift: six hours); Home and End jump to the ends.',
+  futureNote: 'NWS products in effect now',
+  futureNoteIssued: 'NWS products in effect now and issued for this time',
+  productTick: '{event} · {sender} · sent {time}',
+  pickGauge: 'Choose the river gauge',
+  pickerMembers: "This flood's gauges",
+  pickerNearby: 'Nearby gauges (not part of this flood)',
+  pickerNearbyTag: 'nearby',
+  crestTip: 'The highest value of the NWS forecast. Forecasts change; check NWS for the newest.',
+  highAtEndTip: 'The highest NWS forecast value is its last step: the river is still forecast to rise after it. Check NWS for the newest.',
+  // a falling forecast: its highest value is its first step, below the latest reading (review WFC-R14)
+  highestFalling: 'Highest NWS forecast {value} {UNIT} {DAY HH:MM}',
+  highestFallingTip: 'The highest NWS forecast value is its first step, below the latest reading: not a crest still to come. Forecasts change; check NWS for the newest.',
+  // the highest forecast value is for a time that has passed (integration)
+  highestPassedTip: 'The highest NWS forecast value is for a time that has passed; no higher value is forecast after it. Not a crest still to come. Forecasts change; check NWS for the newest.',
+  // the flow axis of a gauge that reports river stage only (review WFC-R5)
+  flowStageOnly: 'This gauge reports river stage only; no flow readings (see the stage view)',
+  stageLineTip: 'NWS flood level at this gauge ({category}): {value} {unit}. NWS sets these levels; they are not a forecast.',
+  pinnedTip: 'This NWS flood level is outside the chart ({dir}).',
+  latestTip: 'The newest reading from this gauge. Fire-3d marks it stale when it is more than 3 hours old.',
+  modelTip: 'Experimental model output (NOAA National Water Model), drawn on the flow axis only and never converted to a river stage. Not an NWS forecast.',
+  originalUnits: '{value} in the original units',
+} as const
+
+/** The Command flood view's own words (web-flood-command; PLAN-5 §4.5). Tags and labels are upper case on screen. */
+export const FLOOD_COMMAND = {
+  // the readout
+  selectedPoint: 'Selected point',
+  pickPrompt: 'Click the map or search to select a point',
+  layersAtPoint: 'Flood layers at this spot',
+  tagOfficial: 'Official',
+  tagForecast: 'Forecast',
+  tagForecastIssued: 'Forecast · issued {time}',
+  tagSatellite: 'Satellite',
+  tagSatelliteAge: 'Satellite · {age}',
+  tagFema: 'FEMA',
+  tagModel: 'Model',
+  tagOfficialTip: 'Official NWS information: its own words, issuer and times',
+  tagForecastTip: "NWS's experimental 5-day forecast flooded area: a forecast, not today's water",
+  tagSatelliteTip: 'Water seen by satellite (NASA OPERA): days old, never "now"; clouds and no data hide water',
+  tagFemaTip: "FEMA's 1% annual-chance floodplain: background for flood insurance, not current flooding",
+  tagModelTip: 'Experimental model output (NOAA National Water Model): not an NWS forecast and not advice on when to evacuate',
+  gaugeTitle: 'River gauge',
+  gaugeNearest: 'Nearest gauge',
+  gaugePrimary: 'Primary gauge of this flood',
+  gaugeNearby: 'nearby, not part of this flood',
+  gaugeDistance: '{distance} {direction} of this spot',
+  stageLabel: 'River stage (USGS) · {lid}',
+  stageLabelOther: 'River stage · {lid}',
+  stageNoReading: 'No reading',
+  categoryLabel: 'NWS category',
+  floodStageLabel: 'Flood stage (NWS, minor)',
+  floodStageNotSet: 'Not set',
+  crestLabel: 'Forecast crest (NWS)',
+  // a falling NWS forecast: its highest value is its first step, below the latest reading (review WFC-R14)
+  highestForecastLabel: 'Highest NWS forecast',
+  highestForecastSub:
+    'Highest NWS forecast value {value} {unit} at its first step ({day time zone}), below the latest reading: not a crest still to come (NWS {RFC name}, issued {time}). Forecasts change; check NWS for the newest.',
+  highestForecastVerdict: 'highest {value} at its first step ({when}), below the latest reading',
+  // the same without the series (a nearby gauge's answer): NWS's highest value is below the latest reading (WFC-R14)
+  highestBelowSub:
+    'Highest NWS forecast value {value} {unit} ({day time zone}), below the latest reading: not a crest still to come (NWS {RFC name}, issued {time}). Forecasts change; check NWS for the newest.',
+  highestBelowVerdict: 'highest {value} ({when}), below the latest reading',
+  // the highest forecast value is for a time that has passed (integration, the real Rio Grande at Alamosa)
+  highestPassedSub:
+    'Highest NWS forecast value {value} {unit} was for {day time zone}, which has passed; no higher value is forecast after it (NWS {RFC name}, issued {time}). Forecasts change; check NWS for the newest.',
+  highestPassedVerdict: 'highest {value} ({when}), already passed; no higher value forecast after it',
+  forecastInChart: 'NWS forecasts this gauge: choose it in the river-level chart below for its forecast.',
+  gaugesChecking: 'Checking river gauges…',
+  // event rows
+  floodIdLabel: 'Flood ID',
+  primaryGaugeLabel: 'Primary gauge · {lid}',
+  primaryGaugeTip: "The flood's primary river gauge (NWS). Not necessarily where the water is highest.",
+  lastUpdateLabel: 'Last official update',
+  lastUpdateSub: 'newest NWS product or member gauge reading',
+  noUpdateTime: 'No update time given',
+  // area figures (each on its own line with its caveat; C6)
+  areaTitle: 'Area figures (Fire-3d measurements)',
+  demoNote: 'Demo data: a simulated flood, not an NWS product or gauge reading.',
+  // the bar's gauge line ("SHRN5 · 15.2 FT · MINOR · 12 MIN AGO")
+  gaugeStatusTip: 'The primary river gauge: its newest reading, NWS category and age. Opens the list of gauges.',
+  gaugeListTitle: "This flood's river gauges",
+  // Official now on phones and the column
+  officialTitle: 'Official now',
+  officialSheetTitle: 'Official flood information',
+  officialHide: 'Hide',
+  officialHideTip: 'Hide this column (the Official now button brings it back)',
+  officialShow: 'Official now',
+  officialToggle: 'Official',
+  officialShowTip: 'NWS flood products, the river forecast, evacuations and local officials’ messages for this flood',
+  updatesToggleTip: 'Official flood information: NWS products, river forecast, evacuations',
+  // legend chips
+  chipSatellite: 'Water seen by satellite ({date})',
+  chipSatelliteNone: 'Water seen by satellite: no usable image',
+  chipNoView: 'No satellite view',
+  chipForecast: 'NWS forecast flooded area',
+  chipWarning: 'NWS warning area',
+  chipFloodplain: 'FEMA 1 % floodplain',
+  chipCatfim: 'NWS category flood map (experimental)',
+  chipModel: 'Model (NWM, experimental)',
+  chipHighFlow: 'Model high-flow reaches (NWM, experimental)',
+  chipSelected: 'Selected location',
+  // a Command layer's chip while on and not drawn (review WFC-R9)
+  chipNone: 'none here',
+  chipUnavailable: 'could not be loaded',
+  chipChecking: 'checking…',
+  // a past flood (integration): the model and NWS's maps are not kept for its dates
+  chipPast: 'not kept for past dates',
+  // model and CatFIM in the legend details and the readout
+  catfimFor: 'NWS category flood map: {category} flooding at {lid} (experimental map library)',
+  catfimNone: 'No NWS category flood map for this flood',
+  catfimNoneFor: 'No NWS category flood map for {category} flooding at {lid} (experimental map library).',
+  catfimChecking: 'Checking the NWS category flood map…',
+  catfimInside: 'Inside what NWS maps for {category} flooding at {lid} (experimental map library; not a forecast).',
+  catfimOutside: 'Outside what NWS maps for {category} flooding at {lid} (experimental map library); not an all-clear.',
+  tagCatfim: 'NWS category map · experimental',
+  tagCatfimTip: "NWS's category flood map library (experimental): what NWS maps for a flood category at a gauge; not a forecast",
+  tagFemaEffective: 'FEMA · effective {date}',
+  modelChecking: 'Model output: checking…',
+  modelPast: 'National Water Model output is not kept for past dates.',
+  catfimPast: 'NWS category flood maps are not shown for past dates.',
+  modelUnavailable: 'National Water Model output could not be loaded right now.',
+  modelNone: 'The model maps no flooded area or high-flow reach in this flood’s area at its latest analysis (model output; not an all-clear).',
+  highFlowTitle: 'Model high-flow reaches (NOAA National Water Model)',
+  layerHighFlow: 'National Water Model high-flow reaches (experimental)',
+  layerHighFlowDesc: 'Model output: river reaches above their high-water level, never an NWS forecast',
+  layerCatfimFor: "What NWS maps for {category} flooding at {lid} (the primary gauge's forecast, else observed category); not a forecast",
+  highFlowBody: 'River reaches where the model analysis flow is above its high-water level, with how rare that flow is (NWM). Experimental model output, never an NWS forecast.',
+} as const
+
 /** Forensic's strings (also in ui/forensic-flood/floodForensicCopy.ts, owned by web-flood-forensic). */
 export const FORENSIC_FLOOD = {
   notPrepared: "Fire-3d has not prepared this flood's 3D terrain yet.",
@@ -339,6 +523,8 @@ export const FLOOD_PUBLIC = {
   labelFim: 'Forecast flooded area (NWS, 5 days)',
   labelStage: 'River stage (USGS)',
   labelCrest: 'Forecast crest (NWS)',
+  /** The crest row when NWS's highest forecast value has passed or is below the latest reading (integration). */
+  labelHighestForecast: 'Highest NWS forecast',
   labelDetection: 'Flash flood detection (NWS)',
   labelDamage: 'Damage threat (NWS)',
   labelGauges: 'River gauges',
@@ -368,6 +554,7 @@ export const FLOOD_PUBLIC = {
   until: 'until {time}',
   sent: 'sent {time}',
   reading: 'reading {time} ({age})',
+  readingShort: '{time} ({age})',
   issued: 'issued {time}',
   startedNws: 'first NWS product of this flood',
   startedGauge: 'first reading at flood stage at a member gauge',
@@ -379,7 +566,7 @@ export const FLOOD_PUBLIC = {
   // the facts' foot
   sourcesLine: 'NWS · USGS · checked {age}',
   sourcesLineNoCheck: 'NWS · USGS',
-  demoLine: 'Demo data: a simulated flood, not an NWS product or gauge reading',
+  demoLine: 'Simulated data for testing, not from NWS or USGS',
   waterLink: 'NWS water',
   waterUrl: 'https://water.noaa.gov',
   // the circle
@@ -402,6 +589,10 @@ export const FLOOD_PUBLIC = {
   keyStale: 'Old',
   keyPicture: 'Satellite water: NASA picture, {date} (not measured here)',
   keySatNone: 'Water seen by satellite: no usable image',
+  // an answer still loading (review WFP-R1; a failed one shows SAT_UNAVAILABLE / RFC_FIM_UNAVAILABLE)
+  keySatChecking: 'Water seen by satellite · checking…',
+  keyForecastChecking: 'NWS forecast flooded area · checking…',
+  satStatusUnavailable: 'SATELLITE WATER · UNAVAILABLE',
   // map data (bundle) preparation (C10)
   notPrepared: "Fire-3d has not prepared this flood's map data yet (terrain and frozen copies of the water layers).",
   prepare: 'Prepare map data (about 1 min)',
@@ -409,6 +600,10 @@ export const FLOOD_PUBLIC = {
   prepareAgain: 'Prepare again (about 1 min)',
   preparing: "Preparing this flood's map data (about 1 min)",
   prepareNotListed: 'Only listed floods can be prepared.',
+  // the job could not be read for a while (review WFP-R9): it may still be running on the server
+  prepareLost: 'Fire-3d lost contact with the preparation ({error}); it may still be running.',
+  // a flood without a member gauge has no NWS river forecast point (review WFP-R12)
+  noForecastNoGauge: 'This flood has no river gauge; NWS river forecasts are made at gauges.',
   // phones
   sheetMore: 'Show all official facts and the map key',
   sheetLess: 'Show less',
@@ -452,6 +647,13 @@ export const FLOOD_PUBLIC = {
   satNotWaterPoint: 'The {date} satellite pass saw no water at this spot; dry pixels do not mean no flooding.',
   satNoViewPoint: 'No satellite view of this spot on the {date} pass (clouds or no data).',
   satCheckingPoint: 'Water seen by satellite: image of {date} (checking this spot…)',
+  // snow or ice hides water as clouds do; NASA masks the ocean; a clear pixel of the picture is "not water" or "not
+  // checked" (review WFP-R8)
+  satSnowPoint: 'Snow or ice covered this spot on the {date} pass: no satellite view of water here.',
+  satOceanPoint: "NASA's {date} pass masks this spot as ocean; its water is not checked here.",
+  satClearPoint: 'The {date} satellite pass shows no water at this spot (or did not check it there); dry pixels do not mean no flooding.',
+  satLoadingPoint: 'Water seen by satellite: checking…',
+  fimCheckingPoint: 'NWS forecast flooded area: checking…',
   fimNotMappedPoint: 'NWS forecast flooded area: not mapped here. Outside NWS\'s mapped area, flooding is unknown, not absent.',
   modelInCommand: 'The experimental model for this spot is in Command',
 } as const

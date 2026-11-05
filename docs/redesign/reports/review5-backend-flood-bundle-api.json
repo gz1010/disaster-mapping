@@ -1,0 +1,172 @@
+{
+  "role": "review5-backend-flood-bundle-api (fix step)",
+  "reviewed_role": "backend-flood-bundle-api",
+  "reviewed_commits": [
+    "8ce9ee4 M1 sources",
+    "7ee72e4 M2 bundle",
+    "90f3d97 / be6c394 work-in-progress snapshots (M3 code)",
+    "e49bdfb M3 routes"
+  ],
+  "fix_commit_subject": "brief 5 backend-flood-bundle-api: review fixes",
+  "resumed_from": "No earlier fix attempt (no review report, no fix commit, no uncommitted edit in this role's paths at start). An orchestrator snapshot (331bc5a, 'bundle-api fixer mid-step') committed this step's half-done source edits while it ran; the fix commit carries the rest, the tests and the docs.",
+  "findings": [
+    {
+      "id": "R1",
+      "severity": "major",
+      "title": "Flood bundle manifest.data_sources credits only terrain, NAIP, the NWS forecast map and FEMA",
+      "verified": "Yes. build.py appended to data_sources only in the 3DEP, NAIP, RFC FIM and NFHL steps; every bundle on disk (St. Johns, Peace, Grand River) listed those four names only.",
+      "outcome": "fixed",
+      "fix": "build._credit / _gauge_credits: one DataSource per step that wrote a file or layer, named by its credit line (CONTRACT 16.15; the same text as that layer's layer_status.source), with what the bundle holds in detail (absolute UTC times) and the fetch time: 3DEP, NAIP, NWS forecast flooded area and CatFIM (NOAA/NWS National Water Center, experimental), FEMA NFHL, National Water Model (analysis map and series), National Weather Service (warnings.json, count and newest sent time; Census TIGERweb when zones are drawn as whole counties), NOAA NWPS (gauges.json) plus every data attribution NWPS names for the gauges ('Observations courtesy of U.S. Geological Survey', 'Courtesy of FDEP', ...) and each RFC forecast's issuer ('NWS Southeast River Forecast Center, issued by NWS MLB'), and NASA OPERA with its exact route credit (Earthdata GIS, PO.DAAC or GIBS picture). The terrain and NAIP names changed from 'USGS 3DEP' / 'USGS NAIP' to their credit lines (no consumer read the old names).",
+      "tests": [
+        "test_floods_build.py::test_every_source_used_is_credited (every ok layer_status source is a data_sources name; NWS, NWPS, USGS attribution, RFC issuer, OPERA exact credit, CatFIM, NWM x2; NAIP not credited when it failed)"
+      ],
+      "real_data": "St. Johns River rebuilt through POST /build?force=1 (19 s, 17 MB): 13 data sources, every ok layer credited. Platte River built through POST /build (13 s, 11 MB): 14 sources including the GIBS picture credit."
+    },
+    {
+      "id": "R2",
+      "severity": "minor",
+      "title": "If the gauge step raises, gauges.json says 'available' with zero gauges and layer_status 'ok'",
+      "verified": "Yes. The fallback flood_gauges({**summary, 'gauges': []}, include_nearby=False) answers status available, no gauges, so a crashed gauge step read as 'No river gauge in this flood'.",
+      "outcome": "fixed",
+      "fix": "build._build: when the gauge step raised, gauges.json is an unavailable RiverGaugesResponse (gauges.envelope, reason GAUGES_UNAVAILABLE, reason_code upstream_error, GAUGE_NOT_ALL_CLEAR caveat, gauges []); layer_status gauges unavailable + GAUGES_UNAVAILABLE and the manifest warning; the bundle is still ready; NWPS is then not credited.",
+      "tests": [
+        "test_floods_build.py::test_gauge_step_failure_is_an_outage_not_no_gauge (flood_gauges raises; strict RiverGaugesResponse)"
+      ]
+    },
+    {
+      "id": "R3",
+      "severity": "minor",
+      "title": "The GIBS picture fallback took NASA's newest date worldwide, not one that covers the flood",
+      "verified": "Yes. opera.gibs_latest read the layer's whole-world domain; the Platte River answer was 'no usable image' with a dated Oct 31 picture. Re-checked a GIBS tile over that flood (z8/97/60): Oct 31 is empty there now, Oct 30 is 98.6 % covered (all the grey no-view class).",
+      "outcome": "fixed",
+      "fix": "satellite.picture_days + _picture: the picture date is the newest UTC day whose DSWx-HLS passes touch the area, from the Earthdata GIS catalog rows (an intersects query; never a pass a probe found with no view of the area: choose_egis now reports those keys in 'rejected') and NASA's CMR granule search (no login, cached 6 h; it lists passes Earthdata GIS has not loaded yet), and that GIBS lists (opera.gibs_dates). No such day: tiles null, status available, reason_code no_image, SAT_NO_IMAGE, caveats [] (no date anywhere). Nothing readable (Earthdata GIS and CMR down, or GIBS down): SAT_UNAVAILABLE. A picture now carries the new reason SAT_PICTURE_REASON ('Fire-3d could not load a measured satellite water image of this area from the last 10 days; NASA's picture of {date} is not measured here. That is not an all-clear.') instead of SAT_NO_IMAGE beside a dated picture.",
+      "tests": [
+        "test_floods_opera.py::test_picture_of_the_newest_day_with_a_pass_over_the_area (Oct 30, not GIBS's Oct 31 nor the no-view Oct 29 pass)",
+        "test_floods_opera.py::test_no_pass_over_the_area_means_no_picture_and_no_date (the reviewer's Platte River case)",
+        "test_floods_opera.py::test_picture_day_not_yet_in_gibs_is_not_shown",
+        "test_floods_opera.py::test_earthdata_gis_down_dates_the_picture_from_cmr",
+        "test_floods_opera.py::test_earthdata_gis_and_cmr_down_is_unavailable",
+        "test_flood_endpoint_contracts.py::test_satellite_picture_fallback_when_earthdata_gis_is_down (updated deliberately: date 2026-10-30, exact credit, picture reason)"
+      ],
+      "real_data": "Platte River (port 8753): status available, no_image, tiles.date 2026-10-30, reason SAT_PICTURE_REASON, caveat without a cloud slot; screenshot brief5-backend-flood-bundle-api-platte-public.png (the key says 'Water seen by satellite: no usable image', DRAW_SAT_PICTURE stays false)."
+    },
+    {
+      "id": "R4",
+      "severity": "minor",
+      "title": "CatFIM said 'could not be loaded right now' when nothing failed; coverage_note read 'for flood flooding'",
+      "verified": "Yes. The areal Conejos River flood answered not_covered with CATFIM_UNAVAILABLE; catfim_note(cat or 'flood').",
+      "outcome": "fixed",
+      "fix": "maps.catfim_answer: no gauge with a flood category, or a gauge id / category the library cannot take, answers not_covered with the new CATFIM_NOT_COVERED ('No NWS category flood map for this flood (no river gauge with a flood category).') and coverage_note CATFIM_NOTE_ANY ('What NWS maps for each flood category at a river gauge (experimental map library). Not a forecast.'); CATFIM_UNAVAILABLE only for upstream_error. Both strings are in copy.BUNDLE_STRINGS for CONTRACT 16.14.",
+      "tests": [
+        "test_floods_maps.py::test_catfim_for_a_flood_without_a_gauge_is_not_an_outage",
+        "test_floods_maps.py::test_catfim_outage_keeps_its_unavailable_reason"
+      ],
+      "real_data": "Conejos River (flood-20261104-conejos-river-flood-281e0d): not_covered, CATFIM_NOT_COVERED, CATFIM_NOTE_ANY.",
+      "not_changed": "The fixture's list-only demo floods keep their own not-covered sentence ('This flood has no NWS forecast gauge, so no category flood map applies.', scripts/make_fixture.py): changing it would change the committed fixture_api copy that the web copies verbatim (web-owned). The integration can align it with CATFIM_NOT_COVERED in both copies at once."
+    },
+    {
+      "id": "R5",
+      "severity": "minor",
+      "title": "SAT_CAVEAT reached users as 'Clouds (?% of this area)'; for radar it said clouds hide water",
+      "verified": "Yes. copy.sat_caveat put '?' in the slot for every GIBS picture and every DSWx-S1 image.",
+      "outcome": "fixed",
+      "fix": "copy.sat_caveat(date_time, cloud_pct, *, radar=False): measured share -> SAT_CAVEAT exactly as CONTRACT 16.14; unknown share -> SAT_CAVEAT_NO_CLOUD_SHARE ('... Clouds, trees, buildings and the days between passes hide water: dry pixels do not mean no flooding.'); radar (DSWx-S1) -> SAT_CAVEAT_RADAR ('Water seen by radar satellite (NASA OPERA), {date_time}. It includes the river's normal water. Trees, buildings, steep slopes and the days between passes hide water: dry pixels do not mean no flooding.'). satellite._measured passes radar for DSWx-S1. Both in BUNDLE_STRINGS and the contract5 note for CONTRACT 16.14.",
+      "tests": [
+        "test_floods_copy.py::test_sat_caveat_without_a_cloud_share_and_for_radar",
+        "test_floods_copy.py::test_slots_are_absolute (updated deliberately: the '?' assertion replaced by the picture-reason check)",
+        "test_floods_opera.py::test_satellite_with_token_prefers_the_newer_radar_pass (updated deliberately: radar caveat, no 'Clouds', no '?')"
+      ]
+    },
+    {
+      "id": "R6",
+      "severity": "minor",
+      "title": "The OPERA credit appended 'via NASA Earthdata GIS' after the Copernicus clause",
+      "verified": "Yes. satellite._source appended the route to CREDIT_OPERA_HLS; St. Johns satellite.json and the Public footer read '...; contains modified Copernicus Sentinel data via NASA Earthdata GIS'.",
+      "outcome": "fixed",
+      "fix": "copy.opera_credit(product, route) builds the credit from CREDIT_OPERA_HLS_BASE / CREDIT_OPERA_S1_BASE + the route + '; ' + CREDIT_COPERNICUS: 'Water seen by satellite: NASA JPL OPERA DSWx-HLS (PO.DAAC, doi:10.5067/OPDSW-PL3V1) via NASA Earthdata GIS; contains modified Copernicus Sentinel data' (PLAN-5 2 exact); the GIBS picture the same with 'via NASA GIBS' (PLAN-5 2's shorter picture credit 'NASA JPL OPERA DSWx via NASA GIBS' would drop the Copernicus clause that HLS's licence asks for, so the full line is kept); PO.DAAC without a route. CREDIT_OPERA_HLS keeps its value (the fixture is unchanged). SPEC 2 rows updated.",
+      "tests": [
+        "test_floods_copy.py::test_opera_credit_lines_are_exact",
+        "test_floods_opera.py::test_satellite_without_token_says_not_set_up (exact Earthdata GIS credit)",
+        "test_floods_build.py::test_every_source_used_is_credited (layer_status.source and data_sources)"
+      ],
+      "real_data": "St. Johns River rebuilt: satellite.json and the Public view footer read the exact PLAN-5 2 line (screenshot brief5-backend-flood-bundle-api-stjohns-public.png)."
+    },
+    {
+      "id": "R7",
+      "severity": "minor",
+      "title": "When FEMA's availability layer could not be read, the answer said FEMA's map covers only part of the area",
+      "verified": "Yes. nfhl.nfhl set availability 'unknown' with the note 'availability unknown'; maps.nfhl_answer added NFHL_PARTLY_MAPPED for any 'unknown'.",
+      "outcome": "fixed",
+      "fix": "nfhl.coverage(bbox) -> mapped | partial | none | unknown (availability() maps it to the CONTRACT values, unchanged); nfhl.nfhl notes 'partly mapped' (measured: < 98 % covered) or 'availability unknown' (layer 0 not read, polygons not joinable, or zones without an availability polygon). maps.nfhl_answer: NFHL_PARTLY_MAPPED only with 'partly mapped', else the new NFHL_AVAILABILITY_UNKNOWN ('Whether FEMA has a digital flood map for all of this area could not be checked right now.'). The bundle's floodplain layer_status reason follows.",
+      "tests": [
+        "test_floods_maps.py::test_nfhl_answer_partial_coverage_is_measured",
+        "test_floods_maps.py::test_nfhl_answer_availability_not_read_is_not_a_claim (layer 0 down; zones without an availability polygon)"
+      ]
+    },
+    {
+      "id": "R8",
+      "severity": "minor",
+      "title": "The satellite route replaced a 'no usable image in 10 days' answer with the bundle's older frozen image",
+      "verified": "Yes. api/floods.py served the frozen measured satellite.json whenever the live answer was not measured, including reason_code no_image.",
+      "outcome": "fixed",
+      "fix": "get_flood_satellite: the frozen measured answer is served only in an outage (live status unavailable, or the picture fallback with reason_code upstream_error because Earthdata GIS is down) and only for the present (no at_ms), with the new caveat SAT_SAVED_COPY appended ('NASA's satellite water service could not be reached right now; this is the image Fire-3d saved when it prepared this flood.'); caveats[0] stays the image's own SAT_CAVEAT. A no_image answer is served as NASA gave it.",
+      "tests": [
+        "test_flood_endpoint_contracts.py::test_saved_satellite_image_only_when_nasa_cannot_be_reached (Earthdata GIS down -> saved image + SAT_SAVED_COPY; pass with no view -> NASA's no_image answer; everything down -> saved image)"
+      ]
+    },
+    {
+      "id": "R9",
+      "severity": "nit",
+      "title": "nwm_series for a flood with no gauge said 'This gauge has no National Water Model reach'",
+      "verified": "Yes (Conejos River, lid null).",
+      "outcome": "fixed",
+      "fix": "maps._series_answer: no lid -> the new MODEL_NO_GAUGE ('This flood has no river gauge, so there is no model series for it.'); MODEL_NO_REACH stays for a gauge without a reach.",
+      "tests": [
+        "test_floods_maps.py::test_model_series_for_a_flood_without_a_gauge"
+      ],
+      "real_data": "Conejos River: unavailable, MODEL_NO_GAUGE, lid null."
+    },
+    {
+      "id": "R10",
+      "severity": "nit",
+      "title": "river-gauges?lid= answered waterbody null; flood and lid answers set retrieved_ms to now even from cache",
+      "verified": "Yes. lid_gauge called nwps_river_gauge without a waterbody; retrieved_ms=now in flood_gauges and lid_gauge.",
+      "outcome": "fixed",
+      "fix": "gauges.nwps_river_gauge_fetched returns (gauge, the older of the NWPS detail and stageflow fetch times); flood_gauges reports min(member and nearby fetch times) as retrieved_ms, lid_gauge its gauge's. gauges.waterbody_of(lid, lon, lat): one small riv_gauges envelope query around the gauge (+/- 1 km, cached 5 min, the NWS map's own name, matched by id; optional: None when it cannot be read) fills waterbody for ?lid=. Still never an NWPS list.",
+      "tests": [
+        "test_flood_endpoint_contracts.py::test_one_gauge_names_its_river_and_its_fetch_time (waterbody 'Platte River' from one envelope query; an hour later the cached answer keeps its own retrieved_ms)"
+      ],
+      "real_data": "?lid=AGYM7: waterbody 'Platte River'; retrieved_ms 3 h before now_ms (the HTTP cache's copy), the flood answer the same."
+    },
+    {
+      "id": "R11",
+      "severity": "nit",
+      "title": "SPEC.md put '5.3 Flood bundle' before '5.1 TypeScript shapes'",
+      "verified": "Yes.",
+      "outcome": "fixed",
+      "fix": "The subsection moved to the end of section 5 (after 5.1, before section 6). Its number stays 5.3 because PLAN-5 6 and 10.1 cite 'SPEC 5.3 Flood bundle' (SPEC has no 5.2). It also gained a 'Credits' bullet (R1), and the SPEC 2 OPERA rows give the exact credit lines (R6) and the picture-date rule (R3)."
+    }
+  ],
+  "found_in_fix_step": [
+    {
+      "title": "Two route test fixtures depended on the day the tests run",
+      "detail": "tests/test_flood_endpoint_contracts.py (api) and tests/test_floods_api.py (recorded_client) ran the routes and route builds at the wall clock while the recorded satellite passes are fixed: after Nov 8, 2026 the recorded Oct 29 pass leaves the 10-day window and test_real_flood_every_route (measured satellite) and the build route test (water_satellite.bin) would fail. Both fixtures now pin api.floods._now and floods.build.now_ms to the recording's time.",
+      "outcome": "fixed"
+    }
+  ],
+  "summary": "R1-R11 all fixed. Bundles credit every source they use, by credit line, matching layer_status; a crashed gauge step is an outage; the GIBS picture is dated by passes over the flood (or not shown); CatFIM, NFHL, nwm_series and the satellite caveats no longer state an outage or a fact they do not have; the OPERA credit is PLAN-5 2's exact line; the saved satellite image appears only in an outage; ?lid= names the river and reports its real fetch time; SPEC 5 reads in order.",
+  "verification": {
+    "tests": "uv run pytest -q: 1340 passed (was 1323), 0 skipped; 17 new flood tests, 4 changed deliberately (named per finding)",
+    "real_data": "API on 8753 (FIRE3D_LIVE=0), 52 live floods: Platte River satellite, Conejos River CatFIM and nwm_series, ?lid=AGYM7, St. Johns River rebuilt (19 s, 17 MB) and Platte River built (13 s, 11 MB) through POST /build; servers stopped",
+    "screenshots": [
+      "docs/screenshots/brief5-backend-flood-bundle-api-stjohns-public.png (Public flood view of the rebuilt St. Johns River bundle: the footer's OPERA credit now reads '... (PO.DAAC, doi:10.5067/OPDSW-PL3V1) via NASA Earthdata GIS; contains modified Copernicus Sentinel data')",
+      "docs/screenshots/brief5-backend-flood-bundle-api-platte-public.png (Public flood view of the Platte River flood: the satellite key says 'Water seen by satellite: no usable image'; the answer behind it is the Oct 30 picture of a pass over the flood, not Oct 31)"
+    ]
+  },
+  "gates": {
+    "backend": "uv run pytest -q: 1340 passed, 0 skipped",
+    "web": "typecheck clean; lint 55 warnings, all in src/scene; npm test 1573 passed, 2 skipped (one run of three had 1 transient failure while the other role worked in parallel; no web file is changed by this step); build OK",
+    "secret_scan": "count only: FIRMS_MAP_KEY 0 occurrences in this step's files; EARTHDATA_TOKEN not set here (fake token in tests only)"
+  },
+  "notes_for_others": "Integration: add to CONTRACT 16.14 the new backend strings SAT_CAVEAT_NO_CLOUD_SHARE, SAT_CAVEAT_RADAR, SAT_PICTURE_REASON, SAT_SAVED_COPY, CATFIM_NOT_COVERED, CATFIM_NOTE_ANY, NFHL_AVAILABILITY_UNKNOWN, MODEL_NO_GAUGE (texts in backend/fire3d/floods/copy.py BUNDLE_STRINGS and docs/redesign/contract5/backend-flood-bundle-api.md); CONTRACT 16.15's OPERA row should read the route before the Copernicus clause; optionally align the fixture's list-only CatFIM sentence with CATFIM_NOT_COVERED in both fixture copies. Web roles: a GIBS picture answer now has reason SAT_PICTURE_REASON (not SAT_NO_IMAGE); a no-image answer has tiles null and caveats []; a served saved image has SAT_SAVED_COPY last in caveats (caveats[0] is still the image's caveat). Flood Forensic: manifest.data_sources names are credit lines, ready to list as the bundle's credits."
+}

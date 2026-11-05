@@ -3,12 +3,16 @@
 // Normals, contours and overlays are computed per fragment from the elevation texture. Drives the terrain shader's
 // uniforms every frame from the store (time, layers), the current look and the camera, and re-bakes the soft sun
 // shadow when the exaggeration or the sun changes (cross-fading during style transitions).
+// Brief 5 (PLAN-5 §4.7): for an open flood (assets.flood) the terrain also drapes the flood layers (terrainMaterial.ts
+// "flood drapes"), and its terrain, aerial photo and contour switches are Forensic's own flood toggles
+// (ui/forensic-flood/forensicFloodState.ts), never the fire store's layers.
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { FUEL_DATAVIZ_LUT, FUEL_REALISTIC_LUT } from '../../lib/fuels'
 import { lutAtlasTexture } from '../../lib/raster'
 import { useStore } from '../../state/store'
+import { shownOpacity, useForensicFlood } from '../../ui/forensic-flood/forensicFloodState'
 import type { IncidentAssets } from '../assets'
 import { atmosphereFrame, updateAtmosphereUniforms } from '../atmosphere/atmosphere'
 import { camState } from '../camera/cameraState'
@@ -138,8 +142,15 @@ export function Terrain({ assets }: { assets: IncidentAssets }) {
     const ff = fireFrame(assets)
     ;(u.uFireCenter.value as THREE.Vector2).set(ff.cx, ff.cz)
     atmosphereFrame.extent = assets.extent
+    // flood drapes (absent for a fire)
+    const fl = assets.flood
+    u.uHasFlood.value = fl ? 1 : 0
+    u.uFloodPack.value = fl?.textures.pack ?? null
+    u.uSatWater.value = fl?.textures.satWater ?? null
+    u.uHasSat.value = fl?.textures.satWater ? 1 : 0
+    u.uSatLut.value = fl?.textures.satLut ?? null
     // any sampler that stays null still needs a valid texture object
-    for (const k of ['uNaip', 'uFuel', 'uCanopy', 'uSkyView', 'uWater', 'uObserved', 'uForecast', 'uSeverity']) {
+    for (const k of ['uNaip', 'uFuel', 'uCanopy', 'uSkyView', 'uWater', 'uObserved', 'uForecast', 'uSeverity', 'uFloodPack', 'uSatWater', 'uSatLut']) {
       if (!u[k].value) u[k].value = blankTexture()
     }
   }, [assets, material])
@@ -224,6 +235,25 @@ export function Terrain({ assets }: { assets: IncidentAssets }) {
     u.uForecastOpacity.value = t.forecastField ? layerOpacity(L, 'forecast') : 0
     u.uScarOpacity.value = t.burnSeverity ? layerOpacity(L, 'burnScar') : 0
     u.uFuelsOpacity.value = t.fuel ? layerOpacity(L, 'fuels') : 0
+    const fl = assets.flood
+    if (fl) {
+      // an open flood: Forensic's own flood toggles (FEMA, the category map and the model start off)
+      const F = useForensicFlood.getState().layers
+      u.uTerrainOpacity.value = shownOpacity(F.terrain)
+      u.uImagery.value = t.naip ? shownOpacity(F.naip) : 0
+      u.uContourOpacity.value = shownOpacity(F.contours)
+      u.uSatOpacity.value = fl.has.satellite ? shownOpacity(F.satellite) : 0
+      u.uFimOpacity.value = fl.has.forecast ? shownOpacity(F.forecastArea) : 0
+      u.uPlainOpacity.value = fl.has.floodplain ? shownOpacity(F.floodplain) : 0
+      u.uModelOpacity.value = fl.has.model ? shownOpacity(F.model) : 0
+      u.uCatfimOpacity.value = fl.has.catfim ? shownOpacity(F.catfim) : 0
+    } else {
+      u.uSatOpacity.value = 0
+      u.uFimOpacity.value = 0
+      u.uPlainOpacity.value = 0
+      u.uModelOpacity.value = 0
+      u.uCatfimOpacity.value = 0
+    }
 
     // isochrone step by fire duration and zoom
     const ff = fireFrame(assets)

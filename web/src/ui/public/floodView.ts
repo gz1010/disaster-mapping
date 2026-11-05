@@ -9,13 +9,13 @@
 //                  all-clear; "none" sentences only for answers that are `available` (D24)
 //   key            one item per layer drawn, each with its own source and time; ages computed now (C16)
 //   distance chip  to the NWS warning area's edge, else the NWS forecast flooded area, else the primary member gauge
-import type { FloodMapResponse, FloodProductRef, FloodSummary, RiverGauge, SatelliteWaterResponse } from '../../api/types'
+import type { FloodAlert, FloodMapResponse, FloodProductRef, FloodSummary, RiverGauge, SatelliteWaterResponse } from '../../api/types'
 import { distanceToAreas, type AreaDistance } from '../../lib/areaDistance'
 import { bearingDeg, distanceM } from '../../lib/geodesy'
 import { directionWord, distance } from '../../lib/plainLanguage'
 import { fmtAt, fmtClock, fmtDayDate, fmtRelative, HOUR_MS, DAY_MS, MONTHS, timeFmt, wallParts, type TimeFmt } from '../../lib/time'
 import { stateName } from '../../lib/usStates'
-import { answerReason, officialState, fimMapped, floodEvacuation, leadAlert, mainAlert, memberGaugesOf, orderAlerts, primaryMemberGauge, rfcName, senderName, shownGranule, type Answer, type FloodEvacFact } from '../../official/floodModel'
+import { answerReason, officialState, fimMapped, floodEvacuation, forecastPassed, leadAlert, mainAlert, memberGaugesOf, orderAlerts, primaryMemberGauge, rfcName, senderName, shownGranule, type Answer, type AnswerState, type FloodEvacFact } from '../../official/floodModel'
 import { gaugeCategoryRank, highestProduct } from '../../state/floodOverview'
 import type { Units } from '../../state/workspace'
 import type { EvacuationsResponse } from '../../extras/types'
@@ -29,6 +29,7 @@ import {
   CREST_LINE,
   DATE_LINE,
   DISTANCE_CHIP_LINES,
+  FLOOD_COMMAND,
   FLOOD_PUBLIC,
   FORECAST_HIGH_LABEL,
   FORECAST_HIGH_LINE,
@@ -36,6 +37,7 @@ import {
   GAUGE_BELOW_STAGE_SUB,
   GAUGE_CATEGORY_DISPLAY,
   GAUGE_NOT_CURRENT,
+  GAUGE_ONLY_CAVEAT,
   GAUGE_OUT_OF_SERVICE,
   GAUGE_PROVISIONAL,
   GAUGES_UNAVAILABLE,
@@ -56,9 +58,11 @@ import {
   SAT_NO_VIEW_KEY,
   SAT_NOT_SET_UP_SHORT,
   SAT_PICTURE_ONLY,
+  SAT_UNAVAILABLE,
   fillCopy,
 } from '../shell/floodCopy'
 import { fmtStage, gaugePlace } from './floodOverviewText'
+import { NOT_ALL_CLEAR } from '../shell/fixedCopyText'
 import type { DistanceChipText } from './fireView'
 
 const num = (v: number | null | undefined): v is number => typeof v === 'number' && Number.isFinite(v)
@@ -145,10 +149,27 @@ export function floodCircleStatus(s: FloodSummary | null, tf: TimeFmt, nowMs: nu
     }
   }
   const p = highestProduct(s)
+  const watchOnly = p != null && WATCH_EVENTS.has(p.event)
+  // A gauge-only flood whose backend caveat is not the plain one (ALERTS_UNAVAILABLE during an NWS outage, the tide or
+  // lake gauge caveat): NWS's absence is unknown there, so never the "no NWS flood product" sentences (D24; the
+  // backend-flood-sources note; integration). The caveat is the meaning, with "not an all-clear".
+  const special = s.level === 'gauge_only' && s.caveat && s.caveat !== GAUGE_ONLY_CAVEAT ? s.caveat : null
+  if (special && (!p || watchOnly)) {
+    const quiet = s.status === 'inactive'
+    const meaning = /all-clear/i.test(special) ? special : `${special} ${NOT_ALL_CLEAR}`
+    return { kind: 'gaugeOnly', line: CIRCLE_STATUS.gaugeOnly, tone: quiet ? 'quiet' : 'active', meaning, rain: !quiet }
+  }
   // no NWS product in effect and no member gauge at flood stage in the last 6 hours (the live list keeps it 48 h)
   if (s.status === 'inactive' || (!p && s.level !== 'gauge_only' && s.gauges_in_flood <= 0))
     return { kind: 'noProductNow', line: CIRCLE_STATUS.noProductNow, tone: 'quiet', meaning: CIRCLE_MEANING.noProductNow, rain: false }
   if (!p) return { kind: 'gaugeOnly', line: CIRCLE_STATUS.gaugeOnly, tone: 'active', meaning: CIRCLE_MEANING.gaugeOnly, rain: true }
+  // A gauge at flood stage under a Flood Watch stays gauge_only (the list never hides it as watch-only): the gauge is
+  // the status, the watch is named in the meaning (integration)
+  if (s.level === 'gauge_only' && watchOnly) {
+    const until = num(p.ends_ms) ? fmtAt(p.ends_ms, tf, { zone: true, year: 'auto', refMs: nowMs }) : null
+    const meaning = fillCopy(CIRCLE_MEANING.gaugeWatch, { Sender: senderName(p.sender_name), event: p.event, time: until ?? '' })
+    return { kind: 'gaugeOnly', line: CIRCLE_STATUS.gaugeOnly, tone: 'active', meaning: until ? meaning : meaning.replace(/ until (?=[.:])/, ''), rain: true }
+  }
   const kind: FloodCircleKind =
     p.emergency || s.emergency
       ? 'emergency'
@@ -219,11 +240,12 @@ export interface FloodFactsInput {
   units: Units
 }
 
-/** A gauge's reading time in its own zone with its age: "reading Nov 4, 10:00 AM MST (25 min ago)". */
-function readingText(ms: number | null | undefined, tz: string | null | undefined, tf: TimeFmt, nowMs: number): string | null {
+/** A gauge's reading time in its own zone with its age: "Nov 4, 10:00 AM MST (25 min ago)" (the row's label says it is
+ *  the river stage; `long` adds "reading"). */
+function readingText(ms: number | null | undefined, tz: string | null | undefined, tf: TimeFmt, nowMs: number, long = false): string | null {
   if (!num(ms)) return null
   const gtf = timeFmt(tz || tf.tz, tf.clock)
-  return fillCopy(FLOOD_PUBLIC.reading, { time: fmtAt(ms, gtf, { zone: true, year: 'auto', refMs: nowMs }), age: fmtRelative(ms, nowMs) })
+  return fillCopy(long ? FLOOD_PUBLIC.reading : FLOOD_PUBLIC.readingShort, { time: fmtAt(ms, gtf, { zone: true, year: 'auto', refMs: nowMs }), age: fmtRelative(ms, nowMs) })
 }
 
 /** The stage row of a member gauge (river kind row 2; flash / watch "River gauges"). Never a nearby gauge (C4). */
@@ -264,7 +286,9 @@ function gaugeRow(key: 'stage' | 'gauges', label: string, g: RiverGauge, i: Floo
 function forecastRow(key: 'crest' | 'riverForecast', g: RiverGauge | null, i: FloodFactsInput, label: string = FLOOD_PUBLIC.labelCrest): FloodFactRow {
   if (i.summary && isPastFlood(i.summary)) return { key, label, value: FLOOD_PUBLIC.pastDates, size: 17, sub: PAST_NO_FORECAST }
   const f = g?.forecast ?? null
-  if (!g || !g.is_forecast_point || !f || !num(f.max_value)) return { key, label, value: NO_RFC_FORECAST, size: 17, sub: g ? g.name : null }
+  // no member gauge: say why there is no forecast point (the value stays NO_RFC_FORECAST; review WFP-R12)
+  if (!g) return { key, label, value: NO_RFC_FORECAST, size: 17, sub: FLOOD_PUBLIC.noForecastNoGauge }
+  if (!g.is_forecast_point || !f || !num(f.max_value)) return { key, label, value: NO_RFC_FORECAST, size: 17, sub: g.name }
   const gtf = timeFmt(g.time_zone || i.tf.tz, i.tf.clock)
   const v = fmtStage(f.max_value, g.observed.unit ?? g.thresholds?.unit ?? 'ft', i.units) ?? ''
   const cut = v.lastIndexOf(' ')
@@ -275,13 +299,24 @@ function forecastRow(key: 'crest' | 'riverForecast', g: RiverGauge | null, i: Fl
   const slots = { value, unit, 'day time zone': day, 'RFC name': rfcName(f), time: issued }
   const cat = f.category ? (GAUGE_CATEGORY_DISPLAY[f.category] ?? GAUGE_CATEGORY_DISPLAY.unknown).short : null
   const link = https(f.url) ?? https(g.url)
+  // integration: NWS's highest value for a time that has passed, or below the latest reading, is no crest to come
+  // (the same sentences as Command's readout, review WFC-R14)
+  const passed = forecastPassed(f, i.nowMs)
+  const below = !passed && !f.crest_at_end && num(g.observed?.value) && f.max_value < (g.observed.value as number)
+    && (!g.observed.unit || !g.thresholds?.unit || g.observed.unit.toLowerCase() === g.thresholds.unit.toLowerCase())
   return {
     key,
-    label: f.crest_at_end ? FORECAST_HIGH_LABEL : label,
+    label: f.crest_at_end ? FORECAST_HIGH_LABEL : passed || below ? FLOOD_PUBLIC.labelHighestForecast : label,
     value,
     unit,
     size: 26,
-    sub: f.crest_at_end ? fillCopy(FORECAST_HIGH_LINE, slots) : fillCopy(CREST_LINE, slots),
+    sub: f.crest_at_end
+      ? fillCopy(FORECAST_HIGH_LINE, slots)
+      : passed
+        ? fillCopy(FLOOD_COMMAND.highestPassedSub, slots)
+        : below
+          ? fillCopy(FLOOD_COMMAND.highestBelowSub, slots)
+          : fillCopy(CREST_LINE, slots),
     link: link ? { url: link, label: FLOOD_PUBLIC.forecastLink } : null,
     tip: join([g.name, cat ? `NWS forecast category: ${cat}` : null]),
   }
@@ -293,11 +328,30 @@ function highestForecastGauge(members: RiverGauge[]): RiverGauge | null {
   return points.sort((a, b) => gaugeCategoryRank(b.forecast?.category) - gaugeCategoryRank(a.forecast?.category))[0] ?? null
 }
 
+/** A row for an answer that has nothing to show: loading, unavailable (the layer's own "could not be reached" text,
+ *  never an all-clear; the request's error or the backend's reason in the tooltip, review WFP-R5), or past dates. */
 function quietRow(key: FloodFactKey, label: string, state: ReturnType<typeof officialState>, unavailableText: string, reason: string | null): FloodFactRow | null {
   if (state === 'loading' || state === 'none') return { key, label, value: FLOOD_PUBLIC.checking, size: 17 }
-  if (state === 'unavailable') return { key, label, value: FLOOD_PUBLIC.unavailable, size: 17, sub: unavailableText }
+  if (state === 'unavailable') return { key, label, value: FLOOD_PUBLIC.unavailable, size: 17, sub: unavailableText, tip: reason && reason !== unavailableText ? reason : null }
   if (state === 'past') return { key, label, value: FLOOD_PUBLIC.pastDates, size: 17, sub: reason }
   return null
+}
+
+/** The sub-line of a row quoting an NWS product's own field (detection, damage threat, watch area; review WFP-R7): its
+ *  sender, its own sent time in the issuer's zone, and its link. */
+function productSource(a: FloodAlert | null, i: FloodFactsInput, extra: (string | null)[] = []): { sub: string | null; link: FloodFactRow['link'] } {
+  if (!a) return { sub: join(extra), link: null }
+  const tf = timeFmt(a.time_zone || i.tf.tz, i.tf.clock)
+  const sent = num(a.sent_ms) ? fillCopy(FLOOD_PUBLIC.sent, { time: fmtAt(a.sent_ms, tf, { zone: true, year: 'auto', refMs: i.nowMs }) }) : null
+  const url = https(a.url)
+  return { sub: join([...extra, senderName(a.sender_name), sent]), link: url ? { url, label: FLOOD_PUBLIC.nwsAlertLink } : null }
+}
+
+/** The sub-line from the flood list's own product reference (the alerts answer has not given the product): its sender,
+ *  sent time in its zone (else the flood's) and link. */
+function listProductSource(p: FloodProductRef | null | undefined, emergency: boolean): { sub: string | null; link: FloodFactRow['link'] } {
+  const url = https(p?.url)
+  return { sub: join([emergency ? FLOOD_PUBLIC.flashEmergency : null, p ? senderName(p.sender_name) : null]), link: url ? { url, label: FLOOD_PUBLIC.nwsAlertLink } : null }
 }
 
 function memberGaugeRows(i: FloodFactsInput, key: 'gauges', label: string): FloodFactRow {
@@ -352,7 +406,7 @@ function productRow(i: FloodFactsInput): FloodFactRow {
 
 function evacRow(i: FloodFactsInput): FloodFactRow {
   const e: FloodEvacFact = floodEvacuation(i.evac, i.tf, i.nowMs)
-  return { key: 'evac', label: FLOOD_PUBLIC.labelEvacuations, value: e.value, size: 17, tone: e.tone, verbatim: e.verbatim, subVerbatim: e.subVerbatim, sub: e.sub, link: e.link }
+  return { key: 'evac', label: FLOOD_PUBLIC.labelEvacuations, value: e.value, size: 17, tone: e.tone, verbatim: e.verbatim, subVerbatim: e.subVerbatim, sub: e.sub, link: e.link, tip: e.tip ?? null }
 }
 
 /** The facts rows per kind (PLAN-5 §4.4 table; C4, C6, C7): rows 1-3 by kind, then the start, the highest NWS product,
@@ -361,7 +415,7 @@ function evacRow(i: FloodFactsInput): FloodFactRow {
 export function floodFacts(i: FloodFactsInput): FloodFactRow[] {
   const s = i.summary
   const rows: FloodFactRow[] = []
-  const members = memberGaugesOf(i.gauges.data)
+  const members = memberGaugesOf(i.gauges.data, s)
   const primary = primaryMemberGauge(i.gauges.data, s)
   const watchOnly = s?.level === 'watch'
   const alert = mainAlert(i.alerts.data, i.nowMs)
@@ -370,7 +424,7 @@ export function floodFacts(i: FloodFactsInput): FloodFactRow[] {
     const st = officialState(i.alerts)
     const q = quietRow('watchArea', FLOOD_PUBLIC.labelWatchArea, st, ALERTS_UNAVAILABLE, answerReason(i.alerts))
     const area = alert?.area_desc ?? null
-    rows.push(q && !area ? q : { key: 'watchArea', label: FLOOD_PUBLIC.labelWatchArea, value: area ? shortAreas(area) : NOT_STATED_NWS, verbatim: area != null, size: 17, sub: area ? senderName(alert?.sender_name) : null })
+    rows.push(q && !area ? q : { key: 'watchArea', label: FLOOD_PUBLIC.labelWatchArea, value: area ? shortAreas(area) : NOT_STATED_NWS, verbatim: area != null, size: 17, ...productSource(area ? alert : null, i) })
     rows.push(memberGaugeRows(i, 'gauges', FLOOD_PUBLIC.labelGauges))
     const gq = quietRow('riverForecast', FLOOD_PUBLIC.labelRiverForecast, officialState(i.gauges), GAUGES_UNAVAILABLE, answerReason(i.gauges))
     rows.push(gq ?? forecastRow('riverForecast', highestForecastGauge(members), i, FLOOD_PUBLIC.labelRiverForecast))
@@ -379,7 +433,7 @@ export function floodFacts(i: FloodFactsInput): FloodFactRow[] {
     const flashAlert = alert
     const q1 = quietRow('detection', FLOOD_PUBLIC.labelDetection, st, ALERTS_UNAVAILABLE, answerReason(i.alerts))
     const detection = flashAlert?.detection?.trim() || null
-    rows.push(q1 && !detection ? q1 : { key: 'detection', label: FLOOD_PUBLIC.labelDetection, value: detection ?? NOT_STATED_NWS, verbatim: detection != null, size: 17, sub: detection ? senderName(flashAlert?.sender_name) : null })
+    rows.push(q1 && !detection ? q1 : { key: 'detection', label: FLOOD_PUBLIC.labelDetection, value: detection ?? NOT_STATED_NWS, verbatim: detection != null, size: 17, ...productSource(flashAlert, i) })
     const damage = flashAlert?.damage_threat?.trim() || highestProduct(s)?.damage_threat?.trim() || null
     const emergency = flashAlert?.emergency ?? s.emergency
     const q2 = quietRow('damage', FLOOD_PUBLIC.labelDamage, st, ALERTS_UNAVAILABLE, answerReason(i.alerts))
@@ -393,7 +447,7 @@ export function floodFacts(i: FloodFactsInput): FloodFactRow[] {
             verbatim: damage != null,
             size: 17,
             tone: damage || emergency ? 'alert' : undefined,
-            sub: join([emergency ? FLOOD_PUBLIC.flashEmergency : null, damage ? senderName(flashAlert?.sender_name ?? highestProduct(s)?.sender_name) : null]),
+            ...(flashAlert ? productSource(flashAlert, i, [emergency ? FLOOD_PUBLIC.flashEmergency : null]) : listProductSource(damage ? highestProduct(s) : null, emergency)),
           },
     )
     rows.push(memberGaugeRows(i, 'gauges', FLOOD_PUBLIC.labelGauges))
@@ -401,7 +455,9 @@ export function floodFacts(i: FloodFactsInput): FloodFactRow[] {
     // river: the NWS forecast flooded area (Mapped / Not mapped here, never a number; D5), stage, crest
     const st = officialState(i.fim)
     const q = quietRow('fim', FLOOD_PUBLIC.labelFim, st, RFC_FIM_UNAVAILABLE, answerReason(i.fim))
-    if (q) rows.push(st === 'unavailable' ? { ...q, sub: answerReason(i.fim) ?? RFC_FIM_UNAVAILABLE } : q)
+    // unavailable: the backend's own reason when it answered, else (the request failed) RFC_FIM_UNAVAILABLE with the
+    // request's error in the tooltip (review WFP-R5)
+    if (q) rows.push(st === 'unavailable' && i.fim.data ? { ...q, sub: i.fim.data.reason ?? RFC_FIM_UNAVAILABLE, tip: null } : q)
     else if (fimMapped(i.fim.data)) {
       const ref = i.fim.data!.reference_ms ?? i.fim.data!.updated_ms
       rows.push({
@@ -449,9 +505,9 @@ export function floodFacts(i: FloodFactsInput): FloodFactRow[] {
       value: fmtDayDate(s.started_ms, i.tf.tz, { year: 'auto', refMs: i.nowMs }),
       unit: fmtClock(s.started_ms, i.tf, { zone: true }),
       size: 26,
-      // the label says Fire-3d's first sight; a gauge start says so; an NWS product start is in the tooltip
-      sub: s.started_basis === 'gauge' ? FLOOD_PUBLIC.startedGauge : null,
-      tip: seen ? FLOOD_PUBLIC.startedFirstSeen : s.started_basis === 'gauge' ? null : FLOOD_PUBLIC.startedNws,
+      // the label says Fire-3d's first sight; what else started it (an NWS product, a gauge's first reading at flood
+      // stage) is the row's tooltip
+      tip: seen ? FLOOD_PUBLIC.startedFirstSeen : s.started_basis === 'gauge' ? FLOOD_PUBLIC.startedGauge : FLOOD_PUBLIC.startedNws,
     })
   }
   rows.push(productRow(i))
@@ -493,7 +549,7 @@ export function floodFactsSource(i: Pick<FloodFactsInput, 'summary' | 'alerts' |
 
 // ------------------------------------------------------------------------------------------------ key
 export interface FloodKeyItem {
-  key: 'satellite' | 'noView' | 'edge' | 'forecast' | 'channel' | 'warning' | 'floodplain' | 'picture' | 'satNone'
+  key: 'satellite' | 'noView' | 'edge' | 'forecast' | 'channel' | 'warning' | 'floodplain' | 'picture' | 'satNone' | 'satUnavailable' | 'satChecking' | 'fimUnavailable' | 'fimChecking'
   /** The swatch class (styles/view-flood-public.css .ffk-sw-*). */
   swatch: string | null
   text: string
@@ -520,6 +576,14 @@ export interface FloodKeyInput {
   nowMs: number
   /** NASA's picture (GIBS) is drawn on the map (map/floodAreaLayers.ts DRAW_SAT_PICTURE). */
   pictureDrawn?: boolean
+  /** The satellite and forecast-area answers' states (official/floodModel.ts answerState): a request that failed
+   *  before any answer is `unavailable` with no body, one still running `loading` (review WFP-R1). Default: from the
+   *  bodies alone. */
+  satelliteState?: AnswerState
+  fimState?: AnswerState
+  /** The failed requests' own errors (the items' tooltips). */
+  satelliteError?: string | null
+  fimError?: string | null
 }
 
 /** "May 3" or "May 3–Jun 1, 2024" for FEMA's effective dates (C19). */
@@ -558,8 +622,15 @@ export function floodKeyItems(i: FloodKeyInput): FloodKeyItem[] {
       // NASA has no usable image of the area: said, never left blank (the backend's reason in the tooltip)
       out.push({ key: 'satNone', swatch: null, text: FLOOD_PUBLIC.keySatNone, tip: sat.reason ?? sat.caveats[0] ?? null })
     }
+  } else if (i.layers.satellite && sat && sat.status === 'unavailable') {
+    // the backend could not read NASA's images: said with SAT_UNAVAILABLE (never an all-clear), its reason the tooltip
+    out.push({ key: 'satUnavailable', swatch: null, text: SAT_UNAVAILABLE, tip: sat.reason ?? null })
   } else if (i.layers.satellite && sat && sat.status !== 'available' && sat.reason) {
     out.push({ key: 'satNone', swatch: null, text: FLOOD_PUBLIC.keySatNone, tip: sat.reason })
+  } else if (i.layers.satellite && !sat) {
+    // no answer: the request failed (SAT_UNAVAILABLE, its error the tooltip) or is still running (review WFP-R1)
+    if (i.satelliteState === 'unavailable') out.push({ key: 'satUnavailable', swatch: null, text: SAT_UNAVAILABLE, tip: i.satelliteError ?? null })
+    else if (i.satelliteState === 'loading') out.push({ key: 'satChecking', swatch: null, text: FLOOD_PUBLIC.keySatChecking })
   }
   if (i.layers.forecastArea && fimMapped(i.fim)) {
     const ref = i.fim!.reference_ms ?? i.fim!.updated_ms
@@ -569,6 +640,11 @@ export function floodKeyItems(i: FloodKeyInput): FloodKeyItem[] {
       text: num(ref) ? fillCopy(FLOOD_PUBLIC.keyForecast, { time: fmtAt(ref, i.tf, { zone: true, year: 'auto', refMs: i.nowMs }) }) : FLOOD_PUBLIC.keyForecastNoTime,
       tip: i.fim!.coverage_note,
     })
+  } else if (i.layers.forecastArea && i.fim && i.fim.status === 'unavailable') {
+    out.push({ key: 'fimUnavailable', swatch: null, text: RFC_FIM_UNAVAILABLE, tip: i.fim.reason && i.fim.reason !== RFC_FIM_UNAVAILABLE ? i.fim.reason : null })
+  } else if (i.layers.forecastArea && !i.fim) {
+    if (i.fimState === 'unavailable') out.push({ key: 'fimUnavailable', swatch: null, text: RFC_FIM_UNAVAILABLE, tip: i.fimError ?? null })
+    else if (i.fimState === 'loading') out.push({ key: 'fimChecking', swatch: null, text: FLOOD_PUBLIC.keyForecastChecking })
   }
   if (i.layers.channel) out.push({ key: 'channel', swatch: 'channel', text: FLOOD_PUBLIC.keyChannel })
   if (i.layers.warnings && i.warnings) out.push({ key: 'warning', swatch: 'warning', text: FLOOD_PUBLIC.keyWarning })

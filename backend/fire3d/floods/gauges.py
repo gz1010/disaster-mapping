@@ -88,9 +88,16 @@ def riv_river_gauge(row: dict, *, member: bool, rfc_row: dict | None = None, for
 def nwps_river_gauge(lid: str, *, member: bool, with_series: bool, waterbody: str | None = None) -> dict:
     """A ``RiverGauge`` from NWPS detail (+ stageflow when ``with_series`` or for the forecast's crest). Raises
     SourceError / SourceBusy."""
-    detail, _ = nwps.gauge(lid)
+    return nwps_river_gauge_fetched(lid, member=member, with_series=with_series, waterbody=waterbody)[0]
+
+
+def nwps_river_gauge_fetched(lid: str, *, member: bool, with_series: bool,
+                             waterbody: str | None = None) -> tuple[dict, int]:
+    """(:func:`nwps_river_gauge`, when NWPS sent its oldest part: detail is cached up to 6 h, the series 10 min)."""
+    detail, fetched = nwps.gauge(lid)
     try:
-        sf, _ = nwps.stageflow(lid)
+        sf, sf_fetched = nwps.stageflow(lid)
+        fetched = min(fetched, sf_fetched)
     except SourceBusy:
         raise
     except SourceError as e:
@@ -106,7 +113,18 @@ def nwps_river_gauge(lid: str, *, member: bool, with_series: bool, waterbody: st
     g["waterbody"] = waterbody
     if g["lat"] is None or g["lon"] is None:
         raise SourceError(f"NWPS gave no position for gauge {lid}")
-    return g
+    return g, int(fetched)
+
+
+def waterbody_of(lid: str, lon: float, lat: float) -> str | None:
+    """The gauge's river or lake as the NWS ``riv_gauges`` map names it (NWPS detail has no such field): one small
+    envelope query around the gauge (cached 5 min), matched by id; None when it cannot be read."""
+    try:
+        rows, _ = nwps.riv_gauges_in_bbox(pad_bbox((lon, lat, lon, lat), 1.0))
+    except SourceError as e:                        # SourceBusy included: the name is optional
+        log.info("riv_gauges waterbody %s: %s", lid, e)
+        return None
+    return next((r.get("waterbody") for r in rows if r["lid"] == lid.upper()), None)
 
 
 def envelope(kind: str, *, now: int, flood_id: str | None, bbox: Any = None, status: str = "available",
@@ -168,7 +186,9 @@ def flood_gauges(summary: dict, *, now: int, with_series: bool, include_nearby: 
     retrieved: list[int] = []
     for lid in members:
         try:
-            rows.append(nwps_river_gauge(lid, member=True, with_series=with_series, waterbody=wb.get(lid)))
+            g, fetched = nwps_river_gauge_fetched(lid, member=True, with_series=with_series, waterbody=wb.get(lid))
+            rows.append(g)
+            retrieved.append(fetched)
         except SourceError as e:
             log.info("member gauge %s: %s", lid, e)
             detail_down = detail_down or getattr(e, "status", None) != 404     # a gauge NWPS does not know is no outage
@@ -208,7 +228,9 @@ def flood_gauges(summary: dict, *, now: int, with_series: bool, include_nearby: 
                            reason=fcopy.GAUGES_UNAVAILABLE, reason_code="upstream_error", at_ms=at_ms, caveats=caveats),
                 "gauges": [], "area_bbox": list(area)}
     obs = [g["observed"]["valid_ms"] for g in rows if g["observed"].get("valid_ms")]
-    return {**envelope("river_gauges", now=now, flood_id=fid, bbox=area, retrieved_ms=now,
+    # retrieved_ms: when the oldest part of this answer was fetched from NOAA (cached copies keep their own time)
+    fetched_at = min(retrieved) if retrieved else now
+    return {**envelope("river_gauges", now=now, flood_id=fid, bbox=area, retrieved_ms=fetched_at,
                        source_updated_ms=max(obs) if obs else None, at_ms=at_ms, caveats=caveats),
             "gauges": rows + (near if include_nearby else []), "area_bbox": list(area)}
 
@@ -261,7 +283,7 @@ def lid_gauge(lid: str, *, now: int, with_series: bool, member: bool = False, at
     """``RiverGaugesResponse`` of one gauge from NWPS (``?lid=``); ``unavailable`` when NWPS cannot be read; raises
     LookupError when NWPS does not know the gauge."""
     try:
-        g = nwps_river_gauge(lid, member=member, with_series=with_series)
+        g, fetched = nwps_river_gauge_fetched(lid, member=member, with_series=with_series)
     except SourceError as e:
         if getattr(e, "status", None) == 404 or "has no gauge" in str(e):
             raise LookupError(lid) from None
@@ -270,7 +292,8 @@ def lid_gauge(lid: str, *, now: int, with_series: bool, member: bool = False, at
                            reason=fcopy.GAUGES_UNAVAILABLE, reason_code="upstream_error", at_ms=at_ms,
                            caveats=[fcopy.GAUGE_NOT_ALL_CLEAR]),
                 "gauges": [], "area_bbox": None}
-    return {**envelope("river_gauges", now=now, flood_id=None, bbox=None, retrieved_ms=now,
+    g["waterbody"] = waterbody_of(lid, g["lon"], g["lat"])
+    return {**envelope("river_gauges", now=now, flood_id=None, bbox=None, retrieved_ms=fetched,
                        source_updated_ms=g["observed"].get("valid_ms"), at_ms=at_ms,
                        caveats=[fcopy.GAUGE_NOT_ALL_CLEAR]),
             "gauges": [g], "area_bbox": [g["lon"], g["lat"], g["lon"], g["lat"]]}
