@@ -8,6 +8,7 @@
 import { useShallow } from 'zustand/react/shallow'
 import { useFloodOfficial } from '../../official/floodHooks'
 import { officialAlerts } from '../../official/floodModel'
+import { DRAW_SAT_PICTURE } from '../../map/floodAreaLayers'
 import { FloodLegend } from '../../map/FloodLegend'
 import { ScaleBar } from '../../map/MapAttribution'
 import { openFloodSummary, useFlood } from '../../state/flood'
@@ -44,7 +45,7 @@ export function FloodKey({ details = true }: { details?: boolean }) {
   const tf = useTimeFormatFor(summary?.time_zone)
   const nowMs = useNow(60_000)
   const warnings = officialAlerts(off.alerts.data).some((a) => a.geometry != null) || (off.alerts.data?.zones?.features.length ?? 0) > 0
-  const items = floodKeyItems({ satellite: off.satellite.data, fim: off.fim.data, nfhl: off.nfhl.data, warnings, layers, tf, nowMs })
+  const items = floodKeyItems({ satellite: off.satellite.data, fim: off.fim.data, nfhl: off.nfhl.data, warnings, layers, tf, nowMs, pictureDrawn: DRAW_SAT_PICTURE })
   const loading = off.satellite.loading && off.fim.loading && !off.satellite.data && !off.fim.data
   return (
     <div className="pfv-key ffk" role="group" aria-label="Map key">
@@ -87,6 +88,43 @@ export function FloodSatStatus() {
       </p>
     )
   }
-  if (sat.tiles) return <p className="ffv-sat-status">NASA PICTURE · {sat.tiles.date}</p>
+  if (sat.tiles && DRAW_SAT_PICTURE) return <p className="ffv-sat-status">NASA PICTURE · {sat.tiles.date}</p>
   return null
+}
+
+/** The flood view's own layers' credits (CONTRACT §16.15), next to the map's credits in the foot bar: the NWS forecast
+ *  flooded area (NOAA/NWS National Water Center, experimental), water seen by satellite (NASA JPL OPERA), the FEMA
+ *  floodplain while it is on, and USGS for the gauges' measurements; each only while its layer shows data. The flood
+ *  list's own credits (NWS, NOAA's river gauges) are in the map's credits already. */
+export function FloodLayerCredits() {
+  const layers = useFlood((s) => s.layers)
+  const off = useFloodOfficial(useShallow((s) => ({ fim: s.fim.data, satellite: s.satellite.data, nfhl: s.nfhl.data, gauges: s.gauges.data })))
+  const items: { id: string; text: string; href: string | null }[] = []
+  const add = (id: string, src: { credit: string; terms_url?: string | null; url?: string | null } | null | undefined) => {
+    if (!src?.credit || items.some((x) => x.text === src.credit)) return
+    const href = [src.url, src.terms_url].find((u) => typeof u === 'string' && u.startsWith('https://')) ?? null
+    items.push({ id, text: src.credit, href })
+  }
+  if (layers.forecastArea && off.fim?.status === 'available' && off.fim.features.features.length) add('fim', off.fim.source)
+  if (layers.satellite && off.satellite?.status === 'available' && (off.satellite.image || (DRAW_SAT_PICTURE && off.satellite.tiles))) add('sat', off.satellite.source)
+  if (layers.floodplain && off.nfhl?.status === 'available') add('nfhl', off.nfhl.source)
+  const usgs = off.gauges?.status === 'available' ? off.gauges.gauges.flatMap((g) => g.data_attribution).find((d) => /U\.?S\.? Geological Survey|USGS/i.test(d.text)) : null
+  if (usgs) items.push({ id: 'usgs', text: 'Gauge readings: U.S. Geological Survey (provisional data)', href: 'https://waterdata.usgs.gov/provisional-data-statement/' })
+  if (!items.length) return null
+  return (
+    <span className="ffv-credits">
+      {items.map((a, i) => (
+        <span key={a.id}>
+          {i > 0 && ' · '}
+          {a.href ? (
+            <a href={a.href} target="_blank" rel="noreferrer noopener">
+              {a.text}
+            </a>
+          ) : (
+            a.text
+          )}
+        </span>
+      ))}
+    </span>
+  )
 }

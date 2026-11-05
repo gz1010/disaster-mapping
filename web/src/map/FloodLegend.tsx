@@ -122,7 +122,7 @@ export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant 
           <p>
             <span className="ffk-sw ffk-sw-noview" aria-hidden="true" /> {SAT_NO_VIEW_KEY} · <span className="ffk-sw ffk-sw-edge" aria-hidden="true" /> {SAT_EDGE}
           </p>
-          {view.satellite.status !== 'available' && view.satellite.reason && <p className="fxm-legend-note">{view.satellite.reason}</p>}
+          {view.satellite.reason && <p className="fxm-legend-note">{view.satellite.reason}</p>}
           {login?.short && <p className="fxm-legend-note ffk-login">{login.short}</p>}
           {login?.long && <p className="fxm-legend-note">{login.long}</p>}
         </section>

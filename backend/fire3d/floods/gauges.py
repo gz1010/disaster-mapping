@@ -247,7 +247,9 @@ def national_gauges(min_category: str, *, now: int) -> dict:
                 "gauges": [], "area_bbox": None}
     rfc = _rfc_rows()
     l48 = set(regions.L48)
-    out = [riv_river_gauge(r, member=False, rfc_row=rfc.get(r["lid"])) for r in rows if r.get("state") in l48]
+    keep = set(CATEGORY_MIN[CATEGORY_MIN.index(min_category):])
+    out = [riv_river_gauge(r, member=False, rfc_row=rfc.get(r["lid"])) for r in rows
+           if r.get("state") in l48 and r.get("status") in keep]
     out.sort(key=lambda g: (-CATEGORY_MIN.index(g["observed"]["category"]) if g["observed"]["category"] in CATEGORY_MIN
                             else 1, g["lid"]))
     return {**envelope("river_gauges", now=now, flood_id=None, bbox=None, retrieved_ms=fetched,

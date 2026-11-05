@@ -256,3 +256,80 @@ def test_px_size_about_30_m_and_capped():
     assert 500 < w < 650 and 450 < h < 560
     w, h = opera.px_size((-95.0, 39.0, -94.0, 40.0), max_px=1600)
     assert max(w, h) == 1600
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# The satellite answer with the token (floods/satellite.py; fake token, mock transport)
+# ---------------------------------------------------------------------------------------------------------------
+def _egis_tiff(req: httpx.Request) -> httpx.Response:
+    import rasterio
+    from rasterio.io import MemoryFile
+    from rasterio.transform import from_bounds
+
+    w, h = (int(v) for v in req.url.params["size"].split(","))
+    box = [float(v) for v in req.url.params["bbox"].split(",")]
+    a = np.zeros((h, w), np.uint8)
+    a[: h // 3, :] = 253
+    a[h // 2:, : w // 4] = 1
+    with MemoryFile() as mem:
+        with mem.open(driver="GTiff", width=w, height=h, count=1, dtype="uint8", crs=f"EPSG:{req.url.params['bboxSR']}",
+                      nodata=255, transform=from_bounds(*box, w, h)) as ds:
+            ds.write(a, 1)
+        return httpx.Response(200, content=mem.read(), headers={"content-type": "image/tiff"})
+
+
+def _sat_routes(podaac):
+    return [(EGIS, r"/ImageServer/query$", OPERA / "egis_query.json"), (EGIS, r"/exportImage$", _egis_tiff),
+            ("cmr.earthdata.nasa.gov", r"/granules\.json$",
+             lambda r: httpx.Response(200, content=(OPERA / ("cmr_s1.json" if "S1" in r.url.params["short_name"]
+                                                              else "cmr_hls.json")).read_bytes())),
+            ("gibs.earthdata.nasa.gov", r"\.xml$", OPERA / "gibs_domain.xml"),
+            (opera.PODAAC_HOST, r".", podaac),
+            ("podaac-ops-cumulus-protected.s3.us-west-2.amazonaws.com", r".",
+             lambda r: httpx.Response(200, content=_tiff(64, 64, 1), headers={"content-type": "image/tiff"}))]
+
+
+def test_satellite_with_token_prefers_the_newer_radar_pass(monkeypatch, flood_iso, caplog):
+    from fire3d.floods import copy as fcopy
+    from fire3d.floods import satellite
+
+    monkeypatch.setattr(config, "EARTHDATA_TOKEN", FAKE_TOKEN)
+    seen: list[httpx.Request] = []
+    s3 = "https://podaac-ops-cumulus-protected.s3.us-west-2.amazonaws.com/x.tif?" + "&".join(f"{k}={v}" for k, v in AMZ.items())
+    monkeypatch.setattr(fhttp, "_transport", route_transport(
+        _sat_routes(lambda r: httpx.Response(303, headers={"location": s3})), seen))
+    caplog.set_level(logging.DEBUG)
+    res = satellite.flood_satellite("flood-20261104-x-flood-abcdef", BOX, now=RECORDED_MS, time_zone="America/Chicago")
+    a = res.answer
+    assert a["login"] == "configured" and a["login_note"] is None and a["measured"]
+    assert a["granules"][0]["product"] == "DSWx-S1" and a["granules"][0]["route"] == "podaac"
+    assert a["granules"][0]["cloud_pct"] is None and a["source"]["credit"] == fcopy.CREDIT_OPERA_S1
+    assert "Clouds (?% of this area)" in a["caveats"][0]                      # radar: no cloud share
+    text = orjson.dumps(a).decode() + caplog.text + (res.png or b"").decode("latin-1")
+    assert _count_secrets(text) == 0
+    assert all("authorization" not in r.headers for r in seen if r.url.host != opera.PODAAC_HOST)
+
+
+def test_satellite_refused_token_keeps_the_default_image(monkeypatch, flood_iso):
+    from fire3d.floods import copy as fcopy
+    from fire3d.floods import satellite
+
+    monkeypatch.setattr(config, "EARTHDATA_TOKEN", FAKE_TOKEN)
+    monkeypatch.setattr(fhttp, "_transport", route_transport(_sat_routes(lambda r: httpx.Response(401, text="no"))))
+    res = satellite.flood_satellite("flood-20261104-x-flood-abcdef", BOX, now=RECORDED_MS, time_zone="America/Chicago")
+    a = res.answer
+    assert a["login"] == "refused" and a["login_note"] == fcopy.SAT_LOGIN_REFUSED
+    assert a["measured"] and a["granules"][0]["route"] == "earthdata_gis" and res.png is not None
+    assert opera.login_state() == "refused"
+
+
+def test_satellite_without_token_says_not_set_up(monkeypatch, flood_iso):
+    from fire3d.floods import copy as fcopy
+    from fire3d.floods import satellite
+
+    monkeypatch.setattr(config, "EARTHDATA_TOKEN", None)
+    seen: list[httpx.Request] = []
+    monkeypatch.setattr(fhttp, "_transport", route_transport(_sat_routes(lambda r: httpx.Response(500)), seen))
+    a = satellite.flood_satellite("flood-20261104-x-flood-abcdef", BOX, now=RECORDED_MS, time_zone="America/Chicago").answer
+    assert a["login"] == "not_configured" and a["login_note"] == fcopy.SAT_NOT_SET_UP and a["measured"]
+    assert not any(r.url.host in (opera.PODAAC_HOST, "cmr.earthdata.nasa.gov") for r in seen)

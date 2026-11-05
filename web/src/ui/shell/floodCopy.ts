@@ -401,6 +401,7 @@ export const FLOOD_PUBLIC = {
   keyStaleTip: 'This satellite image is more than 3 days old: the water may have changed since',
   keyStale: 'Old',
   keyPicture: 'Satellite water: NASA picture, {date} (not measured here)',
+  keySatNone: 'Water seen by satellite: no usable image',
   // map data (bundle) preparation (C10)
   notPrepared: "Fire-3d has not prepared this flood's map data yet (terrain and frozen copies of the water layers).",
   prepare: 'Prepare map data (about 1 min)',
@@ -446,7 +447,13 @@ export const FLOOD_PUBLIC = {
   legend: 'Legend',
   // the point card's flood-view block
   pointLayersTitle: 'Flood layers at this spot',
-  pointModelInCommand: 'The experimental model for this spot is in Command',
+  nearWarning: '{distance} from the NWS {event} area.',
+  satWaterPoint: "Water seen by satellite at this spot on the {date} pass (it includes the river's normal water).",
+  satNotWaterPoint: 'The {date} satellite pass saw no water at this spot; dry pixels do not mean no flooding.',
+  satNoViewPoint: 'No satellite view of this spot on the {date} pass (clouds or no data).',
+  satCheckingPoint: 'Water seen by satellite: image of {date} (checking this spot…)',
+  fimNotMappedPoint: 'NWS forecast flooded area: not mapped here. Outside NWS\'s mapped area, flooding is unknown, not absent.',
+  modelInCommand: 'The experimental model for this spot is in Command',
 } as const
 
 // ------------------------------------------------------------------------------------------------ the guard

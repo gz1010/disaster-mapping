@@ -19,6 +19,7 @@ import {
   orderAlerts,
   primaryMemberGauge,
   productsAt,
+  productsDrawn,
 } from './floodModel'
 
 const tf = timeFmt('America/Denver', '12h')
@@ -215,7 +216,7 @@ describe('evacuations in flood wording (D23, C5)', () => {
     const nm = floodEvacuation({ data: evacNm as unknown as EvacuationsResponse, loading: false, error: null }, tf, FIXTURE_NOW_MS)
     expect(nm.state).toBe('not-available')
     expect(nm.value).toBe('Not available in this state')
-    expect(nm.sub).toBe('Official evacuation zones are not available in this state (New Mexico). · follow local officials')
+    expect(nm.sub).toBe('New Mexico · follow local officials')
     expect(floodEvacuation({ data: null, loading: false, error: 'API 503' }, tf, FIXTURE_NOW_MS).value).toBe('Unavailable right now')
     expect(floodEvacuation({ data: null, loading: true, error: null }, tf, FIXTURE_NOW_MS).value).toBe('Checking…')
   })
@@ -225,5 +226,18 @@ describe('evacuations in flood wording (D23, C5)', () => {
       expect(floodWordingProblems(`${f.value} ${f.sub ?? ''}`)).toEqual([])
       expect(evacOwnWordsMentionFire(f)).toBe(false)
     }
+  })
+})
+
+describe('productsDrawn: upcoming products are drawn at now, never after now (C1)', () => {
+  const now = FIXTURE_NOW_MS
+  const mk = (id: string, start: number, end: number, phase: FloodAlert['phase']) => ({ id, onset_ms: start, effective_ms: start, sent_ms: start - H, ends_ms: end, expires_ms: end, phase })
+  const watch = mk('w', now + 2 * H, now + 30 * H, 'upcoming')
+  const warn = mk('a', now - 2 * H, now + 8 * H, 'in_effect')
+  it('now: in effect and upcoming', () => {
+    expect(productsDrawn([warn, watch], null, now).alerts.map((a) => a.id)).toEqual(['a', 'w'])
+  })
+  it('a cursor after now: the products in effect now only', () => {
+    expect(productsDrawn([warn, watch], now + 10 * H, now)).toEqual({ alerts: [warn], future: true })
   })
 })

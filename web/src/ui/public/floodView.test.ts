@@ -238,7 +238,8 @@ describe('facts per kind (PLAN-5 §4.4, C4, C6, C7, D5)', () => {
     expect(rows[2].sub).toMatch(/^Forecast crest 18\.0 ft, .+ \(NWS Example River Forecast Center \(synthetic\), issued .+\)\. Forecasts change; check NWS for the newest\.$/)
     expect(rows[4].label).toBe('Flood Warning (NWS)')
     expect(rows[4].value).toBe('In effect')
-    expect(rows[4].sub).toMatch(/until .+ · NWS Example Office \(synthetic\) · sent /)
+    expect(rows[4].sub).toMatch(/until .+ · NWS Example Office \(synthetic\)$/)
+    expect(rows[4].tip).toMatch(/^sent /)
     // no satellite or model figure, never a km² / mi² area
     expect(rowsText(input())).not.toMatch(/km²|mi²|NWM|model/i)
   })
@@ -335,8 +336,10 @@ describe('key (D8, C2, C16)', () => {
     expect(Number(/^(\d+) d ago$/.exec(items[0].age ?? '')?.[1])).toBeGreaterThanOrEqual(11)
   })
   it('picture only and unavailable', () => {
-    const pic = floodKeyItems({ satellite: SATELLITE_PICTURE_ONLY(), fim: null, nfhl: null, warnings: false, layers, tf, nowMs: FIXTURE_NOW_MS })
+    const pic = floodKeyItems({ satellite: SATELLITE_PICTURE_ONLY(), fim: null, nfhl: null, warnings: false, layers, tf, nowMs: FIXTURE_NOW_MS, pictureDrawn: true })
     expect(pic[0].key).toBe('picture')
+    // not drawn (the default): the key says there is no usable image, never names a picture it does not show
+    expect(floodKeyItems({ satellite: SATELLITE_PICTURE_ONLY(), fim: null, nfhl: null, warnings: false, layers, tf, nowMs: FIXTURE_NOW_MS })[0].key).toBe('satNone')
     expect(pic[0].text).toMatch(/^Satellite water: NASA picture, .+ \(not measured here\)$/)
     expect(floodKeyItems({ satellite: SATELLITE_UNAVAILABLE(), fim: null, nfhl: null, warnings: false, layers, tf, nowMs: FIXTURE_NOW_MS }).some((i) => i.key === 'satellite')).toBe(false)
   })

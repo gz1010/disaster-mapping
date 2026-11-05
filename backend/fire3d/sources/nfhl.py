@@ -30,7 +30,7 @@ from shapely.geometry import box, shape
 
 from .. import http as fhttp
 from .nws import SourceError
-from .water_maps import BBox, _km_area, _num, _props, _text, arcgis_query, envelope, esri_time_ms
+from .water_maps import BBox, Features, _km_area, _num, _props, _text, arcgis_query, envelope, esri_time_ms, safe_union
 
 log = logging.getLogger(__name__)
 
@@ -87,11 +87,13 @@ def parse_zone(f: Any) -> dict | None:
 
 
 def zones(bbox: BBox) -> tuple[list[dict], int]:
-    """The SFHA (with floodway) and 0.2 % band polygons in ``bbox`` (simplified to about 20 m)."""
+    """The SFHA (with floodway) and 0.2 % band polygons in ``bbox`` (simplified to about 20 m). The list's
+    ``truncated`` attribute is True when FEMA had more than Fire-3d pages through."""
     params = {**envelope(bbox), "where": ZONE_WHERE, "outFields": ZONE_FIELDS, "returnGeometry": "true",
               "outSR": "4326", "f": "geojson", "geometryPrecision": "5", "maxAllowableOffset": f"{SIMPLIFY_DEG:g}"}
     raw, fetched = _q(ZONES_LAYER, params)
-    feats = [z for z in (parse_zone(f) for f in raw) if z]
+    feats = Features(z for z in (parse_zone(f) for f in raw) if z)
+    feats.truncated = bool(getattr(raw, "truncated", False))
     for i, z in enumerate(feats):
         z["id"] = f"nfhl-{i}"
     return feats, fetched
@@ -112,7 +114,10 @@ def availability(bbox: BBox) -> tuple[str, int]:
             continue
     if not geoms:
         return "no_digital_map", fetched
-    covered = shapely.union_all(geoms).intersection(area)
+    u = safe_union(geoms)
+    if u is None:
+        return "unknown", fetched
+    covered = u.intersection(area)
     share = _km_area(covered) / max(_km_area(area), 1e-9)
     return ("mapped" if share >= MAPPED_MIN_SHARE else "unknown"), fetched
 
@@ -162,6 +167,8 @@ def nfhl(bbox: BBox) -> NfhlResult:
         notes.append("effective dates unknown")
     if feats and avail == "no_digital_map":
         avail = "unknown"             # zones but no availability polygon: do not claim either way
+    if getattr(feats, "truncated", False):
+        notes.append("truncated")
     return NfhlResult(feats, avail, eff_min, eff_max, fetched, notes)
 
 

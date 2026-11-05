@@ -10,6 +10,7 @@ import { floodEvacuation } from '../../official/floodModel'
 import { openFloodSummary, useFlood } from '../../state/flood'
 import { useTimeFormatFor } from '../../state/timeZone'
 import { useNow } from '../hooks'
+import '../../styles/view-flood-public.css'
 import { FLOOD_PUBLIC, NOT_ALL_CLEAR } from '../shell/floodCopy'
 
 export function FloodEvacRows({ variant = 'command' }: { variant?: 'command' | 'compact' }) {

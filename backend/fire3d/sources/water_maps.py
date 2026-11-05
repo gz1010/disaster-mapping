@@ -157,6 +157,12 @@ def query_params(bbox: BBox, *, where: str = "1=1", out_fields: str = "*", geome
 # ----------------------------------------------------------------------------------------------------------------
 # One paged ArcGIS GeoJSON query (also used by sources/nfhl.py)
 # ----------------------------------------------------------------------------------------------------------------
+class Features(list):
+    """A list of features that knows whether the service had more than Fire-3d paged through (``truncated``)."""
+
+    truncated: bool = False
+
+
 def arcgis_query(layer_url: str, params: dict[str, str], *, ttl_s: float, limiter: fhttp.RateLimiter, name: str,
                  down: fhttp.DownMemo, host: str, order_by: str = "oid", timeout: float = TIMEOUT_S,
                  retries: int = RETRIES, max_pages: int = MAX_PAGES, page_size: int = PAGE_SIZE) -> tuple[list[dict], int]:
@@ -164,7 +170,7 @@ def arcgis_query(layer_url: str, params: dict[str, str], *, ttl_s: float, limite
 
     ArcGIS answers errors with HTTP 200 and ``{"error": ...}`` (never cached by :mod:`fire3d.http`). A host that just
     failed is not asked again for 60 s (``down``). Raises SourceError / SourceBusy."""
-    feats: list[dict] = []
+    feats = Features()
     fetched: int | None = None
     offset = 0
     url = f"{layer_url}/query"
@@ -205,6 +211,7 @@ def arcgis_query(layer_url: str, params: dict[str, str], *, ttl_s: float, limite
             break
         offset += len(page)
     else:
+        feats.truncated = True
         log.warning("%s: more than %d pages for %s; the rest is left out", name, max_pages, fhttp.display_url(url))
     return feats, int(fetched if fetched is not None else time.time() * 1000)
 
@@ -335,6 +342,24 @@ def _scale(a, x0: float, y0: float, kx: float, ky: float):
     return out
 
 
+def safe_union(geoms: list[Any]) -> Any | None:
+    """Union of lon/lat polygons that survives GEOS topology errors in simplified service geometries (repair, then a
+    1e-6 deg precision grid); None when even that fails."""
+    from shapely.errors import GEOSException
+
+    if not geoms:
+        return None
+    try:
+        return shapely.union_all(geoms)
+    except GEOSException:
+        pass
+    try:
+        return shapely.union_all([shapely.make_valid(g) for g in geoms], grid_size=1e-6)
+    except GEOSException as e:
+        log.warning("union of %d polygons failed: %s", len(geoms), e)
+        return None
+
+
 def member_area_km2(features: Iterable[dict], member_fids: set[str]) -> float | None:
     """Union area (km²) of the RFC FIM polygons on member reaches; None when no polygon is on a member reach (the
     join failed or the reaches have no mapped polygon): never a crop of everything in the box (C6)."""
@@ -348,9 +373,10 @@ def member_area_km2(features: Iterable[dict], member_fids: set[str]) -> float | 
                 geoms.append(shape(f["geometry"]).buffer(0))
             except (ValueError, TypeError, AttributeError):
                 continue
-    if not geoms:
+    u = safe_union(geoms)
+    if u is None:
         return None
-    return round(_km_area(shapely.union_all(geoms)), 3)
+    return round(_km_area(u), 3)
 
 
 # ----------------------------------------------------------------------------------------------------------------

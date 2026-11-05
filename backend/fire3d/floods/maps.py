@@ -187,6 +187,8 @@ def nfhl_answer(summary: dict, *, now: int, at_ms: int | None = None, area: BBox
         caveats.append(fcopy.NFHL_NO_MAP)
     elif res.availability == "unknown":
         caveats.append(fcopy.NFHL_PARTLY_MAPPED)
+    if "truncated" in res.notes:
+        caveats.append(fcopy.NFHL_TRUNCATED)
     return {**_envelope(fid, now, fcopy.SOURCE_NFHL, at_ms=at_ms, retrieved=res.fetched_ms, updated=res.effective_max_ms,
                         caveats=caveats),
             **base, "features": res.collection(), "updated_ms": res.effective_max_ms, "availability": res.availability,

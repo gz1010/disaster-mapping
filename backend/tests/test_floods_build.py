@@ -125,6 +125,8 @@ def _routes(nfhl_down: bool = False) -> list:
         (noaa, r"rfc_based_5day_max_inundation_extent/MapServer/3/query$", MAPS / "rfc_fim_reaches.json"),
         (noaa, r"static_stage_based_catfim/MapServer/\d+/query$", MAPS / "catfim_AGYM7_moderate.json"),
         (noaa, r"ana_inundation_extent/MapServer/0/query$", MAPS / "nwm_analysis.json"),
+        (noaa, r"mrf_gfs_5day_max_inundation_extent/MapServer/0/query$", MAPS / "nwm_5day.json"),
+        (noaa, r"ana_high_flow_magnitude/MapServer/0/query$", MAPS / "nwm_high_flow.json"),
         ("hazards.fema.gov", r"/28/query$", fema_down if nfhl_down else NFHL / "zones.json"),
         ("hazards.fema.gov", r"/0/query$", fema_down if nfhl_down else NFHL / "availability.json"),
         ("hazards.fema.gov", r"/3/query$", fema_down if nfhl_down else NFHL / "panels.json"),

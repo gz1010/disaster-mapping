@@ -51,6 +51,7 @@ from fastapi.responses import Response
 from .. import bundle, config, regions
 from .. import http as fhttp
 from ..sources import evacuations as evac
+from ..floods import copy as fcopy
 from ..timeutil import DAY_MS, HOUR_MS, MAX_QUERY_MS, now_ms
 
 log = logging.getLogger(__name__)
@@ -586,14 +587,23 @@ def _caloes_inventory(ctx: AreaContext, caveats: list[str]) -> tuple[list[dict],
     return coverage, None
 
 
-def evacuations_payload(ctx: AreaContext) -> dict[str, Any]:
+FIRE_ONLY_FEEDS = {"or_oem_evacuations"}      # wildfire-only evacuation feeds (brief 5, D23): not used for floods
+
+
+def evacuations_payload(ctx: AreaContext, hazard: str = "fire") -> dict[str, Any]:
     """Official evacuation zones for the area from every state source it touches (CONTRACT §14.8.3).
 
     A California-only area answers exactly as in brief 2, plus the §14.8.2 keys. An area in no state with a source
-    answers ``state_not_available`` without any upstream request."""
+    answers ``state_not_available`` without any upstream request. ``hazard="flood"`` (brief 5, CONTRACT 16.7, D23):
+    a wildfire-only feed (Oregon OEM) is not asked; its state answers not-available with ``OR_EVAC_FIRE_ONLY`` (never
+    "none listed"); Cal OES zones keep their ``event_type`` verbatim. The default ``"fire"`` answer is unchanged."""
     states = regions.states_in_bbox(ctx.bbox)
     avail = [st for st in states if evac.STATE_AVAILABILITY[st]["availability"] == "available"]
-    uncovered = [st for st in states if st not in avail]
+    fire_only: list[str] = []
+    if hazard == "flood":
+        fire_only = [st for st in avail if set(evac.STATE_AVAILABILITY[st]["adapter_ids"]) <= FIRE_ONLY_FEEDS]
+        avail = [st for st in avail if st not in fire_only]
+    uncovered = [st for st in states if st not in avail and st not in fire_only]
     adapters = [evac.ADAPTERS[a] for st in avail for a in evac.STATE_AVAILABILITY[st]["adapter_ids"]]
     source_ids: list[str] = []
     for ad in adapters:
@@ -607,9 +617,12 @@ def evacuations_payload(ctx: AreaContext) -> dict[str, Any]:
                 "Local emergency officials. Fire-3d has no official evacuation zone source for this area.",
                 "zones": {"type": "FeatureCollection", "features": []}, "counts": {}, "coverage": [],
                 "states": evac.states_entries(states, {})})
+    if fire_only:
+        _flood_fire_only(out, fire_only)
     if not adapters:
         if states:
-            reason = evac.not_available_reason(uncovered)
+            reason = " ".join(r for r in ((fcopy.OR_EVAC_FIRE_ONLY if fire_only else ""),
+                                          (evac.not_available_reason(uncovered) if uncovered else "")) if r)
         else:
             reason = evac.outside_reason((ctx.bbox[0] + ctx.bbox[2]) / 2, (ctx.bbox[1] + ctx.bbox[3]) / 2)
         out.update(status="unavailable", reason_code="state_not_available", reason=reason)
@@ -659,6 +672,8 @@ def evacuations_payload(ctx: AreaContext) -> dict[str, Any]:
             zone_caveats.append(ad.none_caveat_named if len(adapters) > 1 or uncovered else ad.none_caveat)
     checked = {ad.home_state: ad.id in answered for ad in adapters}
     out["states"] = evac.states_entries(states, checked)
+    if fire_only:
+        _flood_fire_only(out, fire_only)
     if not answered:
         # every source in the area failed: never "none"
         if len(failures) == 1:
@@ -683,16 +698,34 @@ def evacuations_payload(ctx: AreaContext) -> dict[str, Any]:
         out["source_updated_ms"] = answered_entries[0]["updated_ms"]
     out["caveats"].extend(zone_caveats)
     out["caveats"].extend(evac.uncovered_state_caveat(st) for st in uncovered)
+    if fire_only:
+        out["caveats"].append(fcopy.OR_EVAC_FIRE_ONLY)
     return out
+
+
+def _flood_fire_only(out: dict[str, Any], fire_only: list[str]) -> None:
+    """``hazard=flood``: the states whose only feed is wildfire-only say so (``OR_EVAC_FIRE_ONLY``), unchecked, and
+    their feed is listed as not used, never as "none listed"."""
+    for e in out.get("states") or []:
+        if e["state"] in fire_only:
+            e.update(availability="not_available", checked=False, note=fcopy.OR_EVAC_FIRE_ONLY)
+    have = {x["id"] for x in out["sources"]}
+    for st in fire_only:
+        for sid in evac.STATE_AVAILABILITY[st]["adapter_ids"]:
+            if sid not in have:
+                out["sources"].append(_source_entry(sid, st, status="unavailable", reason=fcopy.OR_EVAC_FIRE_ONLY))
+                have.add(sid)
 
 
 @router.get("/api/extras/evacuations")
 def get_evacuations(bbox: str | None = None, incident: str | None = None, at_ms: int | None = Query(None, ge=0, le=MAX_QUERY_MS),
-                    margin_km: float = Query(DEFAULT_MARGIN_KM, ge=0, le=60)) -> Response:
-    """Official evacuation zones (current status only) intersecting ``bbox`` or the incident's area."""
+                    margin_km: float = Query(DEFAULT_MARGIN_KM, ge=0, le=60),
+                    hazard: str = Query("fire", pattern="^(fire|flood)$")) -> Response:
+    """Official evacuation zones (current status only) intersecting ``bbox`` or the incident's area. ``hazard=flood``
+    (brief 5): wildfire-only feeds answer not-available (``OR_EVAC_FIRE_ONLY``)."""
     ctx = area_context(bbox, incident, at_ms, margin_km)
     try:
-        return _json(evacuations_payload(ctx))
+        return _json(evacuations_payload(ctx) if hazard == "fire" else evacuations_payload(ctx, hazard))
     except SourceBusy as e:
         raise HTTPException(status_code=429, detail=str(e)) from None
 

@@ -31,9 +31,8 @@ import { useWorkspace } from '../../state/workspace'
 import { FireMenu } from '../public/FireMenu'
 import { FloodFacts } from '../public/FloodFacts'
 import { FloodHazardCircle } from '../public/FloodHazardCircle'
-import { FloodKey } from '../public/FloodKey'
+import { FloodKey, FloodLayerCredits, FloodSatStatus } from '../public/FloodKey'
 import { FloodDistanceChip, FloodTitle } from '../public/FloodTitle'
-import { FloodSatStatus } from '../public/FloodKey'
 import { useFactsFit } from '../public/useFactsFit'
 import { DEMO_TAG, FLOOD_LAST_KNOWN, FLOOD_OVERVIEW, FLOOD_PUBLIC, fillCopy, NOT_ALL_CLEAR } from './floodCopy'
 import { FixedCopy } from './FixedCopy'
@@ -191,7 +190,10 @@ export function PublicFloodChrome({ credits }: { credits: ReactNode }) {
             {/* both lines on every state of the view, phones included (BRIEF-5 standing rules) */}
             <FixedCopy variant="bar" extra={NOT_ALL_CLEAR} />
           </div>
-          {credits}
+          <div className="ffv-foot-credits">
+            <FloodLayerCredits />
+            {credits}
+          </div>
         </div>
       </div>
     </>

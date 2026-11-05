@@ -8,16 +8,41 @@
 // fx-flood-* only. The flood views' own layers (satellite water, NWS forecast flooded area, warning areas, channel,
 // floodplain, model) are web-flood-public's and web-flood-command's (map/floodProfile.ts says which view draws what).
 import type { FilterSpecification, GeoJSONSource, Map as MapLibreMap, PointLike } from 'maplibre-gl'
-import { getRiverGauges } from '../api/floods'
+import { apiPathUrl, getRiverGauges } from '../api/floods'
 import type { FloodSummary, RiverGauge } from '../api/types'
+import { useFloodOfficial } from '../official/floodHooks'
+import { memberGaugesOf, officialAlerts, productsDrawn } from '../official/floodModel'
 import { openFloodSummary, useFlood } from '../state/flood'
 import { getSlot } from '../state/floodCatalog'
 import { shownFloods } from '../state/floodOverview'
 import { clockFor } from '../state/timeZone'
 import { useWorkspace } from '../state/workspace'
+import { mapChromeOf } from '../ui/shell/views'
+import { gaugeCategoryRank } from '../state/floodOverview'
 import { fillCopy, FLOOD_OVERVIEW, GAUGE_CATEGORY_DISPLAY, NOT_ALL_CLEAR } from '../ui/shell/floodCopy'
 import { floodDisplayName, floodRowSub, gaugeLabel, gaugeReadingLine } from '../ui/public/floodOverviewText'
+import {
+  AREA_LAYER_KEY,
+  DRAW_SAT_PICTURE,
+  FIM_HATCH_IMAGE,
+  fimHatchImage,
+  FLOOD_AREA_GEOJSON,
+  FLOOD_AREA_LAYERS,
+  FLOOD_AREA_SOURCES,
+  floodAreaLayers,
+  imageCorners,
+  mapFeatures,
+  NFHL_STIPPLE_IMAGE,
+  nfhlFeatures,
+  nfhlStippleImage,
+  satelliteEdge,
+  satelliteImage,
+  satelliteTiles,
+  warningFeatures,
+} from './floodAreaLayers'
 import { useNationalGauges } from './floodGaugeStatus'
+import { floodLayerShown } from './floodProfile'
+import { VECTOR_SOURCE } from './basemapStyle'
 import {
   diamondImage,
   DIAMOND_IMAGE,
@@ -97,6 +122,22 @@ export function memberGauges(floods: readonly FloodSummary[]): GaugePoint[] {
   )
 }
 
+/** The open flood's gauges for its view: every member gauge (any status: below flood stage grey, "?" without flood
+ *  stages) and nearby gauges at action stage or above; from the gauges answer, else the summary's member gauges. */
+export function floodViewGauges(): GaugePoint[] {
+  const fl = useFlood.getState()
+  const s = openFloodSummary(fl)
+  if (!s) return []
+  const ans = useFloodOfficial.getState()
+  const resp = ans.floodId === s.id ? ans.gauges.data : null
+  if (resp && resp.status === 'available') {
+    const members = memberGaugesOf(resp).map(riverToPoint)
+    const nearby = resp.gauges.filter((g) => !g.member && gaugeCategoryRank(g.observed.category) >= 1).map(riverToPoint)
+    return [...members, ...nearby]
+  }
+  return memberGauges([s])
+}
+
 const riverToPoint = (g: RiverGauge): GaugePoint => ({
   lid: g.lid,
   name: g.name,
@@ -119,6 +160,10 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
   let shown: boolean | null = null
   let national: { at: number; gauges: GaugePoint[] } | null = null
   let nationalLoading = false
+  let areaKey = ''
+  let imageKey = ''
+  let tilesKey = ''
+  let areaShown = ''
   const before = () => (opts.topBeforeId ?? []).find((id) => map.getLayer(id))
   const markerIds = () => floodMarkerLayers('dark').map((l) => l.id)
   const gaugeIds = Object.values(FLOOD_GAUGE_LAYERS) as string[]
@@ -158,9 +203,11 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
       shown = on
       for (const id of markerIds()) if (has(id)) map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none')
     }
-    // gauges on the national map in Floods (a flood view draws its own)
-    const gaugesOn = ws.hazard === 'flood' && fl.floodId == null && fl.layers.gauges
+    // gauges on the national map in Floods, or the open flood's own gauges in its view
+    const view = fl.floodId != null
+    const gaugesOn = view ? fl.layers.gauges && floodLayerShown(viewChrome(), 'gauges', true) : ws.hazard === 'flood' && fl.layers.gauges
     for (const id of gaugeIds) if (has(id)) map.setLayoutProperty(id, 'visibility', gaugesOn ? 'visible' : 'none')
+    syncAreas()
     if (!on) return
     const floods = floodsShown()
     const hidden = fl.floodId != null ? [fl.floodId, ...(openFloodSummary(fl)?.aliases ?? [])] : []
@@ -171,7 +218,15 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
       const data = floodOverviewData(splitFloods(floods, hidden), ws.units)
       for (const g of FLOOD_GROUPS) setData(FLOOD_SOURCES[g], data[g])
     }
-    if (gaugesOn) {
+    if (gaugesOn && view) {
+      const g = useFloodOfficial.getState().gauges
+      const pts = floodViewGauges()
+      const gk = `view|${fl.floodId}|${g.data?.retrieved_ms ?? 0}|${pts.length}|${ws.units}`
+      if (gk !== gaugeKey) {
+        gaugeKey = gk
+        setData(FLOOD_GAUGE_SOURCE, gaugeFeatures(pts, ws.units, 0))
+      }
+    } else if (gaugesOn) {
       loadNational()
       const pts = national?.gauges.length ? national.gauges : memberGauges(floods)
       const gk = `${national?.at ?? 0}|${pts.length}|${ws.units}|${r?.updated_ms ?? 0}`
@@ -189,6 +244,77 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
         const fid = ids.get(id)
         if (fid && has(fid)) for (const [k, v] of Object.entries(props)) map.setPaintProperty(fid, k, v)
       }
+    }
+  }
+
+  /** The chrome the open flood is shown in (public-flood or command-flood). */
+  const viewChrome = () => mapChromeOf(useFlood.getState().floodId != null ? 'flood' : null, useWorkspace.getState().preset)
+
+  /** The basemap's first label layer: the area layers go below it (water under the place names). */
+  const firstLabel = () => (map.getStyle()?.layers ?? []).find((l) => l.type === 'symbol' && !l.id.startsWith('fx-'))?.id
+
+  /** The satellite image: an image source on its own bounds, replaced when the image changes (C2). */
+  const syncImage = (sat: ReturnType<typeof satelliteImage>) => {
+    const key = sat ? `${sat.url}|${sat.bounds.join(',')}` : ''
+    if (key === imageKey) return
+    imageKey = key
+    if (has(FLOOD_AREA_LAYERS.satellite)) map.removeLayer(FLOOD_AREA_LAYERS.satellite)
+    if (map.getSource(FLOOD_AREA_SOURCES.satellite)) map.removeSource(FLOOD_AREA_SOURCES.satellite)
+    if (!sat) return
+    map.addSource(FLOOD_AREA_SOURCES.satellite, { type: 'image', url: apiPathUrl(sat.url), coordinates: imageCorners(sat.bounds) })
+    const spec = floodAreaLayers().find((l) => l.id === FLOOD_AREA_LAYERS.satellite)!
+    // the lowest area layer: under the floodplain, the channel, the forecast area and the warning areas
+    const above = [FLOOD_AREA_LAYERS.floodplainFill, FLOOD_AREA_LAYERS.channelFill, FLOOD_AREA_LAYERS.forecastFill].find(has) ?? firstLabel()
+    map.addLayer(spec, above)
+    areaShown = ''
+  }
+
+  /** NASA's picture tiles (GIBS) when no measured image is shown; replaced when the date changes. */
+  const syncTiles = (t: ReturnType<typeof satelliteTiles>) => {
+    const key = t ? t.template : ''
+    if (key === tilesKey) return
+    tilesKey = key
+    if (has(FLOOD_AREA_LAYERS.satelliteTiles)) map.removeLayer(FLOOD_AREA_LAYERS.satelliteTiles)
+    if (map.getSource(FLOOD_AREA_SOURCES.satelliteTiles)) map.removeSource(FLOOD_AREA_SOURCES.satelliteTiles)
+    if (!t) return
+    map.addSource(FLOOD_AREA_SOURCES.satelliteTiles, { type: 'raster', tiles: [t.template], tileSize: 256, maxzoom: t.maxZoom })
+    const spec = floodAreaLayers().find((l) => l.id === FLOOD_AREA_LAYERS.satelliteTiles)!
+    const above = [FLOOD_AREA_LAYERS.floodplainFill, FLOOD_AREA_LAYERS.channelFill, FLOOD_AREA_LAYERS.forecastFill].find(has) ?? firstLabel()
+    map.addLayer(spec, above)
+    areaShown = ''
+  }
+
+  /** The open flood's area layers from its official answers (the products in effect at the handle's time, C1). */
+  const syncAreas = () => {
+    if (removed || !styled) return
+    const fl = useFlood.getState()
+    const off = useFloodOfficial.getState()
+    const s = openFloodSummary(fl)
+    const mine = s != null && off.floodId === s.id
+    const nowMs = Date.now()
+    const cursorBucket = fl.cursorMs == null ? 'now' : String(Math.round(fl.cursorMs / 600_000))
+    const key = mine
+      ? [s.id, off.alerts.data?.retrieved_ms, off.alerts.data?.alerts.length, off.fim.data?.retrieved_ms, off.nfhl.data?.retrieved_ms, cursorBucket, Math.round(nowMs / 60_000)].join('|')
+      : ''
+    if (key !== areaKey) {
+      areaKey = key
+      const alerts = mine ? productsDrawn(officialAlerts(off.alerts.data), fl.cursorMs, nowMs).alerts : []
+      setData(FLOOD_AREA_SOURCES.warnings, mine ? warningFeatures(alerts, off.alerts.data?.zones) : EMPTY_FC)
+      setData(FLOOD_AREA_SOURCES.forecast, mine ? mapFeatures(off.fim.data) : EMPTY_FC)
+      setData(FLOOD_AREA_SOURCES.floodplain, mine ? nfhlFeatures(off.nfhl.data) : EMPTY_FC)
+      setData(FLOOD_AREA_SOURCES.satelliteEdge, mine ? satelliteEdge(off.satellite.data) : EMPTY_FC)
+    }
+    syncImage(mine ? satelliteImage(off.satellite.data) : null)
+    syncTiles(mine && DRAW_SAT_PICTURE ? satelliteTiles(off.satellite.data) : null)
+    // visibility: a flood open, its view's profile and the Layers toggles
+    const chrome = viewChrome()
+    const shownKey = `${mine}|${chrome}|${JSON.stringify(fl.layers)}`
+    if (shownKey === areaShown) return
+    areaShown = shownKey
+    for (const [id, k] of Object.entries(AREA_LAYER_KEY)) {
+      if (!has(id)) continue
+      const on = mine && floodLayerShown(chrome, k, fl.layers[k])
+      map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none')
     }
   }
 
@@ -221,6 +347,27 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
     }
     for (const g of FLOOD_GROUPS) if (!map.getSource(FLOOD_SOURCES[g])) map.addSource(FLOOD_SOURCES[g], floodSourceOptions(g, width) as never)
     if (!map.getSource(FLOOD_GAUGE_SOURCE)) map.addSource(FLOOD_GAUGE_SOURCE, { type: 'geojson', data: EMPTY_FC as never })
+    // the flood views' area layers, below the basemap's labels (the image layer is added with its image)
+    if (!map.hasImage(FIM_HATCH_IMAGE)) {
+      const h = fimHatchImage()
+      map.addImage(FIM_HATCH_IMAGE, h.image, h.options)
+    }
+    if (!map.hasImage(NFHL_STIPPLE_IMAGE)) {
+      const h = nfhlStippleImage()
+      map.addImage(NFHL_STIPPLE_IMAGE, h.image, h.options)
+    }
+    for (const id of FLOOD_AREA_GEOJSON) if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: EMPTY_FC as never, tolerance: 0.3 })
+    const label = firstLabel()
+    const vector = Boolean(map.getSource(VECTOR_SOURCE))
+    for (const layer of floodAreaLayers()) {
+      if (layer.id === FLOOD_AREA_LAYERS.satellite || layer.id === FLOOD_AREA_LAYERS.satelliteTiles || has(layer.id)) continue
+      if ((layer as { source?: string }).source === VECTOR_SOURCE && !vector) continue
+      map.addLayer({ ...layer, layout: { ...(layer.layout ?? {}), visibility: 'none' } } as typeof layer, label)
+    }
+    imageKey = ''
+    tilesKey = ''
+    areaKey = ''
+    areaShown = ''
     const b = before()
     // gauges under the flood markers; both under map-core's top layers (the selected point, its label)
     for (const layer of gaugeLayers(theme)) if (!has(layer.id)) map.addLayer(layer, b)
@@ -337,10 +484,13 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
 
   const unsubs = [
     useFlood.subscribe((s, p) => {
-      if (s.lists !== p.lists || s.filter !== p.filter || s.showWatches !== p.showWatches || s.floodId !== p.floodId || s.layers !== p.layers || s.summary !== p.summary) sync()
+      if (s.lists !== p.lists || s.filter !== p.filter || s.showWatches !== p.showWatches || s.floodId !== p.floodId || s.layers !== p.layers || s.summary !== p.summary || s.cursorMs !== p.cursorMs) sync()
+    }),
+    useFloodOfficial.subscribe((s, p) => {
+      if (s.floodId !== p.floodId || s.alerts.data !== p.alerts.data || s.fim.data !== p.fim.data || s.nfhl.data !== p.nfhl.data || s.satellite.data !== p.satellite.data || s.gauges.data !== p.gauges.data) sync()
     }),
     useWorkspace.subscribe((s, p) => {
-      if (s.hazard !== p.hazard || s.units !== p.units) sync()
+      if (s.hazard !== p.hazard || s.units !== p.units || s.preset !== p.preset) sync()
     }),
     useMapRuntime.subscribe((s, p) => {
       if (s.leaderIds !== p.leaderIds) applyLabelFilters()
@@ -359,13 +509,14 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
       for (const u of unsubs) u()
       if (!styled) return
       try {
-        for (const id of [...markerIds(), ...gaugeIds]) if (has(id)) map.removeLayer(id)
+        for (const id of [...markerIds(), ...gaugeIds, ...Object.values(FLOOD_AREA_LAYERS)]) if (has(id)) map.removeLayer(id)
         for (const g of FLOOD_GROUPS) if (map.getSource(FLOOD_SOURCES[g])) map.removeSource(FLOOD_SOURCES[g])
         if (map.getSource(FLOOD_GAUGE_SOURCE)) map.removeSource(FLOOD_GAUGE_SOURCE)
+        for (const id of [...FLOOD_AREA_GEOJSON, FLOOD_AREA_SOURCES.satellite, FLOOD_AREA_SOURCES.satelliteTiles]) if (map.getSource(id)) map.removeSource(id)
       } catch {
         // the map is being removed with its style
       }
     },
-    layerIds: () => [...gaugeIds, ...markerIds()].filter(has),
+    layerIds: () => [...Object.values(FLOOD_AREA_LAYERS), ...gaugeIds, ...markerIds()].filter(has),
   }
 }

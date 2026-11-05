@@ -8,9 +8,13 @@
 // attribution ("Observations courtesy of U.S. Geological Survey"); the nearest floods say their distance is to each
 // flood's marker, not to the water's edge (review WFO-R6, WFO-R7). Words in ui/shell/floodCopy.ts.
 // Data: /api/official/flood-alerts?bbox=<the point> and /api/official/river-gauges?bbox=<the point ± 25 km> (cached per
-// URL, extras/jsonQuery.ts), the flood list. The flood views' own point check (inside / distance to each layer) is
-// web-flood-public's (location/floodCheck.ts).
-import { ArrowRight, Droplets, ExternalLink } from 'lucide-react'
+// URL, extras/jsonQuery.ts), the flood list.
+// Brief 5 web-flood-public (PLAN-5 §4.4 "Selected point", C1, C2): with a flood open, the card starts with what each of
+// the flood's layers says about the spot (location/floodCheck.ts checkPoint: inside or the distance to the NWS warning
+// area and the NWS forecast flooded area, the satellite's view of the spot: water, no water, clouds, no data or outside
+// the image; FEMA when its layer is on), each tagged with its kind; Public ends it with the link to the experimental
+// model in Command.
+import { ArrowRight, ChevronRight, Droplets, ExternalLink } from 'lucide-react'
 import { useMemo } from 'react'
 import { API_BASE } from '../api/client'
 import { floodAlertsQuery, riverGaugesQuery } from '../api/floods'
@@ -21,15 +25,21 @@ import { formatLatLon } from '../lib/geodesy'
 import { directionWord, distance } from '../lib/plainLanguage'
 import { fmtAt, timeFmt } from '../lib/time'
 import { useNow } from '../ui/hooks'
-import { pickFlood, useFlood } from '../state/flood'
+import { useShallow } from 'zustand/react/shallow'
+import { useFloodOfficial, useSatClassAt } from '../official/floodHooks'
+import { officialAlerts } from '../official/floodModel'
+import { openFloodSummary, pickFlood, useFlood } from '../state/flood'
+import { applyView } from '../ui/shell/views'
+import { checkPoint, type FloodCheckKind } from './floodCheck'
 import { getSlot } from '../state/floodCatalog'
-import { useClock } from '../state/timeZone'
+import { useClock, useTimeFormatFor } from '../state/timeZone'
 import { useWorkspace, type SelectedLocation } from '../state/workspace'
 import { floodDisplayName, floodHereLine, floodPointModel, floodRowSub, fmtStage, gaugeReadingLine, NEAR_GAUGE_KM } from '../ui/public/floodOverviewText'
-import { DEMO_TAG, FLOOD_OVERVIEW, GAUGE_CATEGORY_DISPLAY, NOT_ALL_CLEAR, fillCopy, PRODUCT_END } from '../ui/shell/floodCopy'
+import { DEMO_TAG, FLOOD_OVERVIEW, FLOOD_PUBLIC, GAUGE_CATEGORY_DISPLAY, NOT_ALL_CLEAR, fillCopy, PRODUCT_END } from '../ui/shell/floodCopy'
 import { CardFrame } from './CardParts'
 import './location.css'
 import '../styles/flood-overview.css'
+import '../styles/view-flood-public.css'
 
 const REFRESH_MS = 2 * 60_000
 
@@ -47,6 +57,58 @@ function usePointFloodAlerts(lat: number, lon: number, enabled = true) {
   return useCachedJsonQuery<FloodAlertsResponse>(enabled ? pointAlertsUrl(lat, lon) : null, { refreshMs: REFRESH_MS })
 }
 
+const KIND_TAG: Record<FloodCheckKind, string | null> = { official: 'NWS', forecast: 'NWS forecast · experimental', satellite: 'Satellite', background: 'FEMA', model: 'Model · experimental', note: null }
+
+/** A flood view: what each of the open flood's layers says about the spot (checkPoint), each line tagged. */
+function FloodViewBlock({ sel }: { sel: SelectedLocation }) {
+  const fl = useFlood(useShallow((s) => ({ summary: openFloodSummary(s), cursorMs: s.cursorMs, floodplain: s.layers.floodplain })))
+  const off = useFloodOfficial(useShallow((s) => ({ alerts: s.alerts, fim: s.fim, satellite: s.satellite, nfhl: s.nfhl })))
+  const units = useWorkspace((s) => s.units)
+  const publicView = useWorkspace((s) => s.preset === 'public')
+  const tf = useTimeFormatFor(fl.summary?.time_zone)
+  const nowMs = useNow(60_000)
+  const satClass = useSatClassAt(sel.lon, sel.lat)
+  const a = off.alerts
+  const alertsStatus = a.data ? a.data.status : a.loading ? 'loading' : a.error ? 'failed' : 'loading'
+  const c = checkPoint({
+    point: [sel.lon, sel.lat],
+    alerts: officialAlerts(a.data),
+    alertsStatus,
+    zones: a.data?.zones ?? null,
+    fim: off.fim.data,
+    satellite: off.satellite.data,
+    satClass,
+    nfhl: fl.floodplain ? off.nfhl.data : null,
+    model: null,
+    gauges: [],
+    rivers: fl.summary?.rivers ?? [],
+    cursorMs: fl.cursorMs,
+    nowMs,
+    tf,
+    units,
+  })
+  return (
+    <section className="fxo-card-block ffc-block" aria-label={FLOOD_PUBLIC.pointLayersTitle}>
+      <p className="loc-block-title">{FLOOD_PUBLIC.pointLayersTitle}</p>
+      <ul className="ffc-lines">
+        {c.lines.map((l) => (
+          <li key={l.key} className={`ffc-line is-${l.kind}${l.inside ? ' is-inside' : ''}${l.tone ? ` is-${l.tone}` : ''}`}>
+            {KIND_TAG[l.kind] && <span className={`ffc-tag is-${l.kind}`}>{KIND_TAG[l.kind]}</span>}
+            <span className="ffc-text">{l.text}</span>
+          </li>
+        ))}
+      </ul>
+      {publicView && (
+        <p className="loc-line-detail ffc-model">
+          <button type="button" className="mw-link-btn" onClick={() => applyView('command')}>
+            {FLOOD_PUBLIC.modelInCommand} <ChevronRight size={12} aria-hidden="true" />
+          </button>
+        </p>
+      )}
+    </section>
+  )
+}
+
 export function FloodPointCard({ sel }: { sel: SelectedLocation }) {
   const units = useWorkspace((s) => s.units)
   const command = useWorkspace((s) => s.preset === 'command')
@@ -55,6 +117,7 @@ export function FloodPointCard({ sel }: { sel: SelectedLocation }) {
   const alerts = usePointFloodAlerts(sel.lat, sel.lon)
   const gauges = useCachedJsonQuery<RiverGaugesResponse>(pointGaugesUrl(sel.lat, sel.lon), { refreshMs: 5 * 60_000 })
   const live = useFlood((s) => getSlot(s.lists, 'live').response)
+  const floodOpen = useFlood((s) => s.floodId != null)
   const m = useMemo(
     () =>
       floodPointModel({
@@ -71,6 +134,7 @@ export function FloodPointCard({ sel }: { sel: SelectedLocation }) {
   const loadingAlerts = alerts.data == null && alerts.loading
   return (
     <CardFrame sel={sel} title={title} titleIsCoords={!sel.label} type={sel.source === 'address' ? 'Address' : 'Selected point'} approximate={sel.approximate === true} command={command}>
+      {floodOpen && <FloodViewBlock sel={sel} />}
       <section className="fxo-card-block" aria-label="NWS flood products at this spot">
         <p className="loc-block-title">
           <span className="mw-tag is-official">Official</span> {FLOOD_OVERVIEW.pointProductsTitle}

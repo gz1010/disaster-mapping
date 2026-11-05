@@ -540,10 +540,16 @@ def merge_local(nws_alerts: list[dict], archive_alerts: list[dict]) -> tuple[lis
 
 
 def local_alerts_payload(incident: str | None, bbox: str | None, at_ms: int | None,
-                         margin_km: float = DEFAULT_MARGIN_KM) -> dict[str, Any]:
-    """``GET /api/official/local-alerts`` body (CONTRACT 14.7)."""
+                         margin_km: float = DEFAULT_MARGIN_KM, hazard: str = "fire") -> dict[str, Any]:
+    """``GET /api/official/local-alerts`` body (CONTRACT 14.7). ``hazard="flood"`` (brief 5, CONTRACT 16.7): the
+    local messages in scope for a flood (CEM / LAE that mention flooding, water, levees or dams;
+    ``nws.local_in_scope``), by ``bbox`` only, with flood wording; the default ``"fire"`` answer is unchanged."""
     if (incident is None) == (bbox is None):
         raise HTTPException(status_code=400, detail="give either incident or bbox, not both")
+    if hazard == "flood":
+        if incident is not None:
+            raise HTTPException(status_code=400, detail="hazard=flood takes bbox (the flood's area), not incident")
+        return _flood_local_alerts(bbox or "", at_ms)
     now = now_ms()
     out = _envelope("local_alerts", LOCAL_SOURCE, incident, at_ms, now)
     out.update(alerts=[], channels=[], area_bbox=None, reported_location=None, counties=[])
@@ -629,6 +635,69 @@ def local_alerts_payload(incident: str | None, bbox: str | None, at_ms: int | No
     return out
 
 
+def _flood_local_alerts(bbox: str, at_ms: int | None) -> dict[str, Any]:
+    """``hazard=flood`` local alerts for an area (brief 5): NWS's relayed local messages in flood scope
+    (``NationalAnswer.local_flood``) now, NWS's 7-day memory for a past time; FEMA's archive is not checked for floods.
+    Never "available" with an empty list outside the lower 48 or while NWS cannot be read."""
+    from ..floods import copy as fcopy
+
+    now = now_ms()
+    out = _envelope("local_alerts", LOCAL_SOURCE, None, at_ms, now)
+    out.update(alerts=[], channels=[], area_bbox=None, reported_location=None, counties=[])
+    area = parse_bbox_param(bbox)
+    out["area_bbox"] = list(area)
+    at = int(at_ms) if at_ms is not None else now
+    archive = _channel("openfema_archive", "not_checked", fcopy.LOCAL_FLOOD_ARCHIVE_REASON)
+    states = nws.states_in_area(area)
+    if not states:
+        from ..sources import evacuations as evac
+
+        cx, cy = (area[0] + area[2]) / 2, (area[1] + area[3]) / 2
+        out.update(status="unavailable", reason_code="state_not_available",
+                   reason=f"{LOWER48_ONLY_REASON} {evac.outside_reason(cx, cy)}",
+                   channels=[_channel("nws_api", "not_checked", LOWER48_ONLY_REASON), archive],
+                   caveats=[fcopy.LOCAL_FLOOD_CAVEAT])
+        return out
+    counties, _ = _counties(area, None)
+    out["counties"] = counties
+    fips = [c["fips"] for c in counties]
+    dropped = 0
+    alerts: list[dict] = []
+    age = now - at
+    try:
+        if age <= nws.LIVE_WINDOW_MS:
+            ans = nws.national_active()
+            checked = [st for st in states if st in ans.states]
+            alerts = nws.place_local(nws.local_in_states(ans.local_flood, checked), area, None, fips, at)
+            nws_ch = _channel("nws_api", "available", None, ans.fetched_ms, ans.updated_ms)
+        elif age <= nws.NWS_KEEPS_MS:
+            local, fetched, d = nws.past_local(states, at, now=now, hazard="flood")
+            alerts = nws.place_local(local, area, None, fips, at)
+            dropped += d
+            nws_ch = _channel("nws_api", "available", None, fetched, None)
+        else:
+            nws_ch = _channel("nws_api", "not_checked", NWS_KEEPS_REASON)
+    except nws.SourceBusy as e:
+        raise HTTPException(status_code=429, detail=str(e)) from None
+    except nws.SourceError as e:
+        nws_ch = _channel("nws_api", "unavailable", f"{e}. {fcopy.LOCAL_FLOOD_NWS_DOWN}")
+    kept, no_link = merge_local(alerts, [])
+    dropped += no_link
+    out.update(alerts=kept, channels=[nws_ch, archive])
+    if nws_ch["status"] == "unavailable":
+        out.update(status="unavailable", reason_code="upstream_error", reason=nws_ch["reason"])
+    elif nws_ch["status"] == "not_checked":
+        out.update(status="not_available_for_past_dates", reason_code="past_date",
+                   reason="Local officials' alerts are not checked for this time: " + NWS_KEEPS_REASON)
+    out["retrieved_ms"] = nws_ch["retrieved_ms"] if nws_ch["status"] == "available" else None
+    out["source_updated_ms"] = nws_ch["source_updated_ms"]
+    caveats = [fcopy.LOCAL_FLOOD_CAVEAT]
+    if dropped:
+        caveats.append(f"{dropped} alert(s) without a source link were not shown.")
+    out["caveats"] = caveats
+    return out
+
+
 # ----------------------------------------------------------------------------------------------------------------
 # Routes
 # ----------------------------------------------------------------------------------------------------------------
@@ -642,10 +711,11 @@ def get_calfire(incident: str = Query(..., min_length=1, max_length=160)) -> Res
 def get_local_alerts(incident: str | None = Query(None, min_length=1, max_length=160),
                      bbox: str | None = Query(None, min_length=1, max_length=120),
                      at_ms: int | None = Query(None, ge=0, le=MAX_QUERY_MS),
-                     margin_km: float = Query(DEFAULT_MARGIN_KM, ge=0, le=60)) -> Response:
+                     margin_km: float = Query(DEFAULT_MARGIN_KM, ge=0, le=60),
+                     hazard: str = Query("fire", pattern="^(fire|flood)$")) -> Response:
     """Local officials' messages relayed by NWS near the incident (or in ``bbox``), with FEMA's archive for past
-    days (CONTRACT 14.7)."""
-    return _json(local_alerts_payload(incident, bbox, at_ms, margin_km))
+    days (CONTRACT 14.7). ``hazard=flood`` (brief 5): flood scope and wording, ``bbox`` only."""
+    return _json(local_alerts_payload(incident, bbox, at_ms, margin_km, hazard))
 
 
 @router.get("/api/official/fire-weather")

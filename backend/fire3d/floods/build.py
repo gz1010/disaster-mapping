@@ -141,6 +141,36 @@ def rasterize(features: list[dict], grid: Grid, value: Callable[[dict], int] | i
 # ----------------------------------------------------------------------------------------------------------------
 # Build
 # ----------------------------------------------------------------------------------------------------------------
+def compact_fc(fc: dict, grid: Grid) -> dict:
+    """A FeatureCollection for the bundle's vector copies: polygons smaller than one render cell are left out (the 3D
+    view cannot show them; the rasters are made from the full answer), geometries are simplified to about 3/4 of a
+    cell and coordinates rounded to 4 decimals (about 11 m, finer than the 59 m cells of a 60 km area), so the bundle
+    stays under 20 MB. The 2D routes keep serving the full answers."""
+    from shapely.geometry import mapping
+
+    tol = 0.75 * grid.res_m / 111_320.0
+    lat = math.radians(float(grid.bbox_lonlat()[1] + grid.bbox_lonlat()[3]) / 2)
+    cell_deg2 = (grid.res_m / (111_320.0 * max(0.2, math.cos(lat)))) * (grid.res_m / 110_570.0)
+    out = []
+    for f in fc.get("features") or []:
+        g = f.get("geometry")
+        if not g:
+            continue
+        try:
+            geom = shape(g)
+            poly = g.get("type") in ("Polygon", "MultiPolygon")
+            if poly and geom.area < cell_deg2:
+                continue
+            geom = shapely.transform(geom.simplify(tol, preserve_topology=poly), lambda a: np.round(a, 4))
+        except Exception:  # noqa: BLE001 - a geometry GEOS cannot simplify is kept as sent
+            out.append(f)
+            continue
+        if geom.is_empty:
+            continue
+        out.append({**f, "geometry": mapping(geom)})
+    return {"type": "FeatureCollection", "features": out}
+
+
 def _status(status: str, reason: str | None, source: str, time_ms: int | None) -> dict:
     return {"status": status, "reason": reason, "source": source, "time_ms": time_ms}
 
@@ -256,7 +286,7 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
         prog.report("maps", 0.0, "NWS forecast flooded area, FEMA floodplain, model")
         fim = _result(f_fim, "RFC FIM")
         if fim and fim["status"] == "available":
-            bundle.write_json(stage / "maps" / "rfc_fim.geojson", fim["features"])
+            bundle.write_json(stage / "maps" / "rfc_fim.geojson", compact_fc(fim["features"], grid))
             files["maps"]["rfc_fim"] = "maps/rfc_fim.geojson"
             layers["water_forecast"] = bundle.write_layer(
                 stage, "water_forecast", rasterize(fim["features"]["features"], grid), "render", None,
@@ -272,7 +302,7 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
         prog.report("maps", 0.35, "Forecast flooded area")
         nf = _result(f_nfhl, "NFHL")
         if nf and nf["status"] == "available":
-            bundle.write_json(stage / "maps" / "nfhl.geojson", nf["features"])
+            bundle.write_json(stage / "maps" / "nfhl.geojson", compact_fc(nf["features"], grid))
             files["maps"]["nfhl"] = "maps/nfhl.geojson"
             fp = rasterize([f for f in nf["features"]["features"]], grid, _nfhl_code)
             layers["floodplain"] = bundle.write_layer(
@@ -291,11 +321,11 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
             cf = _result(f_cat, "CatFIM")
             if cf and cf["status"] == "available" and cf["features"]["features"]:
                 name = f"catfim_{lid}_{cf['category'] or cat}"
-                bundle.write_json(stage / "maps" / f"{name}.geojson", cf["features"])
+                bundle.write_json(stage / "maps" / f"{name}.geojson", compact_fc(cf["features"], grid))
                 files["maps"][name] = f"maps/{name}.geojson"
         nwm = _result(f_nwm, "NWM")
         if nwm and nwm["status"] == "available":
-            bundle.write_json(stage / "model" / "nwm_analysis.geojson", nwm["features"])
+            bundle.write_json(stage / "model" / "nwm_analysis.geojson", compact_fc(nwm["features"], grid))
             files["model"]["nwm_analysis"] = "model/nwm_analysis.geojson"
             layers["water_model"] = bundle.write_layer(
                 stage, "water_model", rasterize(nwm["features"]["features"], grid), "render", None,

@@ -152,3 +152,49 @@ def test_build_route_outside_lower48_is_409(recorded_client, monkeypatch):
 
 
 _ = (gzip, httpx)
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Zone-based products: at most 20 zone outlines, then whole counties (ZONES_AS_COUNTIES)
+# ---------------------------------------------------------------------------------------------------------------
+def test_zone_outlines_capped_then_counties(monkeypatch, flood_iso):
+    import orjson
+
+    from fire3d.floods import zones
+    from fire3d.sources import nws
+
+    counties = [f"{n:03d}" for n in range(1, 50, 2)]                        # 25 Missouri counties
+    feature = {"type": "Feature", "geometry": None, "properties": {
+        "id": "urn:oid:test.watch.1", "@id": "https://api.weather.gov/alerts/urn:oid:test.watch.1", "event": "Flood Watch",
+        "status": "Actual", "messageType": "Alert", "sent": "2026-11-04T20:00:00Z", "effective": "2026-11-04T20:00:00Z",
+        "onset": "2026-11-04T20:00:00Z", "expires": "2026-11-06T06:00:00Z", "ends": "2026-11-06T06:00:00Z",
+        "senderName": "NWS Kansas City/Pleasant Hill MO", "headline": "Flood Watch issued", "description": "Flooding is possible.",
+        "instruction": None, "areaDesc": "Many counties", "affectedZones": [f"https://api.weather.gov/zones/county/MOC{c}" for c in counties],
+        "geocode": {"UGC": [f"MOC{c}" for c in counties], "SAME": [f"029{c}" for c in counties]},
+        "parameters": {"VTEC": ["/O.NEW.KEAX.FA.A.0005.261104T2000Z-261106T0600Z/"], "AWIPSidentifier": ["FFAEAX"]}}}
+    calls: list[httpx.Request] = []
+
+    def zone(req):
+        ugc = req.url.path.rsplit("/", 1)[-1]
+        from fire3d.floods import catalog as cat
+
+        g = cat.county_geoms()["29" + ugc[3:]]
+        from shapely.geometry import mapping
+
+        return httpx.Response(200, json={"type": "Feature", "geometry": mapping(g.envelope),
+                                         "properties": {"name": f"Zone {ugc}"}})
+
+    body = orjson.dumps({"type": "FeatureCollection", "features": [feature], "updated": "2026-11-04T21:00:00Z"})
+    monkeypatch.setattr(fhttp, "_transport", route_transport(
+        [("api.weather.gov", r"^/alerts/active$", httpx.Response(200, content=body)),
+         ("api.weather.gov", r"^/zones/county/", zone)], calls))
+    monkeypatch.setattr(catalog, "flood_list", lambda refresh=False: {"floods": []})
+    now = 1793833200000
+    nws.reset_state()
+    ans = zones.bbox_alerts((-95.0, 36.0, -89.0, 41.0), now=now)
+    C.validate_strict(C.FloodAlertsResponse, ans)
+    assert [a["id"] for a in ans["alerts"]] == ["urn:oid:test.watch.1"] and ans["alerts"][0]["geometry"] is None
+    zone_calls = [c for c in calls if c.url.path.startswith("/zones/")]
+    assert len(zone_calls) == zones.ZONE_FETCH_MAX
+    assert len(ans["zones"]["features"]) == 25 and fcopy.ZONES_AS_COUNTIES in ans["caveats"]
+    assert all(f["properties"]["alert_ids"] == ["urn:oid:test.watch.1"] for f in ans["zones"]["features"])

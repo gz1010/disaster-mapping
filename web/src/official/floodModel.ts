@@ -45,6 +45,11 @@ export function answerState(a: Answer<{ status: string }> | null | undefined): A
   return a.error ? 'unavailable' : 'none'
 }
 
+/** answerState for an official answer: model output in its place is never official (it reads as unavailable). */
+export function officialState(a: Answer<{ status: string }> | null | undefined): AnswerState {
+  return a && isModelOutput(a.data) ? 'unavailable' : answerState(a)
+}
+
 /** The answer's reason (the backend's own words) when it is not available. */
 export function answerReason(a: Answer<{ status: string; reason?: string | null }> | null | undefined): string | null {
   if (!a) return null
@@ -99,6 +104,20 @@ export function productsAt<T extends Pick<FloodAlert, 'onset_ms' | 'effective_ms
   const now = cursorMs == null || !Number.isFinite(cursorMs) || cursorMs >= nowMs
   const t = now ? nowMs : cursorMs
   return { alerts: alerts.filter((a) => inEffectAt(a, t, now)), future }
+}
+
+/** The products a flood view draws: productsAt, and while the handle is at now (null) also the products NWS has issued
+ *  that are still to start (their rows say "Starting soon"; a watch-only flood is often one). After now: productsAt's
+ *  rule only (C1). */
+export function productsDrawn<T extends Pick<FloodAlert, 'onset_ms' | 'effective_ms' | 'sent_ms' | 'ends_ms' | 'expires_ms' | 'phase'>>(
+  alerts: readonly T[],
+  cursorMs: number | null,
+  nowMs: number,
+): { alerts: T[]; future: boolean } {
+  const r = productsAt(alerts, cursorMs, nowMs)
+  if (cursorMs != null) return r
+  const upcoming = alerts.filter((a) => a.phase === 'upcoming' && !r.alerts.includes(a) && endOf(a) > nowMs)
+  return { alerts: [...r.alerts, ...upcoming], future: r.future }
 }
 
 /** The phase word of a product: "In effect", "Starting soon", or, for a past view, "Was in effect" (brief-4 rule). */
@@ -260,11 +279,12 @@ export function floodEvacuation(q: Answer<EvacuationsResponse> | null | undefine
   if (d.status !== 'available') {
     const notHere = d.reason_code === 'state_not_available'
     const firstLink = (d.states ?? []).flatMap((s) => s.links)[0]
-    const reason = orNote ?? stripFollow(d.reason)
+    const value = notHere ? 'Not available in this state' : FLOOD_PUBLIC.unavailable
+    const reason = orNote ?? restAfter(stripFollow(d.reason), value)
     return {
       ...base,
       state: notHere ? 'not-available' : 'unavailable',
-      value: notHere ? 'Not available in this state' : FLOOD_PUBLIC.unavailable,
+      value,
       sub: [reason, 'follow local officials'].filter(Boolean).join(' · ') || null,
       link: firstLink && httpsUrl(firstLink.url) ? { url: firstLink.url, label: firstLink.label } : null,
       who,
@@ -312,6 +332,21 @@ function zoneStatus(z: EvacZoneFeature): string {
 }
 
 const stripFollow = (s: string | null | undefined): string | null => (s ? s.replace(/\s*Follow local officials\.?\s*$/i, '').trim() || null : null)
+
+/** The backend's reason less what the value already says ("Official evacuation zones are not available in this state
+ *  (New Mexico)." under "Not available in this state" → "New Mexico"). */
+function restAfter(reason: string | null, value: string): string | null {
+  if (!reason) return null
+  const at = reason.toLowerCase().indexOf(value.toLowerCase())
+  if (at < 0) return reason
+  const rest = reason
+    .slice(at + value.length)
+    .replace(/^\s*\(([^)]*)\)\s*\.?\s*/, '$1 ')
+    .replace(/^[\s:;,.·—–-]+/, '')
+    .replace(/[\s.]+$/, '')
+    .trim()
+  return rest || null
+}
 
 /** Fire-3d's own words in an evacuation fact never name a fire (the issuer's verbatim words may; C5 guard). */
 export function evacOwnWordsMentionFire(f: Pick<FloodEvacFact, 'value' | 'verbatim' | 'sub'>): boolean {

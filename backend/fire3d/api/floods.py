@@ -18,7 +18,10 @@ from __future__ import annotations
 
 import gzip
 import logging
+import math
+import re
 import time
+from pathlib import Path
 from typing import Any
 
 import orjson
@@ -29,6 +32,11 @@ from ..contracts import dump
 from ..floods import build as flood_build
 from ..floods import catalog, store
 from ..floods import copy as fcopy
+from ..floods import gauges as flood_gauges
+from ..floods import maps as flood_maps
+from ..floods import satellite as flood_satellite
+from ..floods import zones as flood_zones
+from ..sources.nws import SourceBusy
 from . import jobs as jobs_mod
 
 log = logging.getLogger(__name__)
@@ -169,3 +177,248 @@ def flood_file(flood_id: str, path: str, request: Request) -> Response:
         body = gzip.compress(body, compresslevel=6, mtime=0)
     return Response(body, media_type=ctype, headers=headers)
 
+
+
+# ----------------------------------------------------------------------------------------------------------------
+# Per-flood maps, model and satellite; official flood alerts and river gauges (backend-flood-bundle-api M3)
+# ----------------------------------------------------------------------------------------------------------------
+_FICTIONAL_LID = re.compile(r"^ZZ[A-Z0-9]{3}$")          # the fixture's gauges (fictional ids; never a real NWSLI)
+_LID = re.compile(r"^[A-Za-z0-9]{5}$")
+
+
+class _Answer(Exception):
+    """An HTTP error answer from a helper."""
+
+    def __init__(self, status: int, detail: str):
+        super().__init__(detail)
+        self.status, self.detail = status, detail
+
+
+def _now() -> int:
+    return int(time.time() * 1000)
+
+
+def _synthetic(flood_id: str) -> Path | None:
+    """The bundle folder of a synthetic flood (``fixture-flood``), else None."""
+    m = store.load_flood_manifest(flood_id)
+    if m is not None and (m.get("summary") or {}).get("synthetic"):
+        return store.flood_dir(flood_id)
+    return None
+
+
+def _load(path: Path) -> Any | None:
+    try:
+        return orjson.loads(path.read_bytes()) if path.is_file() else None
+    except (OSError, orjson.JSONDecodeError):
+        return None
+
+
+def _frozen(bdir: Path, *names: str) -> Any:
+    """The first of the synthetic bundle's canned answers (``api/<name>``) or frozen files (``<name>``) that exists."""
+    for n in names:
+        obj = _load(bdir / "api" / n)
+        if obj is None:
+            obj = _load(bdir / n)
+        if obj is not None:
+            return obj
+    raise _Answer(404, "not found")
+
+
+def _summary(flood_id: str) -> dict:
+    """The flood's summary by the rule-13 chain; 404 / 503 as ``GET /api/floods/{id}``."""
+    if not store.valid_id(flood_id):
+        raise _Answer(404, fcopy.FLOOD_ROUTE_NOT_LISTED)
+    try:
+        return catalog.resolve(flood_id)[0]
+    except catalog.FloodNotFound:
+        raise _Answer(404, fcopy.FLOOD_ROUTE_NOT_LISTED) from None
+    except catalog.ListsUnavailable:
+        raise _Answer(503, fcopy.FLOOD_LISTS_503) from None
+
+
+def _area(summary: dict) -> tuple[float, float, float, float]:
+    """The flood's map area: its bundle's grid when one is ready (the maps match the 3D view), else the same square."""
+    m = store.load_flood_manifest(summary["id"])
+    bb = ((m or {}).get("grid") or {}).get("bbox_lonlat") if (m or {}).get("status") == "ready" else None
+    if isinstance(bb, list) and len(bb) == 4:
+        return tuple(round(float(v), 5) for v in bb)  # type: ignore[return-value]
+    return flood_maps.flood_area(summary).bbox
+
+
+def _answer(fn) -> Response:
+    try:
+        return fn()
+    except _Answer as e:
+        return _error(e.status, e.detail)
+    except SourceBusy as e:
+        return _error(429, str(e))
+
+
+@router.get("/api/floods/{flood_id}/maps")
+def get_flood_map(request: Request, flood_id: str, kind: str = Query(..., pattern="^(rfc_fim|catfim|nfhl)$"),
+                  lid: str | None = Query(None, pattern=r"^[A-Za-z0-9]{5}$"),
+                  category: str | None = Query(None, pattern="^(action|minor|moderate|major|record)$"),
+                  at_ms: int | None = Query(None, ge=0)) -> Response:
+    """``FloodMapResponse``: the NWS forecast flooded area (5 days, experimental; ``stats`` from member reaches only),
+    NWS category flood maps (experimental library; one gauge and category), or FEMA's 1 % floodplain (background)."""
+    def run() -> Response:
+        bdir = _synthetic(flood_id)
+        if bdir is not None:
+            names = [f"maps-catfim-{lid.upper()}-{category}.json"] if (kind == "catfim" and lid and category) else []
+            return _json(_frozen(bdir, *names, f"maps-{kind}.json"), request)
+        s = _summary(flood_id)
+        return _json(flood_maps.map_answer(kind, s, now=_now(), lid=lid, category=category, at_ms=at_ms,
+                                           area=None if kind == "catfim" else _area(s)), request)
+    return _answer(run)
+
+
+@router.get("/api/floods/{flood_id}/model")
+def get_flood_model(request: Request, flood_id: str,
+                    kind: str = Query(..., pattern="^(nwm_analysis|nwm_5day|nwm_high_flow|nwm_series)$"),
+                    lid: str | None = Query(None, pattern=r"^[A-Za-z0-9]{5}$"),
+                    at_ms: int | None = Query(None, ge=0)) -> Response:
+    """``ModelOutputResponse`` (National Water Model: experimental model output, never official, ``MODEL_CAVEAT``)."""
+    def run() -> Response:
+        bdir = _synthetic(flood_id)
+        if bdir is not None:
+            if kind == "nwm_series":
+                pg = ((store.load_flood_manifest(flood_id) or {}).get("summary") or {}).get("primary_gauge") or {}
+                want = (lid or pg.get("lid") or "").upper()
+                return _json(_frozen(bdir, f"model-nwm_series-{want}.json"), request)
+            return _json(_frozen(bdir, f"model-{kind}.json"), request)
+        s = _summary(flood_id)
+        return _json(flood_maps.model_answer(kind, s, now=_now(), lid=lid, at_ms=at_ms,
+                                             area=None if kind == "nwm_series" else _area(s)), request)
+    return _answer(run)
+
+
+@router.get("/api/floods/{flood_id}/satellite")
+def get_flood_satellite(request: Request, flood_id: str, at_ms: int | None = Query(None, ge=0)) -> Response:
+    """``SatelliteWaterResponse`` (water seen by satellite, NASA OPERA; ``login`` never carries the token). When NASA
+    cannot be reached, a ready bundle's frozen answer (absolute times) is served."""
+    def run() -> Response:
+        bdir = _synthetic(flood_id)
+        if bdir is not None:
+            return _json(_frozen(bdir, "satellite.json"), request)
+        s = _summary(flood_id)
+        res = flood_satellite.cached_answer(s["id"], _area(s), now=_now(), time_zone=s.get("time_zone") or "UTC",
+                                            at_ms=at_ms)
+        if res.answer["status"] != "available" or not res.answer["measured"]:
+            m = store.load_flood_manifest(s["id"])
+            frozen = _load(store.flood_dir(s["id"]) / "satellite.json") if (m or {}).get("status") == "ready" else None
+            if frozen is not None and frozen.get("measured") and at_ms is None:
+                return _json({**frozen, "login": res.answer["login"], "login_note": res.answer["login_note"],
+                              "now_ms": _now()}, request)
+        return _json(res.answer, request)
+    return _answer(run)
+
+
+@router.get("/api/floods/{flood_id}/satellite.png")
+def get_flood_satellite_png(flood_id: str, granule: str | None = Query(None, max_length=200)) -> Response:
+    """The satellite water PNG of ``image.url`` (lon/lat bounds in the JSON); clouds and no data hatched, outside the
+    image transparent. 404 when it is no longer kept."""
+    def run() -> Response:
+        if not store.valid_id(flood_id):
+            raise _Answer(404, "not found")
+        key = re.sub(r"[^A-Za-z0-9_.-]", "", granule or "")
+        cands = []
+        if key:
+            cands.append(flood_satellite.png_dir(flood_id) / f"{key}.png")
+        frozen = _load(store.flood_dir(flood_id) / "satellite.json")
+        if frozen is not None:
+            url = ((frozen.get("image") or {}).get("url") or "")
+            ids = {g.get("id") for g in frozen.get("granules") or []}
+            if not key or key in url or key in ids:
+                cands.append(store.flood_dir(flood_id) / "satellite.png")
+        for p in cands:
+            if p.is_file():
+                return Response(p.read_bytes(), media_type="image/png",
+                                headers={"Cache-Control": "public, max-age=86400" if key else "no-cache"})
+        if key and _synthetic(flood_id) is None:
+            s = _summary(flood_id)
+            res = flood_satellite.cached_answer(s["id"], _area(s), now=_now(), time_zone=s.get("time_zone") or "UTC")
+            if res.key == key and res.png is not None:
+                return Response(res.png, media_type="image/png", headers={"Cache-Control": "public, max-age=86400"})
+        raise _Answer(404, fcopy.SATELLITE_IMAGE_GONE)
+    return _answer(run)
+
+
+def _bbox(text: str) -> tuple[float, float, float, float]:
+    """"w,s,e,n" (a point when w == e and s == n); 422 when malformed or larger than 4 degrees."""
+    try:
+        w, s, e, n = (float(v) for v in text.split(","))
+    except ValueError:
+        raise _Answer(422, "bbox must be four numbers: w,s,e,n") from None
+    if not all(math.isfinite(v) for v in (w, s, e, n)) or not (-180 <= w <= e <= 180 and -85 <= s <= n <= 85):
+        raise _Answer(422, "bbox must satisfy -180 <= w <= e <= 180 and -85 <= s <= n <= 85")
+    if e - w > 4.0 or n - s > 4.0:
+        raise _Answer(422, "bbox spans more than 4 degrees")
+    return (w, s, e, n)
+
+
+@router.get("/api/official/flood-alerts")
+def get_flood_alerts(request: Request, flood: str | None = Query(None, max_length=120),
+                     bbox: str | None = Query(None, max_length=120), at_ms: int | None = Query(None, ge=0)) -> Response:
+    """``FloodAlertsResponse``: NWS flood products verbatim (issuer, own times, link); for a flood its own products and
+    attached watches, for an area (or a point) every product touching it, watches included. 422 without a scope."""
+    def run() -> Response:
+        now = _now()
+        if flood:
+            bdir = _synthetic(flood)
+            if bdir is not None:
+                return _json(_frozen(bdir, "flood-alerts.json", "warnings.json"), request)
+            return _json(flood_zones.flood_alerts(_summary(flood), now=now, at_ms=at_ms), request)
+        if bbox:
+            return _json(flood_zones.bbox_alerts(_bbox(bbox), now=now, at_ms=at_ms), request)
+        raise _Answer(422, "flood-alerts needs flood= or bbox=")
+    return _answer(run)
+
+
+def _fictional_gauge(lid: str, series: bool) -> dict | None:
+    for m in store.list_flood_bundles():
+        if (m.get("summary") or {}).get("synthetic"):
+            obj = _load(store.flood_dir(m["id"]) / "api" / f"river-gauges-{lid}.json")
+            if obj is not None:
+                return obj if series else {**obj, "gauges": [{k: v for k, v in g.items() if k != "series"}
+                                                             for g in obj["gauges"]]}
+    return None
+
+
+@router.get("/api/official/river-gauges")
+def get_river_gauges(request: Request, flood: str | None = Query(None, max_length=120),
+                     bbox: str | None = Query(None, max_length=120),
+                     lid: str | None = Query(None, max_length=8),
+                     scope: str | None = Query(None, pattern="^national$"),
+                     min: str = Query("action", pattern="^(action|minor|moderate|major)$"),  # noqa: A002 - query name
+                     series: int = Query(0, ge=0, le=1), at_ms: int | None = Query(None, ge=0)) -> Response:
+    """``RiverGaugesResponse``: a flood's member gauges (NWPS; primary first) then nearby gauges, the gauges of an area
+    or near a point, one gauge (``lid``; NWPS), or every lower-48 gauge at ``min`` or worse. Area and nearby lists
+    come from the NWS ``riv_gauges`` map by envelope, never an NWPS list. 422 without a scope."""
+    def run() -> Response:
+        now = _now()
+        with_series = bool(series)
+        if flood:
+            bdir = _synthetic(flood)
+            if bdir is not None:
+                return _json(_frozen(bdir, "gauges.json") if with_series else _frozen(bdir, "river-gauges.json"), request)
+            return _json(flood_gauges.flood_gauges(_summary(flood), now=now, with_series=with_series, at_ms=at_ms),
+                         request)
+        if lid:
+            if not _LID.match(lid):
+                raise _Answer(422, "lid must be an NWS gauge id (5 letters or digits)")
+            up = lid.upper()
+            if _FICTIONAL_LID.match(up):
+                obj = _fictional_gauge(up, with_series)
+                if obj is None:
+                    raise _Answer(404, fcopy.GAUGE_NOT_FOUND)
+                return _json(obj, request)
+            try:
+                return _json(flood_gauges.lid_gauge(up, now=now, with_series=with_series, at_ms=at_ms), request)
+            except LookupError:
+                raise _Answer(404, fcopy.GAUGE_NOT_FOUND) from None
+        if scope == "national":
+            return _json(flood_gauges.national_gauges(min, now=now), request)
+        if bbox:
+            return _json(flood_gauges.bbox_gauges(_bbox(bbox), now=now, at_ms=at_ms), request)
+        raise _Answer(422, "river-gauges needs flood=, bbox=, lid= or scope=national")
+    return _answer(run)

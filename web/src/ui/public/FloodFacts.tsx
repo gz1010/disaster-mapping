@@ -10,9 +10,9 @@
 //                   local officials' alerts while one is in effect, the last official update
 // Each value is the issuer's own, with its own time and a link under it; an issuer's words are inside data-verbatim.
 // Quiet rows say why ("Unavailable right now", "Checking…") and are never an all-clear. Under the rows: OFFICIAL (or DEMO)
-// with the sources and when they were checked, "Not an all-clear. Follow local officials." and "NWS water". Between the
-// rows and that foot: the preparation of the flood's map data (FloodMapData). On short windows the rows scroll and the
-// foot stays in view.
+// with the sources and when they were checked, "Not an all-clear. Follow local officials." and "NWS water". On short
+// windows the rows scroll and the foot stays in view. The 2D views need no preparation (D14): the preparation of a
+// flood's map data (FloodMapData: terrain and frozen copies for Forensic, C10) is not shown in Public.
 import { ChevronDown } from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'
 import { useShallow } from 'zustand/react/shallow'
@@ -124,7 +124,6 @@ export function FloodFacts({ peek = false, more = false, onMore }: { peek?: bool
           <FactRowView key={r.key} r={r} />
         ))}
       </div>
-      {!peek && <FloodMapData />}
       <div className="pfv-facts-foot">
         {more && onMore && (
           <button type="button" className="pfv-more" onClick={onMore} data-tip="More official facts below: scroll the list">

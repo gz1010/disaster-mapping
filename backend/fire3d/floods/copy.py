@@ -125,6 +125,8 @@ MODEL_DOWN = "National Water Model output could not be loaded right now."
 MODEL_NO_REACH = "This gauge has no National Water Model reach, so there is no model series for it."
 NFHL_PARTLY_MAPPED = ("FEMA's digital flood map covers only part of this area; outside it, FEMA's floodplain is not "
                       "shown.")
+NFHL_TRUNCATED = ("FEMA's map has more flood zones in this area than Fire-3d draws; some of the floodplain may be missing "
+                  "here.")
 ALERTS_PAST_NOT_YET = ("Past NWS flood products are not served yet (the archive comes with a later step). That is not "
                        "an all-clear: follow local officials.")
 # HTTP error details of the build and per-flood routes
@@ -137,15 +139,22 @@ SATELLITE_IMAGE_GONE = "This satellite image is no longer kept; reload the flood
 TERRAIN_DOWN = "Terrain (USGS 3DEP) could not be loaded; the 3D view needs it."
 NAIP_DOWN = "The aerial photo (USGS NAIP) could not be loaded for this area."
 GAUGES_NONE = "This flood has no river gauge."
+# Local officials' alerts with hazard=flood (/api/official/local-alerts)
+LOCAL_FLOOD_CAVEAT = ("Fire-3d lists only the local officials' alerts the National Weather Service relays; most are not "
+                      "relayed. No alert here is not an all-clear: follow local officials.")
+LOCAL_FLOOD_ARCHIVE_REASON = "FEMA's archive of local alerts is not checked for floods in this version."
+LOCAL_FLOOD_NWS_DOWN = ("Local officials' alerts relayed by NWS are not shown; that does not mean there are none. "
+                        "Follow local officials.")
 BUNDLE_STRINGS: dict[str, str] = {
     "GAUGE_DETAIL_DOWN": GAUGE_DETAIL_DOWN, "NEARBY_GAUGES_DOWN": NEARBY_GAUGES_DOWN, "SAT_NO_IMAGE": SAT_NO_IMAGE,
     "SAT_BEFORE_ARCHIVE": SAT_BEFORE_ARCHIVE, "RFC_FIM_PAST": RFC_FIM_PAST, "CATFIM_TODAY": CATFIM_TODAY,
     "MODEL_PAST": MODEL_PAST, "MODEL_DOWN": MODEL_DOWN, "MODEL_NO_REACH": MODEL_NO_REACH,
-    "NFHL_PARTLY_MAPPED": NFHL_PARTLY_MAPPED, "ALERTS_PAST_NOT_YET": ALERTS_PAST_NOT_YET,
+    "NFHL_PARTLY_MAPPED": NFHL_PARTLY_MAPPED, "NFHL_TRUNCATED": NFHL_TRUNCATED, "ALERTS_PAST_NOT_YET": ALERTS_PAST_NOT_YET,
     "BUILD_SYNTHETIC": BUILD_SYNTHETIC, "BUILD_OUTSIDE_L48": BUILD_OUTSIDE_L48,
     "FLOOD_ROUTE_NOT_LISTED": FLOOD_ROUTE_NOT_LISTED, "GAUGE_NOT_FOUND": GAUGE_NOT_FOUND,
     "SATELLITE_IMAGE_GONE": SATELLITE_IMAGE_GONE, "TERRAIN_DOWN": TERRAIN_DOWN, "NAIP_DOWN": NAIP_DOWN,
-    "GAUGES_NONE": GAUGES_NONE,
+    "GAUGES_NONE": GAUGES_NONE, "LOCAL_FLOOD_CAVEAT": LOCAL_FLOOD_CAVEAT,
+    "LOCAL_FLOOD_ARCHIVE_REASON": LOCAL_FLOOD_ARCHIVE_REASON, "LOCAL_FLOOD_NWS_DOWN": LOCAL_FLOOD_NWS_DOWN,
 }
 
 
