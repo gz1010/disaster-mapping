@@ -10,14 +10,17 @@ Layout (``data/floods/{id}/``)::
     layers/floodplain.bin        uint8        0 none, 1 0.2 % band, 2 SFHA, 3 floodway (FEMA, background)
     layers/water_satellite.bin   uint8        DSWx classes; 255 outside the satellite image
     layers/water_model.bin       uint8 0/255  National Water Model analysis flooded area (model output, separate)
+    layers/water_pass_<key>.bin  uint8        brief 6: DSWx classes of each kept satellite pass (newest usable, at most 8)
     warnings.json  gauges.json  satellite.json  satellite.png
+    timeline.json                brief 6: FloodTimelineResponse (every pass; every NWS product version)
     maps/rfc_fim.geojson  maps/catfim_<lid>_<category>.geojson  maps/nfhl.geojson
     model/nwm_analysis.geojson  model/nwm_series_<lid>.json
 
 * **Area** (:func:`fire3d.floods.maps.flood_area`): the flood's NWS polygons and member gauges, padded 3 km, square,
   8-60 km (cut around the primary gauge when longer; ``aoi_note``), on a 1024² UTM render grid.
-* **Steps and weights:** catalog 0.05, terrain 0.35, maps 0.20, gauges 0.15, satellite 0.20, finish 0.05. Terrain is
-  required (a failure fails the job and leaves any earlier bundle as it was); every other step that fails writes its
+* **Steps and weights:** catalog 0.05, terrain 0.30, maps 0.15, gauges 0.15, satellite 0.15, timeline 0.15 (brief 6:
+  every satellite pass read on the grid after the satellite step, so it never takes the satellite step's request
+  slots; every NWS product version), finish 0.05. Terrain is required (a failure fails the job and leaves any earlier bundle as it was); every other step that fails writes its
   ``layer_status`` entry with a reason and a manifest warning, and the bundle is still ``ready``.
 * **Gate** (:func:`gate`): a flood the lists know (live list, alias, bundle or last-known summary), in the lower 48 or
   DC, not synthetic (``fixture-flood``: 409).
@@ -54,13 +57,17 @@ from ..grid import Grid, manifest_grid, transformer, utm_epsg_for
 from ..sources import imagery, terrain
 from ..sources.nws import SourceBusy, SourceError
 from ..timeutil import HOUR_MS, now_ms
-from . import catalog, gauges as gauges_mod, maps, satellite, store, zones
+from . import catalog, gauges as gauges_mod, maps, satellite, store, timeline, zones
 from . import copy as fcopy
+from . import copy_time as tcopy
 
 log = logging.getLogger(__name__)
 
 ProgressFn = Callable[[str, float, str], None]
-WEIGHTS = {"catalog": 0.05, "terrain": 0.35, "maps": 0.20, "gauges": 0.15, "satellite": 0.20, "finish": 0.05}
+WEIGHTS = {"catalog": 0.05, "terrain": 0.30, "maps": 0.15, "gauges": 0.15, "satellite": 0.15, "timeline": 0.15,
+           "finish": 0.05}
+PRODUCT_TRIES = 6                    # the NWS product history waits for Disaster Mapping's IEM limit this many times
+PRODUCT_WAIT_S = 10.0
 STAGING = ".staging"
 NAIP_MAX_PX = 2048
 TIME_BEFORE_MS = 72 * HOUR_MS
@@ -488,6 +495,9 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
             warnings.append(status["water_satellite"]["reason"] or fcopy.SAT_UNAVAILABLE)
         prog.report("satellite", 1.0, "Satellite water ready")
 
+        # ---- time history (brief 6): every satellite pass and every NWS product version ---------------------
+        _timeline_step(summary, grid, bbox, stage, prog, now, ans, layers, files, sources, warnings)
+
     # ---- finish ------------------------------------------------------------------------------------------------
     prog.report("finish", 0.2, "Writing the manifest")
     for k in ("water_forecast", "floodplain", "water_satellite", "water_model", "naip"):
@@ -511,6 +521,55 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
     }
     log.info("flood bundle %s built in %.1f s", fid, time.monotonic() - t0)
     return m
+
+
+def _timeline_step(summary: dict, grid: Grid, bbox: tuple, stage: Path, prog: pipeline.BuildProgress, now: int,
+                   sat_answer: dict, layers: dict, files: dict, sources: list[dict], warnings: list[str]) -> None:
+    """``timeline.json`` and ``layers/water_pass_<key>.bin`` (optional: a failure is a manifest warning only)."""
+    prog.report("timeline", 0.0, "Satellite passes and NWS product versions")
+    shown = [g["id"] for g in sat_answer.get("granules") or []] if sat_answer.get("measured") else None
+    try:
+        bp = timeline.bundle_passes(summary, grid, bbox, now=now, shown_granules=shown,
+                                    progress=lambda f, msg: prog.report("timeline", 0.75 * f, msg))
+    except Exception as e:  # noqa: BLE001 - optional step: the passes say unavailable
+        log.info("timeline passes %s: %s", summary["id"], pipeline.short_error(e))
+        start, end = timeline.flood_window(summary, now)
+        bp = timeline.BundlePasses({**timeline._passes_base(now, start, end, satellite.opera.login_state()),
+                                    "stats_over": "bundle_grid", "status": "unavailable",
+                                    "reason_code": "upstream_error", "reason": tcopy.PASSES_UNAVAILABLE}, {}, {})
+    for name, arr in bp.rasters.items():
+        layers[name] = bundle.write_layer(stage, name, arr, "render", None, bp.descriptions[name], register=False)
+    prog.report("timeline", 0.8, "NWS product versions (live and archive)")
+    prods = None
+    for i in range(PRODUCT_TRIES):
+        try:
+            prods = timeline.product_history(summary, now=now)
+        except Exception as e:  # noqa: BLE001 - optional step
+            log.info("timeline products %s: %s", summary["id"], pipeline.short_error(e))
+            break
+        if prods.get("complete") or i == PRODUCT_TRIES - 1:
+            break
+        time.sleep(PRODUCT_WAIT_S)                                   # Disaster Mapping's own IEM limit: wait
+    if prods is None:
+        prods = {**timeline._products_env(summary["id"], now), "status": "unavailable",
+                 "reason_code": "upstream_error", "reason": fcopy.ALERTS_UNAVAILABLE}
+    bundle.write_json(stage / "timeline.json", timeline.timeline(summary, bp.answer, prods, now=now))
+    files["timeline"] = "timeline.json"
+    pa = bp.answer
+    if pa["passes"]:
+        kept = sum(1 for p in pa["passes"] if p["layer"])
+        _credit(sources, pa["source"]["credit"],
+                f"{len(pa['passes'])} satellite passes from {_iso(pa['start_ms'])} to {_iso(pa['end_ms'])}, "
+                f"{kept} kept as images (timeline.json, layers/water_pass_<pass>.bin)", pa.get("retrieved_ms"), now)
+    elif pa["status"] != "available":
+        warnings.append(pa["reason"] or tcopy.PASSES_UNAVAILABLE)
+    if prods.get("archive_source"):
+        n = sum(1 for p in prods["products"] if p.get("archived"))
+        _credit(sources, fcopy.CREDIT_IEM, f"{n} earlier versions of this flood's NWS products, verbatim (timeline.json)",
+                prods.get("retrieved_ms"), now)
+    if prods["status"] != "available":
+        warnings.append(prods["reason"] or fcopy.ALERTS_UNAVAILABLE)
+    prog.report("timeline", 1.0, f"{len(pa['passes'])} satellite passes, {len(prods['products'])} NWS product versions")
 
 
 def _nfhl_code(f: dict) -> int:

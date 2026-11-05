@@ -105,7 +105,7 @@ describe('area figures (C6)', () => {
   it('the forecast area only when measured from member reaches; the satellite water only from a measured image; each with its caveat', () => {
     const f = areaFigures(RFC_FIM(), SATELLITE(), 'us')
     expect(f.map((x) => x.key)).toEqual(['fim', 'sat'])
-    expect(f[0].text).toMatch(/^Forecast flooded area \(next 5 days\): 3\.5 mi², measured by Disaster-Mapping/)
+    expect(f[0].text).toMatch(/^Forecast flooded area \(next 5 days\): 3\.5 mi², measured by Disaster Mapping/)
     expect(f[0].text).toContain('It includes the river channel.')
     expect(f[1].text).toBe('Water seen by satellite in this area: 2.6 mi² (includes normal river and lake water)')
     expect(f[1].caveat).toMatch(/^Water seen by satellite \(NASA OPERA\)/)

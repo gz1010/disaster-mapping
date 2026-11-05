@@ -3890,7 +3890,7 @@ rule is scoped to `.app`, `.fx-bar`, `.minibar`, `.fx-empty*` or a Forensic-only
 - *Place and dates* (H5-DF-6): `.fx-place` is a wrapping flex row: one line ("Monterey County · Oct 19, 2026 – present")
   while it fits, else the dates on a line of their own under the place; the " · " sits in the 18 px before the dates and
   is clipped (`clip-path`) when they wrap; each line ellipsises only when it alone is too long (the dates' inner span
-  carries the ellipsis). The "Disaster Mapping" word hides at ≤ 1400 px (the logo stays), so at 1281-1400 px the dates show whole
+  carries the ellipsis). The brand word hides at ≤ 1400 px (brief 6: ≤ 1720 px, as "Disaster Mapping" is longer than "Fire-3d"; the logo stays), so at 1281-1400 px the dates show whole
   (1366 px: was cut to "Oct 19, 2026 – pr…"); the place line still hides at ≤ 1280 px.
 - *Timeline NOW / T₀* (H5-DF-5): the word starts 14 px right of its mark (`Timeline.tsx NOW_LABEL_DX`), clear of the
   16 px knob and its 3 px ring at the default time; the time bubble keeps the space above the handle. The

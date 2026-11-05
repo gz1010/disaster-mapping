@@ -38,6 +38,7 @@ from ..floods import live as flood_live
 from ..floods import maps as flood_maps
 from ..floods import registry as flood_registry
 from ..floods import satellite as flood_satellite
+from ..floods import timeline as flood_timeline
 from ..floods import zones as flood_zones
 from ..sources.nws import SourceBusy
 from . import jobs as jobs_mod
@@ -422,6 +423,62 @@ def get_flood_satellite_png(flood_id: str, granule: str | None = Query(None, max
             if res.key == key and res.png is not None:
                 return Response(res.png, media_type="image/png", headers={"Cache-Control": "public, max-age=86400"})
         raise _Answer(404, fcopy.SATELLITE_IMAGE_GONE)
+    return _answer(run)
+
+
+# ----------------------------------------------------------------------------------------------------------------
+# A flood's time history (brief 6, backend-flood-time-3d M1): satellite passes and NWS product versions
+# ----------------------------------------------------------------------------------------------------------------
+_PASS_KEY = re.compile(r"^[A-Za-z0-9_-]{1,120}$")
+
+
+def _bundle_shown_granules(flood_id: str) -> list[str] | None:
+    """The granules of a ready bundle's satellite image (the pass Forensic shows), else None."""
+    m = store.load_flood_manifest(flood_id)
+    if (m or {}).get("status") != "ready":
+        return None
+    sat = _load(store.flood_dir(flood_id) / "satellite.json")
+    return [g["id"] for g in (sat or {}).get("granules") or []] if (sat or {}).get("measured") else None
+
+
+@router.get("/api/floods/{flood_id}/timeline")
+def get_flood_timeline(request: Request, flood_id: str,
+                       wait: float = Query(flood_timeline.ROUTE_WAIT_S, ge=0, le=30)) -> Response:
+    """``FloodTimelineResponse``: every satellite pass over the flood's window (each read once; a 2D PNG per usable
+    pass; no-view passes listed and marked) and every version of its NWS products (live + IEM archive, verbatim, with
+    ``shown_from_ms`` / ``shown_until_ms``). Unfinished pass reads come back ``view: unknown`` with ``complete:
+    false`` after at most ``wait`` seconds: ask again. A synthetic flood answers from its bundle."""
+    def run() -> Response:
+        now = _now()
+        bdir = _synthetic(flood_id)
+        if bdir is not None:
+            t = flood_timeline.bundle_timeline(bdir, store.load_flood_manifest(flood_id) or {}, now=now)
+            if t is None:
+                raise _Answer(404, "not found")
+            return _json(t, request)
+        s = _summary(flood_id)
+        area = _area(s)
+        shown = flood_timeline.satellite_granules(s["id"], area) or _bundle_shown_granules(s["id"])
+        return _json(flood_timeline.route_timeline(s, area, now=now, shown_granules=shown, wait_s=wait), request)
+    return _answer(run)
+
+
+@router.get("/api/floods/{flood_id}/passes/{key}.png")
+def get_flood_pass_png(flood_id: str, key: str, area: str = Query(..., pattern="^[0-9a-f]{8}$")) -> Response:
+    """The PNG of one satellite pass of the timeline (``FloodPass.image.url``; lon/lat bounds in the JSON): water blue,
+    clouds and no data hatched grey, outside the pass transparent. 404 when it is no longer kept."""
+    def run() -> Response:
+        if not store.valid_id(flood_id) or not _PASS_KEY.match(key):
+            raise _Answer(404, "not found")
+        bbox = summary = None
+        if _synthetic(flood_id) is None:
+            summary = _summary(flood_id)
+            bbox = _area(summary)
+        png = flood_timeline.pass_png(summary["id"] if summary else flood_id, key, area, bbox=bbox, summary=summary,
+                                      now=_now())
+        if png is None:
+            raise _Answer(404, fcopy.SATELLITE_IMAGE_GONE)
+        return Response(png, media_type="image/png", headers={"Cache-Control": "public, max-age=86400"})
     return _answer(run)
 
 

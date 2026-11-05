@@ -10,10 +10,13 @@
 // Brief 5 (CONTRACT §16.10): the hazard the national map lists, 'fire' (default) or 'flood' (?hazard=flood, omitted for
 // fires; a ?flood=<id> link without ?incident= starts in Floods). Switching keeps the camera, the selected point, the
 // preset and Show details, and closes a fire card.
+// Brief 6 (decision 4): `zoomDimming`, the map's zoom-following vignette, off by default and remembered in this browser
+// (localStorage through map/zoomDimming.ts; not in the URL).
 import { useEffect } from 'react'
 import { create } from 'zustand'
 import type { IncidentManifest, IncidentSummary } from '../api/types'
 import { useMapRuntime } from '../map/mapStore'
+import { readZoomDimming, writeZoomDimming } from '../map/zoomDimming'
 import type { OverviewFilter } from './overview'
 import { useStore } from './store'
 
@@ -166,6 +169,9 @@ export interface WorkspaceState {
   overviewDetails: boolean
   /** Brief 4: the browser's location after the user asked for it; null = not shared. Never in the URL, never stored. */
   device: DeviceLocation | null
+  /** Brief 6 (decision 4): the zoom-following globe vignette of the map (map/MapAtmosphere.tsx). Off by default; the
+   *  Layers drawer's "Zoom dimming" switch turns it on, remembered in this browser (map/zoomDimming.ts). Not in the URL. */
+  zoomDimming: boolean
 
   setWorkspace: (w: Workspace) => void
   /** The Fires | Floods switch (brief 5): keeps the camera, selection, preset and Show details; closes a fire card. */
@@ -202,6 +208,8 @@ export interface WorkspaceState {
   setOverviewDetails: (open: boolean) => void
   /** Store (or clear with null) the browser's location; invalid coordinates are ignored. */
   setDevice: (d: DeviceLocation | null) => void
+  /** The "Zoom dimming" switch: shows or hides the globe vignette and remembers the choice in this browser. */
+  setZoomDimming: (on: boolean) => void
 }
 
 /** Basemap of a preset when the user has not picked one (decision 5: Public opens on aerial with labels). */
@@ -331,6 +339,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => ({
   overviewShowAll: false,
   overviewDetails: false,
   device: null,
+  zoomDimming: readZoomDimming(),
 
   setWorkspace: (workspace) => set({ workspace }),
   setHazard: (hazard) => set((s) => (s.hazard === hazard ? {} : { hazard, fireCardId: null, overviewShowAll: false })),
@@ -381,6 +390,10 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => ({
     if (!validLat(d.lat) || !validLon(d.lon)) return
     const accuracyM = d.accuracyM != null && Number.isFinite(d.accuracyM) && d.accuracyM >= 0 ? d.accuracyM : null
     set({ device: { lat: d.lat, lon: d.lon, accuracyM, tMs: d.tMs } })
+  },
+  setZoomDimming: (on) => {
+    writeZoomDimming(on)
+    set({ zoomDimming: on })
   },
 }))
 

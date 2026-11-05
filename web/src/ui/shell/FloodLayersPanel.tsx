@@ -9,6 +9,7 @@
 //   Evacuations   the official evacuation zones toggle (flood wording)
 // then the basemap, units and the way to Forensic. Public never offers the model or the NWS category maps (a note says
 // they are in Command). The toggles are useFlood.layers (map/floodProfile.ts says which view draws which).
+// Brief 6 (decision 4): a Display section after Units with the "Zoom dimming" switch (ui/shell/ZoomDimmingSwitch.tsx).
 import { Box, X } from 'lucide-react'
 import { useRef, type ReactNode } from 'react'
 import { FloodLegend } from '../../map/FloodLegend'
@@ -25,6 +26,7 @@ import { fillCopy, FLOOD_COMMAND, FLOOD_PUBLIC } from './floodCopy'
 import { switchWorkspace } from './handoff'
 import { NARROW_QUERY, useDrawerFocus, useMediaQuery } from './hooks'
 import { applyView } from './views'
+import { DisplaySection } from './ZoomDimmingSwitch'
 
 const BASEMAPS: { value: Basemap; desc: string }[] = [
   { value: 'dark', desc: 'Subdued roads and places; water layers stand out' },
@@ -162,6 +164,7 @@ export function FloodLayersPanel({ variant = 'public' }: { variant?: 'public' | 
         <Section title={FLOOD_PUBLIC.units}>
           <Segmented value={units} options={UNITS} onChange={ws.setUnits} ariaLabel="Units" size="sm" className="mw-seg-fill" />
         </Section>
+        <DisplaySection />
         <Section title="Forensic">
           <p className="mw-set-note">{FLOOD_PUBLIC.forensicNote}</p>
           <button type="button" className="mw-btn is-sm" onClick={() => switchWorkspace('forensic')}>
