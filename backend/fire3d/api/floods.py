@@ -33,6 +33,7 @@ from ..floods import build as flood_build
 from ..floods import catalog, store
 from ..floods import copy as fcopy
 from ..floods import gauges as flood_gauges
+from ..floods import live as flood_live
 from ..floods import maps as flood_maps
 from ..floods import satellite as flood_satellite
 from ..floods import zones as flood_zones
@@ -86,8 +87,9 @@ def list_floods(request: Request, mode: str = Query("live", pattern="^(live|hist
 
 @router.get("/api/floods/status")
 def flood_status() -> Response:
-    """``FloodLiveStatus`` (counts null when the lists could not be read, never 0)."""
-    return _json(catalog.live_status())
+    """``FloodLiveStatus`` from the flood live loop (``floods/live.py``) once it has run a cycle, else from the cached
+    list; counts null when the lists could not be read, never 0; ``auto_build`` only while the loop runs with it."""
+    return _json(flood_live.live_status())
 
 
 @router.get("/api/floods/{flood_id}")

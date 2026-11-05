@@ -5,7 +5,8 @@ build and forecast jobs; job status; bundle files (gzip, ETag, ``Cache-Control: 
 aircraft (10 s cache per incident); live status; point lookup (``/api/geo/lookup``, brief 3). Routers: geocode, extras
 (optional map sources), official (CAL FIRE status history, NWS fire weather and local alerts, ``api/official.py``),
 records (NIFC WFIGS incident records and accuracy regions, ``api/records.py``).
-Startup (lifespan) starts the live refresh loop when FIRE3D_LIVE=1 (``config.LIVE_ENABLED``).
+Startup (lifespan) starts the live refresh loop when FIRE3D_LIVE=1 (``config.LIVE_ENABLED``) and, as a second
+task, the flood live loop when FIRE3D_FLOODS=1 too (brief 5, ``floods/live.py``).
 
 Blocking work never runs on the event loop: route functions that touch the network or disk are plain ``def``
 (FastAPI runs them in its threadpool) and builds/forecasts run as background jobs (``api/jobs.py``). Incidents
@@ -36,6 +37,7 @@ from pydantic import ValidationError
 
 from .. import bundle, catalog, config
 from .. import regions as regions_mod
+from ..floods import live as flood_live
 from ..build import pipeline
 from ..contracts import AircraftResponse, ForecastRequest, HealthResponse, IncidentSummary, dump
 from ..http import _MaskSecretsFilter
@@ -396,18 +398,25 @@ def _aircraft_entry(incident_id: str, s: dict, m: dict | None, bdir: Path) -> tu
 # ----------------------------------------------------------------------------------------------------------------
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    """Start the live refresh loop (FIRE3D_LIVE=1) and stop it plus the job workers on shutdown."""
+    """Start the live refresh loop (FIRE3D_LIVE=1) and, as a second task with its own state, the flood live loop
+    (FIRE3D_LIVE=1 and FIRE3D_FLOODS=1; brief 5, ``floods/live.py``); stop both plus the job workers on shutdown. A
+    flood failure never reaches the fire loop: the tasks are independent and each catches its own cycle errors."""
     setup_logging()
-    task: asyncio.Task | None = None
+    tasks: list[asyncio.Task] = []
     if config.LIVE_ENABLED:
-        task = asyncio.create_task(live.live_refresh_loop(_jobs()), name="fire3d-live-refresh")
+        tasks.append(asyncio.create_task(live.live_refresh_loop(_jobs()), name="fire3d-live-refresh"))
+        if config.FLOODS_ENABLED:
+            tasks.append(asyncio.create_task(flood_live.flood_refresh_loop(_jobs()), name="fire3d-flood-live-refresh"))
+        else:
+            log.info("flood live refresh loop disabled (FIRE3D_FLOODS=0)")
     else:
         log.info("live refresh loop disabled (FIRE3D_LIVE=0)")
     try:
         yield
     finally:
-        if task is not None:
+        for task in tasks:
             task.cancel()
+        for task in tasks:
             with suppress(asyncio.CancelledError, Exception):
                 await task
         jobs_mod.shutdown_manager()

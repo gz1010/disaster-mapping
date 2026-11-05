@@ -1,6 +1,7 @@
 """Check a built incident bundle against the contracts (SPEC 5) and write quick-look PNGs.
 
     cd backend && uv run python scripts/check_bundle.py <incident-id> [--quicklook DIR] [--prefix NAME]
+    cd backend && uv run python scripts/check_bundle.py --hazard flood <flood-id>      # a flood bundle (SPEC 5.3)
 
 Checks: strict pydantic validation of manifest.json, every JSON file and every forecast.json; manifest completeness
 (required/optional layers, grid sizes, time origin, stats); every layer file against its LayerInfo (size, dtype,
@@ -8,7 +9,15 @@ min/max, NaN); sim/static.npz keys, shapes and ranges; timeseries/detections/per
 (hourly axes, array lengths, GOES-based FRP series, vertex limits, monotone perimeters); forecast quantile ordering
 and burn-probability consistency. Prints one line per problem and exits 1 when any check fails.
 
-Quick-looks (``--quicklook``): hillshade x sky_view, fuels, water, dNBR (+ perimeter outline: an independent
+Flood bundles (``--hazard flood``, brief 5, SPEC 5.3 / CONTRACT 16.3; :func:`check_flood_bundle`): strict validation of
+manifest.json (FloodManifest), warnings.json (FloodAlertsResponse), gauges.json (RiverGaugesResponse), satellite.json
+(SatelliteWaterResponse) and every model/nwm_series_*.json (ModelOutputResponse); every manifest file present; the
+eight layer_status keys; every layer file against its LayerInfo with the flood encodings (water_forecast and
+water_model 0/255, floodplain 0-3, water_satellite the DSWx classes); the satellite PNG decodable and never transparent
+where the classes say cloud or no data (D25); GeoJSON copies are FeatureCollections; every ``ok`` layer credited in
+data_sources; no relative age ("4 d ago") in the frozen files (C16); no secret in any file (count only).
+
+Quick-looks (``--quicklook``, fire bundles): hillshade x sky_view, fuels, water, dNBR (+ perimeter outline: an independent
 alignment check, since Sentinel-2 is georeferenced separately from the perimeters), NAIP thumbnail (+ perimeter
 and detections), observed arrival with perimeters/ignition/detections by instrument, and one map per forecast
 (burn probability, p50 isochrones, start mask, final observed outline, mean wind arrow).
@@ -19,6 +28,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import shutil
 import sys
 import tempfile
@@ -79,11 +89,12 @@ def _strict(rep: Report, model, path: Path, label: str) -> dict | None:
         return None
 
 
-def _check_layer(rep: Report, bdir: Path, name: str, info: dict) -> np.ndarray | None:
+def _check_layer(rep: Report, bdir: Path, name: str, info: dict, *, grid: str | None = None,
+                 dtype: str | None = None) -> np.ndarray | None:
     path = bdir / info["file"]
     if not rep.check(path.is_file(), f"layer {name}: file {info['file']} missing"):
         return None
-    exp_grid, exp_dtype = LAYER_GRID.get(name), LAYER_DTYPE.get(name)
+    exp_grid, exp_dtype = grid or LAYER_GRID.get(name), dtype or LAYER_DTYPE.get(name)
     if exp_grid:
         rep.check(info.get("grid") == exp_grid, f"layer {name}: grid {info.get('grid')!r}, SPEC says {exp_grid!r}")
     if exp_dtype:
@@ -117,6 +128,145 @@ def _check_layer(rep: Report, bdir: Path, name: str, info: dict) -> np.ndarray |
             rep.check(abs(lo - info["min"]) <= 1e-3 * max(1.0, abs(lo)) and abs(hi - info["max"]) <= 1e-3 * max(1.0, abs(hi)),
                       f"layer {name}: data range {lo:.4g}..{hi:.4g} != LayerInfo {info['min']:.4g}..{info['max']:.4g}")
     return a
+
+
+# ----------------------------------------------------------------------------------------------------------------
+# Flood bundles (brief 5)
+# ----------------------------------------------------------------------------------------------------------------
+FLOOD_LAYER_IDS = ("terrain", "naip", "water_forecast", "floodplain", "water_satellite", "water_model", "warnings",
+                   "gauges")
+FLOOD_LAYERS = {                     # layer -> (grid, dtype, allowed values or None, its layer_status key)
+    "elevation": ("render", "float32", None, "terrain"),
+    "sky_view": ("render", "uint8", None, "terrain"),
+    "naip": ("image", "jpeg", None, "naip"),
+    "water_forecast": ("render", "uint8", {0, 255}, "water_forecast"),
+    "floodplain": ("render", "uint8", {0, 1, 2, 3}, "floodplain"),
+    "water_satellite": ("render", "uint8", {0, 1, 2, 252, 253, 254, 255}, "water_satellite"),
+    "water_model": ("render", "uint8", {0, 255}, "water_model"),
+}
+RELATIVE_AGE = re.compile(r"\b\d+(\.\d+)?\s*(s|sec|min|mins|minutes?|h|hrs?|hours?|d|days?)\s+ago\b", re.IGNORECASE)
+
+
+def _secret_hits(raw: bytes) -> int:
+    """How many configured secrets occur in ``raw`` (count only; the values are never printed)."""
+    return sum(1 for k in (config.FIRMS_MAP_KEY, config.EARTHDATA_TOKEN) if k and k.encode() in raw)
+
+
+def check_flood_bundle(bdir: Path) -> tuple[Report, dict]:
+    """The flood bundle checks (module doc). Returns (report, manifest dict)."""
+    from fire3d.contracts import (
+        FloodAlertsResponse, FloodManifest, ModelOutputResponse, RiverGaugesResponse, SatelliteWaterResponse,
+    )
+
+    rep = Report()
+    m = _strict(rep, FloodManifest, bdir / bundle.MANIFEST_NAME, "manifest.json") or {}
+    if not m:
+        return rep, m
+    rep.check(m.get("hazard") == "flood", f"manifest hazard {m.get('hazard')!r}")
+    rep.check(m.get("id") == bdir.name, f"manifest id {m.get('id')!r} != folder {bdir.name!r}")
+    rep.check(m.get("status") == "ready", f"manifest status {m.get('status')!r}")
+    s = m.get("summary") or {}
+    rep.check(s.get("id") == m.get("id"), "summary.id != manifest id")
+    if s.get("synthetic"):
+        rep.note("synthetic bundle (fixture): terrain, water layers and gauges are made up")
+    else:
+        rep.check(s.get("bundle_status") == "ready", f"summary.bundle_status {s.get('bundle_status')!r}")
+        rep.check(s.get("bundle_built_ms") == m.get("built_ms"), "summary.bundle_built_ms != built_ms")
+    tr = m.get("time_range") or {}
+    rep.check(m.get("time_origin_ms") == tr.get("start_ms"), "time_origin_ms != time_range.start_ms")
+    rep.check(tr.get("start_ms", 0) <= tr.get("now_ms", 0) <= tr.get("end_ms", 0), "time_range: not start <= now <= end")
+    g = m["grid"]
+    rep.check(g["render"]["width"] == config.RENDER_SIZE == g["render"]["height"], "render grid is not 1024²")
+    rep.check(8000 - 1 <= float(g["extent_m"]) <= config.AOI_MAX_EXTENT_M + 1,
+              f"area {g['extent_m']} m outside 8-{config.AOI_MAX_EXTENT_M / 1000:g} km")
+    ls = m.get("layer_status") or {}
+    rep.check(set(ls) == set(FLOOD_LAYER_IDS), f"layer_status keys {sorted(ls)} != the eight FloodLayerId keys")
+    for name in ("elevation", "sky_view"):
+        rep.check(name in (m.get("layers") or {}), f"layer {name} missing")
+    rep.check((ls.get("terrain") or {}).get("status") == "ok", "terrain is not ok (it is required)")
+    # layers against their LayerInfo, with the flood encodings
+    for name, info in (m.get("layers") or {}).items():
+        exp = FLOOD_LAYERS.get(name)
+        if not rep.check(exp is not None, f"layer {name}: not a flood layer"):
+            continue
+        grid, dtype, values, key = exp
+        rep.check((ls.get(key) or {}).get("status") == "ok", f"layer {name} written but layer_status.{key} is not ok")
+        a = _check_layer(rep, bdir, name, info, grid=grid, dtype=dtype)
+        if a is not None and values is not None:
+            extra = sorted(set(np.unique(a).tolist()) - values)
+            rep.check(not extra, f"layer {name}: values {extra[:8]} outside {sorted(values)}")
+    for key, name in (("water_forecast", "water_forecast"), ("floodplain", "floodplain"),
+                      ("water_satellite", "water_satellite"), ("water_model", "water_model")):
+        if (ls.get(key) or {}).get("status") == "ok":
+            rep.check(name in (m.get("layers") or {}), f"layer_status.{key} ok but layer {name} missing")
+    # files
+    f = m.get("files") or {}
+    w = _strict(rep, FloodAlertsResponse, bdir / f.get("warnings", "warnings.json"), "warnings.json")
+    gz = _strict(rep, RiverGaugesResponse, bdir / f.get("gauges", "gauges.json"), "gauges.json")
+    sat = _strict(rep, SatelliteWaterResponse, bdir / f["satellite"], "satellite.json") if f.get("satellite") else None
+    if w is not None:
+        rep.check(w.get("kind") == "flood_alerts", "warnings.json kind != flood_alerts")
+        if w.get("status") != "available":
+            rep.note(f"warnings.json: {w.get('status')} ({w.get('reason')})")
+    if gz is not None:
+        rep.check(gz.get("kind") == "river_gauges", "gauges.json kind != river_gauges")
+        members = [x for x in gz.get("gauges") or [] if x.get("member")]
+        rep.check(all(x.get("series") is not None for x in members) or gz.get("status") != "available",
+                  "gauges.json: a member gauge without its series")
+        rep.check(not members or members[0]["lid"] == ((s.get("primary_gauge") or {}).get("lid") or members[0]["lid"]),
+                  "gauges.json: the primary gauge is not first")
+    if f.get("satellite_image"):
+        p = bdir / f["satellite_image"]
+        if rep.check(p.is_file(), f"{f['satellite_image']} missing"):
+            from PIL import Image
+
+            try:
+                with Image.open(p) as im:
+                    rgba = np.asarray(im.convert("RGBA"))
+                rep.check(rgba.shape[2] == 4, "satellite.png has no alpha")
+                if sat is not None and sat.get("stats") and (sat["stats"].get("cloud_pct") or 0) + (
+                        sat["stats"].get("nodata_pct") or 0) > 0:
+                    rep.check(bool((rgba[..., 3] > 0).any()), "satellite.png is fully transparent although the image "
+                              "has cloud or no-data pixels (D25: no view is hatched, never transparent)")
+            except OSError as e:
+                rep.bad(f"satellite.png undecodable ({e})")
+    if "water_satellite" in (m.get("layers") or {}) and sat is not None:
+        rep.check(bool(sat.get("measured")), "water_satellite.bin written from an unmeasured picture")
+    for kind, files in (("maps", f.get("maps") or {}), ("model", f.get("model") or {})):
+        for key, rel in files.items():
+            p = bdir / rel
+            if not rep.check(p.is_file(), f"files.{kind}.{key}: {rel} missing"):
+                continue
+            if rel.endswith(".geojson"):
+                try:
+                    fc = bundle.read_json(p)
+                    rep.check(isinstance(fc, dict) and fc.get("type") == "FeatureCollection"
+                              and isinstance(fc.get("features"), list), f"{rel}: not a FeatureCollection")
+                except ValueError as e:
+                    rep.bad(f"{rel}: unreadable JSON ({e})")
+            elif key.startswith("nwm_series_"):
+                mo = _strict(rep, ModelOutputResponse, p, rel)
+                rep.check(bool(mo and mo.get("model_output") is True), f"{rel}: not marked model output")
+    # credits: every ok layer named in data_sources by its credit line
+    names = {d.get("name") for d in m.get("data_sources") or []}
+    for key, st in ls.items():
+        if st.get("status") == "ok" and st.get("source") and not s.get("synthetic"):
+            rep.check(st["source"] in names, f"layer_status.{key} ok but its source is not credited in data_sources")
+    # absolute times only (C16) and no secret, in every JSON file of the bundle
+    for p in sorted(bdir.rglob("*.json")):
+        if any(part.startswith(".") for part in p.relative_to(bdir).parts):
+            continue
+        raw = p.read_bytes()
+        rel = p.relative_to(bdir).as_posix()
+        if not rel.startswith("api/"):
+            rep.check(RELATIVE_AGE.search(raw.decode("utf-8", "replace")) is None, f"{rel}: holds a relative age")
+        rep.check(_secret_hits(raw) == 0, f"{rel}: holds a secret (count only)")
+    size = sum(p.stat().st_size for p in bdir.rglob("*") if p.is_file()) / 1e6
+    rep.note(f"size {size:.1f} MB; layers {', '.join(sorted(m.get('layers') or {}))}; "
+             + ", ".join(f"{k} {v.get('status')}" for k, v in sorted(ls.items())))
+    if m.get("refreshed_ms"):
+        rep.note(f"refreshed by the flood live loop at {m['refreshed_ms']}")
+    return rep, m
 
 
 def check_bundle(bdir: Path) -> tuple[Report, dict]:
@@ -483,10 +633,28 @@ def forecast_quicklook(bdir: Path, m: dict, f: dict, path: Path, hs: np.ndarray,
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("incident")
-    ap.add_argument("--quicklook", type=Path, default=None, help="directory for quick-look PNGs")
+    ap.add_argument("incident", help="incident id (or a flood id with --hazard flood)")
+    ap.add_argument("--hazard", choices=("fire", "flood"), default="fire", help="fire (default) or flood bundle")
+    ap.add_argument("--quicklook", type=Path, default=None, help="directory for quick-look PNGs (fire bundles)")
     ap.add_argument("--prefix", default=None, help="file prefix (default backend-<incident id>)")
     args = ap.parse_args(argv)
+    if args.hazard == "flood":
+        from fire3d.floods import store
+
+        try:
+            fdir = store.flood_dir(args.incident)
+        except ValueError:
+            print(f"{args.incident}: not a flood id")
+            return 1
+        rep, _ = check_flood_bundle(fdir)
+        print(f"{args.incident}: {len(rep.problems)} problem(s)")
+        for p in rep.problems:
+            print(f"  PROBLEM {config.mask_secrets(p)}")
+        for n in rep.notes:
+            print(f"  note    {config.mask_secrets(n)}")
+        if args.quicklook:
+            print("  note    quick-looks are drawn for fire bundles only")
+        return 1 if rep.problems else 0
     bdir = bundle.bundle_dir(args.incident)
     rep, m = check_bundle(bdir)
     print(f"{args.incident}: {len(rep.problems)} problem(s)")

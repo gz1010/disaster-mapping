@@ -373,7 +373,8 @@ Light: no fuels, detections, weather or simulation. Built by `POST /api/floods/{
 
 ```
 data/floods/{id}/
-  manifest.json                FloodManifest (grid = ManifestGrid with fire = render; summary frozen at build)
+  manifest.json                FloodManifest (grid = ManifestGrid with fire = render; summary frozen at build;
+                               refreshed_ms: when the flood live loop last appended to warnings / gauges, §8.9)
   layers/elevation.bin         render  float32  m (USGS 3DEP)
   layers/sky_view.bin          render  uint8    0-255
   layers/naip.jpg              image   JPEG ≤ 2048 px, optional ("Aerial photo (USGS NAIP), taken before this flood")
@@ -381,7 +382,7 @@ data/floods/{id}/
   layers/floodplain.bin        render  uint8    0 none, 1 0.2 % band, 2 SFHA, 3 floodway (FEMA NFHL, background)
   layers/water_satellite.bin   render  uint8    OPERA DSWx WTR classes 0, 1, 2, 252, 253, 254, 255; 255 outside the image
   layers/water_model.bin       render  uint8    0/255 National Water Model analysis flooded area (model output, separate)
-  warnings.json                FloodAlertsResponse (the flood's NWS products, verbatim)
+  warnings.json                FloodAlertsResponse (the flood's NWS products, verbatim; every version seen, §8.9)
   gauges.json                  RiverGaugesResponse (member gauges with 30-day series and the RFC forecast; nearby gauges)
   satellite.json + satellite.png   SatelliteWaterResponse (absolute times only) and its PNG (clouds and no data hatched)
   maps/rfc_fim.geojson  maps/catfim_<lid>_<category>.geojson  maps/nfhl.geojson  model/nwm_analysis.geojson
@@ -463,7 +464,7 @@ interface Aircraft {
 | Method | Path | Response |
 |---|---|---|
 | GET | `/api/floods?mode=live\|historical&year=` | `FloodListResponse` `{hazard: "flood", mode, updated_ms, year?, past_rule?, preparing?, floods: FloodSummary[], sources: FloodListSource[], products_in_effect}`. Live: NWS flood products in effect or upcoming in the lower 48 + DC (Flood Warning, Flash Flood Warning, Flood Watch, Flash Flood Watch, Flood Advisory and their statements; coastal and lakeshore products are out) and river gauges observed at minor flooding or worse, grouped per river or area (§8.8), ordered by `floodRank` (CONTRACT §16.8); watches are included (the web hides them by default). `sources[]` (`nws_alerts`, `nwps_gauges`, `rfc_forecasts`; `iem_archive` for past years, and in the live list the IEM copy of NWS warnings that links gauges to them): NWS down → floods from gauges only (`FLOOD_NWS_DOWN`; their caveat says NWS could not be reached); gauges down → from NWS products only (`FLOOD_GAUGES_DOWN`); both down → the flood bundles on disk only (`FLOOD_LISTS_DOWN`), still a 200 whose sources say why (not CONTRACT §16.7's 503; contract5 note); never "no floods" for an outage. `products_in_effect` is null when NWS could not be read. Cached 5 min (60 s while degraded); a cold build makes at most 6 upstream requests. |
-| GET | `/api/floods/status` | `FloodLiveStatus` `{last_refresh_ms, next_refresh_ms, active_floods, gauges_in_flood, auto_build}`; counts null when the lists could not be read (never 0). |
+| GET | `/api/floods/status` | `FloodLiveStatus` `{last_refresh_ms, next_refresh_ms, active_floods, gauges_in_flood, auto_build}` from the flood live loop (§8.9) once it has run a cycle, else from the cached list; counts null when the lists could not be read (never 0); `auto_build` only while the loop runs with auto-build on. |
 | GET | `/api/floods/{id}` | `FloodDetailResponse` `{summary, manifest: FloodManifest \| null, job: JobStatus \| null, resolved_from}`. Resolution (PLAN-5 §3.2 rule 13): the live list → the year lists → a registry alias (the canonical summary; the web replaces the URL) → the bundle's frozen summary → the registry's last-known summary → 404. 503 "The flood lists could not be reached right now; try again later." when the lists could not decide and nothing is on disk, never 404. `fixture-flood-<kind>` ids are 404 here (fixture server only). |
 | POST | `/api/floods/{id}/build?force=0\|1` | `JobStatus` (kind "build", `incident_id` = the flood id). 409 for `fixture-flood` or a flood outside the lower 48. |
 | GET | `/api/floods/{id}/files/{path}` | Flood bundle files (gzip except JPEG / PNG, weak ETag + 304, `Cache-Control: no-cache`, traversal-safe; dotfiles such as the lock and `.staging/`, and the fixture's canned `api/` answers, are 404); `.geojson` as `application/geo+json`. |
@@ -1004,6 +1005,46 @@ flood (no zone outline, product text, gauge detail or series) is requested in th
     canonical summary) → the bundle's frozen summary → the last-known summary (`data/floods/last_known/{id}.json`) →
     404; 503 "The flood lists could not be reached right now; try again later." when the lists could not decide and
     nothing is on disk. A summary from the alias, bundle or last-known step is shown as it left the lists (rule 8).
+
+### 8.9 Flood live refresh (`fire3d/floods/live.py`; brief 5)
+
+A **second asyncio task** in the API's lifespan, started when `FIRE3D_LIVE=1` and `FIRE3D_FLOODS=1` (default on), with
+its own state; the fire loop (§8.7) is not changed, and a flood error never reaches it (independent tasks; each cycle
+catches its own errors). Every `REFRESH_S` = 900 s (`FIRE3D_FLOOD_LIVE_INTERVAL_S` for tests) one cycle:
+
+1. **List:** the live flood list is rebuilt (`catalog.flood_list(refresh=True)`, the five national requests of §8.8).
+   `GET /api/floods/status` then answers from the loop: `last_refresh_ms`, `next_refresh_ms`, `active_floods` and
+   `gauges_in_flood` (active floods only), **null when the lists could not decide** (NWS or the gauges could not be
+   read, or the cycle failed), never 0; `auto_build` is true only while the loop runs with auto-build on. Without the
+   loop (or before its first cycle) the status comes from the cached list (`next_refresh_ms` = the list cache's).
+2. **Background prefetch, at most `PREFETCH_MAX` = 20 upstream requests a cycle** (never in the list build; C9), each
+   counted at its largest cost before it is made: the product text of river products in effect (their H-VTEC gauge
+   id: the list then links the right gauge; warnings first, newest first; at most 10 requests), the NWS zone outlines
+   of zone-based products (most watches; flood-alerts answers then draw NWS's own zones instead of whole counties;
+   at most 5), the 30-day series of member gauges at minor or worse (the list then refines a flood's start from the
+   first crossing of flood stage; at most 5); a share left unused goes to the next kind. NWS calls run on the shared
+   `NWS_LIMITER`, NWPS calls on their own; Fire-3d's own rate limit ends a kind for the cycle.
+3. **Ready live flood bundles of listed floods** (at most 8 a cycle, the least recently refreshed first; never while
+   a build or refresh of that flood runs):
+   - **append**: new NWS product versions to `warnings.json` (every version seen is kept; a product NWS answered
+     without is marked `ended`, as the list does; an outage changes nothing) and new member gauge readings to
+     `gauges.json` (NWPS detail and series for at most 12 gauges a cycle, the earlier observed rows kept; other member
+     gauges get the list's own reading, no request); atomic writes under the bundle's build lock, validated against
+     the contracts; `manifest.refreshed_ms` says when (`built_ms` stays);
+   - **refresh job** (kind `refresh`, at most once an hour per bundle, active floods only) when NASA's Earthdata GIS
+     catalog has a satellite pass over the area newer than the bundle's image that this server has not tried yet
+     (pass keys remembered per flood), when NWS's forecast flooded-area map of the area has a new forecast time, or 3 h
+     after an official layer (warnings, gauges, forecast map) could not be loaded at build time. The job re-runs the
+     flood build (`build_flood(force=True)`; terrain and the aerial photo come from the HTTP cache when the area did
+     not change) and then puts back the product versions and earlier readings the bundle already had.
+4. **Auto-build** (`FIRE3D_AUTO_BUILD_FLOODS`, default = `FIRE3D_AUTO_BUILD_LIVE`), once, on the first cycle in which
+   both lists answered: of the 4 most severe listed floods (`floodRank`; active, real, lower 48 or DC; watches and
+   gauges that may measure tidal water left out), those without a bundle are built one after another (D4).
+
+CLI: `uv run python -m fire3d.cli catalog --hazard flood [--mode live|historical] [--year Y] [--refresh]` lists floods;
+`uv run python -m fire3d.cli build-flood <id-or-name> [--force]` builds one flood bundle with progress (the API's
+build gate: 404 / 409 / 503 texts); `uv run python scripts/check_bundle.py --hazard flood <id>` checks a flood bundle
+(strict contracts, layer encodings, credits, absolute times, no secret).
 
 ## 9. Frontend
 
