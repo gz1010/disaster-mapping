@@ -5,7 +5,7 @@
   "milestones": [
     "M1 rename in every user-facing string, guards, fixtures, CONTRACT strings (17f0d6b)",
     "M2 zoom dimming off by default with a 'Zoom dimming' switch (code in the wave-1 snapshot 126ba1d; screenshots and progress 302bfe5)",
-    "M3 new README, CLAUDE.md name, current docs, as-built note, report (this commit)"
+    "M3 new README, CLAUDE.md name, current docs, as-built note, report (92b2835)"
   ],
   "files": [
     "web/index.html",
@@ -63,5 +63,11 @@
     "backend/fire3d/data/gazetteer_us.json keeps 'Fire-3d' in its (unserved) note until rebuilt with scripts/build_gazetteer.py; .claude/hooks/cloud_install.sh (configuration) keeps the old name in a comment and an echo.",
     "M1's commit 17f0d6b had one wrong regex in web/src/location/FloodReadout.test.ts (the User-Agent substitution hit a regex ending in 'Fire-3d/'); fixed in the wave-1 snapshot 126ba1d."
   ],
-  "notes_for_others": "backend-flood-time-3d / final-check: stored flood notes keep the old name until re-prepared (see known issues). final-check: README flood sections need the brief-6 playback and 3D view lines; the dimming switch is window.__workspace.getState().setZoomDimming(true) for screenshots; test guards web/src/lib/productName.test.ts and backend/tests/test_product_name.py fail on 'Fire-3d' in any new string."
+  "notes_for_others": "backend-flood-time-3d / final-check: stored flood notes keep the old name until re-prepared (see known issues). final-check: README flood sections need the brief-6 playback and 3D view lines; the dimming switch is window.__workspace.getState().setZoomDimming(true) for screenshots; test guards web/src/lib/productName.test.ts and backend/tests/test_product_name.py fail on 'Fire-3d' in any new string.",
+  "commits": [
+    "17f0d6b",
+    "126ba1d (wave-1 snapshot holding the M2 code)",
+    "302bfe5",
+    "92b2835"
+  ]
 }
