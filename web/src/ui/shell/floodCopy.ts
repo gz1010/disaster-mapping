@@ -243,6 +243,48 @@ export const HYDROGRAPH_MARKS = {
   highAtEnd: 'HIGH {value} {UNIT} AT END · STILL RISING',
   model: 'MODEL · NWM · EXPERIMENTAL · {flow} FT³/S ({run time})',
 } as const
+/** The hydrograph's own words (web-flood-command; PLAN-5 §4.6, §5.5): mono labels are upper case on screen. */
+export const HYDRO = {
+  title: 'River level',
+  observed: 'Observed · {source}',
+  forecast: 'Forecast · NWS {rfc} · issued {time}',
+  forecastNoTime: 'Forecast · NWS {rfc}',
+  model: 'Model · NWM · experimental',
+  observedWord: 'observed',
+  forecastWord: 'forecast (NWS)',
+  noValue: 'no reading at this time',
+  latest: 'Latest {time} · {age}',
+  stale: 'Stale',
+  now: 'Now',
+  backToNow: 'Back to now',
+  stage: 'Stage {unit}',
+  flow: 'Flow {unit}',
+  axisName: 'River level shown as',
+  interpolated: 'Fire-3d drew this value between two readings or forecast steps (straight line).',
+  // flow mode on a gauge whose NWS flood levels are river stages (feet): no flood lines on the flow axis
+  flowNoStages: 'NWS flood levels for this gauge are river stages; see the stage view',
+  // a forecast point without a current NWS forecast (forecasts are issued as needed during high water)
+  noForecastNow: 'No NWS river forecast for this gauge right now',
+  noGauge: 'No river gauge for this flood',
+  loading: 'Loading the river gauge…',
+  unavailable: 'River gauge readings could not be loaded right now. That is not an all-clear.',
+  sliderName: 'Time on the river-level chart',
+  sliderHelp: 'Arrow keys move one hour (Shift: six hours); Home and End jump to the ends.',
+  futureNote: 'NWS products in effect now',
+  productTick: '{event} · {sender} · sent {time}',
+  pickGauge: 'Choose the river gauge',
+  pickerMembers: "This flood's gauges",
+  pickerNearby: 'Nearby gauges (not part of this flood)',
+  pickerNearbyTag: 'nearby',
+  crestTip: 'The highest value of the NWS forecast. Forecasts change; check NWS for the newest.',
+  highAtEndTip: 'The highest NWS forecast value is its last step: the river is still forecast to rise after it. Check NWS for the newest.',
+  stageLineTip: 'NWS flood level at this gauge ({category}): {value} {unit}. NWS sets these levels; they are not a forecast.',
+  pinnedTip: 'This NWS flood level is outside the chart ({dir}).',
+  latestTip: 'The newest reading from this gauge. Fire-3d marks it stale when it is more than 3 hours old.',
+  modelTip: 'Experimental model output (NOAA National Water Model), drawn on the flow axis only and never converted to a river stage. Not an NWS forecast.',
+  originalUnits: '{value} in the original units',
+} as const
+
 /** Forensic's strings (also in ui/forensic-flood/floodForensicCopy.ts, owned by web-flood-forensic). */
 export const FORENSIC_FLOOD = {
   notPrepared: "Fire-3d has not prepared this flood's 3D terrain yet.",
