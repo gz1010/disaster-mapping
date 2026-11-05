@@ -5073,6 +5073,19 @@ products) and a 2025 Flash Flood Emergency (Bluefield, WV; CATASTROPHIC) walked 
   `Hydrograph variant="dock"` is mounted (no placeholder was left), members are never tagged NEARBY, the handle row sits
   above the plot (NOW and CREST never overlap it) and the 92 px gutter shows "MODERATE 17.0" whole.
 
-#### Final check
+#### Final check (2026-11-05; `contract5/final-check.md`, `reports/final-verification-5.json`)
 
-(to be filled by the final check)
+Gates green with no flood test skipped (backend 1406 passed, 0 skipped, 380 of them flood tests; web 1793 passed + 2
+skipped real-fire data tests, lint 55 all in `src/scene`); the final screenshot set `docs/screenshots/brief5-final-*.png`
+(22, every one viewed); the brief-4 fire set re-shot and pixel-compared (Public fire 0.13 %, Command fire 0.12 %,
+Forensic fire 0.01 %: only time-relative text; the overviews differ by today's live fires and the title slot's switch);
+a scratch Playwright smoke run (switch and history, a flood opened from the list and from a marker, MORE IN COMMAND,
+Back, fire → flood → Back, rotation in the flood views and Forensic, reduced motion with the water circle still, both
+fixed lines and no banned word on 19 views, no console error); count-only scans (`FIRMS_MAP_KEY` 0 in the tree and in
+every diff and message since 1824908; `EARTHDATA_TOKEN` not set here, 0 assignments of either name; "FireTrace" 0 in
+code and UI). One small fix:
+
+- `ui/timeline/hydrographModel.ts` `crestLeft(label, crestX, nowX, plotW, beside = false) → number | null` (moved from
+  `Hydrograph.tsx`) and `CREST_LABEL_ROOM` (22 px): with no room above the crest caret (a crest near the plot's top),
+  the label goes beside the caret, right of it, else left of it, so the caret never covers its words; with room, or
+  when neither side fits, it is centred as before. Slim (Command) and dock (Forensic) charts.

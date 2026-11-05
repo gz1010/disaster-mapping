@@ -286,6 +286,10 @@ no marker is **not** an all-clear.
   version of each NWS product in the Evidence tab, and the river-level chart in the dock. 3D data is prepared for
   current floods only (NWS's forecast maps, the model and river forecasts are not kept for past dates).
 
+![The Public flood view of the synthetic demo flood (marked DEMO): the water circle with "SIMULATED FLOOD · DEMO", seven facts with their issuer and time (the NWS forecast flooded area, the river stage measured by USGS, the NWS forecast crest, the warning in effect), and the map with the NWS warning areas in pink, the NWS forecast flooded area hatched, water seen by satellite in blue with grey "no view" patches, the main gauge as a red diamond and the key with each layer's own time](docs/screenshots/brief5-final-public-flood-fixture.png)
+
+![The Command flood view of a real flood (Peace River, Florida): the selected point's readout on the left (inside the NWS Flood Warning area, distance to the NWS forecast flooded area, what the satellite pass saw, the nearest gauge), "Official now" on the right with each NWS product, the river forecast, evacuations and local officials' messages, and the river-level chart along the bottom with the measured line, the dashed NWS forecast, the flood-stage lines and the forecast crest](docs/screenshots/brief5-final-command-flood-real.png)
+
 **What is official, what is measured, what is a model.** NWS products, river forecasts and flood categories, FEMA zones
 and evacuation orders are official: shown verbatim with their issuer, their own times and a link, never merged with
 anything else. River stages are measured by USGS (provisional data). "Water seen by satellite" (NASA OPERA) is a

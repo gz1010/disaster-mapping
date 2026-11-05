@@ -1400,6 +1400,18 @@ interface AppState {
 - **Fixture:** `uv run python scripts/make_fixture.py` writes a synthetic, contract-complete bundle
   `data/incidents/fixture-demo/`. `uv run python scripts/serve_fixture.py --port P --data-dir D` is a standalone
   server for the §6 read endpoints that does not import `fire3d.api`. Frontend agents develop against it.
+- **Floods (brief 5):** the flood tests (`tests/test_flood*.py`, `tests/test_floods_*.py`, 380 cases) are offline: a
+  session fixture writes `fixture-flood` into `tmp_path` with `make_fixture.py`'s flood builder at
+  `--now 2026-11-04T18:00:00Z`, so no flood test depends on `data/` or skips; recorded NWS / NOAA / IEM / USGS answers
+  live in `tests/data/floods/`. `test_flood_contracts.py` checks the field names, optionality and literals of
+  `contracts.py` against `web/src/api/floodTypes.ts`; `test_floods_copy.py` checks the backend strings against
+  CONTRACT §16.14 and the banned words (PLAN-5 §5.1); `test_floods_list_cost.py` caps a cold list build at 6 upstream
+  requests; the token path is tested with a fake `EARTHDATA_TOKEN` and a mock transport only. Fixture:
+  `make_fixture.py --only flood [--now ISO]` writes `data/floods/fixture-flood/` and its canned answers;
+  `serve_fixture.py` also answers the seven synthetic demo floods. Web: `ui/shell/floodCopy.test.ts` (the wording
+  guard over every flood copy file and the rendered fixture cases, verbatim text stripped), `map/floodStyle.test.ts`
+  (no green), `state/floodFetchSpy.test.ts` (no fire-only request from a flood chrome). `scripts/check_bundle.py
+  --hazard flood <id>` checks a built flood bundle.
 - **Frontend:** `cd web && npm run build` must pass (tsc + vite).
   `node scripts/shot.mjs <url> <out.png> [--wait ms] [--w 1720 --h 1080]` takes a screenshot with the installed
   Chrome (headless; it tries GPU flags and falls back to SwiftShader) and prints console errors. Inspect screenshots

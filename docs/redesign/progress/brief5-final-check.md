@@ -6,7 +6,7 @@ Role `final-check` (PLAN-5 §10.1). Ports: API 8759, Vite 5219. Started 2026-11-
 - [x] 2. gates: backend 1406 passed, 0 skipped (380 flood tests, none skipped); web typecheck ok, lint 55 (all
       src/scene), 136 files 1788 passed + 2 skipped (two real-fire data tests, not flood), build ok. After the crest
       fix: 1793 passed + 2 skipped.
-- [x] 3. final screenshots docs/screenshots/brief5-final-*.png (24, all viewed) + brief-4 fire set re-shot and compared
+- [x] 3. final screenshots docs/screenshots/brief5-final-*.png (22, all viewed) + brief-4 fire set re-shot and compared
       (pixel diff: Public fire 0.13 %, Command fire 0.12 %, Forensic fire 0.01 %, all time-relative text; overviews
       differ by live data and the title slot)
 - [x] 4. scratch Playwright smoke run (session scratchpad smoke5.mjs): nav 14/14, rotation 24/24, reduced motion 32/32,
@@ -14,8 +14,10 @@ Role `final-check` (PLAN-5 §10.1). Ports: API 8759, Vite 5219. Started 2026-11-
 - [x] 5. count-only scans (FIRMS_MAP_KEY 0 in 1869 tracked files, 0 in the diffs and messages since 1824908;
       EARTHDATA_TOKEN not set here, 0 assignments of either name to a long value; FireTrace 0 in code/UI; banned words 0
       in UI strings)
-- [ ] 6. docs: CONTRACT 16.16 "Final check"; README floods section checked
-- [ ] 7. report final-verification-5.json (+ user_summary), as-built note, commit, push
+- [x] 6. docs: CONTRACT 16.16 "Final check"; SPEC §10 flood tests paragraph; README floods section checked (two final
+      screenshots added)
+- [x] 7. report final-verification-5.json (+ user_summary), as-built note contract5/final-check.md, commit, push
+      (finished 11:30 UTC)
 
 ## Notes
 
