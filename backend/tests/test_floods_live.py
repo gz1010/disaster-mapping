@@ -114,6 +114,8 @@ def test_loop_cycles_survive_failures_and_auto_build_once(recorded_list, jm, mon
     monkeypatch.setattr(catalog, "flood_list", flood_list)
     monkeypatch.setattr(flood_live, "prefetch", lambda lst, **kw: {"hvtec": 0, "zones": 0, "series": 0})
     monkeypatch.setattr(flood_live, "refresh_bundles", lambda lst, jobs, **kw: ([], []))
+    warmed = {"n": 0}
+    monkeypatch.setattr(flood_live, "warm_year_lists", lambda: warmed.__setitem__("n", warmed["n"] + 1))
     built: list[str] = []
 
     def fake_build(fid, *, progress=None, force=False, now=None):
@@ -151,6 +153,7 @@ def test_loop_cycles_survive_failures_and_auto_build_once(recorded_list, jm, mon
     assert seen["failed"] == (None, None)                     # a failed cycle: unknown, never 0
     assert st["active_floods"] == flood_live.list_counts(lst)[0] and st["auto_build"] is True
     assert flood_live.STATE.running is False and flood_live.live_status()["auto_build"] is False
+    assert warmed["n"] >= 3                                   # every good cycle asks for the past years (no-op once built)
 
 
 def test_auto_build_candidates_are_the_most_severe_real_floods(recorded_list):

@@ -1,0 +1,68 @@
+{
+ "role": "backend-flood-live",
+ "brief": 5,
+ "branch": "claude/cool-mayer-ki7to6",
+ "time_utc": "2026-11-05T06:45:00Z",
+ "summary": "Built both milestones. M1: the flood live loop (floods/live.py) runs as a second asyncio task in the API lifespan (off with FIRE3D_FLOODS=0; a flood failure never reaches the fire loop), rebuilds the flood list every 15 min, spends at most 20 upstream requests a cycle on a background prefetch (product-text H-VTEC, zone outlines, member gauge series; NWS calls on NWS_LIMITER), appends new NWS product versions and gauge readings to ready bundles (every version kept, manifest.refreshed_ms), queues refresh jobs when NASA has a newer satellite pass or NWS a new forecast-map time, and auto-builds the 4 most severe floods once. /api/floods/status answers from the loop (counts null when the lists fail). CLI catalog --hazard flood and build-flood; check_bundle --hazard flood; SPEC 8.9. M2 (cut line, U1 (a)): past floods (floods/history.py). A bulk IEM route with H-VTEC severity, damage tags and emergencies exists (watchwarn.py CSV with follow-up statements + sbw_interval polygons), so the year lists follow PAST_RULE (moderate_or_worse), not the fallback; built once per year in the background (2025: 1,976 floods from 24 IEM + 5 map requests in 23 s; 2026: 2,108), cached for good for 2025, ids from the registry so live floods keep their ids; the detail chain's year step; archived NWS products and USGS readings with today's thresholds at past times. Gates green: backend 1383 passed, 0 skipped; web typecheck, lint 55 warnings (all src/scene), 1706 tests passed, build.",
+ "milestones": {
+  "M1": "051975d brief 5 backend-flood-live: M1 live loop (second task, prefetch budget, bundle appends and refresh jobs, auto-build of 4), status from the loop, CLI catalog --hazard flood and build-flood, check_bundle --hazard flood, SPEC 8.9",
+  "M2": "2d9cc95 brief 5 backend-flood-live: M2 past floods (year lists by PAST_RULE from the IEM bulk route, background build, detail chain year step, archived products and USGS readings at past times, recorder and samples, SPEC 8.10)",
+  "final": "brief 5 backend-flood-live: report, as-built note, progress (this commit)"
+ },
+ "files": [
+  "backend/fire3d/floods/live.py",
+  "backend/fire3d/floods/history.py",
+  "backend/fire3d/api/floods.py",
+  "backend/fire3d/api/app.py",
+  "backend/fire3d/contracts.py",
+  "web/src/api/floodTypes.ts",
+  "backend/fire3d/cli.py",
+  "backend/scripts/check_bundle.py",
+  "backend/scripts/record_test_samples_flood_history.py",
+  "backend/tests/test_floods_live.py",
+  "backend/tests/test_floods_history.py",
+  "backend/tests/data/floods/iem/ (samples + PROVENANCE.md)",
+  "backend/tests/test_flood_endpoint_contracts.py (one test updated, ownership deviation 5)",
+  "backend/tests/test_floods_list_api.py (one test updated, ownership deviation 5)",
+  "SPEC.md (5.3, 6 rows, 8.8 rule 13, 8.9, 8.10)",
+  "docs/redesign/contract5/backend-flood-live.md",
+  "docs/redesign/progress/brief5-backend-flood-live.md",
+  "docs/redesign/reports/brief5-backend-flood-live.json"
+ ],
+ "screenshots": [],
+ "gates": {
+  "backend": "uv run pytest -q: 1383 passed, 0 skipped (no network)",
+  "web": "typecheck ok; lint 55 warnings, all in src/scene (baseline); npm test 1706 passed, 2 skipped (pre-existing, not flood); build ok",
+  "test_skip_count": 0
+ },
+ "acceptance": {
+  "pytest_green_no_flood_skip": "yes: 1383 passed, 0 skipped; fire live loop tests untouched and green",
+  "second_task": "yes: lifespan starts fire3d-live-refresh and fire3d-flood-live-refresh; FIRE3D_FLOODS=0 starts only the fire task; a crashing flood task and failing flood cycles leave the fire loop running (tests)",
+  "prefetch_budget": "yes: <= 20 requests a cycle, counted at the largest cost before each fetch; NWS calls take NWS_LIMITER (test); real cycle 14 + 6 = 20",
+  "real_cycle_8760": "yes: 2026-11-05 06:01-06:03 UTC, FIRE3D_LIVE=1 FIRE3D_AUTO_BUILD_LIVE=0 (scratch copy of data/floods): 55 floods, 37 active, 31 gauges in flood; appended to 5 bundles; 4 refresh jobs rebuilt in 3-49 s; check_bundle 0 problems on all five",
+  "status_null_when_lists_fail": "yes (tests)",
+  "cli_build_flood": "yes: build-flood \"moenkopi wash\" in 29 s (10.7 MB); check_bundle --hazard flood 0 problems on it and on fixture-flood",
+  "past_rule": "PAST_RULE (moderate_or_worse): bulk severity/damage route found with 6 research requests; past_rule set",
+  "year_build_rate_and_cache": "yes: 24 IEM requests for 2025 (max 24 in a minute, IEM_LIMITER 30/min, the build waits for a slot), cached for good for 2025 (rebuild: 1 new request), disk copy data/floods/years/",
+  "ids_equal_live": "yes: registry lookup by VTEC key, live name kept, rows of one live id merged (test; 2026 real list has the live 'Chatsworth flash flood' id)",
+  "gauge_twice_30_days": "yes: two entries (test)",
+  "past_not_available": "RFC forecasts (PAST_NO_FORECAST), NWS maps and NWM not_available_for_past_dates; thresholds carry THRESHOLDS_TODAY",
+  "detail_year_step": "yes: live -> year -> alias -> bundle -> last-known (tests; real API resolved_from 'year')",
+  "secrets": "count-only: FIRMS_MAP_KEY 0 in the tree, 0 in this role's diffs, 0 in commit messages; EARTHDATA_TOKEN not configured here (0 values; PLAN-5 placeholders only)"
+ },
+ "known_issues": [
+  "Refresh jobs re-run the whole flood build (build.py is not this role's file); terrain comes from the HTTP cache, so a refresh takes 3-49 s, and built_ms changes (the web reloads the bundle).",
+  "Prepare 3D data for a past (year-list) flood answers 404: build.gate uses catalog.resolve, which has no year step, and the build has no past-time mode (deviation 6; for the integration).",
+  "Past years list one river flood per gauge episode: a long river flood can appear as several entries numbered by name ('Clackamas River flood (OR)', '(OR, 2)').",
+  "A past reading's category is 'unknown' (NWS's category of a past reading is not kept; Fire-3d does not infer it).",
+  "Some NWS gauges have no USGS site in NWPS (e.g. Mississippi River at Hickman, HKMK2): no past readings, caveat NO_USGS_SITE.",
+  "The year lists are about 3 MB of JSON each (gzip about 0.4 MB); the web renders about 2,000 markers per year.",
+  "The new backend strings live in floods/history.py (copy.py is not this role's file); the integration may move them and add them to CONTRACT 16.14.",
+  "The appended warnings.json / gauges.json reach an open Forensic view only after a reload (the web keys bundle files by built_ms; refreshed_ms is there for it).",
+  "The EARTHDATA_TOKEN path is still tested only with a fake token and a mock transport (not this role's code).",
+  "Two pre-brief-5 bundles in data/floods (Grand River, Peace River) fail check_bundle's credit check until rebuilt; the live loop's refresh rebuilt them in the scratch copy (0 problems)."
+ ],
+ "cut_line_left": [],
+ "cut_line_note": "M2 (past floods) was built in full; nothing below the cut line is left.",
+ "notes_for_others": "Full as-built note: docs/redesign/contract5/backend-flood-live.md. Integration: fold it into CONTRACT 16.16; add history.PAST_STRINGS to 16.14 (or move them into copy.py); 16.7 historical: past_rule 'moderate_or_worse', preparing while building; 16.8: PAST_RULE used, fallback unused; 16.3: FloodManifest.refreshed_ms (additive); README credits: IEM archive (watchwarn.py, sbw_interval, vtec_event.py) and USGS water data for past floods (SPEC 8.10). Past-flood bundles (deviation 6) need build.gate's year step and an at_ms-aware build, or the web should say 3D data is prepared for current floods only. Ownership deviation: one test each in test_flood_endpoint_contracts.py and test_floods_list_api.py updated (they encoded the pre-M2 placeholders). Web roles: past rows have mode 'historical', max_category from H-VTEC, gauges_in_flood 0, primary_gauge.observed_category 'unknown'; the 2026 tab can contain live rows. My servers on 8760 are stopped; scratch files are in the session scratchpad."
+}

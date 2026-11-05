@@ -9,7 +9,7 @@ Role `backend-flood-live` (PLAN-5 §3.5-3.6, §10.1; plan5-roles.json). Ports AP
   SPEC §8.9, tests, one real cycle on 8760.
 - [x] M2 (cut line, U1 (a)) past floods: `floods/history.py`, `mode=historical&year=`, the detail chain's year step,
   IEM archive at past times, USGS observations, recorder + samples, tests.
-- [ ] Final: gates, report, as-built note, push.
+- [x] Final: gates, report, as-built note, push.
 
 ## Log
 
@@ -38,3 +38,6 @@ Role `backend-flood-live` (PLAN-5 §3.5-3.6, §10.1; plan5-roles.json). Ports AP
   (not my files; their roles are finished and no active role owns them) encoded the pre-M2 placeholders
   (`ALERTS_PAST_NOT_YET`, `GAUGES_PAST_NOT_YET`, `PAST_NOT_YET`) that M2 replaces by design; updated deliberately
   (same intent: never today's readings for a past time; the historical list's shape). Recorded in the as-built note.
+- 06:45 UTC: final. Live loop also warms the past years each cycle (`warm_year_lists`). Gates: backend 1383 passed,
+  0 skipped; web typecheck, lint 55 (all src/scene), 1706 passed (2 pre-existing skips), build. Count-only secret scans:
+  0. Report `docs/redesign/reports/brief5-backend-flood-live.json`, as-built `docs/redesign/contract5/backend-flood-live.md`.

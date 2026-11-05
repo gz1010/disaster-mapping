@@ -28,7 +28,9 @@ catches its own errors, and the two tasks share no state. Every :data:`REFRESH_S
      build (``floods.build.build_flood(force=True)``: terrain and the aerial photo come from the HTTP cache when the
      area did not change) and then puts back the product versions and readings the bundle already had. At most one
      refresh per bundle per :data:`REFRESH_MIN_AGE_H`.
-4. **First cycle** (``FIRE3D_AUTO_BUILD_FLOODS=1``, default = ``FIRE3D_AUTO_BUILD_LIVE``): the
+4. **Past years:** each cycle starts the one-time background build of a past year's list when it is missing or
+   stale (``history.year_list``; no request when it is built), so the year tabs are ready before anyone opens them.
+5. **First cycle** (``FIRE3D_AUTO_BUILD_FLOODS=1``, default = ``FIRE3D_AUTO_BUILD_LIVE``): the
    :data:`AUTO_BUILD_FLOODS_N` most severe listed floods (``floodRank``; watches and tide gauges left out) that have
    no bundle yet are built, one after another (D4), once both lists answered.
 
@@ -619,10 +621,23 @@ async def auto_build(jobs: Any, candidates: list[str]) -> None:
 # ----------------------------------------------------------------------------------------------------------------
 # The loop
 # ----------------------------------------------------------------------------------------------------------------
+def warm_year_lists() -> None:
+    """Start the past years' one-time builds in the background (``floods/history.py``; no-op once built and fresh),
+    so the year tabs are ready before anyone opens them."""
+    from . import history
+
+    for y in history.PAST_YEARS:
+        history.year_list(y)
+
+
 async def run_cycle(jobs: Any) -> dict:
     """One cycle (network work in worker threads); updates :data:`STATE`. Returns the list."""
     lst = await asyncio.to_thread(catalog.flood_list, True)
     STATE.active_floods, STATE.gauges_in_flood = list_counts(lst)
+    try:
+        await asyncio.to_thread(warm_year_lists)
+    except Exception as e:  # noqa: BLE001 - past years are best effort here (their route says why)
+        log.warning("flood live: past years: %s", config.mask_secrets(f"{type(e).__name__}: {e}"))
     try:
         STATE.last_prefetch = await asyncio.to_thread(prefetch, lst)
         if any(STATE.last_prefetch.values()):

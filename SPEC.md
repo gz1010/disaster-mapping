@@ -1037,7 +1037,9 @@ catches its own errors). Every `REFRESH_S` = 900 s (`FIRE3D_FLOOD_LIVE_INTERVAL_
      after an official layer (warnings, gauges, forecast map) could not be loaded at build time. The job re-runs the
      flood build (`build_flood(force=True)`; terrain and the aerial photo come from the HTTP cache when the area did
      not change) and then puts back the product versions and earlier readings the bundle already had.
-4. **Auto-build** (`FIRE3D_AUTO_BUILD_FLOODS`, default = `FIRE3D_AUTO_BUILD_LIVE`), once, on the first cycle in which
+4. **Past years:** each cycle starts the one-time background build of a past year's list when it is missing or stale
+   (§8.10; no request once built).
+5. **Auto-build** (`FIRE3D_AUTO_BUILD_FLOODS`, default = `FIRE3D_AUTO_BUILD_LIVE`), once, on the first cycle in which
    both lists answered: of the 4 most severe listed floods (`floodRank`; active, real, lower 48 or DC; watches and
    gauges that may measure tidal water left out), those without a bundle are built one after another (D4).
 

@@ -703,7 +703,13 @@ def cached_rows(year: int) -> list[dict]:
         if y is not None and y.answer is not None:
             return list(y.answer["floods"])
     disk = _load_disk(year)
-    return list(disk[0]["floods"]) if disk else []
+    if disk is None:
+        return []
+    with _lock:                                    # keep the disk copy in memory (the next lookup reads no file)
+        y = _years.setdefault(year, _Year())
+        if y.answer is None:
+            y.answer, y.built_at = disk
+    return list(disk[0]["floods"])
 
 
 def find(flood_id: str) -> dict | None:
