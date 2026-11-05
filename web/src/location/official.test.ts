@@ -89,8 +89,8 @@ describe('officialBlock: the evacuation line is always present and honest', () =
     expect(b.evacuation[0].subCompact).toBe('Cal OES, checked 2 min ago · not an all-clear')
   })
   it('not checked, past date, unavailable and loading are said as such', () => {
-    const nc = officialBlock(info({ state: 'not-checked', checkedMs: null, reason: 'Not checked here: Fire-3d reads Cal OES zones only near the selected fire and the selected point.' }), CTX)
-    expect(nc.evacuation[0]).toMatchObject({ text: 'Evacuation zones: not checked here', official: false, sub: 'Fire-3d reads Cal OES zones only near the selected fire and the selected point.' })
+    const nc = officialBlock(info({ state: 'not-checked', checkedMs: null, reason: 'Not checked here: Disaster Mapping reads Cal OES zones only near the selected fire and the selected point.' }), CTX)
+    expect(nc.evacuation[0]).toMatchObject({ text: 'Evacuation zones: not checked here', official: false, sub: 'Disaster Mapping reads Cal OES zones only near the selected fire and the selected point.' })
     expect(officialBlock(info({ state: 'past-date' }), CTX).evacuation[0]).toMatchObject({ text: 'Evacuation zones: not available for past dates', official: false, sub: null })
     expect(officialBlock(info({ state: 'unavailable', reason: 'Cal OES did not answer.' }), CTX).evacuation[0]).toMatchObject({ text: 'Evacuation zones: unavailable right now', sub: 'Cal OES did not answer.' })
     expect(officialBlock(info({ state: 'loading' }), CTX).evacuation[0]).toMatchObject({ text: 'Checking official evacuation zones…', tone: 'loading' })
@@ -208,7 +208,7 @@ describe('NWS status and local officials\' alerts in the card (brief 3, CONTRACT
   const LA12 = timeFmt('America/Los_Angeles', '12h')
   const na = info({ state: 'not-available', checkedMs: null, sourceUrl: null, reason: 'Not available in this state (Nevada)', notAvailableIn: ['Nevada'], sources: [] })
   it('NWS not checked here (the answer does not cover the point\'s state)', () => {
-    const b = officialBlock({ ...na, fireWeather: fw({ state: 'unavailable', reasonCode: 'not_checked', reason: 'Fire-3d did not check NWS fire weather alerts in Nevada for this answer.' }) }, CTX)
+    const b = officialBlock({ ...na, fireWeather: fw({ state: 'unavailable', reasonCode: 'not_checked', reason: 'Disaster Mapping did not check NWS fire weather alerts in Nevada for this answer.' }) }, CTX)
     expect(b.fireWeather[0]).toMatchObject({ key: 'nws-unchecked', text: 'Fire weather alerts (NWS): not checked here', official: false })
     expect(JSON.stringify(b)).not.toMatch(/lower 48/)
   })
@@ -240,7 +240,7 @@ describe('NWS status and local officials\' alerts in the card (brief 3, CONTRACT
   it('none here: one status line with the standing caveat; HTTP 404: "not checked", never "none"', () => {
     const none = officialBlock({ ...na, local: localAlertsState(ok(LOCAL_LIVE_NONE_RENO)) }, CTX)
     expect(none.fireWeather.find((x) => x.key === 'local-none')).toMatchObject({ text: "Local officials' alerts relayed by NWS: none here · not an all-clear", official: true, tone: 'quiet' })
-    expect(none.fireWeather.find((x) => x.key === 'local-none')!.sub).toMatch(/^Fire-3d lists only the local alerts the National Weather Service relays/)
+    expect(none.fireWeather.find((x) => x.key === 'local-none')!.sub).toMatch(/^Disaster Mapping lists only the local alerts the National Weather Service relays/)
     const missing = officialBlock({ ...na, local: localAlertsState(ok(null, { error: NOT_FOUND_TEXT })) }, CTX)
     expect(missing.fireWeather.find((x) => x.key.startsWith('local-'))).toMatchObject({ key: 'local-unchecked', text: "Local officials' alerts: not checked" })
     expect(JSON.stringify(missing.fireWeather)).not.toMatch(/none here/)

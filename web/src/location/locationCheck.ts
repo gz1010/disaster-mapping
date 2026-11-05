@@ -77,7 +77,7 @@ function locationType(p: SelectedLocation): string {
       return 'Incident reported location (where the incident was reported, not necessarily where it started)'
     case 'device':
       // brief 4: the browser's own location, checked because the user asked ("Check this spot", which says it sends the
-      // point to Fire-3d's server, as a map click does); never put in the link (H3+H4 review R3: "not saved" was not
+      // point to Disaster Mapping's server, as a map click does); never put in the link (H3+H4 review R3: "not saved" was not
       // exact once the point is checked)
       return p.approximate ? 'Your location from your browser, checked at your request (approximate; not added to the link)' : 'Your location from your browser, checked at your request (not added to the link)'
   }
@@ -443,13 +443,13 @@ function sourcesFor(input: LocationCheckInput, r: Omit<LocationReport, 'sources'
   const p = r.perimeter
   if (p.state === 'ok' && p.basis === 'mapped') out.push({ name: p.perimeterSource, kind: 'official', timeMs: p.perimeterTimeMs, detail: 'Mapped fire perimeter (agency data)' })
   if ((p.state === 'ok' && p.basis === 'reconstructed') || r.observedFire.state !== 'gap')
-    out.push({ name: 'Fire-3d burned-area reconstruction', kind: 'estimate', timeMs: manifest?.built_ms ?? null, detail: 'Arrival times estimated from satellite detections (and mapped perimeters where available)' })
+    out.push({ name: 'Disaster Mapping burned-area reconstruction', kind: 'estimate', timeMs: manifest?.built_ms ?? null, detail: 'Arrival times estimated from satellite detections (and mapped perimeters where available)' })
   const det = dataSource(manifest, /FIRMS|detection|Fire observations/i)
   if (r.nearestDetection.state === 'ok' || det)
     out.push({ name: det?.name ?? 'NASA FIRMS active fire detections', kind: 'observation', timeMs: r.nearestDetection.state === 'ok' ? r.nearestDetection.tMs : (p.state === 'ok' ? p.latestDetectionMs : null), detail: det?.detail ?? null })
   const f = r.forecast
   if (f.state === 'ok')
-    out.push({ name: `Fire-3d spread model (${f.model.engine} ${f.model.version})`, kind: 'model', timeMs: f.issuedMs, detail: `Run ${f.runId}: ${f.members} runs, weather ${f.weatherSource}` })
+    out.push({ name: `Disaster Mapping spread model (${f.model.engine} ${f.model.version})`, kind: 'model', timeMs: f.issuedMs, detail: `Run ${f.runId}: ${f.members} runs, weather ${f.weatherSource}` })
   if (r.wind.state === 'ok') out.push({ name: `Weather model data (${r.wind.source})`, kind: 'model', timeMs: r.wind.tMs, detail: r.wind.isForecast ? 'Forecast hour' : 'Analysis / archived forecast hour' })
   if (r.terrain.state === 'ok') {
     const dem = dataSource(manifest, /3DEP|DEM|Terrain/i)
@@ -477,7 +477,7 @@ function caveatsFor(input: LocationCheckInput, r: Omit<LocationReport, 'sources'
   const out: string[] = []
   if (isDemoBundle(input.manifest?.id ?? input.summary?.id, input.manifest)) out.push('Demo bundle with simulated data: this is not a real fire.')
   if (r.modeledArea === 'outside')
-    out.push('Outside the modeled area: Fire-3d models only the incident’s analysis area, so the forecast and fire reconstruction say nothing about this spot. Its risk is unknown, not low.')
+    out.push('Outside the modeled area: Disaster Mapping models only the incident’s analysis area, so the forecast and fire reconstruction say nothing about this spot. Its risk is unknown, not low.')
   if (r.point.source === 'address' && !r.point.adjusted) {
     const range = addressRange(r.point.address?.fromAddress, r.point.address?.toAddress)
     out.push(`The address position is interpolated along ${range ? `house numbers ${range} of the street` : 'the street’s address range'} by the U.S. Census Bureau Geocoder; it is approximate, not a rooftop location. Drag the pin to correct it.`)

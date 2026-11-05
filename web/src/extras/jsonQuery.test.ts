@@ -78,7 +78,7 @@ describe('the shared query cache (fire changes: brief 2 decision 10)', () => {
     expect(pending).toHaveLength(2)
     pending[1].reject(Object.assign(new Error('x'), { status: 503 }))
     await vi.runAllTimersAsync()
-    expect(peekQuery('/b')).toMatchObject({ data: { v: 1 }, loading: false, error: 'The Fire-3d server could not get data from this source.' })
+    expect(peekQuery('/b')).toMatchObject({ data: { v: 1 }, loading: false, error: 'The Disaster Mapping server could not get data from this source.' })
   })
 
   it('stays bounded, dropping unused entries first', async () => {

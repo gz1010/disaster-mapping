@@ -58,7 +58,7 @@ describe('evacuation near the fire (Official now)', () => {
 
   it('says loading, past date, unavailable (with county maps) and not checked, never "none"', () => {
     expect(evacuationNow(ok(null, { loading: true }), FIRE, { hasIncident: true, layerOn: true, marginKm: 15 }).state).toBe('loading')
-    expect(evacuationNow(ok(null, { error: 'Could not reach the Fire-3d server.' }), FIRE, { hasIncident: true, layerOn: true, marginKm: 15 })).toMatchObject({ state: 'unavailable', reason: 'Could not reach the Fire-3d server.' })
+    expect(evacuationNow(ok(null, { error: 'Could not reach the Disaster Mapping server.' }), FIRE, { hasIncident: true, layerOn: true, marginKm: 15 })).toMatchObject({ state: 'unavailable', reason: 'Could not reach the Disaster Mapping server.' })
     const past = { ...noZones, status: 'not_available_for_past_dates' as const, reason: 'Current only.' }
     expect(evacuationNow(ok(past), FIRE, { hasIncident: true, layerOn: true, marginKm: 15 })).toMatchObject({ state: 'past-date', reason: 'Current only.' })
     const notCovered = { ...noZones, status: 'unavailable' as const, reason: 'Not in the statewide layer.', coverage: [{ county: 'Ventura', in_statewide_layer: false, acquisition_status: null, zone_source: null, reference_url: 'https://www.venturacountyemergency.com/' }] }
@@ -91,7 +91,7 @@ describe('evacuation at a point (location card)', () => {
     expect(evacuationAtPointState({ ...base, ...irvine, point: ok(null, { loading: true }) }).state).toBe('loading')
     const pointAnswer = { ...noZones, bbox: pointQueryBbox(irvine.lon, irvine.lat), incident_id: null }
     expect(evacuationAtPointState({ ...base, ...irvine, point: ok(pointAnswer) }).state).toBe('none-listed')
-    expect(evacuationAtPointState({ ...base, ...irvine, point: ok(null, { error: 'Could not reach the Fire-3d server.' }) }).state).toBe('unavailable')
+    expect(evacuationAtPointState({ ...base, ...irvine, point: ok(null, { error: 'Could not reach the Disaster Mapping server.' }) }).state).toBe('unavailable')
   })
 
   it('past dates and no point are said as such; a point outside the fire always asks the backend (brief 3)', () => {
@@ -233,9 +233,9 @@ describe('evacuations outside California (brief 3)', () => {
   })
 
   it('outside the lower 48: the backend sentence, no state named', () => {
-    const ak: EvacuationsResponse = { ...EVAC_RENO_NOT_AVAILABLE, states: [], reason: 'Fire-3d does not support Alaska, Hawaii or US territories yet.' }
+    const ak: EvacuationsResponse = { ...EVAC_RENO_NOT_AVAILABLE, states: [], reason: 'Disaster Mapping does not support Alaska, Hawaii or US territories yet.' }
     const e = evacuationAtPointState({ lon: -149.9, lat: 61.2, incident: null, incidentBbox: null, point: ok(ak), past: false, fire: null, pointState: null })
-    expect(e).toMatchObject({ state: 'not-available', reason: 'Fire-3d does not support Alaska, Hawaii or US territories yet.', notAvailableIn: [] })
+    expect(e).toMatchObject({ state: 'not-available', reason: 'Disaster Mapping does not support Alaska, Hawaii or US territories yet.', notAvailableIn: [] })
   })
 
   it('a Medford OR point is checked: Oregon OEM zones with OEM level definitions and the state-layer time', () => {
@@ -246,7 +246,7 @@ describe('evacuations outside California (brief 3)', () => {
     const z = e.zones[0]
     expect(z).toMatchObject({ status: 'Level 3: GO NOW – Leave Immediately!', group: 'order', issuer: 'Jackson County', verbatim: false, aggregator: 'Oregon OEM', listedPhrase: 'added to the Oregon state layer', listedMs: 1786666812468 })
     expect(z.updatedMs).toBeUndefined() // OEM gives no issue time
-    expect(z.levelNote).toBe('"Level 3" is Fire-3d\'s wording of Oregon OEM\'s level number; Oregon OEM defines it as "Level 3: GO NOW – Leave Immediately!".')
+    expect(z.levelNote).toBe('"Level 3" is Disaster Mapping\'s wording of Oregon OEM\'s level number; Oregon OEM defines it as "Level 3: GO NOW – Leave Immediately!".')
     expect(z.incidentNote).toBe('Fire name as recorded by Oregon OEM: Fielders Mountain; a name match is not proof it is this fire')
     expect(e.sources?.map((s) => [s.aggregator, s.credit, s.answered])).toEqual([['Oregon OEM', 'Oregon Department of Emergency Management', true]])
     // inside the checked area but in no zone: none listed by Oregon OEM, not an all-clear

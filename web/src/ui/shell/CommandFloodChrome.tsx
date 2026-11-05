@@ -26,11 +26,13 @@ import { ScaleBar } from '../../map/MapAttribution'
 import { MapControls } from '../../map/MapControls'
 import { FloodLegend } from '../../map/FloodLegend'
 import { CATEGORY_COLORS, gaugeTone } from '../../map/floodStyle'
+import { archiveCreditAtHandle } from '../../map/floodAreaLayers'
 import { floodLayerCreditsFor } from '../../map/floodLayerCredits'
 import { askedAt, useFloodOfficial, useFloodOfficialSync } from '../../official/floodHooks'
 import { primaryGaugeReading } from '../../official/floodModel'
 import { goToFloodOverview, openFloodSummary, useFlood } from '../../state/flood'
 import { useFloodLayerData, useFloodLayerDataSync } from '../../state/floodLayerData'
+import { useProductsAtHandle, useSatelliteAtHandle } from '../../state/floodTimelineData'
 import { useStore } from '../../state/store'
 import { useWorkspace } from '../../state/workspace'
 import { Popover } from '../controls'
@@ -206,25 +208,32 @@ function OfficialColumn() {
 
 /** Each drawn flood layer's credit line in the foot's credits (`#mw-credits`, App.tsx CreditsFooter; folded behind
  *  "© Credits" with the map's credits on narrow screens): the model, NWS's forecast area and category map, FEMA, NASA
- *  OPERA and USGS while drawn (CONTRACT §16.15; review WFC-R4). */
+ *  OPERA and USGS while drawn (CONTRACT §16.15; review WFC-R4); brief 6: the satellite pass at the chart's handle and the
+ *  IEM archive while its copies are drawn (review WFP-R3, WFP-R4). */
 function FloodLayerFootCredits() {
   const [host, setHost] = useState<HTMLElement | null>(null)
   const anchor = useCallback((el: HTMLSpanElement | null) => setHost(el?.parentElement?.querySelector<HTMLElement>('#mw-credits') ?? null), [])
   const layers = useFlood((s) => s.layers)
   const floodId = useFlood((s) => s.floodId)
-  const off = useFloodOfficial(useShallow((s) => (s.floodId === floodId ? { fim: s.fim.data, satellite: s.satellite.data, nfhl: s.nfhl.data, gauges: s.gauges.data } : null)))
+  const off = useFloodOfficial(useShallow((s) => (s.floodId === floodId ? { fim: s.fim.data, satellite: s.satellite.data, nfhl: s.nfhl.data, gauges: s.gauges.data, alerts: s.alerts.data } : null)))
   const extra = useFloodLayerData(useShallow((s) => (s.floodId === floodId ? { model: s.model.data, highFlow: s.highFlow.data, catfim: s.catfim.data } : null)))
+  // brief 6 (web-flood-playback, declared edit): the pass on the map at the chart's handle is credited, with its own
+  // product and route (review WFP-R4), and the IEM archive while one of its copies of an NWS product is drawn (WFP-R3)
+  const satAt = useSatelliteAtHandle(off?.satellite ?? null)
+  const products = useProductsAtHandle(off?.alerts ?? null)
+  const archive = layers.warnings ? archiveCreditAtHandle(products, products.timeline) : null
   const items = floodLayerCreditsFor({
     chrome: 'command-flood',
     layers,
     fim: off?.fim ?? null,
-    satellite: off?.satellite ?? null,
+    satellite: satAt,
     nfhl: off?.nfhl ?? null,
     gauges: off?.gauges ?? null,
     model: extra?.model ?? null,
     highFlow: extra?.highFlow ?? null,
     catfim: extra?.catfim ?? null,
   })
+  if (archive && !items.some((a) => a.text === archive.text)) items.push({ id: 'iem', text: archive.text, href: archive.href ?? undefined })
   const line = items.length ? (
     <div className="mw-attrib fxm-attrib cfv-credits" aria-label="Sources of the flood layers">
       <span className="fxm-credits">

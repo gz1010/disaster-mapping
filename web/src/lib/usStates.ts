@@ -1,5 +1,5 @@
 // The lower 48 states and DC (brief 3, CONTRACT §14.10): USPS codes and names for search parsing ("Boise, ID",
-// "83702 ID", "Garfield Co., CO") and for display. Alaska, Hawaii and the territories are listed separately: Fire-3d
+// "83702 ID", "Garfield Co., CO") and for display. Alaska, Hawaii and the territories are listed separately: Disaster Mapping
 // does not support them yet, but search must still recognise their names to say so.
 
 /** USPS code → name, the 48 contiguous states plus DC (same set as the backend's regions.L48). */
@@ -55,7 +55,7 @@ export const L48_STATES: Readonly<Record<string, string>> = {
   WY: 'Wyoming',
 }
 
-/** States and territories Fire-3d does not support yet (recognised by search so it can say so). */
+/** States and territories Disaster Mapping does not support yet (recognised by search so it can say so). */
 export const UNSUPPORTED_STATES: Readonly<Record<string, string>> = {
   AK: 'Alaska',
   HI: 'Hawaii',

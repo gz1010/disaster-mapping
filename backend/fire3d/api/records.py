@@ -47,7 +47,7 @@ PUBLISHER = "NIFC WFIGS (IRWIN)"
 RECORD_SOURCE: dict[str, str] = {"name": PUBLISHER, "url": wfigs.DATASET_URL, "credit": "NIFC WFIGS (IRWIN)",
                                  "license": "NIFC disclaimer (no use restriction)", "terms_url": wfigs.DATASET_URL}
 CAVEAT_NUMBERS = ("These are the protecting agency's numbers as published by NIFC WFIGS (IRWIN), with the record's own "
-                  "update time. Fire-3d does not record changes to this record yet.")
+                  "update time. Disaster Mapping does not record changes to this record yet.")
 CAVEAT_NOT_ALL_CLEAR = "No record or no change is not an all-clear: follow local officials."
 REASON_NO_MATCH = "NIFC WFIGS has no record matched to this fire."
 # A California row matched to several WFIGS records, none with its name (catalog.enrich_calfire: irwin_id null; review

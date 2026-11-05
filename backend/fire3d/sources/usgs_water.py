@@ -118,7 +118,7 @@ def continuous(site: str, parameter: str, start_ms: int, end_ms: int, *, now_ms:
             if USGS_DOWN.down(USGS_HOST):
                 raise SourceError(f"{_NAME} could not be reached (it failed less than a minute ago)")
             if not USGS_LIMITER.try_acquire():
-                raise SourceBusy(f"{_NAME}: Fire-3d's request limit is reached; try again in a minute")
+                raise SourceBusy(f"{_NAME}: Disaster Mapping's request limit is reached; try again in a minute")
             try:
                 hit = fhttp.request("GET", url, params=params, ttl_s=ttl, timeout=TIMEOUT_S, retries=RETRIES,
                                     expect_json=True)
@@ -139,7 +139,7 @@ def continuous(site: str, parameter: str, start_ms: int, end_ms: int, *, now_ms:
             doc = hit.json()
         except ValueError:
             fhttp.evict_cache("GET", url, params)
-            raise SourceError(f"{_NAME} sent a reply Fire-3d could not read") from None
+            raise SourceError(f"{_NAME} sent a reply Disaster Mapping could not read") from None
         if not isinstance(doc, dict) or not isinstance(doc.get("features"), list):
             fhttp.evict_bad_answer(hit, "GET", url, params)
             raise SourceError(f"{_NAME} sent an unexpected reply")

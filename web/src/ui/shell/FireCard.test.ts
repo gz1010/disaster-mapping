@@ -97,7 +97,7 @@ describe('fire card record (§14.5)', () => {
     expect(r.official).toContain('StatusNot listed as active')
     expect(r.official).not.toContain('Updated by CAL FIRE')
     expect(r.official).toMatch(/CAL FIRE record last edited Oct 20,( 2026)? 10:00 AM PDT/)
-    // the title chip is Fire-3d's listing (active when either agency says so), outside the record
+    // the title chip is Disaster Mapping's listing (active when either agency says so), outside the record
     expect(r.outside).toContain('Active')
     // agreeing agencies: one record, no split, "Active" and "Updated by CAL FIRE"
     const agree = render({ ...timber, active_sources: ['calfire', 'wfigs'] })

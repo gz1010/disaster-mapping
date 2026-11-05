@@ -8,6 +8,7 @@
 // Brief 4 H4 (decision a): the Public fire view keeps the basemap, the perimeters, the selected location, the official
 // and optional sources and the units; the model's and the estimates' toggles (and the forecast run) are Command's, said
 // in a note with a link (map/fireProfile.ts PUBLIC_FIRE_HIDDEN).
+// Brief 6 (decision 4): a Display section after Units with the "Zoom dimming" switch (ui/shell/ZoomDimmingSwitch.tsx).
 import { Box, RotateCcw, X } from 'lucide-react'
 import { useEffect, useRef, type ReactNode } from 'react'
 import { useShallow } from 'zustand/react/shallow'
@@ -35,6 +36,7 @@ import { OVERVIEW_LEGEND_IN_PANEL_QUERY } from '../public/overviewLayout'
 import { PUBLIC_FIRE_HIDDEN } from '../../map/fireProfile'
 import { LAYERS_IN_COMMAND } from '../public/fireView'
 import { applyView } from './views'
+import { DisplaySection } from './ZoomDimmingSwitch'
 
 const BASEMAPS: { value: Basemap; desc: string }[] = [
   { value: 'dark', desc: 'Subdued roads and places; fire layers stand out' },
@@ -320,7 +322,7 @@ export function LayersPanel() {
                   <SourceRow key={l.key} k={l.key} label={l.label} desc={l.desc} />
                 ))}
               </ul>
-              <p className="mw-set-note">Fire-3d's modeled spread is experimental and is not an evacuation instruction. Follow local officials.</p>
+              <p className="mw-set-note">Disaster Mapping's modeled spread is experimental and is not an evacuation instruction. Follow local officials.</p>
             </Section>
             {!fireView && (
               <Section title="Forecast shown">
@@ -332,6 +334,7 @@ export function LayersPanel() {
         <Section title="Units">
           <Segmented value={units} options={UNITS} onChange={ws.setUnits} ariaLabel="Units" size="sm" className="mw-seg-fill" />
         </Section>
+        <DisplaySection />
         <Section title="Scientific views and visual effects">
           <p className="mw-set-note">
             The activity and slope lattice, detailed telemetry, smoke and the hybrid, realistic and parametric visual styles stay off here. They are in the Forensic

@@ -388,7 +388,7 @@ def test_local_alerts_live_near_a_fire(upstream: Upstream, client: TestClient, t
     assert a["time_zone"] == "America/Los_Angeles" and a["source_url"].startswith("https://")
     assert {"fips": "06037", "name": "Los Angeles County", "state": "CA"} in d["counties"]
     assert "sender" not in keys_anywhere(d)
-    assert d["caveats"][0].startswith("Fire-3d lists only the local alerts the National Weather Service relays")
+    assert d["caveats"][0].startswith("Disaster Mapping lists only the local alerts the National Weather Service relays")
     assert "not an all-clear" in d["caveats"][0]
     assert upstream.count("/alerts/active") == 1 and upstream.count("/alerts?") == 0
 
@@ -438,8 +438,8 @@ def test_local_alerts_bbox_form_and_bad_requests(upstream: Upstream, client: Tes
 
 
 @pytest.mark.parametrize("bbox,outside", [
-    ("-110.955,29.065,-110.945,29.075", "Outside the United States: Fire-3d has no data here."),          # Hermosillo, MX
-    ("-149.905,61.195,-149.895,61.205", "Fire-3d does not support Alaska, Hawaii or US territories yet."),  # Anchorage
+    ("-110.955,29.065,-110.945,29.075", "Outside the United States: Disaster Mapping has no data here."),          # Hermosillo, MX
+    ("-149.905,61.195,-149.895,61.205", "Disaster Mapping does not support Alaska, Hawaii or US territories yet."),  # Anchorage
 ])
 def test_local_alerts_outside_the_lower_48_are_not_checked(upstream: Upstream, client: TestClient, monkeypatch,
                                                            bbox: str, outside: str) -> None:
@@ -450,9 +450,9 @@ def test_local_alerts_outside_the_lower_48_are_not_checked(upstream: Upstream, c
     assert r.status_code == 200 and contract_problems(LocalAlertsResponse, r.content) == []
     d = r.json()
     assert d["status"] == "unavailable" and d["reason_code"] == "state_not_available" and d["alerts"] == []
-    assert d["reason"] == f"Fire-3d checks local officials' alerts in the lower 48 states only. {outside}"
+    assert d["reason"] == f"Disaster Mapping checks local officials' alerts in the lower 48 states only. {outside}"
     assert [c["status"] for c in d["channels"]] == ["not_checked", "not_checked"]
-    assert all(c["reason"] == "Fire-3d checks local officials' alerts in the lower 48 states only." for c in d["channels"])
+    assert all(c["reason"] == "Disaster Mapping checks local officials' alerts in the lower 48 states only." for c in d["channels"])
     assert "not an all-clear" in d["caveats"][0] and upstream.count("api.weather.gov") == 0
 
 

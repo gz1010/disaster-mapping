@@ -1,6 +1,6 @@
 // Incident picker (SPEC 9.4; brief 2): Active / 2026 season / 2025 lists (the overview's filters, state/overview.ts),
 // search (name, county, state, place, id), >= 100 ac toggle (2025), and rows with name, county and state, acres,
-// containment, start date (in the fire's own zone), the agency's status and whether Fire-3d's analysis is prepared. Picking a fire never starts a build by itself: in the map workspace an unprepared fire
+// containment, start date (in the fire's own zone), the agency's status and whether Disaster Mapping's analysis is prepared. Picking a fire never starts a build by itself: in the map workspace an unprepared fire
 // opens its fire card ("Prepare analysis (1-3 min)"); in Forensic it opens with the Build button (or builds when the
 // Forensic setting "Prepare analysis when I pick an unprepared fire" is on). Keyboard: arrows + Enter, Esc closes.
 import { ChevronDown, RefreshCw, Search } from 'lucide-react'

@@ -41,7 +41,7 @@ describe('local alerts state', () => {
     expect(sentText(a, LA12)).toBe('sent Oct 15, 6:23 PM PDT')
     expect(l.archive).toBe(false)
     expect(l.credits).toEqual(["National Weather Service (relayed local officials' messages)"])
-    expect(l.caveats[0]).toMatch(/^Fire-3d lists only the local alerts the National Weather Service relays; most are not relayed/)
+    expect(l.caveats[0]).toMatch(/^Disaster Mapping lists only the local alerts the National Weather Service relays; most are not relayed/)
   })
 
   it("an archived message: 'Archived alert from …', the FEMA record link, the archive credit and FEMA's notice", () => {
@@ -80,7 +80,7 @@ describe('local alerts state', () => {
 
   it('an older backend (HTTP 404) or a failure is "not checked", never "none"', () => {
     expect(localAlertsState(ok(null, { error: NOT_FOUND_TEXT }))).toMatchObject({ state: 'not-checked', alerts: [] })
-    expect(localAlertsState(ok(null, { error: 'Could not reach the Fire-3d server.' }))).toMatchObject({ state: 'unavailable' })
+    expect(localAlertsState(ok(null, { error: 'Could not reach the Disaster Mapping server.' }))).toMatchObject({ state: 'unavailable' })
     expect(localAlertsState(ok(null, { loading: true })).state).toBe('loading')
     expect(localAlertsState(null, { demo: true }).state).toBe('not-checked')
   })
@@ -99,7 +99,7 @@ describe('local alerts state', () => {
 describe('review R1: where each message applies, most relevant first (Eaton, replay 2025-01-09 03:40 UTC)', () => {
   const eaton = () => localAlertsState(ok(LOCAL_ARCHIVE_EATON))
   // the backend lists the 3 newest first: LA City's Sunset Fire and Runyon Canyon messages, 26-30 km away
-  it('the backend order puts other fires first; Fire-3d lists the nearest in-effect message first', () => {
+  it('the backend order puts other fires first; Disaster Mapping lists the nearest in-effect message first', () => {
     expect(LOCAL_ARCHIVE_EATON.alerts.slice(0, 3).map((a) => a.nearest_km)).toEqual([29.5, 26.2, 26.5])
     const l = eaton()
     expect(l.alerts.map((a) => a.nearestKm)).toEqual([2.7, 2.7, 3.1, 12.7, 26.2, 26.5, 29.5, 8.5])
@@ -158,7 +158,7 @@ describe('review R1: where each message applies, most relevant first (Eaton, rep
     const noneLine = localAlertLines(none, LA12)[0]
     // a replay older than NWS keeps: only FEMA's archive was read, so the line names it, not NWS (review UX-m3)
     expect(noneLine.text).toBe("Local officials' alerts (FEMA archive): none here · not an all-clear")
-    expect(noneLine.sub).toMatch(/^8 of the fire's local alerts are for other places in its area \(see Updates\)\. Fire-3d lists only/)
+    expect(noneLine.sub).toMatch(/^8 of the fire's local alerts are for other places in its area \(see Updates\)\. Disaster Mapping lists only/)
   })
 
   it('a county match at a point: kept in the point\'s county (or while the county is unknown), measured as such', () => {
@@ -209,7 +209,7 @@ describe('review round 2', () => {
       expect(out).toMatchObject({ state: 'not-checked', reason: LOCAL_LOWER48_REASON, alerts: [] })
       const lines = localAlertLines(out, LA12)
       expect(lines).toHaveLength(1)
-      expect(lines[0]).toMatchObject({ text: "Local officials' alerts: not checked", sub: "Fire-3d checks local officials' alerts in the lower 48 states only.", official: false })
+      expect(lines[0]).toMatchObject({ text: "Local officials' alerts: not checked", sub: "Disaster Mapping checks local officials' alerts in the lower 48 states only.", official: false })
       expect(lines.map((x) => x.text).join(' ')).not.toMatch(/none here/)
       // the point's state not known yet: checking, never "none" for a moment
       const wait = localAlertsAtSelectedPoint({ lon, lat, live, fire: null, pointState: undefined })
@@ -229,7 +229,7 @@ describe('review round 2', () => {
     const la = localAlertsState(ok(LOCAL_LIVE_LA_CEM))
     expect(localAlertsForPointState(la, { pointState: null }).state).toBe('listed')
     // not checked, unavailable and loading answers pass through as they are
-    const failed = localAlertsState(ok(null, { error: 'Could not reach the Fire-3d server.' }))
+    const failed = localAlertsState(ok(null, { error: 'Could not reach the Disaster Mapping server.' }))
     expect(localAlertsForPointState(failed, { pointState: undefined })).toBe(failed)
   })
 
@@ -259,7 +259,7 @@ describe('review round 2', () => {
     expect(onlyVentura.elsewhere).toBeUndefined()
     const none = localAlertLines(onlyVentura, LA12)[0]
     expect(none.text).toBe("Local officials' alerts relayed by NWS: none here · not an all-clear")
-    expect(none.sub).toMatch(/^1 nearby local alert is for a neighbouring county, not this point's county\. Fire-3d lists only/)
+    expect(none.sub).toMatch(/^1 nearby local alert is for a neighbouring county, not this point's county\. Disaster Mapping lists only/)
     expect(none.sub).not.toMatch(/fire's local alert|see Updates/)
     const both = at([la, ventura])
     expect(both.alerts.map((a) => a.id)).toEqual([la.id])
@@ -281,10 +281,10 @@ describe('review round 2', () => {
       ...LOCAL_LIVE_LA_CEM,
       status: 'unavailable' as const,
       reason_code: 'state_not_available',
-      reason: "Fire-3d checks local officials' alerts in the lower 48 states only. Outside the United States: Fire-3d has no data here.",
+      reason: "Disaster Mapping checks local officials' alerts in the lower 48 states only. Outside the United States: Disaster Mapping has no data here.",
       alerts: [],
       counties: [],
-      channels: LOCAL_LIVE_LA_CEM.channels.map((c) => ({ ...c, status: 'not_checked' as const, retrieved_ms: null, reason: "Fire-3d checks local officials' alerts in the lower 48 states only." })),
+      channels: LOCAL_LIVE_LA_CEM.channels.map((c) => ({ ...c, status: 'not_checked' as const, retrieved_ms: null, reason: "Disaster Mapping checks local officials' alerts in the lower 48 states only." })),
     }
     const s = localAlertsState(ok(outside))
     expect(s.state).toBe('not-checked')

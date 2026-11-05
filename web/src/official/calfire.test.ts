@@ -25,13 +25,13 @@ describe('CAL FIRE status', () => {
     expect(s.reason).toBeUndefined()
   })
 
-  it('keeps the last record Fire-3d saw when CAL FIRE is unreachable, with the reason', () => {
-    const down = { ...CALFIRE_HENDERSON_LIVE, status: 'unavailable' as const, reason: "CAL FIRE's incident list could not be reached just now. Showing the last record Fire-3d saw." }
+  it('keeps the last record Disaster Mapping saw when CAL FIRE is unreachable, with the reason', () => {
+    const down = { ...CALFIRE_HENDERSON_LIVE, status: 'unavailable' as const, reason: "CAL FIRE's incident list could not be reached just now. Showing the last record Disaster Mapping saw." }
     expect(calfireStatus(q(down), null, false)).toMatchObject({ state: 'available', acres: 3160, reason: down.reason })
   })
 
   it('falls back to the incident summary (also CAL FIRE), never shows a record for demo data, and says why otherwise', () => {
-    expect(calfireStatus(q(null, { error: 'Could not reach the Fire-3d server.' }), SUMMARY, false)).toMatchObject({ state: 'available', acres: 100, percentContained: 10, url: 'https://www.fire.ca.gov/incidents/x' })
+    expect(calfireStatus(q(null, { error: 'Could not reach the Disaster Mapping server.' }), SUMMARY, false)).toMatchObject({ state: 'available', acres: 100, percentContained: 10, url: 'https://www.fire.ca.gov/incidents/x' })
     expect(calfireStatus(q(CALFIRE_HENDERSON_LIVE), SUMMARY, true)).toMatchObject({ state: 'unavailable', reason: expect.stringMatching(/^Demo data/) })
     expect(calfireStatus(q(null, { loading: true }), null, false)).toEqual({ state: 'loading' })
     expect(calfireStatus(q(null, { error: 'boom' }), null, false)).toEqual({ state: 'unavailable', reason: 'boom', unreachable: true })
@@ -46,8 +46,8 @@ describe('CAL FIRE status', () => {
     expect(s).toMatchObject({ state: 'available', acres: 14021, percentContained: 100, final: true, containedMs: 1738349322000 })
     expect(s.agencies?.startsWith('LA County Mental Health')).toBe(true) // the record's leading ", " is dropped
     expect(laggedEditNote(s)).toMatch(/edited this record well after the fire was contained/)
-    expect(calfireHistoryNote(s, 'historical')).toMatch(/^CAL FIRE's update-by-update history is not available for past fires\. Fire-3d records CAL FIRE's changes since/)
-    expect(calfireHistoryNote(calfireStatus(q(CALFIRE_HENDERSON_LIVE), null, false), 'live')).toMatch(/^Fire-3d records CAL FIRE's changes since/)
+    expect(calfireHistoryNote(s, 'historical')).toMatch(/^CAL FIRE's update-by-update history is not available for past fires\. Disaster Mapping records CAL FIRE's changes since/)
+    expect(calfireHistoryNote(calfireStatus(q(CALFIRE_HENDERSON_LIVE), null, false), 'live')).toMatch(/^Disaster Mapping records CAL FIRE's changes since/)
     expect(agenciesText(['A', ' B ', ''])).toBe('A, B')
     expect(agenciesText(null)).toBeUndefined()
   })
@@ -56,7 +56,7 @@ describe('CAL FIRE status', () => {
 describe('CAL FIRE feed rows', () => {
   const live = { mode: 'live' as const, manifest: { grid: { utm_zone: 11, center_e: 450000, center_n: 3700000 }, time_range: { start_ms: 0, end_ms: 1792335669000 + H, now_ms: 1792335669000 + H } } as never, summary: { lat: 33.35, lon: -117.41, url: null, contained_ms: null } }
 
-  it('says what changed in CAL FIRE terms, timed by CAL FIRE; when Fire-3d saw it is only "checked"', () => {
+  it('says what changed in CAL FIRE terms, timed by CAL FIRE; when Disaster Mapping saw it is only "checked"', () => {
     const items = calfireFeedItems(WITH_CHANGE, live)
     expect(items.map((i) => i.title)).toEqual(['CAL FIRE: 65 % contained (was 50 %)', 'CAL FIRE: 3,300 acres (was 3,160) · no longer listed as active'])
     const [a, b] = items

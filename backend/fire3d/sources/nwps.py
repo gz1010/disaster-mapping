@@ -273,7 +273,7 @@ def _features(url: str, params: Any, *, ttl_s: float, limiter: fhttp.RateLimiter
     hit = fhttp.peek_cache("GET", url, params, ttl_s)
     if hit is None:
         if not limiter.try_acquire():
-            raise SourceBusy(f"{name}: Fire-3d's request limit is reached; try again in a minute")
+            raise SourceBusy(f"{name}: Disaster Mapping's request limit is reached; try again in a minute")
         try:
             hit = fhttp.request("GET", url, params=params, ttl_s=ttl_s, timeout=timeout, retries=retries, expect_json=True)
         except fhttp.HttpError as e:
@@ -286,7 +286,7 @@ def _features(url: str, params: Any, *, ttl_s: float, limiter: fhttp.RateLimiter
         doc = hit.json()
     except ValueError:
         fhttp.evict_cache("GET", url, params)
-        raise SourceError(f"{name} sent a reply Fire-3d could not read") from None
+        raise SourceError(f"{name} sent a reply Disaster Mapping could not read") from None
     if not isinstance(doc, dict) or not isinstance(doc.get("features"), list):
         fhttp.evict_bad_answer(hit, "GET", url, params)
         raise SourceError(f"{name} sent an unexpected reply")
@@ -348,7 +348,7 @@ def _nwps_json(url: str, params: Any, ttl_s: float) -> tuple[Any, int]:
         if NWPS_DOWN.down(NWPS_HOST):
             raise SourceError(f"{_NWPS_NAME} could not be reached (it failed less than a minute ago)")
         if not NWPS_LIMITER.try_acquire():
-            raise SourceBusy(f"{_NWPS_NAME}: Fire-3d's request limit is reached; try again in a minute")
+            raise SourceBusy(f"{_NWPS_NAME}: Disaster Mapping's request limit is reached; try again in a minute")
         try:
             hit = fhttp.request("GET", url, params=params, ttl_s=ttl_s, timeout=NWPS_TIMEOUT_S, retries=NWPS_RETRIES,
                                 expect_json=True)
@@ -366,7 +366,7 @@ def _nwps_json(url: str, params: Any, ttl_s: float) -> tuple[Any, int]:
         return hit.json(), int(hit.fetched_ms)
     except ValueError:
         fhttp.evict_cache("GET", url, params)
-        raise SourceError(f"{_NWPS_NAME} sent a reply Fire-3d could not read") from None
+        raise SourceError(f"{_NWPS_NAME} sent a reply Disaster Mapping could not read") from None
 
 
 def gauge(lid: str) -> tuple[dict, int]:

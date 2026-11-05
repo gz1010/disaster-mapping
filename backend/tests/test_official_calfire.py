@@ -298,7 +298,7 @@ def test_calfire_endpoint_shows_the_last_record_while_cal_fire_is_down(cal: CalF
             p.unlink()
     d = client.get("/api/official/calfire", params={"incident": HENDERSON_ID}).json()
     assert d["status"] == "unavailable" and d["reason_code"] == "upstream_error"
-    assert "Showing the last record Fire-3d saw" in d["reason"] and d["current"]["percent_contained"] == 20.0
+    assert "Showing the last record Disaster Mapping saw" in d["reason"] and d["current"]["percent_contained"] == 20.0
     assert d["retrieved_ms"] is None and d["recording_since_ms"] is not None
     assert contract_problems(CalFireOfficialResponse, orjson.dumps(d)) == []
 

@@ -7,14 +7,16 @@
 //     FloodDock (the river level chart and, opened, the NWS products drawn at its handle)
 //   - "Frame flood" and "Charts & NWS products" under the compass; the scene key (one line per layer drawn, each with
 //     its own time, and "Bar height: river stage at the gauge (scaled), not water depth")
-//   - a flood without 3D data: "Fire-3d has not prepared this flood's 3D terrain yet." + "Prepare 3D data (about 1
+//   - a flood without 3D data: "Disaster Mapping has not prepared this flood's 3D terrain yet." + "Prepare 3D data (about 1
 //     min)" (useFlood.startFloodBuild, written by web-flood-public; its progress from state/floodBuild.ts), and the
 //     scene loads by itself when the job is done
 // The prototype line and "Not an all-clear. Follow local officials." (FixedCopy) stay on every state, phones included.
-import { BarChart3, Crosshair, Map as MapIcon, PanelBottomClose, PanelBottomOpen, RotateCcw } from 'lucide-react'
+import { BarChart3, Crosshair, Map as MapIcon, PanelBottomClose, PanelBottomOpen, RotateCcw, Waves } from 'lucide-react'
 import { lazy, Suspense, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { fmtAt } from '../../lib/time'
+import { useDepthShown, useHeightInUse, useProductsOnScreen, useSatelliteOnScreen } from '../../scene/flood/flood3dHooks'
+import { FLOOD_3D } from '../../scene/flood/flood3dCopy'
 import { floodAssetStore, useFloodAssetsError } from '../../scene/flood/floodAssets'
 import { setFloodOverlayRect } from '../../scene/flood/floodOverlayRects'
 import { useSceneStore } from '../../scene/sceneStore'
@@ -46,8 +48,15 @@ const Scene = lazy(() => import('../../scene/Scene'))
 
 /** "Frame flood" and "Charts & NWS products" (desktop) or the panels sheet (phones), under the compass. */
 function EntryControls({ narrow, dockFull, onDock, sheetOpen, onSheet }: { narrow: boolean; dockFull: boolean; onDock: () => void; sheetOpen: boolean; onSheet: () => void }) {
+  // brief 6: the river view (lower, closer, along the main river) when the bundle has a river line
+  const hasRiver = floodAssetStore((s) => s.assets?.flood.river != null)
   return (
     <div className="fx-entry glass" role="group" aria-label="3D view">
+      {hasRiver && (
+        <button type="button" className="fx-entry-btn" onClick={() => useSceneStore.getState().issueCameraCommand('frame-river')} data-tip={FLOOD_3D.riverViewTip} aria-label={FLOOD_3D.riverView}>
+          <Waves size={15} aria-hidden="true" /> {narrow ? FLOOD_3D.riverViewShort : FLOOD_3D.riverView}
+        </button>
+      )}
       <button type="button" className="fx-entry-btn" onClick={() => useSceneStore.getState().issueCameraCommand('frame-fire')} data-tip={FLOOD_FORENSIC.frameFloodTip}>
         <Crosshair size={15} aria-hidden="true" /> {FLOOD_FORENSIC.frameFlood}
       </button>
@@ -74,14 +83,23 @@ function SceneKey({ narrow }: { narrow: boolean }) {
   const cursorMs = useFlood((s) => s.cursorMs)
   const tf = useTimeFormat()
   const nowMs = useNow(60_000)
+  const height = useHeightInUse(flood)
+  const depth = useDepthShown(flood)
+  // brief 6 (playback): the satellite pass at the chart's handle, its own time, and the gap words
+  const onScreen = useSatelliteOnScreen(flood)
+  // the NWS products drawn at the handle (the warning lines' own list): the key's line only while one is drawn
+  const products = useProductsOnScreen(flood)
   if (!flood) return null
   const items = sceneKeyItems({
-    flood,
+    flood: onScreen ? { ...flood, satellite: onScreen.sat, has: { ...flood.has, satellite: onScreen.has, noView: onScreen.noView } } : flood,
+    satNote: onScreen?.note ?? null,
     layers,
     tf,
     nowMs,
     cursorMs,
-    hasWarnings: flood.warnings?.status === 'available' && flood.warnings.alerts.length > 0,
+    height,
+    depth,
+    hasWarnings: (products?.alerts.length ?? 0) > 0,
     hasGauges: flood.gauges?.status === 'available' && flood.gauges.gauges.length > 0,
   })
   const more = items.filter((it) => it.more && it.more.texts.length)

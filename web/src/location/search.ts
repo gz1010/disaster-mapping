@@ -157,8 +157,8 @@ export function likelyMissingWestSign(p: { lat: number; lon: number }): boolean 
 }
 
 /** CONTRACT §14.10 / §14.14 search messages. */
-export const NOT_SUPPORTED_NOTE = 'Fire-3d does not support Alaska, Hawaii or US territories yet.'
-export const OUTSIDE_LOWER48_WARNING = 'This point is outside the area Fire-3d covers (the lower 48 states).'
+export const NOT_SUPPORTED_NOTE = 'Disaster Mapping does not support Alaska, Hawaii or US territories yet.'
+export const OUTSIDE_LOWER48_WARNING = 'This point is outside the area Disaster Mapping covers (the lower 48 states).'
 export const SEARCH_EXAMPLES = 'e.g. 150 N Capitol Blvd, Boise, ID; Springfield, IL; 83702'
 export const noPlaceMessage = (q: string) => `No US city, town, county or ZIP code matches “${q}”.`
 /** Nothing matched at all: fire names are searched too (brief-3 integration review UX-m8). Only the listed fires are
@@ -284,7 +284,7 @@ export function areaLabel(m: GeocodeMatch): string {
 }
 
 /** Sub-line of a town or ZIP result: "city · Ada County · town center, approximate" or "ZIP area near Boise"; a match
- *  in Alaska, Hawaii or a territory keeps its row and says Fire-3d does not support it yet (§14.10). */
+ *  in Alaska, Hawaii or a territory keeps its row and says Disaster Mapping does not support it yet (§14.10). */
 export function areaSub(m: GeocodeMatch): string {
   const note = m.supported === false ? NOT_SUPPORTED_NOTE : null
   if (kindOf(m) === 'zip') return [`ZIP area${m.near ? ` near ${m.near}` : ''} · approximate`, note].filter(Boolean).join(' · ')

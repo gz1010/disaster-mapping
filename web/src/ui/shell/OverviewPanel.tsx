@@ -202,7 +202,7 @@ function SourceLine({
         ) : (
           <>
             {past ? 'Final records' : 'Records'}: CAL FIRE (California), NIFC WFIGS
-            {/* the newest agency time inside the list as an age, then when Fire-3d fetched the lists (final fixes R7) */}
+            {/* the newest agency time inside the list as an age, then when Disaster Mapping fetched the lists (final fixes R7) */}
             {newest != null && <> · {newestRecordText(newest, nowMs)}</>}
             {checkedMs != null && <> · {listCheckedText(checkedMs, checkedNewestMs, nowMs, { lists: listCount, stale: health.stale.size > 0 })}</>}
           </>
@@ -473,14 +473,14 @@ export function OverviewPanel({ closeHidesDetails = false, sheetPeek = true }: {
   )
 }
 
-/** Overview notice: the link named a fire Fire-3d cannot find (useStore.missingIncidentId). */
+/** Overview notice: the link named a fire Disaster Mapping cannot find (useStore.missingIncidentId). */
 export function MissingFireNotice() {
   const id = useStore((s) => s.missingIncidentId)
   if (!id) return null
   return (
     <div className="banner banner-info mw-missing" role="status">
       <span className="banner-text">
-        Fire-3d could not find the fire in this link (<span className="mw-mono">{id}</span>). CAL FIRE or NIFC may no longer list it, or the link is wrong.
+        Disaster Mapping could not find the fire in this link (<span className="mw-mono">{id}</span>). CAL FIRE or NIFC may no longer list it, or the link is wrong.
         Showing all listed fires.
       </span>
       <button type="button" className="icon-btn" aria-label="Dismiss" onClick={() => useStore.getState().setMissingIncidentId(null)}>

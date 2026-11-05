@@ -144,6 +144,24 @@ FLOOD_LAYERS = {                     # layer -> (grid, dtype, allowed values or 
     "water_satellite": ("render", "uint8", {0, 1, 2, 252, 253, 254, 255}, "water_satellite"),
     "water_model": ("render", "uint8", {0, 255}, "water_model"),
 }
+# brief 6 (backend-flood-time-3d): the satellite pass rasters of timeline.json and the 3D terrain products of
+# manifest.terrain3d (layer_status has no entry for them: their own status is in timeline.json / terrain3d)
+FLOOD_PASS_LAYER = re.compile(r"^water_pass_[A-Za-z0-9_-]+$")
+FLOOD_PASS_DEPTH_LAYER = re.compile(r"^depth_pass_[A-Za-z0-9_-]+$")      # review BTD-R3: each kept pass's depth
+TERRAIN3D_LAYERS = ("hand", "depth_satellite", "depth_forecast")
+
+
+def flood_layer_spec(name: str) -> tuple | None:
+    """(grid, dtype, allowed values or None, its layer_status key or None) of a flood bundle layer, or None."""
+    if name in FLOOD_LAYERS:
+        return FLOOD_LAYERS[name]
+    if FLOOD_PASS_LAYER.match(name):
+        return ("render", "uint8", {0, 1, 2, 252, 253, 254, 255}, None)
+    if name in TERRAIN3D_LAYERS or FLOOD_PASS_DEPTH_LAYER.match(name):
+        return ("render", "uint8", None, None)
+    return None
+
+
 RELATIVE_AGE = re.compile(r"\b\d+(\.\d+)?\s*(s|sec|min|mins|minutes?|h|hrs?|hours?|d|days?)\s+ago\b", re.IGNORECASE)
 
 
@@ -186,11 +204,13 @@ def check_flood_bundle(bdir: Path) -> tuple[Report, dict]:
     rep.check((ls.get("terrain") or {}).get("status") == "ok", "terrain is not ok (it is required)")
     # layers against their LayerInfo, with the flood encodings
     for name, info in (m.get("layers") or {}).items():
-        exp = FLOOD_LAYERS.get(name)
+        exp = flood_layer_spec(name)
         if not rep.check(exp is not None, f"layer {name}: not a flood layer"):
             continue
         grid, dtype, values, key = exp
-        rep.check((ls.get(key) or {}).get("status") == "ok", f"layer {name} written but layer_status.{key} is not ok")
+        if key is not None:
+            rep.check((ls.get(key) or {}).get("status") == "ok",
+                      f"layer {name} written but layer_status.{key} is not ok")
         a = _check_layer(rep, bdir, name, info, grid=grid, dtype=dtype)
         if a is not None and values is not None:
             extra = sorted(set(np.unique(a).tolist()) - values)
@@ -227,6 +247,17 @@ def check_flood_bundle(bdir: Path) -> tuple[Report, dict]:
                 bare = [x["lid"] for x in members if not (x.get("data_attribution") or x.get("impacts") or x.get("reach_id"))]
                 rep.note("gauges.json: NWPS could not be read; member gauge(s) with the NWS gauge map's reading only: "
                          + (", ".join(bare) or "none"))
+    if f.get("timeline"):                                         # brief 6: the frozen time history
+        from fire3d.contracts import FloodTimelineResponse
+
+        tl = _strict(rep, FloodTimelineResponse, bdir / f["timeline"], f["timeline"])
+        if tl is not None:
+            for ps in (tl.get("passes") or {}).get("passes") or []:
+                if ps.get("layer"):
+                    rep.check(ps["layer"] in (m.get("layers") or {}), f"timeline pass {ps['key']}: layer missing")
+                if ps.get("depth_layer"):
+                    rep.check(ps["depth_layer"] in (m.get("layers") or {}),
+                              f"timeline pass {ps['key']}: depth layer missing")
     for w in m.get("warnings") or []:
         if w.startswith("The refresh of "):
             rep.note(f"refresh kept earlier copies: {w}")

@@ -24,7 +24,7 @@ export function useOverviewData() {
   const health = listHealth(shownSources)
   const notices = listSourceNotices(shownSources, nowMs)
   const errorLines = listErrorLines(lists, catalog.listErrors, catalog.updatedMs, nowMs)
-  // "checked": when Fire-3d fetched the lists (sources[].retrieved_ms), never the time of the answer (panel F2)
+  // "checked": when Disaster Mapping fetched the lists (sources[].retrieved_ms), never the time of the answer (panel F2)
   const checkedMs = health.fetchedMs ?? (checked.length ? Math.min(...checked) : null)
   const checkedNewestMs = health.fetchedMs != null ? health.fetchedNewestMs : checked.length ? Math.max(...checked) : null
   return { catalog, filter, rows, loading, notices, health, errorLines, nowMs, error: errors.length ? [...new Set(errors)].join('; ') : null, checkedMs, checkedNewestMs, listCount: lists.length }

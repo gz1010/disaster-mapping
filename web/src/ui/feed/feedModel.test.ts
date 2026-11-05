@@ -245,7 +245,7 @@ describe('feed items: perimeters, satellite passes, forecast', () => {
     // Public: plain words and no run id (brief 2 C-R8)
     const plain = byId(full(), 'forecast:fc-1')
     expect(plain.title).toBe('Model re-run on past weather starts (72\u00a0h)')
-    expect(plain.detail).toMatch(/^Fire-3d re-ran its experimental spread model on the weather of .* simulated fires, each with slightly different weather\), after the fire, to compare with what happened\.$/)
+    expect(plain.detail).toMatch(/^Disaster Mapping re-ran its experimental spread model on the weather of .* simulated fires, each with slightly different weather\), after the fire, to compare with what happened\.$/)
     expect(plain.original).toBeNull()
     expect(`${plain.title} ${plain.detail} ${plain.source}`).not.toContain('fc-1')
     const live = byId(full({ manifest: manifest('live'), forecast: forecast('live') }), 'forecast:fc-1')

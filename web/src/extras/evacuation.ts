@@ -50,7 +50,7 @@ const FONT = ['Noto Sans Regular']
 const PIXEL_RATIO = 2
 
 /** Official wording, or an explicit placeholder when the source gives none (never invented). For Oregon this is
- *  Fire-3d's rendering of OEM's level number ("Level 3", `status_verbatim: false`). */
+ *  Disaster Mapping's rendering of OEM's level number ("Level 3", `status_verbatim: false`). */
 export function statusText(p: Pick<EvacZoneProps, 'status'>): string {
   return p.status?.trim() || 'Status not stated by the source'
 }
@@ -95,7 +95,7 @@ export function notFireSpecific(aggregator: string): string {
   return `${aggregator} does not say which fire this is for.`
 }
 
-/** Fire-3d's wording of a level that is not the source's own text (Oregon), with the source's definition, else null. */
+/** Disaster Mapping's wording of a level that is not the source's own text (Oregon), with the source's definition, else null. */
 export function statusLabel(p: Pick<EvacZoneProps, 'status_verbatim' | 'status_label'>): string | null {
   return p.status_verbatim === false && p.status_label ? p.status_label : null
 }
@@ -104,7 +104,7 @@ export function statusLabel(p: Pick<EvacZoneProps, 'status_verbatim' | 'status_l
 export function statusLevelNote(p: Pick<EvacZoneProps, 'status_verbatim' | 'status_label' | 'source_id' | 'status'>): string | null {
   if (p.status_verbatim !== false) return null
   const agg = AGGREGATOR_BY_ID[zoneSourceId(p)] ?? 'the source'
-  return `"${statusText(p)}" is Fire-3d's wording of ${agg}'s level number${p.status_label ? `; ${agg} defines it as "${p.status_label}"` : ''}.`
+  return `"${statusText(p)}" is Disaster Mapping's wording of ${agg}'s level number${p.status_label ? `; ${agg} defines it as "${p.status_label}"` : ''}.`
 }
 
 /** "Evacuation for: Other, as recorded by Oregon OEM" for a hazard that is not a fire, else null. */
@@ -302,7 +302,7 @@ export function zonesAtPoint(data: EvacuationsResponse | null, lon: number, lat:
 export type ZoneTimeBasis = NonNullable<EvacZoneProps['time_basis']>
 
 /** The issuer's last edit of a zone and when the state layer listed it (Cal OES's copy time; when the zone was added to
- *  the Oregon state layer). Fire-3d's fetch time is never a zone's time. */
+ *  the Oregon state layer). Disaster Mapping's fetch time is never a zone's time. */
 export function zoneTimes(p: Pick<EvacZoneProps, 'status_updated_ms' | 'aggregated_ms'> & Partial<Pick<EvacZoneProps, 'listed_ms' | 'time_basis'>>): {
   issuerMs: number | null
   aggregatedMs: number | null
@@ -453,7 +453,7 @@ export interface EvacuationFeedOptions {
  * Feed items: one per (official status, issuer), kind 'official', not seekable (current status, never a point on the
  * replay timeline). The time is the issuer's latest edit, else the state layer's time for the zone (Cal OES's copy time;
  * when it was added to the Oregon state layer), else the layer's own update time;
- * never Fire-3d's fetch time (`timeNotGiven` when none exists). Each item names the issuer, its distance to the fire
+ * never Disaster Mapping's fetch time (`timeNotGiven` when none exists). Each item names the issuer, its distance to the fire
  * and, for zones outside the fire's analysis area, that the source (Cal OES, Oregon OEM) does not say which fire it is for. Selecting it fits
  * the zones and highlights them (`bounds`, `highlight`). Key only for orders / shelter-in-place touching the area.
  */
@@ -509,7 +509,7 @@ export function evacuationFeedItems(data: EvacuationsResponse | null, manifest: 
       kind: 'official',
       tMs: ownMs ?? data.retrieved_ms ?? data.now_ms,
       title: `${status}: ${zones.length} zone${zones.length === 1 ? '' : 's'} (${issuer})`,
-      detail: `${dist ? `${dist[0].toUpperCase()}${dist.slice(1)}. ` : ''}${outside ? `${notFire} ` : ''}Issued by local officials; listed by ${aggregator}. Fire-3d's modeled spread is not an evacuation instruction.`,
+      detail: `${dist ? `${dist[0].toUpperCase()}${dist.slice(1)}. ` : ''}${outside ? `${notFire} ` : ''}Issued by local officials; listed by ${aggregator}. Disaster Mapping's modeled spread is not an evacuation instruction.`,
       source: `${issuer} via ${aggregator}`,
       automated: false,
       key: (key === 'order' || key === 'shelter') && !outside,

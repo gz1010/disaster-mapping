@@ -10,6 +10,9 @@
 // (scene/flood/floodProbe.ts: NWS products, satellite pass, NWS forecast area, FEMA / category map / model when switched
 // on, NOTHING_COVERS; never an all-clear) instead of fuel and arrival (a flood has no ignition), the frame button frames
 // the flood, and the loading veil follows the flood's own terrain.
+// Brief 6 (web-forensic-flood-3d): with a flood open the exaggeration select is the flood's height boost, always on
+// screen as "Height ×10 · auto" (scene/flood/heightBoost.ts: the flood's automatic height from its relief, the user's
+// own choice kept per flood in forensicFloodState.boost; choices up to ×20 for the flattest places), kept on phones too.
 import { Aperture, Crosshair, Maximize2, Minimize2, RotateCcw, RotateCw, X } from 'lucide-react'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { headingLabel, isRotated } from '../../lib/compass'
@@ -22,10 +25,15 @@ import { useStore, type Quality } from '../../state/store'
 import { useTimeFormat } from '../../state/timeZone'
 import { useForensicFlood } from '../../ui/forensic-flood/forensicFloodState'
 import { useNow } from '../../ui/hooks'
+import { NARROW_QUERY, useMediaQuery } from '../../ui/shell/hooks'
 import { useCompassDrag } from '../../ui/useCompassDrag'
 import { useAssetsError, useAssetsLoading } from '../assets'
+import { fillCopy } from '../../ui/shell/floodCopy'
+import { FLOOD_3D } from '../flood/flood3dCopy'
+import { depthOnScreen, useProductsOnScreen, useSatelliteOnScreen } from '../flood/flood3dHooks'
 import { floodAssetStore, useFloodAssetsError, useFloodAssetsLoading } from '../flood/floodAssets'
 import { floodProbeRows } from '../flood/floodProbe'
+import { boostOptions, fmtFactor } from '../flood/heightBoost'
 import { camState } from '../camera/cameraState'
 import { headingOfAzimuth } from '../camera/heading'
 import { useSceneStore } from '../sceneStore'
@@ -175,9 +183,22 @@ function ViewDock() {
   const dof = useStore((s) => s.dof)
   const setDof = useStore((s) => s.setDof)
   const issue = useSceneStore((s) => s.issueCameraCommand)
-  const what = useFlood((s) => s.floodId != null) ? 'flood' : 'fire'
+  const floodId = useFlood((s) => s.floodId)
+  const what = floodId != null ? 'flood' : 'fire'
+  // a flood's height boost (brief 6): its automatic value, once its 3D assets are loaded
+  const autoBoost = floodAssetStore((s) => (floodId != null && s.assets?.manifest.id === floodId ? s.assets.flood.boost.factor : null))
   const [fs, toggleFs] = useFullscreen()
-  const exOptions = EXAGGERATIONS.includes(exaggeration) ? EXAGGERATIONS : [...EXAGGERATIONS, exaggeration].sort((a, b) => a - b)
+  const exOptions = autoBoost != null ? boostOptions(autoBoost, exaggeration) : EXAGGERATIONS.includes(exaggeration) ? EXAGGERATIONS : [...EXAGGERATIONS, exaggeration].sort((a, b) => a - b)
+  // phones (brief 6): a flood's dock keeps "Height ×3" (without "· auto"), the 2D / 3D switch, the scale and "Frame";
+  // depth of field and full screen give way so the row fits
+  const narrow = useMediaQuery(NARROW_QUERY)
+  const compactFlood = autoBoost != null && narrow
+  const exLabel = (v: number) => (autoBoost == null ? `${v}×` : fillCopy(v === autoBoost && !compactFlood ? FLOOD_3D.heightAuto : FLOOD_3D.height, { n: fmtFactor(v) }))
+  const exTitle = autoBoost != null ? fillCopy(FLOOD_3D.heightTip, { n: fmtFactor(exaggeration) }) : 'Vertical exaggeration'
+  const setEx = (v: number) => {
+    if (autoBoost != null && floodId != null) useForensicFlood.getState().setBoost(floodId, v === autoBoost ? null : v)
+    else setExaggeration(v)
+  }
   const dofAvailable = viewMode === '3d' && quality !== 'low'
   return (
     <div className="sc-dock">
@@ -190,17 +211,17 @@ function ViewDock() {
         ))}
       </div>
       <div className="sc-glass sc-group" role="group" aria-label="Rendering">
-        <label className="sc-select" title="Vertical exaggeration">
-          <span className="sr-only">Vertical exaggeration</span>
-          <select value={exaggeration} onChange={(e) => setExaggeration(Number(e.target.value))}>
+        <label className={autoBoost != null ? 'sc-select sc-height' : 'sc-select'} title={exTitle}>
+          <span className="sr-only">{autoBoost != null ? FLOOD_3D.heightSelect : 'Vertical exaggeration'}</span>
+          <select value={exaggeration} onChange={(e) => setEx(Number(e.target.value))}>
             {exOptions.map((v) => (
               <option key={v} value={v}>
-                {v}×
+                {exLabel(v)}
               </option>
             ))}
           </select>
         </label>
-        <span className="sc-sep" />
+        <span className={autoBoost != null ? 'sc-sep sc-height-sep' : 'sc-sep'} />
         <label className="sc-select" title="Rendering quality">
           <span className="sr-only">Quality</span>
           <select value={quality} onChange={(e) => setQuality(e.target.value as Quality)}>
@@ -212,24 +233,28 @@ function ViewDock() {
           </select>
         </label>
         <span className="sc-sep" />
-        <button
-          type="button"
-          className="sc-icon-btn"
-          aria-pressed={dof && dofAvailable}
-          disabled={!dofAvailable}
-          style={dofAvailable ? undefined : { opacity: 0.35 }}
-          onClick={() => setDof(!dof)}
-          title={dofAvailable ? `Depth of field ${dof ? 'on' : 'off'}` : 'Depth of field (3D view, medium/high quality)'}
-          aria-label="Toggle depth of field"
-        >
-          <Aperture />
-        </button>
+        {!compactFlood && (
+          <button
+            type="button"
+            className="sc-icon-btn"
+            aria-pressed={dof && dofAvailable}
+            disabled={!dofAvailable}
+            style={dofAvailable ? undefined : { opacity: 0.35 }}
+            onClick={() => setDof(!dof)}
+            title={dofAvailable ? `Depth of field ${dof ? 'on' : 'off'}` : 'Depth of field (3D view, medium/high quality)'}
+            aria-label="Toggle depth of field"
+          >
+            <Aperture />
+          </button>
+        )}
         <button type="button" className="sc-icon-btn" onClick={() => issue('frame-fire')} title={`Frame the ${what}`} aria-label={`Frame the ${what}`}>
           <Crosshair />
         </button>
-        <button type="button" className="sc-icon-btn" aria-pressed={fs} onClick={toggleFs} title={fs ? 'Exit fullscreen' : 'Fullscreen'} aria-label="Toggle fullscreen">
-          {fs ? <Minimize2 /> : <Maximize2 />}
-        </button>
+        {!compactFlood && (
+          <button type="button" className="sc-icon-btn" aria-pressed={fs} onClick={toggleFs} title={fs ? 'Exit fullscreen' : 'Fullscreen'} aria-label="Toggle fullscreen">
+            {fs ? <Minimize2 /> : <Maximize2 />}
+          </button>
+        )}
       </div>
     </div>
   )
@@ -354,9 +379,14 @@ function FloodProbeReadout({ area }: { area: { w: number; h: number } }) {
     if (el) setBox((b) => (b.w === el.offsetWidth && b.h === el.offsetHeight ? b : { w: el.offsetWidth, h: el.offsetHeight }))
   }, [key])
   const fl = assets?.flood
+  // brief 6 (playback): the satellite pass on screen at the chart's handle
+  const satOnScreen = useSatelliteOnScreen(fl ?? null)
+  const products = useProductsOnScreen(fl ?? null)
+  // the depth raster on screen, subscribed so a still hover follows a new pass during Play (review WFF3D-R9)
+  const depth = depthOnScreen((s) => s.data)
   if (!probe || interacting || style === 'realistic' || !assets || !fl || probe.screenX == null || probe.screenY == null) return null
   const slopeDeg = (Math.atan(probe.slope) * 180) / Math.PI
-  const { rows, note } = floodProbeRows({ flood: fl, layers: L, extent: assets.extent, point: { x: probe.x, z: probe.z, lon: probe.lon, lat: probe.lat }, cursorMs, nowMs, tf })
+  const { rows, note } = floodProbeRows({ flood: fl, layers: L, extent: assets.extent, point: { x: probe.x, z: probe.z, lon: probe.lon, lat: probe.lat }, cursorMs, nowMs, tf, depth, satOnScreen, products })
   const pw = area.w || 4000
   const ph = area.h || 4000
   let x = probe.screenX + 18

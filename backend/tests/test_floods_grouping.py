@@ -419,7 +419,7 @@ def test_rule2_an_areal_warning_links_the_gauge_its_text_names() -> None:
 
 
 def test_rule5_a_tide_gauge_caveat_never_claims_no_coastal_product() -> None:
-    """BFS-R2: Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products (D1), so a gauge-only flood at a
+    """BFS-R2: Disaster Mapping does not read NWS Coastal Flood or Lakeshore Flood products (D1), so a gauge-only flood at a
     gauge that may measure tidal or lake water says so, never "No NWS flood product names this gauge"."""
     pier = {**riv("JBPF1", -80.05, 26.88, "minor", "Juno Beach Park Pier (in MHHW)", state="FL"), "pedts": "HCIRP"}
     near = riv("LRPF1", -80.10, 26.94, "minor", "Loxahatchee River 500 ft downstream of US 1", state="FL")  # ~8 km
@@ -475,7 +475,7 @@ def test_rule11_nws_down_never_claims_an_absence_or_an_end(monkeypatch: pytest.M
 
 
 def test_rule10_a_restart_after_a_long_gap_keeps_gauge_ids() -> None:
-    """BFS-R5: Fire-3d was off for 23 h (across a UTC date) while the gauge stayed in flood: the same id, no duplicate.
+    """BFS-R5: Disaster Mapping was off for 23 h (across a UTC date) while the gauge stayed in flood: the same id, no duplicate.
     A flood quiet for less than INACTIVE_LISTED_H that floods again keeps its id too; longer is a new flood (C8)."""
     g = riv("DCBN8", -98.9, 48.1, "major", "Devils Lake", state="ND", valid=NOW - 23 * H - 900_000)
     first = build(inputs([], obs=[g]), now=NOW - 23 * H)["floods"]
@@ -526,7 +526,7 @@ def test_rule11_the_iem_join_is_a_credited_source() -> None:
 
 
 def test_rule10_an_old_reading_never_churns_episodes() -> None:
-    """BFS-R5 follow-up: a gauge whose last reading at flood stage is already 3 days old when Fire-3d first lists it
+    """BFS-R5 follow-up: a gauge whose last reading at flood stage is already 3 days old when Disaster Mapping first lists it
     (an inactive gauge-only flood) keeps one episode and one id over many builds and across a UTC date, instead of a
     new episode at every build."""
     g = riv("SDDC1", -121.6, 36.6, "minor", "Salinas River", state="CA", valid=NOW - 72 * H)
@@ -546,7 +546,7 @@ def test_rule10_an_old_reading_never_churns_episodes() -> None:
 def test_rule8_a_carry_over_stays_ended_through_a_later_outage(monkeypatch: pytest.MonkeyPatch) -> None:
     """BFS-R1 follow-up: once NWS answered without a flood's product (carried over, its product "ended"), a later NWS
     outage never shows that product as in effect again, in the list's detail chain or its last-known summary; the
-    48 h listing window still counts from when Fire-3d last saw the flood in the lists."""
+    48 h listing window still counts from when Disaster Mapping last saw the flood in the lists."""
     import time as _t
 
     flash = cap("f", "Flash Flood Warning", vt("NEW", "FF", "W", 9, office="KPSR"), box(-112.0, 33.5, 0.05, 0.05),
@@ -614,7 +614,7 @@ def test_rule10_a_replaced_areal_warning_continues_its_flood() -> None:
 
 def test_rule8_a_left_gauge_flood_never_keeps_a_false_caveat() -> None:
     """Seen on the real list (fix step): "Fisher Island flood" at the Atlantic Ocean tide gauge, saved by an earlier
-    Fire-3d with the plain gauge-only caveat, was carried over with it. A flood that left the lists gets its caveat
+    Disaster Mapping with the plain gauge-only caveat, was carried over with it. A flood that left the lists gets its caveat
     decided again: the tide-gauge one for a tide gauge, ALERTS_UNAVAILABLE while NWS cannot be read."""
     ref = {"lid": "VAKF1", "name": "Virginia Key (Atlantic Ocean Tide Gauge)", "waterbody": "Atlantic Ocean Tide Gauge",
            "observed_category": "minor", "observed_ms": NOW - 3 * H}

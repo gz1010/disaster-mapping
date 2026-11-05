@@ -1,5 +1,5 @@
 """Backend-sent flood strings (``fire3d/floods/copy.py``): equal to CONTRACT 16.14 word for word, and free of the
-PLAN-5 5.1 banned patterns in Fire-3d's own voice (word boundaries; allowed phrases removed first, longest first).
+PLAN-5 5.1 banned patterns in Disaster Mapping's own voice (word boundaries; allowed phrases removed first, longest first).
 A planted banned word must make the guard fail (C24). The canned fixture answers pass the same guard, with NWS-style
 verbatim text (alerts' headline, description, instruction) left out, as the web strips ``data-verbatim`` text."""
 
@@ -81,7 +81,7 @@ def test_slots_are_absolute() -> None:
     assert fcopy.catfim_note("major") == ("What NWS maps for major flooding at this gauge (experimental map library). "
                                           "Not a forecast.")
     assert fcopy.sat_picture_reason("Oct 30, 2026") == (
-        "Fire-3d could not load a measured satellite water image of this area from the last 10 days; NASA's picture "
+        "Disaster Mapping could not load a measured satellite water image of this area from the last 10 days; NASA's picture "
         "of Oct 30, 2026 is not measured here. That is not an all-clear.")
 
 

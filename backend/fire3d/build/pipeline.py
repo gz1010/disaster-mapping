@@ -70,7 +70,7 @@ REFRESH_FAILED_PREFIX = "Live refresh failed"
 WEATHER_NOT_REFRESHED_PREFIX = "Weather not refreshed: "
 
 
-UNSUPPORTED_TEXT = "Fire-3d does not support Alaska, Hawaii or US territories yet."     # CONTRACT 14.14
+UNSUPPORTED_TEXT = "Disaster Mapping does not support Alaska, Hawaii or US territories yet."     # CONTRACT 14.14
 
 
 class BuildRefused(LookupError):

@@ -35,7 +35,7 @@ const byId = (id: string) => LIST().floods.find((f) => f.id === id)!
 const here = { lat: 36.8, lon: -108.05 }
 
 describe('flood overview words', () => {
-  it('leader meta: the gauge category and stage, else the NWS product (never Fire-3d words)', () => {
+  it('leader meta: the gauge category and stage, else the NWS product (never Disaster Mapping words)', () => {
     expect(floodMeta(byId('fixture-flood-major'))).toBe('MAJOR · 24.3 FT')
     expect(floodMeta(byId('fixture-flood-flash'))).toBe('FLASH FLOOD EMERGENCY')
     expect(floodMeta(byId('fixture-flood-advisory'))).toBe('FLOOD ADVISORY')

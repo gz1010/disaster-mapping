@@ -1,5 +1,5 @@
 // Official evacuation zones panel (owner: us-official in brief 3; earlier optional-sources). Shows the issuing
-// jurisdictions, the official wording verbatim (Oregon's levels flagged as Fire-3d's wording of OEM's level number,
+// jurisdictions, the official wording verbatim (Oregon's levels flagged as Disaster Mapping's wording of OEM's level number,
 // with OEM's definition), the issuer's update time per zone, each state source's own update time (Cal OES, Oregon
 // OEM), county coverage (California) and an honest state when the status cannot be shown (past dates, not available
 // in this state, county not in the statewide layer, outage). Presentational: pass the state from useEvacuations().
@@ -160,10 +160,10 @@ export function EvacuationPanel({ state, onShowZone, selectedZoneId }: Evacuatio
           {c}
         </p>
       ))}
-      <p className="xs-note">Fire-3d's modeled spread is not an evacuation instruction. Follow local officials; in an emergency call 911.</p>
+      <p className="xs-note">Disaster Mapping's modeled spread is not an evacuation instruction. Follow local officials; in an emergency call 911.</p>
       <SourceFooter
         sources={data?.sources ?? []}
-        extra={data?.retrieved_ms ? <p className="xs-dim">Fetched by Fire-3d {fmtWhen(data.retrieved_ms, now, tf)}</p> : null}
+        extra={data?.retrieved_ms ? <p className="xs-dim">Fetched by Disaster Mapping {fmtWhen(data.retrieved_ms, now, tf)}</p> : null}
       />
     </section>
   )

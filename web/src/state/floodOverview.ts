@@ -1,5 +1,5 @@
 // The national map's flood rules (brief 5, PLAN-5 §4.3, CONTRACT §16.8; the twin of state/overview.ts for fires). Pure:
-// rank and marker kind from the official level and gauge category only (never Fire-3d's own inference), the watches
+// rank and marker kind from the official level and gauge category only (never Disaster Mapping's own inference), the watches
 // filter (user decision U2: hidden by default, counted), "in this view", the highest NWS product in effect and the
 // list's source state. Tests: floodOverview.test.ts.
 import type { FloodCategory, FloodListResponse, FloodProductRef, FloodSourceId, FloodSummary, GaugeCategory } from '../api/types'

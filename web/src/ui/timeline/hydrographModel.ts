@@ -3,7 +3,8 @@
 // model answer, the flood's NWS products, "now", the plot width, the axis and the units. Tested in
 // hydrographModel.test.ts.
 //   - Time axis: 72 h before now to the end of the NWS river forecast (at least 6 h after now; +72 h without a
-//     forecast). Day ticks at local midnights in the gauge's IANA zone (DST-safe).
+//     forecast). Day ticks at local midnights in the gauge's IANA zone (DST-safe). Brief 6: while the flood's time
+//     steps are used the axis starts earlier, at the first step (input.startMs; ui/timeline/floodPlayback.ts).
 //   - Lines: observed (measured, solid), the NWS river forecast (dashed, joined to the latest reading as NWS draws it),
 //     the National Water Model (dotted amber) on the FLOW axis only, never converted to a stage, never without a
 //     reach_id (D20, C28). Style and words carry the meaning, never colour alone.
@@ -200,6 +201,11 @@ export interface HydrographInput {
   clock?: TimeFmt['clock']
   /** A past flood: `nowMs` is its reference time (its last NWS product); forecasts are not kept for past dates. */
   past?: boolean
+  /** Brief 6 (web-flood-playback): an earlier start while the flood's time steps are used (floodPlayback.ts
+   *  playbackAxisStart); never later than the usual 72 h before now. */
+  startMs?: number | null
+  /** Brief 6: the NWS ticks to draw instead of the products' send times (the timeline's product changes). */
+  ticks?: readonly HydroProductTick[] | null
 }
 
 // ------------------------------------------------------------------------------------------------ units
@@ -329,7 +335,7 @@ export function levelsFor(gauge: Pick<RiverGauge, 'thresholds'>, axis: HydroAxis
   return out
 }
 
-/** The NWS category of a value against the gauge's levels (Fire-3d's comparison of NWS's own numbers). */
+/** The NWS category of a value against the gauge's levels (Disaster Mapping's comparison of NWS's own numbers). */
 export function categoryOf(v: number, levels: Partial<Record<HydroLevel, number>>): GaugeCategory | null {
   if (!Object.keys(levels).length) return null
   for (const k of [...HYDRO_LEVELS].reverse()) {
@@ -402,7 +408,7 @@ export function buildHydrograph(input: HydrographInput): HydrographModel {
   const s = gauge.series ?? null
   const observedAll = seriesPoints(s?.observed, axis, units, s?.stage_unit ?? gauge.observed.unit, s?.flow_unit ?? gauge.observed.flow_unit)
   const forecastAll = seriesPoints(s?.forecast, axis, units, s?.stage_unit ?? gauge.observed.unit, s?.flow_unit ?? gauge.observed.flow_unit)
-  const startMs = nowMs - HYDRO_PAST_MS
+  const startMs = Math.min(nowMs - HYDRO_PAST_MS, input.startMs != null && Number.isFinite(input.startMs) ? input.startMs : Number.POSITIVE_INFINITY)
   const fcEnd = forecastAll.length ? forecastAll[forecastAll.length - 1].t : null
   const endMs = fcEnd != null ? Math.max(fcEnd, nowMs + HYDRO_MIN_FUTURE_MS) : nowMs + HYDRO_FUTURE_MS
   const observedIn = observedAll.filter((p) => p.t >= startMs && p.t <= Math.max(nowMs, startMs))
@@ -497,7 +503,9 @@ export function buildHydrograph(input: HydrographInput): HydrographModel {
     crest = { t: top.t, v: top.v, label, atEnd, falling, passed }
   }
 
-  const productTicks: HydroProductTick[] = input.products
+  const productTicks: HydroProductTick[] = input.ticks
+    ? input.ticks.filter((k) => k.t >= startMs && k.t <= endMs).sort((a, b) => a.t - b.t)
+    : input.products
     .filter((a) => a.sent_ms != null && a.sent_ms >= startMs && a.sent_ms <= endMs)
     .map((a) => {
       const ptf: TimeFmt = { tz: a.time_zone || tf.tz, clock: tf.clock }
@@ -611,7 +619,7 @@ export interface CursorReadout {
   modelLine: string | null
   kind: 'observed' | 'forecast' | 'none'
   category: GaugeCategory | null
-  /** Fire-3d drew the value between two points (HYDRO.interpolated). */
+  /** Disaster Mapping drew the value between two points (HYDRO.interpolated). */
   interpolated: boolean
   /** The handle is after now: the views keep the products in effect now (C1, CURSOR_FUTURE_PRODUCTS). */
   future: boolean

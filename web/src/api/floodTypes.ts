@@ -206,7 +206,9 @@ export interface FloodManifest {
     satellite: string | null // "satellite.json"
     satellite_image: string | null // "satellite.png"
     maps: Record<string, string> // "rfc_fim" -> "maps/rfc_fim.geojson", "catfim_ZZRF1_moderate" -> ..., "nfhl" -> ...
+    // brief 6: "flowlines" -> "maps/flowlines.geojson" (NOAA National Water Model river lines, the HAND input)
     model: Record<string, string> // "nwm_analysis" -> ..., "nwm_series_ZZRF1" -> ...
+    timeline?: string | null // brief 6 (additive): "timeline.json" (FloodTimelineResponse frozen at build)
   }
   data_sources: DataSource[]
   warnings: string[]
@@ -214,6 +216,70 @@ export interface FloodManifest {
   /** brief 5 backend-flood-live (additive): when the flood live loop last appended NWS product versions or gauge
    *  readings to warnings.json / gauges.json (built_ms stays); absent or null: never since the build. */
   refreshed_ms?: number | null
+  /** brief 6 (additive): relief statistics, height above the river (HAND) and depth estimates (FwDET) for the 3D view;
+   *  absent in brief-5 bundles. */
+  terrain3d?: FloodTerrain3d | null
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Brief 6: 3D terrain products of the flood bundle (manifest.terrain3d; SPEC 5.4)
+// Rasters are uint8 on the render grid: metres = value * scale_m (0.1); top_code (254) = 25.4 m or more; nodata (255) =
+// no value there (outside the mapped water, far from a river channel).
+// ---------------------------------------------------------------------------------------------------------------
+export type TerrainProductKind = 'hand' | 'depth'
+
+/** Relief of the flood's area and the suggested height boost (RELIEF_RULE). */
+export interface FloodRelief {
+  area: 'water' | 'grid' // ground near the mapped water, or the whole grid when there is none
+  area_note: string // RELIEF_AREA_WATER | RELIEF_AREA_GRID
+  cells: number
+  min_m: number
+  max_m: number
+  p05_m: number
+  p95_m: number
+  range_m: number // p95_m - p05_m
+  width_m: number // the 3D area's width (grid extent)
+  exaggeration: number // suggested height boost: 1.5 | 2 | 3 | 5 | 8 | 10
+  rule: string // RELIEF_RULE, written down
+  /** False when even x10 leaves the middle 90% of the heights under 2% of the width (a very flat floodplain still
+   * looks flat at the default: suggest a larger boost or the closer framing). Absent in older bundles. */
+  target_reached?: boolean | null
+}
+
+export interface FloodTerrainStats {
+  cells: number
+  area_km2: number
+  p50_m: number
+  p90_m: number
+  max_m: number
+}
+
+/** One raster of the 3D view: 'hand' (height above the river) or a 'depth' estimate of one mapped water layer. */
+export interface FloodTerrainProduct {
+  key: string // "hand" | "depth_satellite" | "depth_forecast"
+  kind: TerrainProductKind
+  layer: string | null // manifest.layers key; null: not made
+  status: LayerState // ok | unavailable | not_covered
+  reason: string | null // why it is missing
+  label: string // HAND_LABEL | DEPTH_LABEL (show it with the layer)
+  caveat: string // HAND_CAVEAT | DEPTH_CAVEAT
+  method: string // plain words
+  citation: string
+  source_layer: string | null // "elevation" (hand), "water_satellite" | "water_forecast" (depth)
+  source: string // what it is made from, with the source layer's own time
+  time_ms: number | null // the source layer's own time
+  stats: FloodTerrainStats | null
+}
+
+export interface FloodTerrain3d {
+  version: 1
+  relief: FloodRelief | null
+  hand: FloodTerrainProduct
+  depth: FloodTerrainProduct[] // satellite first, then the NWS forecast flooded area
+  scale_m: number // 0.1: metres = value * scale_m
+  top_code: number // 254: 25.4 m or more
+  nodata: number // 255: no value
+  built_ms: number
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -364,7 +430,7 @@ export interface FloodMapResponse extends FloodEnvelope {
   reference_ms: number | null // rfc_fim reference_time (forecast base)
   updated_ms: number | null // service update_time
   /** rfc_fim: union area of the polygons on the flood's member gauges' reaches (layer-3 feature_id join), never a bbox
-   *  crop; null when the join fails. Fire-3d's measurement, includes the river channel; shown in Command only. */
+   *  crop; null when the join fails. Disaster Mapping's measurement, includes the river channel; shown in Command only. */
   stats: { area_km2: number } | null
   coverage_note: string // RFC_FIM_NOTE | CATFIM_NOTE | NFHL_NOTE
   outside_note: string | null // RFC_FIM_OUTSIDE (rfc_fim)
@@ -417,6 +483,90 @@ export interface SatelliteWaterResponse {
   flood_id: string | null
   synthetic: boolean
   caveats: string[] // SAT_CAVEAT always
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Brief 6: a flood's time history (GET /api/floods/{id}/timeline; bundle timeline.json; SPEC 8.11)
+// Satellite passes (observation) and NWS product versions (official) are separate blocks, never merged.
+// Nothing is drawn or interpolated between two passes.
+// ---------------------------------------------------------------------------------------------------------------
+/** clear: saw >= 50 % of the area clearly; partly_hidden; no_view: saw < 1 % (listed, never drawn as water); unknown: not read yet. */
+export type PassView = 'clear' | 'partly_hidden' | 'no_view' | 'unknown'
+export type PassStatsOver = 'map_area' | 'bundle_grid'
+
+export interface FloodPassImage {
+  url: string // "/api/floods/{id}/passes/{key}.png?area=<hash>"
+  bounds_lonlat: [number, number, number, number]
+}
+
+/** One satellite pass over the flood's area (the tiles of one overpass, locked: the image time is exact). */
+export interface FloodPass {
+  key: string // "DSWx-HLS_20261029T1756_L9" (URL-safe)
+  product: 'DSWx-HLS' | 'DSWx-S1'
+  platform: string | null // "Landsat 9", "Sentinel-2C", "Sentinel-1A"
+  acquired_ms: number // the image time (the web adds the age at render time)
+  route: 'earthdata_gis' | 'podaac'
+  granules: string[] // NASA granule ids
+  url: string | null // NASA search page of the first granule
+  view: PassView
+  usable: boolean // view clear or partly_hidden
+  clear_pct: number | null // share of the area seen clearly (not cloud, not no data)
+  cloud_pct: number | null
+  nodata_pct: number | null // no data and outside the pass's tiles
+  water_km2: number | null // open water seen (includes the river's normal water)
+  partial_km2: number | null
+  image: FloodPassImage | null // the 2D PNG (route answers, usable passes only); hatched no-view, transparent outside
+  layer: string | null // bundle: manifest.layers key of its DSWx classes on the render grid
+  caveat: string | null // SAT_CAVEAT of this pass, or PASS_NO_VIEW; null while unknown
+  /** Bundle: manifest.layers key of this pass's FwDET depth estimate ("depth_pass_<key>", uint8 0.1 m, 255 outside
+   * its water; FloodTerrain3d encoding). Null or absent: no depth surface for this pass (say so; never an empty one). */
+  depth_layer?: string | null
+}
+
+export interface FloodPassHistory {
+  status: OfficialStatus
+  reason_code: SatelliteReasonCode
+  reason: string | null
+  login: SatelliteLogin // never the token
+  login_note: string | null
+  source: OfficialSource
+  sources?: OfficialSource[] | null // one per (product, route) among the listed passes, each with its exact credit
+  retrieved_ms: number | null
+  start_ms: number // the window searched
+  end_ms: number
+  complete: boolean // false: some passes are still being read (view 'unknown'); ask again in a few seconds
+  truncated: boolean // more passes than listed (the oldest left out)
+  stats_over: PassStatsOver // route: the 2D map area; bundle: the render grid
+  passes: FloodPass[] // oldest first
+  shown_key: string | null // the pass the satellite layer shows by default
+  caveats: string[] // PASSES_NOTE always
+}
+
+/** One version of one NWS product (verbatim, its own issuer, times and link) with its place in time. */
+export interface FloodTimelineProduct extends FloodAlert {
+  vtec_key: string | null // "KMLB.FL.W.0003.2026"
+  replaced_ms: number | null // issue time of the next version of the same event
+  shown_from_ms: number | null // its issue time
+  shown_until_ms: number | null // min(its own end, replaced_ms); its issue time for CAN / UPG; null: open
+}
+
+export interface FloodProductHistory extends FloodEnvelope {
+  kind: 'flood_alerts'
+  products: FloodTimelineProduct[] // every version, oldest first
+  zones: FeatureCollectionJson<{ ugc: string; name: string; alert_ids: string[] }>
+  archive_source: OfficialSource | null // the IEM archive when archived versions are included
+  complete: boolean // false: some events could not be read yet; ask again
+}
+
+export interface FloodTimelineResponse {
+  kind: 'flood_timeline'
+  flood_id: string
+  now_ms: number
+  start_ms: number
+  end_ms: number
+  passes: FloodPassHistory // observation (NASA)
+  products: FloodProductHistory // official (NWS)
+  synthetic: boolean
 }
 
 // ---------------------------------------------------------------------------------------------------------------

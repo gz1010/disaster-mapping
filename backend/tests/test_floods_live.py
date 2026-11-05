@@ -26,6 +26,7 @@ from fire3d.api.jobs import JobManager
 from fire3d.contracts import FloodAlertsResponse, FloodManifest, RiverGaugesResponse, validate_strict
 from fire3d.floods import build, catalog, store
 from fire3d.floods import copy as fcopy
+from fire3d.floods import copy_time as tcopy
 from fire3d.floods import live as flood_live
 from fire3d.sources import nws, nwps, opera
 from fire3d.timeutil import HOUR_MS
@@ -368,7 +369,7 @@ def test_prefetch_with_nws_busy_still_fetches_series(recorded_list, monkeypatch)
     monkeypatch.setattr(fhttp, "_transport", _prefetch_routes(calls))
     nws.flood_active()
     calls.clear()
-    monkeypatch.setattr(nws.NWS_LIMITER, "try_acquire", lambda: False)     # Fire-3d's own NWS budget is used up
+    monkeypatch.setattr(nws.NWS_LIMITER, "try_acquire", lambda: False)     # Disaster Mapping's own NWS budget is used up
     monkeypatch.setattr(nws.NWS_LIMITER, "acquire", lambda *a, **k: False, raising=False)
     spent = flood_live.prefetch(lst, now=now)
     assert not [c for c in calls if c.url.host == "api.weather.gov"]
@@ -655,13 +656,13 @@ def test_merge_rebuilt_gauges_never_loses_members_or_detail():
 
 def _nwps_busy(monkeypatch):
     def busy(url, params, ttl_s):
-        raise nws.SourceBusy("NOAA's National Water Prediction Service: Fire-3d's request limit is reached")
+        raise nws.SourceBusy("NOAA's National Water Prediction Service: Disaster Mapping's request limit is reached")
 
     monkeypatch.setattr(nwps, "_nwps_json", busy)
 
 
 def test_refresh_with_nwps_busy_keeps_member_gauges_detail_and_model_series(recorded_flood, monkeypatch):
-    """The reviewer's run: the refresh rebuild met Fire-3d's own NWPS limit. Nothing the bundle had is lost."""
+    """The reviewer's run: the refresh rebuild met Disaster Mapping's own NWPS limit. Nothing the bundle had is lost."""
     summary, now, calls = recorded_flood
     build.build_flood(summary["id"], now=now)
     bdir = store.flood_dir(summary["id"])
@@ -701,6 +702,14 @@ def test_refresh_keeps_layers_the_rebuild_could_not_load(recorded_flood, monkeyp
     m0 = json.loads((bdir / "manifest.json").read_text())
     before = {k: (bdir / m0["layers"][k]["file"]).read_bytes() for k in ("water_forecast", "floodplain", "water_satellite",
                                                                         "water_model")}
+    # brief 6 (review BTD-R2): the time history's passes and their rasters, and the depth estimates
+    tl0 = json.loads((bdir / "timeline.json").read_text())
+    pass_layers0 = {k: (bdir / i["file"]).read_bytes() for k, i in m0["layers"].items()
+                    if k.startswith(("water_pass_", "depth_pass_"))}
+    assert tl0["passes"]["status"] == "available" and pass_layers0
+    depth0 = {d["key"]: (bdir / m0["layers"][d["layer"]]["file"]).read_bytes()
+              for d in m0["terrain3d"]["depth"] if d["layer"]}
+    assert set(depth0) == {"depth_satellite", "depth_forecast"}
 
     def down(req):
         raise httpx.ConnectError("Connection reset by peer", request=req)
@@ -725,6 +734,18 @@ def test_refresh_keeps_layers_the_rebuild_could_not_load(recorded_flood, monkeyp
     assert m1["files"]["maps"]["rfc_fim"] and (bdir / m1["files"]["maps"]["rfc_fim"]).is_file()
     assert json.loads((bdir / "satellite.json").read_text())["measured"] is True
     assert fcopy.NFHL_DOWN not in m1["warnings"] and any("earlier copy is kept" in w for w in m1["warnings"])
+    # the pass list and its rasters are kept (NASA unreachable), and each depth estimate belongs to the water layer
+    # put back: the rebuild alone had none (no satellite or forecast water), the refresh made them again
+    tl1 = json.loads((bdir / "timeline.json").read_text())
+    assert tl1["passes"]["status"] == "available"
+    assert [p["key"] for p in tl1["passes"]["passes"]] == [p["key"] for p in tl0["passes"]["passes"]]
+    for k, raw in pass_layers0.items():
+        assert (bdir / m1["layers"][k]["file"]).read_bytes() == raw, k
+    assert any(tcopy.KEPT_PASSES in w for w in m1["warnings"])
+    by = {d["key"]: d for d in m1["terrain3d"]["depth"]}
+    for k, raw in depth0.items():
+        assert by[k]["status"] == "ok" and (bdir / m1["layers"][by[k]["layer"]]["file"]).read_bytes() == raw, k
+    assert by["depth_satellite"]["time_ms"] == m1["layer_status"]["water_satellite"]["time_ms"]
     rep, _ = load_script("check_bundle").check_flood_bundle(bdir)
     assert rep.problems == []
 
@@ -835,7 +856,7 @@ def test_alerts_cost_counts_uncached_zones_and_texts(recorded_list, monkeypatch)
 
 
 def test_prefetch_asks_again_for_a_product_refused_by_the_own_limit(recorded_list, monkeypatch):
-    """Review BFL-R8: Fire-3d's own NWS limit refused the product text: it is asked again next cycle; NWS's own
+    """Review BFL-R8: Disaster Mapping's own NWS limit refused the product text: it is asked again next cycle; NWS's own
     answer (or error) is final."""
     lst, now = recorded_list
     calls: list[httpx.Request] = []

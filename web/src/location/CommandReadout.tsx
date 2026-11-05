@@ -122,7 +122,7 @@ function ModelLine({ card }: { card: LocationCardModel }) {
   return (
     <div className={`cro-model is-${model.tone}`}>
       <p>
-        <span className="cro-tag is-model" data-tip="Output of Fire-3d's experimental fire-spread model: not observed, not an evacuation order">
+        <span className="cro-tag is-model" data-tip="Output of Disaster Mapping's experimental fire-spread model: not observed, not an evacuation order">
           {experimental ? 'Model' : 'Experimental model'}
         </span>{' '}
         {model.text}

@@ -10,14 +10,22 @@ Layout (``data/floods/{id}/``)::
     layers/floodplain.bin        uint8        0 none, 1 0.2 % band, 2 SFHA, 3 floodway (FEMA, background)
     layers/water_satellite.bin   uint8        DSWx classes; 255 outside the satellite image
     layers/water_model.bin       uint8 0/255  National Water Model analysis flooded area (model output, separate)
+    layers/water_pass_<key>.bin  uint8        brief 6: DSWx classes of each kept satellite pass (newest usable, at most 8)
+    layers/hand.bin              uint8        brief 6: height above the nearest river channel, 0.1 m steps (terrain3d)
+    layers/depth_satellite.bin   uint8        brief 6: FwDET depth estimate inside the satellite water, 0.1 m steps
+    layers/depth_forecast.bin    uint8        brief 6: FwDET depth estimate inside the NWS forecast flooded area
+    maps/flowlines.geojson                    brief 6: NOAA National Water Model river lines (the HAND input)
     warnings.json  gauges.json  satellite.json  satellite.png
+    timeline.json                brief 6: FloodTimelineResponse (every pass; every NWS product version)
     maps/rfc_fim.geojson  maps/catfim_<lid>_<category>.geojson  maps/nfhl.geojson
     model/nwm_analysis.geojson  model/nwm_series_<lid>.json
 
 * **Area** (:func:`fire3d.floods.maps.flood_area`): the flood's NWS polygons and member gauges, padded 3 km, square,
   8-60 km (cut around the primary gauge when longer; ``aoi_note``), on a 1024² UTM render grid.
-* **Steps and weights:** catalog 0.05, terrain 0.35, maps 0.20, gauges 0.15, satellite 0.20, finish 0.05. Terrain is
-  required (a failure fails the job and leaves any earlier bundle as it was); every other step that fails writes its
+* **Steps and weights:** catalog 0.05, terrain 0.25, maps 0.15, gauges 0.15, satellite 0.15, timeline 0.15 (brief 6:
+  every satellite pass read on the grid after the satellite step, so it never takes the satellite step's request
+  slots; every NWS product version), terrain3d 0.05 (brief 6: relief and height boost, HAND, FwDET depth;
+  ``floods/terrain3d.py``), finish 0.05. Terrain is required (a failure fails the job and leaves any earlier bundle as it was); every other step that fails writes its
   ``layer_status`` entry with a reason and a manifest warning, and the bundle is still ``ready``.
 * **Gate** (:func:`gate`): a flood the lists know (live list, alias, bundle or last-known summary), in the lower 48 or
   DC, not synthetic (``fixture-flood``: 409).
@@ -40,6 +48,7 @@ import os
 import shutil
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
@@ -50,17 +59,21 @@ from shapely.geometry import shape
 from .. import bundle, config, regions
 from ..build import pipeline
 from ..contracts import FloodManifest, validate_strict
-from ..grid import Grid, manifest_grid, transformer, utm_epsg_for
-from ..sources import imagery, terrain
+from ..grid import Grid, grids_from_manifest, manifest_grid, transformer, utm_epsg_for
+from ..sources import imagery, terrain, water_maps
 from ..sources.nws import SourceBusy, SourceError
 from ..timeutil import HOUR_MS, now_ms
-from . import catalog, gauges as gauges_mod, maps, satellite, store, zones
+from . import catalog, gauges as gauges_mod, maps, satellite, store, terrain3d, timeline, zones
 from . import copy as fcopy
+from . import copy_time as tcopy
 
 log = logging.getLogger(__name__)
 
 ProgressFn = Callable[[str, float, str], None]
-WEIGHTS = {"catalog": 0.05, "terrain": 0.35, "maps": 0.20, "gauges": 0.15, "satellite": 0.20, "finish": 0.05}
+WEIGHTS = {"catalog": 0.05, "terrain": 0.25, "maps": 0.15, "gauges": 0.15, "satellite": 0.15, "timeline": 0.15,
+           "terrain3d": 0.05, "finish": 0.05}
+PRODUCT_TRIES = 6                    # the NWS product history waits for Disaster Mapping's IEM limit this many times
+PRODUCT_WAIT_S = 10.0
 STAGING = ".staging"
 NAIP_MAX_PX = 2048
 TIME_BEFORE_MS = 72 * HOUR_MS
@@ -294,6 +307,7 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
         f_alerts = pool.submit(zones.flood_alerts, summary, now=now)
         f_gauges = pool.submit(gauges_mod.flood_gauges, summary, now=now, with_series=True)
         f_sat = pool.submit(satellite.flood_satellite, fid, bbox, now=now, time_zone=tz, grid=grid)
+        f_flow = pool.submit(water_maps.flowlines, bbox, 1)          # brief 6: NWM river lines (HAND)
 
         # ---- terrain (required) -------------------------------------------------------------------------------
         prog.report("terrain", 0.05, "Fetching USGS 3DEP elevation")
@@ -328,11 +342,13 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
         # ---- maps -----------------------------------------------------------------------------------------------
         prog.report("maps", 0.0, "NWS forecast flooded area, FEMA floodplain, model")
         fim = _result(f_fim, "RFC FIM")
+        fc_raster: np.ndarray | None = None
         if fim and fim["status"] == "available":
             bundle.write_json(stage / "maps" / "rfc_fim.geojson", compact_fc(fim["features"], grid))
             files["maps"]["rfc_fim"] = "maps/rfc_fim.geojson"
+            fc_raster = rasterize(fim["features"]["features"], grid)
             layers["water_forecast"] = bundle.write_layer(
-                stage, "water_forecast", rasterize(fim["features"]["features"], grid), "render", None,
+                stage, "water_forecast", fc_raster, "render", None,
                 "NWS forecast flooded area, next 5 days (experimental; 0/255)", register=False)
             status["water_forecast"] = _status("ok", None, fcopy.CREDIT_NWC_EXPERIMENTAL, fim.get("reference_ms"))
             _credit(sources, fcopy.CREDIT_NWC_EXPERIMENTAL,
@@ -488,6 +504,31 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
             warnings.append(status["water_satellite"]["reason"] or fcopy.SAT_UNAVAILABLE)
         prog.report("satellite", 1.0, "Satellite water ready")
 
+        # ---- time history (brief 6): every satellite pass and every NWS product version ---------------------
+        old = _earlier_bundle(fid, grid)
+        _timeline_step(summary, grid, bbox, stage, prog, now, ans, layers, files, sources, warnings, dem=dem, old=old)
+
+        # ---- 3D terrain products (brief 6): relief and height boost, HAND, FwDET depth ------------------------
+        prog.report("terrain3d", 0.0, tcopy.PROGRESS_TERRAIN3D)
+        flow = _result(f_flow, "NWM flowlines")
+        flow_feats, flow_fetched = (flow.features, flow.fetched_ms) if flow is not None else (None, None)
+        if flow_feats is None and old is not None:       # a rebuild never loses the river lines (review BTD-R2)
+            flow_feats = terrain3d.bundle_flowlines(old.bdir, old.m)
+            if flow_feats is not None:
+                flow_fetched = next((d.get("fetched_ms") for d in old.m.get("data_sources") or []
+                                     if d.get("name") == fcopy.CREDIT_NWC_EXPERIMENTAL
+                                     and "maps/flowlines.geojson" in str(d.get("detail"))), None)
+                warnings.append(_kept_note(tcopy.KEPT_FLOWLINES, now))
+        if flow_feats is not None:
+            bundle.write_json(stage / "maps" / "flowlines.geojson",
+                              compact_fc({"type": "FeatureCollection", "features": flow_feats}, grid))
+            files["maps"]["flowlines"] = "maps/flowlines.geojson"
+            _credit(sources, fcopy.CREDIT_NWC_EXPERIMENTAL, tcopy.SRC_FLOWLINES.format(n=len(flow_feats)),
+                    flow_fetched, now)
+        terrain3d_entry = _terrain3d_step(summary, grid, stage, dem, sat.grid_classes, status, fc_raster, flow_feats,
+                                          layers, now)
+        prog.report("terrain3d", 1.0, tcopy.PROGRESS_TERRAIN3D_DONE)
+
     # ---- finish ------------------------------------------------------------------------------------------------
     prog.report("finish", 0.2, "Writing the manifest")
     for k in ("water_forecast", "floodplain", "water_satellite", "water_model", "naip"):
@@ -507,10 +548,156 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
         "time_range": {"start_ms": int(t_start), "end_ms": int(t_end), "now_ms": now},
         "grid": manifest_grid(grid, grid, float(np.nanmin(dem)), float(np.nanmax(dem))), "aoi_note": area.note,
         "layers": layers, "layer_status": status, "files": files, "data_sources": sources,
-        "warnings": list(dict.fromkeys(warnings)), "built_ms": now,
+        "warnings": list(dict.fromkeys(warnings)), "built_ms": now, "terrain3d": terrain3d_entry,
     }
     log.info("flood bundle %s built in %.1f s", fid, time.monotonic() - t0)
     return m
+
+
+@dataclass
+class EarlierBundle:
+    """The flood's earlier ready bundle, still in place while a rebuild writes its staging folder."""
+
+    bdir: Path
+    m: dict
+    timeline: dict | None
+    same_grid: bool
+
+
+def _earlier_bundle(flood_id: str, grid: Grid) -> EarlierBundle | None:
+    bdir = store.flood_dir(flood_id)
+    m = store.load_flood_manifest(flood_id)
+    if not m or m.get("status") != "ready":
+        return None
+    tl = None
+    rel = (m.get("files") or {}).get("timeline")
+    if rel:
+        try:
+            tl = bundle.read_json(bdir / rel)
+        except (OSError, ValueError):
+            tl = None
+    try:
+        og, _ = grids_from_manifest(m)
+        same = (og.epsg, og.width, og.height) == (grid.epsg, grid.width, grid.height) and \
+            all(abs(float(a) - float(b)) < 1e-6 for a, b in zip(og.bounds, grid.bounds))
+    except (KeyError, TypeError, ValueError):
+        same = False
+    return EarlierBundle(bdir, m, tl, same)
+
+
+def _kept_note(what: str, now: int) -> str:
+    return tcopy.REBUILD_KEPT.format(time=time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(now / 1000)), what=what)
+
+
+def _keep_passes(old: EarlierBundle, stage: Path, layers: dict) -> dict | None:
+    """The earlier bundle's passes block and its pass rasters copied into ``stage`` (a rebuild that could not reach
+    NASA never loses them; review BTD-R2), or None when it has none. On another grid the rasters are not kept."""
+    ps = (old.timeline or {}).get("passes") or {}
+    if ps.get("status") != "available" or not ps.get("passes"):
+        return None
+    ps = {**ps, "passes": [dict(p) for p in ps["passes"]]}
+    for p in ps["passes"]:
+        for k in ("layer", "depth_layer"):
+            name = p.get(k)
+            info = (old.m.get("layers") or {}).get(name) if name else None
+            src = old.bdir / info["file"] if info else None
+            if not (old.same_grid and src is not None and src.is_file()):
+                p[k] = None
+                continue
+            dst = stage / info["file"]
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(src, dst)
+            layers[name] = info
+        if not p.get("layer"):
+            p["depth_layer"] = None
+    return ps
+
+
+def _timeline_step(summary: dict, grid: Grid, bbox: tuple, stage: Path, prog: pipeline.BuildProgress, now: int,
+                   sat_answer: dict, layers: dict, files: dict, sources: list[dict], warnings: list[str], *,
+                   dem: np.ndarray | None = None, old: EarlierBundle | None = None) -> None:
+    """``timeline.json``, ``layers/water_pass_<key>.bin`` and ``layers/depth_pass_<key>.bin`` (optional: a failure is
+    a manifest warning only). A rebuild over an earlier bundle keeps what it cannot load again (review BTD-R2): the
+    earlier pass list and its rasters when NASA cannot be reached, and every earlier NWS product version."""
+    prog.report("timeline", 0.0, tcopy.PROGRESS_TIMELINE)
+    shown = [g["id"] for g in sat_answer.get("granules") or []] if sat_answer.get("measured") else None
+    try:
+        bp = timeline.bundle_passes(summary, grid, bbox, now=now, shown_granules=shown, dem=dem,
+                                    progress=lambda f, msg: prog.report("timeline", 0.75 * f, msg))
+    except Exception as e:  # noqa: BLE001 - optional step: the passes say unavailable
+        log.info("timeline passes %s: %s", summary["id"], pipeline.short_error(e))
+        start, end = timeline.flood_window(summary, now)
+        bp = timeline.BundlePasses({**timeline._passes_base(now, start, end, satellite.opera.login_state()),
+                                    "stats_over": "bundle_grid", "status": "unavailable",
+                                    "reason_code": "upstream_error", "reason": tcopy.PASSES_UNAVAILABLE}, {}, {})
+    pa = bp.answer
+    kept_old = _keep_passes(old, stage, layers) if (old is not None and pa["status"] == "unavailable") else None
+    if kept_old is not None:
+        pa = kept_old
+        warnings.append(_kept_note(tcopy.KEPT_PASSES, now))
+    else:
+        for name, arr in bp.rasters.items():
+            layers[name] = bundle.write_layer(stage, name, arr, "render", None, bp.descriptions[name], register=False)
+        for name, arr in bp.depth.items():
+            layers[name] = bundle.write_layer(stage, name, arr, "render", "0.1 m", bp.descriptions[name],
+                                              nodata=terrain3d.NODATA, register=False)
+    prog.report("timeline", 0.8, tcopy.PROGRESS_PRODUCTS)
+    prods = None
+    for i in range(PRODUCT_TRIES):
+        info: dict = {}
+        try:
+            prods = timeline.product_history(summary, now=now, info=info)
+        except Exception as e:  # noqa: BLE001 - optional step
+            log.info("timeline products %s: %s", summary["id"], pipeline.short_error(e))
+            break
+        if prods.get("complete") or not info.get("busy") or i == PRODUCT_TRIES - 1:
+            break                                                    # only Disaster Mapping's own IEM limit waits
+        time.sleep(PRODUCT_WAIT_S)
+    if prods is None:
+        prods = {**timeline._products_env(summary["id"], now), "status": "unavailable",
+                 "reason_code": "upstream_error", "reason": fcopy.ALERTS_UNAVAILABLE}
+    old_prods = ((old.timeline or {}).get("products") if old is not None else None) or None
+    if old_prods is not None and old_prods.get("status") == "available":
+        if prods["status"] != "available":
+            warnings.append(_kept_note(tcopy.KEPT_PRODUCTS, now))
+        prods = timeline.merge_products(old_prods, prods, now)
+    bundle.write_json(stage / "timeline.json", timeline.timeline(summary, pa, prods, now=now))
+    files["timeline"] = "timeline.json"
+    if pa["passes"]:
+        n_kept = sum(1 for p in pa["passes"] if p["layer"])
+        for src in pa.get("sources") or [pa["source"]]:              # every product and route listed (BTD-R8)
+            _credit(sources, src["credit"], tcopy.SRC_PASSES.format(n=len(pa["passes"]), start=_iso(pa["start_ms"]),
+                                                                   end=_iso(pa["end_ms"]), kept=n_kept),
+                    pa.get("retrieved_ms"), now)
+    elif pa["status"] != "available":
+        warnings.append(pa["reason"] or tcopy.PASSES_UNAVAILABLE)
+    if prods.get("archive_source"):
+        n = sum(1 for p in prods["products"] if p.get("archived"))
+        _credit(sources, fcopy.CREDIT_IEM, tcopy.SRC_IEM_VERSIONS.format(n=n), prods.get("retrieved_ms"), now)
+    if prods["status"] != "available":
+        warnings.append(prods["reason"] or fcopy.ALERTS_UNAVAILABLE)
+    prog.report("timeline", 1.0, tcopy.PROGRESS_TIMELINE_DONE.format(passes=len(pa["passes"]),
+                                                                    versions=len(prods["products"])))
+
+
+def _terrain3d_step(summary: dict, grid: Grid, stage: Path, dem: np.ndarray, sat_classes: np.ndarray | None,
+                    status: dict, fc_raster: np.ndarray | None, flow_feats: list[dict] | None, layers: dict,
+                    now: int) -> dict | None:
+    """``manifest.terrain3d`` and its uint8 rasters (optional: a failure leaves ``terrain3d`` null)."""
+    st_sat, st_fc = status.get("water_satellite") or {}, status.get("water_forecast") or {}
+    water = terrain3d.water_layers_of(sat_classes, st_sat.get("time_ms"), st_sat.get("reason"),
+                                      fc_raster, st_fc.get("time_ms"), st_fc.get("reason"))
+    try:
+        res = terrain3d.products(dem, grid, water=water, flowlines=flow_feats,
+                                 flowlines_reason=None if flow_feats is not None else tcopy.HAND_NO_LINES,
+                                 time_zone=summary.get("time_zone") or "UTC", now=now)
+    except Exception as e:  # noqa: BLE001 - optional products: the 3D view keeps the plain terrain
+        log.warning("terrain3d %s: %s", summary["id"], pipeline.short_error(e))
+        return None
+    for name, arr in res.rasters.items():
+        layers[name] = bundle.write_layer(stage, name, arr, "render", "0.1 m", res.descriptions[name],
+                                          nodata=terrain3d.NODATA, register=False)
+    return res.entry
 
 
 def _nfhl_code(f: dict) -> int:

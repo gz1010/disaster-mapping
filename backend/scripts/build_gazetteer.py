@@ -5,7 +5,7 @@ CONTRACT 14.10; it replaces brief 2's ``gazetteer_ca.json``).
 
 Source: the U.S. Census Bureau Gazetteer Files
 <https://www.census.gov/geographies/reference-files/time-series/geo/gazetteer-files.html>. They are a U.S. Government
-work and in the public domain (17 U.S.C. section 105); Fire-3d credits them as "U.S. Census Bureau Gazetteer Files".
+work and in the public domain (17 U.S.C. section 105); Disaster Mapping credits them as "U.S. Census Bureau Gazetteer Files".
 
 * ``<year>_Gaz_place_national.zip``: every incorporated place (city, town, village, borough, municipality,
   consolidated city-county) and census-designated place of the 50 states, DC and Puerto Rico.
@@ -161,7 +161,7 @@ def write(out: Path, year: int, places: list[list], zips: list[list]) -> None:
         "retrieved": time.strftime("%Y-%m-%d"),
         "note": ("Positions are each area's Census internal point (inside the area; approximate). ZCTAs approximate "
                  "USPS ZIP codes; PO-box-only ZIP codes have no ZCTA. Alaska, Hawaii and territory rows are kept "
-                 "(Fire-3d does not support them yet)."),
+                 "(Disaster Mapping does not support them yet)."),
         "place_fields": ["name", "type", "state", "lat", "lon", "land_km2", "county", "alias"],
         "zip_fields": ["zip", "state", "lat", "lon", "land_km2"],
         "counts": {"places": len(places), "zips": len(zips)},

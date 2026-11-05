@@ -3,7 +3,8 @@
 //   "SELECTED POINT" with copy / centre / clear; the point in mono 30 px; DMS · UTM · WGS84 (the bundle's UTM zone,
 //   else the point's own zone);
 //   one line per flood layer at the point (location/floodCheck.ts checkPoint, at the river-level chart's handle:
-//   productsAt, C1), each with an outlined tag saying what it is and how old: OFFICIAL, FORECAST · ISSUED 10:20,
+//   productsAt, C1; brief 6: a past step's own NWS versions and satellite pass, as the map draws them, review WFP-R2),
+//   each with an outlined tag saying what it is and how old: OFFICIAL, FORECAST · ISSUED 10:20,
 //   SATELLITE · 4 D AGO, FEMA (when on), MODEL (only when switched on); NOTHING_COVERS when no layer covers the spot;
 //   the nearest river gauge (the flood's rivers first, else at action stage or above, within 25 km; from the flood's
 //   gauges answer and, when that does not cover the point's 25 km, the point's own answer, as the point card asks):
@@ -24,9 +25,10 @@ import { formatDecimalPair, formatLat, formatLon } from '../lib/geodesy'
 import { directionWord, distance } from '../lib/plainLanguage'
 import { fmtAt, fmtRelative, HOUR_MS, timeFmt, type TimeFmt } from '../lib/time'
 import { askedAt, useFloodOfficial, useSatClassAt } from '../official/floodHooks'
-import { answerState, memberGaugesOf, officialAlerts, withNewerReading, type AnswerState } from '../official/floodModel'
+import { answerState, memberGaugesOf, withNewerReading, type AnswerState } from '../official/floodModel'
 import { openFloodSummary, useFlood } from '../state/flood'
 import { useFloodLayerData } from '../state/floodLayerData'
+import { useFloodHandleMs, useProductsAtHandle, useSatelliteAtHandle } from '../state/floodTimelineData'
 import { useClock, useTimeFormatFor } from '../state/timeZone'
 import { useWorkspace, type SelectedLocation, type Units } from '../state/workspace'
 import { useNow } from '../ui/hooks'
@@ -114,22 +116,28 @@ function catfimAsked(tag: string | null): { lid: string; category: string } | nu
 }
 
 function PointLayers({ sel, summary }: { sel: SelectedLocation; summary: FloodSummary }) {
-  const fl = useFlood(useShallow((s) => ({ cursorMs: s.cursorMs, floodplain: s.layers.floodplain, model: s.layers.model, catfim: s.layers.catfim })))
+  const fl = useFlood(useShallow((s) => ({ floodplain: s.layers.floodplain, model: s.layers.model, catfim: s.layers.catfim })))
   const off = useFloodOfficial(useShallow((s) => ({ alerts: s.alerts, fim: s.fim, satellite: s.satellite, nfhl: s.nfhl })))
   const extra = useFloodLayerData(useShallow((s) => (s.floodId === summary.id ? { model: s.model, catfim: s.catfim, catfimFor: s.catfimFor } : null)))
   const units = useWorkspace((s) => s.units)
   const tf = useTimeFormatFor(summary.time_zone)
   const nowMs = useNow(60_000)
-  const satClass = useSatClassAt(sel.lon, sel.lat)
+  // brief 6 (web-flood-playback, declared edit; review WFP-R2): the NWS products and the satellite pass at the chart's
+  // handle, exactly what the map draws (a past step: its own NWS versions, archived ones included, and its own pass)
+  const cursorMs = useFloodHandleMs()
+  const products = useProductsAtHandle(off.alerts.data)
+  const satAt = useSatelliteAtHandle(off.satellite.data)
+  const satClass = useSatClassAt(sel.lon, sel.lat, satAt)
   const a = off.alerts
   const c = checkPoint({
     point: [sel.lon, sel.lat],
-    alerts: officialAlerts(a.data),
-    alertsStatus: a.data ? a.data.status : a.loading ? 'loading' : a.error ? 'failed' : 'loading',
-    zones: a.data?.zones ?? null,
+    alerts: products.alerts,
+    shown: products,
+    alertsStatus: products.source === 'timeline' ? 'available' : a.data ? a.data.status : a.loading ? 'loading' : a.error ? 'failed' : 'loading',
+    zones: products.zones,
     fim: off.fim.data,
     fimState: asked(answerState(off.fim)),
-    satellite: off.satellite.data,
+    satellite: satAt,
     satelliteState: asked(answerState(off.satellite)),
     satClass,
     nfhl: fl.floodplain ? off.nfhl.data : null,
@@ -143,7 +151,7 @@ function PointLayers({ sel, summary }: { sel: SelectedLocation; summary: FloodSu
     catfimFor: catfimAsked(extra?.catfimFor ?? null),
     gauges: [],
     rivers: summary.rivers,
-    cursorMs: fl.cursorMs,
+    cursorMs,
     nowMs,
     tf,
     units,
@@ -152,7 +160,7 @@ function PointLayers({ sel, summary }: { sel: SelectedLocation; summary: FloodSu
     <section className="ffr-layers" aria-label={FLOOD_COMMAND.layersAtPoint}>
       <ul className="ffr-lines">
         {c.lines.map((l) => {
-          const tag = lineTag(l, { fim: off.fim.data, satellite: off.satellite.data, nfhl: off.nfhl.data, nowMs, tf })
+          const tag = lineTag(l, { fim: off.fim.data, satellite: satAt, nfhl: off.nfhl.data, nowMs, tf })
           return (
             <li key={l.key} className={`ffr-line is-${l.layer ?? l.kind}${l.inside ? ' is-inside' : ''}${l.tone ? ` is-${l.tone}` : ''}`}>
               {tag && (
@@ -319,7 +327,10 @@ function FloodRows({ summary }: { summary: FloodSummary }) {
 function AreaRows({ summary }: { summary: FloodSummary }) {
   const off = useFloodOfficial(useShallow((s) => ({ fim: s.fim.data, satellite: s.satellite.data })))
   const units = useWorkspace((s) => s.units)
-  const figures = areaFigures(off.fim, off.satellite, units)
+  // the satellite figure of the pass on the map (brief 6; review WFP-R2): a past step's pass has no area figure of its
+  // own (stats null), so none is shown rather than another day's
+  const satAt = useSatelliteAtHandle(off.satellite)
+  const figures = areaFigures(off.fim, satAt, units)
   if (!figures.length) return null
   return (
     <section className="cro-rows ffr-areas" aria-label={FLOOD_COMMAND.areaTitle} data-flood={summary.id}>

@@ -153,7 +153,7 @@ function MiniBar() {
   return (
     <div className="minibar">
       <Logo size={20} />
-      <span className="brand-name">Fire-3d</span>
+      <span className="brand-name">Disaster Mapping</span>
       {name && <span className="minibar-name ellipsis">{name}</span>}
       {name &&
         (mode === 'live' ? (

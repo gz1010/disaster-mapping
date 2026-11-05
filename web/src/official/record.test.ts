@@ -52,7 +52,7 @@ const HORSE_GULCH_RECORD: IncidentRecordResponse = {
   complex: null,
   changes: [],
   recording_since_ms: null,
-  caveats: ["These are the protecting agency's numbers as published by NIFC WFIGS (IRWIN), with the record's own update time. Fire-3d does not record changes to this record yet."],
+  caveats: ["These are the protecting agency's numbers as published by NIFC WFIGS (IRWIN), with the record's own update time. Disaster Mapping does not record changes to this record yet."],
 }
 
 describe('which record to fetch (recordUrl)', () => {

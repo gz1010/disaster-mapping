@@ -363,7 +363,7 @@ function SettingsBody() {
         </dl>
       </MenuSection>
       <div className="menu-foot muted">
-        <Link2 size={12} /> Fire-3d · research prototype — not for operational use
+        <Link2 size={12} /> Disaster Mapping · research prototype — not for operational use
       </div>
     </>
   )

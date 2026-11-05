@@ -1,4 +1,4 @@
-// The flood routes of the Fire-3d API (brief 5, CONTRACT §16.7; SPEC §6). Typed helpers next to api/client.ts (frozen):
+// The flood routes of the Disaster Mapping API (brief 5, CONTRACT §16.7; SPEC §6). Typed helpers next to api/client.ts (frozen):
 // they reuse its fetchJson, ApiError and base URL. Every flood answer is its own type (api/floodTypes.ts); no fire
 // helper changes. Query strings are pure (floods.test.ts).
 import { API_BASE, fetchJson, type FetchOptions } from './client'

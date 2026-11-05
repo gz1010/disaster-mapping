@@ -1,0 +1,408 @@
+{
+  "role": "backend-flood-time-3d",
+  "brief": 6,
+  "summary": "M1: a flood's time history. GET /api/floods/{id}/timeline lists every satellite pass over the flood's window (10 days before its start to now; past floods to 3 days after their last NWS product; at most 45 days), each read once and locked to its own granules, with its own time, platform, view shares (clear / cloud / no data), water area, a 2D PNG (GET /api/floods/{id}/passes/{key}.png) and its own SAT_CAVEAT; passes with no view (under 1 % seen clearly) are listed and marked, never drawn as water; reads run in the background with a 20 s answer budget (complete: false until done) and keep 8 Earthdata GIS request slots free for the satellite route. The same answer lists every version of every NWS product of the flood (IEM archive, every segment, plus NWS's live CAP copies, de-duplicated), verbatim, each with shown_from_ms / shown_until_ms / replaced_ms. The bundle keeps timeline.json and the classes of the 8 newest usable passes (layers/water_pass_<key>.bin). M2: 3D terrain products in the flood bundle (manifest.terrain3d): relief near the mapped water and the suggested height boost (x1.5..x10, rule written down), HAND from the bundle DEM and NOAA NWM river lines (now fetched by the build), and the FwDET depth estimate (Cohen et al. 2018, 2019) for the satellite layer and the NWS forecast area, as uint8 0.1 m rasters (255 = no value). scripts/flood_3d.py adds both to existing bundles (done for fixture-flood, Calcasieu River, St Johns River). Contracts in contracts.py / floodTypes.ts / SPEC (5.3, 5.4, 6, 8.11, 10); SPEC's title, intro and every user-facing 'Fire-3d' renamed to Disaster Mapping.",
+  "milestones": {
+    "M1": "1735ea5",
+    "M2": "6ce9fb6"
+  },
+  "files": [
+    "backend/fire3d/floods/timeline.py (new)",
+    "backend/fire3d/floods/copy_time.py (new)",
+    "backend/fire3d/floods/terrain3d.py (new)",
+    "backend/fire3d/floods/build.py (timeline and terrain3d steps, river lines)",
+    "backend/fire3d/api/floods.py (GET /timeline, GET /passes/{key}.png)",
+    "backend/fire3d/contracts.py (FloodPass*, FloodTimeline*, FloodProductHistory, FloodTerrain3d, FloodRelief, FloodTerrainProduct/Stats; manifest files.timeline, terrain3d)",
+    "web/src/api/floodTypes.ts (the same, TypeScript)",
+    "SPEC.md (title / intro rename, every 'Fire-3d' string renamed, 5.3, 5.4, 6, 8.11, 10)",
+    "backend/scripts/flood_3d.py (new: upgrade existing bundles)",
+    "backend/scripts/check_bundle.py (outside the role table, declared: knows water_pass_*, hand, depth_* and timeline.json)",
+    "backend/tests/test_floods_timeline.py (new, 13)",
+    "backend/tests/test_floods_terrain3d.py (new, 17)",
+    "docs/redesign/contract6/backend-flood-time-3d.md",
+    "docs/redesign/progress/brief6-backend-flood-time-3d.md"
+  ],
+  "screenshots": [],
+  "gates": {
+    "backend": "uv run pytest -q: 1458 passed",
+    "web": "typecheck clean; lint 55 warnings, all in src/scene, 0 errors; 1809 tests passed (2 skipped); build ok"
+  },
+  "scans": "count-only: 1 secret configured, 0 hits in my files, the samples and the bundles' manifest/timeline files; the banned reference-demo name appears nowhere",
+  "measured": {
+    "passes_route": "Moenkopi Wash 6 passes, 8.3 s cold, 0.03 s cached; one pass read ~3 s and ~1 MB (1600 px)",
+    "products": "St Johns River 5 events, 97 versions (233 KB); Ducktown flash flood 12 versions; Calcasieu 2",
+    "terrain3d": "under 1 s per bundle; St Johns x10 (ground 9 m), Calcasieu x10 (6.7 m), Grand River x10 (27 m), Moenkopi x3 (534 m), fixture x3",
+    "bundle_size": "St Johns 29.5 MB with 8 pass images (was 17 MB); Calcasieu 18.2 MB; fixture 13.4 MB"
+  },
+  "samples": {
+    "GET /api/floods/flood-20261104-calcasieu-river-flood-77edfb/timeline": {
+      "kind": "flood_timeline",
+      "flood_id": "flood-20261104-calcasieu-river-flood-77edfb",
+      "now_ms": 1793886893338,
+      "start_ms": 1792967400000,
+      "end_ms": 1793886893338,
+      "synthetic": false,
+      "passes": {
+        "status": "available",
+        "reason_code": null,
+        "reason": null,
+        "login": "not_configured",
+        "login_note": "NASA Earthdata login is not set up on this server. Disaster Mapping shows NASA's public optical images (Landsat and Sentinel-2), which cannot see through clouds and arrive about a day later. Radar images that see through clouds need the login.",
+        "source": {
+          "name": "NASA JPL OPERA DSWx-HLS (water seen by satellite)",
+          "url": "https://podaac.jpl.nasa.gov/OPERA",
+          "credit": "Water seen by satellite: NASA JPL OPERA DSWx-HLS (PO.DAAC, doi:10.5067/OPDSW-PL3V1) via NASA Earthdata GIS; contains modified Copernicus Sentinel data",
+          "license": "NASA open data (CC0); please cite",
+          "terms_url": "https://www.earthdata.nasa.gov/engage/open-data-services-software-policies/data-use-guidance"
+        },
+        "retrieved_ms": 1793886897834,
+        "start_ms": 1792967400000,
+        "end_ms": 1793886893338,
+        "complete": true,
+        "truncated": false,
+        "stats_over": "map_area",
+        "shown_key": "DSWx-HLS_20261029T1654_S2B",
+        "caveats": [
+          "Each satellite image shows the water on its own date only. Nothing is drawn between two passes: the days between passes are not seen."
+        ],
+        "passes": [
+          {
+            "key": "DSWx-HLS_20261026T1657_S2A",
+            "product": "DSWx-HLS",
+            "platform": "Sentinel-2A",
+            "acquired_ms": 1793033821000,
+            "route": "earthdata_gis",
+            "granules": [
+              "OPERA_L3_DSWx-HLS_T15RVP_20261026T165701Z_20261028T034442Z_S2A_30_v1.1",
+              "OPERA_L3_DSWx-HLS_T15RWP_20261026T165701Z_20261028T013543Z_S2A_30_v1.1"
+            ],
+            "url": "https://search.earthdata.nasa.gov/search/granules?p=C2617126679-POCLOUD&q=OPERA_L3_DSWx-HLS_T15RVP_20261026T165701Z_20261028T034442Z_S2A_30_v1.1",
+            "view": "partly_hidden",
+            "usable": true,
+            "clear_pct": 3.2,
+            "cloud_pct": 96.8,
+            "nodata_pct": 0.0,
+            "water_km2": 0.238,
+            "partial_km2": 0.767,
+            "image": {
+              "url": "/api/floods/flood-20261104-calcasieu-river-flood-77edfb/passes/DSWx-HLS_20261026T1657_S2A.png?area=13b96e9e",
+              "bounds_lonlat": [
+                -93.38175,
+                30.08366,
+                -92.99889,
+                30.41605
+              ]
+            },
+            "layer": null,
+            "caveat": "Water seen by satellite (NASA OPERA), Oct 26, 2026, 11:57 AM CDT. It includes the river's normal water. Clouds (97% of this area), trees, buildings and the days between passes hide water: dry pixels do not mean no flooding."
+          },
+          {
+            "key": "DSWx-HLS_20261029T1654_S2B",
+            "product": "DSWx-HLS",
+            "platform": "Sentinel-2B",
+            "acquired_ms": 1793292859000,
+            "route": "earthdata_gis",
+            "granules": [
+              "OPERA_L3_DSWx-HLS_T15RWP_20261029T165419Z_20261031T152828Z_S2B_30_v1.1",
+              "OPERA_L3_DSWx-HLS_T15RVP_20261029T165419Z_20261031T152830Z_S2B_30_v1.1"
+            ],
+            "url": "https://search.earthdata.nasa.gov/search/granules?p=C2617126679-POCLOUD&q=OPERA_L3_DSWx-HLS_T15RWP_20261029T165419Z_20261031T152828Z_S2B_30_v1.1",
+            "view": "partly_hidden",
+            "usable": true,
+            "clear_pct": 39.5,
+            "cloud_pct": 60.5,
+            "nodata_pct": 0.0,
+            "water_km2": 28.009,
+            "partial_km2": 16.232,
+            "image": {
+              "url": "/api/floods/flood-20261104-calcasieu-river-flood-77edfb/passes/DSWx-HLS_20261029T1654_S2B.png?area=13b96e9e",
+              "bounds_lonlat": [
+                -93.38175,
+                30.08366,
+                -92.99889,
+                30.41605
+              ]
+            },
+            "layer": null,
+            "caveat": "Water seen by satellite (NASA OPERA), Oct 29, 2026, 11:54 AM CDT. It includes the river's normal water. Clouds (60% of this area), trees, buildings and the days between passes hide water: dry pixels do not mean no flooding."
+          }
+        ],
+        "_note": "4 passes in all; the last two shown"
+      },
+      "products": {
+        "kind": "flood_alerts",
+        "status": "available",
+        "reason_code": null,
+        "reason": null,
+        "source": {
+          "name": "National Weather Service",
+          "url": "https://www.weather.gov/",
+          "credit": "National Weather Service",
+          "license": "U.S. Government work in the public domain",
+          "terms_url": "https://www.weather.gov/disclaimer"
+        },
+        "retrieved_ms": 1793886893910,
+        "source_updated_ms": 1793853180000,
+        "requested_at_ms": null,
+        "now_ms": 1793886893338,
+        "flood_id": "flood-20261104-calcasieu-river-flood-77edfb",
+        "synthetic": false,
+        "caveats": [
+          "Each NWS product is shown from the time NWS issued it until its own end time or NWS's next version of it. An NWS end time is not a forecast of when flooding stops."
+        ],
+        "archive_source": {
+          "name": "NWS products, archived copy: Iowa Environmental Mesonet",
+          "url": "https://mesonet.agron.iastate.edu/vtec/",
+          "credit": "National Weather Service, archived copy via the Iowa Environmental Mesonet (Iowa State University)",
+          "license": "Public domain (IEM: \"may be used freely by anyone for any lawful purpose\"); not an official NWS source",
+          "terms_url": "https://mesonet.agron.iastate.edu/disclaimer.php"
+        },
+        "complete": true,
+        "zones": {
+          "type": "FeatureCollection",
+          "features": "[0 features]"
+        },
+        "products": [
+          {
+            "id": "202611042230-KLCH-WGUS44-FLWLCH#KLCH.FL.W.0048.2026",
+            "url": "https://mesonet.agron.iastate.edu/p.php?pid=202611042230-KLCH-WGUS44-FLWLCH",
+            "office_url": null,
+            "event": "Flood Warning",
+            "vtec": {
+              "office": "KLCH",
+              "phenomena": "FL",
+              "significance": "W",
+              "etn": 48,
+              "action": "NEW",
+              "year": 2026
+            },
+            "hvtec": {
+              "nwsli": "LCHL1",
+              "severity": "1",
+              "cause": "ER",
+              "begin_ms": 1793966400000,
+              "crest_ms": null,
+              "end_ms": 1793966400000,
+              "record": "NO"
+            },
+            "sender_name": "NWS Lake Charles LA",
+            "sent_ms": 1793831400000,
+            "effective_ms": 1793831400000,
+            "onset_ms": 1793966400000,
+            "expires_ms": 1794009600000,
+            "ends_ms": 1794009600000,
+            "headline": "...FLOOD WARNING IN EFFECT FROM FRIDAY MORNING TO FRIDAY EVENING...",
+            "nws_headline": null,
+            "description": "* WHAT...Minor flooding is occurring and minor flooding is forecast.\n\n* WHERE...Calcasieu River near Salt Water Barrier.\n\n* WHEN...From Friday morning to Friday [...]",
+            "instruction": null,
+            "area_desc": "Calcasieu",
+            "ugcs": [
+              "LAC019"
+            ],
+            "message_type": null,
+            "status": "Actual",
+            "phase": "ended",
+            "archived": true,
+            "time_zone": "America/Chicago",
+            "emergency": false,
+            "damage_threat": null,
+            "detection": null,
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": "[... polygon ...]"
+            },
+            "covers_point": null,
+            "flood_ids": [
+              "flood-20261104-calcasieu-river-flood-77edfb"
+            ],
+            "vtec_key": "KLCH.FL.W.0048.2026",
+            "replaced_ms": 1793853180000,
+            "shown_from_ms": 1793831400000,
+            "shown_until_ms": 1793853180000
+          }
+        ],
+        "_note": "2 versions in all; the first shown, texts cut"
+      }
+    },
+    "GET /api/floods/fixture-flood/timeline (passes block)": {
+      "status": "available",
+      "complete": true,
+      "shown_key": "SYNTHETIC_OPERA_L3_DSWx-HLS_T12SZZ_20261101T083000Z_S2B_30_v1.1",
+      "caveats": [
+        "Each satellite image shows the water on its own date only. Nothing is drawn between two passes: the days between passes are not seen.",
+        "Synthetic test data: one simulated satellite pass, not a NASA image."
+      ],
+      "passes": [
+        {
+          "key": "SYNTHETIC_OPERA_L3_DSWx-HLS_T12SZZ_20261101T083000Z_S2B_30_v1.1",
+          "product": "DSWx-HLS",
+          "platform": "Sentinel-2B",
+          "acquired_ms": 1793521800000,
+          "route": "earthdata_gis",
+          "granules": [
+            "SYNTHETIC_OPERA_L3_DSWx-HLS_T12SZZ_20261101T083000Z_S2B_30_v1.1"
+          ],
+          "url": null,
+          "view": "clear",
+          "usable": true,
+          "clear_pct": 58.8,
+          "cloud_pct": 24.9,
+          "nodata_pct": 16.3,
+          "water_km2": 5.563,
+          "partial_km2": 1.105,
+          "image": {
+            "url": "/api/floods/fixture-flood/satellite.png?granule=SYNTHETIC_OPERA_L3_DSWx-HLS_T12SZZ_20261101T083000Z_S2B_30_v1.1",
+            "bounds_lonlat": [
+              -108.12918,
+              36.73431,
+              -108.01011,
+              36.84566
+            ]
+          },
+          "layer": "water_satellite",
+          "caveat": "Water seen by satellite (NASA OPERA), Nov 1, 2026, 1:30 AM MST. It includes the river's normal water. Clouds (25% of this area), trees, buildings and the days between passes hide water: dry pixels do not mean no flooding."
+        }
+      ]
+    },
+    "GET /api/floods/{id}/passes/{key}.png": "200 image/png, Cache-Control: public, max-age=86400 (e.g. /api/floods/flood-20261104-calcasieu-river-flood-77edfb/passes/DSWx-HLS_20261026T1657_S2A.png?area=13b96e9e); 404 SATELLITE_IMAGE_GONE when not kept; 422 bad area",
+    "bundle timeline.json pass with a raster (St Johns)": {
+      "key": "DSWx-HLS_20261029T1604_S2C",
+      "product": "DSWx-HLS",
+      "platform": "Sentinel-2C",
+      "acquired_ms": 1793289841000,
+      "route": "earthdata_gis",
+      "granules": [
+        "OPERA_L3_DSWx-HLS_T17RNM_20261029T160401Z_20261031T153257Z_S2C_30_v1.1",
+        "OPERA_L3_DSWx-HLS_T17RMM_20261029T160401Z_20261031T133706Z_S2C_30_v1.1"
+      ],
+      "url": "https://search.earthdata.nasa.gov/search/granules?p=C2617126679-POCLOUD&q=OPERA_L3_DSWx-HLS_T17RNM_20261029T160401Z_20261031T153257Z_S2C_30_v1.1",
+      "view": "partly_hidden",
+      "usable": true,
+      "clear_pct": 28.0,
+      "cloud_pct": 71.8,
+      "nodata_pct": 0.1,
+      "water_km2": 182.346,
+      "partial_km2": 22.131,
+      "image": null,
+      "layer": "water_pass_DSWx-HLS_20261029T1604_S2C",
+      "caveat": "Water seen by satellite (NASA OPERA), Oct 29, 2026, 12:04 PM EDT. It includes the river's normal water. Clouds (72% of this area), trees, buildings and the days between passes hide water: dry pixels do not mean no flooding."
+    },
+    "manifest.terrain3d (St Johns River)": {
+      "version": 1,
+      "relief": {
+        "area": "water",
+        "area_note": "ground within 2 km of the mapped water (satellite water and the NWS forecast flooded area)",
+        "cells": 461432,
+        "min_m": -9.87,
+        "max_m": 30.78,
+        "p05_m": -0.49,
+        "p95_m": 8.53,
+        "range_m": 9.01,
+        "width_m": 60000.0,
+        "exaggeration": 10.0,
+        "rule": "Height boost: the smallest of ×1.5, ×2, ×3, ×5, ×8 and ×10 that makes the middle 90% of the ground heights near the mapped water (5th to 95th percentile) span at least 2% of the area's width; ×1.5 when the ground is already steep enough. Only heights are boosted, never distances."
+      },
+      "hand": {
+        "key": "hand",
+        "kind": "hand",
+        "layer": "hand",
+        "status": "ok",
+        "reason": null,
+        "label": "Height above the river (from terrain). Not a flood map",
+        "caveat": "Height of the ground above the nearest river channel, from the terrain model and NOAA's river lines. It is not a flood map: low ground is not always flooded, and higher ground can flood (rain, small streams, drains). Experimental. Not an all-clear.",
+        "method": "NOAA National Water Model river lines (stream order 3 and up) are drawn on the terrain grid. Each channel cell takes the lowest terrain height within one cell of it; every other cell takes the height of its nearest channel cell in a straight line and shows how far above it the ground is (below it counts as 0). Cells more than 10 km from a channel are left out. Simplified from Height Above the Nearest Drainage (Nobre et al., 2011), which follows the downhill flow path instead: near a ridge between two valleys a cell can be measured against the other valley.",
+        "citation": "Nobre, A. D., et al. (2011). Height Above the Nearest Drainage, a hydrologically relevant new terrain model. Journal of Hydrology 404(1-2), 13-29.",
+        "source_layer": "elevation",
+        "source": "Terrain (USGS 3DEP) and river lines (NOAA National Water Model)",
+        "time_ms": null,
+        "stats": {
+          "cells": 947588,
+          "area_km2": 3253.285,
+          "p50_m": 2.85,
+          "p90_m": 9.08,
+          "max_m": 58.75
+        }
+      },
+      "depth": [
+        {
+          "key": "depth_satellite",
+          "kind": "depth",
+          "layer": "depth_satellite",
+          "status": "ok",
+          "reason": null,
+          "label": "Estimated depth (from the terrain at the water's edge), experimental",
+          "caveat": "Estimated depth inside the mapped water only: the water surface is taken from the terrain height along the water's edge and the ground is subtracted (the published FwDET method, Cohen et al.). Experimental: errors of a metre or more are common, most where the edge runs up a steep bank or the map and the terrain do not line up. The terrain model shows the river's normal water surface, not its bed, so depth in the normal channel is not measured. Shallow water here is not an all-clear. Follow local officials.",
+          "method": "Cells of the mapped water next to open ground are its edge (edges against clouds, no data, ocean or the area's border are not used). Each water cell takes the terrain height of its nearest edge cell as the water surface; depth = water surface − terrain, below 0 counts as 0, then a 3 × 3 average over the water smooths it (FwDET v2.0). Only cells inside the mapped water get a depth.",
+          "citation": "Cohen, S., et al. (2018). Estimating Floodwater Depths from Flood Inundation Maps and Topography. JAWRA 54(4), 847-858, doi:10.1111/1752-1688.12609. Cohen, S., et al. (2019). The Floodwater Depth Estimation Tool (FwDET v2.0) for improved remote sensing analysis of coastal flooding. NHESS 19, 2053-2065, doi:10.5194/nhess-19-2053-2019.",
+          "source_layer": "water_satellite",
+          "source": "Water seen by satellite (NASA OPERA), image of Oct 26, 2026, 11:49 AM EDT",
+          "time_ms": 1793029758000,
+          "stats": {
+            "cells": 139566,
+            "area_km2": 479.162,
+            "p50_m": 0.03,
+            "p90_m": 0.46,
+            "max_m": 6.01
+          }
+        },
+        {
+          "key": "depth_forecast",
+          "kind": "depth",
+          "layer": "depth_forecast",
+          "status": "ok",
+          "reason": null,
+          "label": "Estimated depth (from the terrain at the water's edge), experimental",
+          "caveat": "Estimated depth inside the mapped water only: the water surface is taken from the terrain height along the water's edge and the ground is subtracted (the published FwDET method, Cohen et al.). Experimental: errors of a metre or more are common, most where the edge runs up a steep bank or the map and the terrain do not line up. The terrain model shows the river's normal water surface, not its bed, so depth in the normal channel is not measured. Shallow water here is not an all-clear. Follow local officials.",
+          "method": "Cells of the mapped water next to open ground are its edge (edges against clouds, no data, ocean or the area's border are not used). Each water cell takes the terrain height of its nearest edge cell as the water surface; depth = water surface − terrain, below 0 counts as 0, then a 3 × 3 average over the water smooths it (FwDET v2.0). Only cells inside the mapped water get a depth.",
+          "citation": "Cohen, S., et al. (2018). Estimating Floodwater Depths from Flood Inundation Maps and Topography. JAWRA 54(4), 847-858, doi:10.1111/1752-1688.12609. Cohen, S., et al. (2019). The Floodwater Depth Estimation Tool (FwDET v2.0) for improved remote sensing analysis of coastal flooding. NHESS 19, 2053-2065, doi:10.5194/nhess-19-2053-2019.",
+          "source_layer": "water_forecast",
+          "source": "NWS forecast flooded area (next 5 days, experimental), forecast of Nov 5, 2026, 3:00 AM EST",
+          "time_ms": 1793865600000,
+          "stats": {
+            "cells": 19681,
+            "area_km2": 67.569,
+            "p50_m": 0.19,
+            "p90_m": 0.91,
+            "max_m": 2.29
+          }
+        }
+      ],
+      "scale_m": 0.1,
+      "top_code": 254,
+      "nodata": 255,
+      "built_ms": 1793886222075
+    },
+    "manifest.layers.hand (St Johns River)": {
+      "file": "layers/hand.bin",
+      "grid": "render",
+      "dtype": "uint8",
+      "width": 1024,
+      "height": 1024,
+      "min": 0.0,
+      "max": 254.0,
+      "units": "0.1 m",
+      "nodata": 255.0,
+      "description": "Height above the nearest river channel (simplified HAND; NWM river lines of stream order 3 and up), 0.1 m steps, 254 = 25.4 m or more, 255 = no value"
+    }
+  },
+  "known_issues": [
+    "Depth is estimated for the satellite pass the bundle shows (water_satellite) and the NWS forecast area only; the other kept passes (water_pass_*) have no depth raster, so the 3D water surface cannot follow every playback step (web-forensic-flood-3d: show it only for the shown pass or the forecast layer).",
+    "FwDET reads depth slightly low (the edge cells lie just inside the water: up to one cell's rise of the bank, ~0.3 m on a 1 % bank at 30 m) and errs by a metre or more on steep banks or misaligned maps; in hydro-flattened lidar the normal river channel reads near 0 m (its water surface, not its bed). Said in DEPTH_CAVEAT.",
+    "HAND is the straight-line simplification (nearest channel cell), not the flow-path HAND of Nobre et al.: near ridges a cell can be measured against the next valley; cells over 10 km from a stream of order 3+ have no value (a hard edge can show on very flat plains). Said in HAND_METHOD.",
+    "The satellite step of brief 5 can choose a pass with no clear view (clouds count as seen there); the timeline marks it no_view while shown_key still points at it (seen on the Grand River flood). Changing that choice belongs to floods/satellite.py (not this role).",
+    "Earthdata GIS loads passes 2-4 days after the overpass, so the newest days of a live flood often have no pass yet (the window still reaches now). With EARTHDATA_TOKEN, PO.DAAC passes (DSWx-S1 radar) are listed and read; that path is untested live (no token in this session).",
+    "Bundles grow with pass images: up to 8 MB more (St Johns 29.5 MB). The build test keeps its < 20 MB bound (the recorded flood has few passes); the new terrain test allows < 30 MB.",
+    "A cold /timeline call can take its full 20 s budget on floods with many passes (each read ~3 s, 3 at a time); the web should call with wait=0 and poll while complete is false.",
+    "make_fixture.py (not this role's) does not add terrain3d to a fresh fixture: run scripts/flood_3d.py fixture-flood after it, or add the one call described in the contract6 note. The committed web fixture copy has no canned timeline / terrain3d answers.",
+    "Review fixes: make_fixture.py (outside the role table) does not call flood_3d.py; run scripts/flood_3d.py fixture-flood after make_fixture.py --only flood for the four simulated passes and terrain3d.",
+    "Review fixes: each kept pass adds a 1 MB depth raster on disk (St Johns 37.9 MB; 25-50 kB each gzipped)."
+  ],
+  "notes_for_others": "contract6/backend-flood-time-3d.md has the shapes, rules and exact strings. Passes and products are oldest first; draw a product version from shown_from_ms until shown_until_ms (null = open); never draw a no_view pass as water; gap wording is the web's. Terrain rasters are uint8 (x0.1 m, 254 = 25.4 m+, 255 = no value); depth only inside the mapped water; HAND off by default with its label and caveat; relief.exaggeration is the default height boost.",
+  "review_fixes": {
+    "report": "docs/redesign/reports/review6-backend-flood-time-3d.json",
+    "summary": "BTD-R1..R16 all fixed after checking each one: live NWS outage caveat (PRODUCTS_LIVE_DOWN, not cached); a rebuild keeps passes, pass rasters, every NWS version and the river lines, and a refresh that restores a water layer remakes the depth (terrain3d.after_refresh via one declared line in live.py); per-pass depth (FloodPass.depth_layer); RELIEF_RULE states the x10 cap (+ target_reached); bundle-only unread caveat; products cache = NWS alerts cache with phases at serve time; read race; per-route credits (FloodPassHistory.sources); fixture with four simulated passes; same window in Command and Forensic; old-name note migration in flood_3d.py; strings moved to copy_time; no PNG for no-view passes; events cap caveat; SPEC 5.4 wording; CONTRACT section 17.",
+    "files_added": [
+      "backend/fire3d/floods/live.py (declared: one call)"
+    ]
+  }
+}

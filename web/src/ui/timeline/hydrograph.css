@@ -2,7 +2,8 @@
    like the fire's slim timeline (a 40 px gauge picker on the left; one mono line above with the gauge, the line key and
    the stage / flow switch; the handle's words; the plot; day ticks and LATEST under it). Dock (Forensic): 112 px with
    a 78 px plot. Lines: observed solid #7fd4ff, NWS forecast dashed #cfeaff, model dotted amber #f5c060 (flow only).
-   Text sits on the map's bottom gradient: a soft shadow keeps it readable. Nothing animates. */
+   Text sits on the map's bottom gradient: a soft shadow keeps it readable. Nothing animates (brief 6: Play moves the
+   handle from step to step; nothing in the chart itself is animated). */
 .hg {
   display: flex;
   align-items: flex-start;
@@ -198,6 +199,206 @@
 }
 .hg-line.is-model.is-medium_range_blend {
   opacity: 0.7;
+}
+
+/* brief 6: the flood's time steps (Play / Pause, Previous / Next, the step at the handle, the gap between passes) */
+.hg-play {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 24px;
+  margin-top: 2px;
+}
+.hg-play-btns {
+  display: inline-flex;
+  flex: none;
+  gap: 4px;
+}
+.hg-play-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid rgba(200, 200, 200, 0.22);
+  border-radius: 6px;
+  background: rgba(14, 14, 14, 0.6);
+  color: var(--m-text-2);
+  cursor: pointer;
+}
+.hg-play-btn.is-play {
+  width: 30px;
+  color: var(--m-flood-lead);
+  border-color: rgba(127, 212, 255, 0.45);
+}
+.hg-play-btn.is-playing {
+  background: rgba(127, 212, 255, 0.16);
+}
+.hg-play-btn:hover:not(:disabled) {
+  border-color: var(--m-border-strong);
+  color: var(--m-text);
+}
+.hg-play-btn:focus-visible {
+  outline: 2px solid var(--m-flood-lead);
+  outline-offset: 2px;
+}
+.hg-play-btn:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+.hg-step {
+  display: -webkit-box;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  font: 400 11px / 14px var(--m-font-mono);
+  letter-spacing: 0.02em;
+  color: var(--m-text-2);
+}
+.hg-step-label.is-on {
+  color: var(--m-text);
+}
+.hg-step-label + .hg-step-gap::before,
+.hg-step-label + .hg-step-note::before,
+.hg-step-gap + .hg-step-note::before {
+  content: ' · ';
+  color: var(--m-text-4);
+}
+.hg-step-gap,
+.hg-step-note,
+.hg-step-now {
+  color: var(--m-text-3);
+}
+.hg-step-gap + .hg-step-now::before,
+.hg-step-label + .hg-step-now::before,
+.hg-step-note + .hg-step-now::before {
+  content: ' · ';
+  color: var(--m-text-4);
+}
+/* review WFP-R5: phones keep the image's date on a line of its own (hidden on wider screens: it is in the row) */
+.hg-step-line {
+  display: none;
+  flex: 1 0 100%;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 400 10.5px / 13px var(--m-font-mono);
+  letter-spacing: 0.02em;
+  color: var(--m-text-2);
+}
+/* review WFP-R3: the NWS versions drawn at a past step (issuer, own times, words, link, archive credit) */
+.hg-nws-btn {
+  flex: none;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid rgba(238, 122, 160, 0.55);
+  border-radius: 6px;
+  background: rgba(14, 14, 14, 0.6);
+  color: var(--m-alert);
+  font: 500 10.5px / 1 var(--m-font-mono);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.hg-nws-btn:hover,
+.hg-nws-btn[aria-expanded='true'] {
+  background: rgba(238, 122, 160, 0.14);
+}
+.hg-nws-btn:focus-visible {
+  outline: 2px solid var(--m-alert);
+  outline-offset: 2px;
+}
+.hg-nws-pop {
+  padding: 10px 12px;
+  overflow-y: auto;
+}
+.hg-nws-title {
+  margin: 0 0 6px;
+  font: 400 10px / 14px var(--m-font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--m-text-4);
+}
+.hg-nws-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.hg-nws-item {
+  padding: 6px 0;
+  border-top: 1px solid rgba(200, 200, 200, 0.12);
+}
+.hg-nws-item:first-child {
+  border-top: 0;
+}
+.hg-nws-item p {
+  margin: 0;
+}
+.hg-nws-event {
+  font: 400 12.5px / 1.35 var(--m-font);
+  color: var(--m-text);
+}
+.hg-nws-event strong {
+  font-weight: 600;
+  color: var(--m-alert);
+}
+.hg-nws-item.is-emergency .hg-nws-event strong {
+  text-decoration: underline;
+}
+.hg-nws-times,
+.hg-nws-src {
+  font: 400 10.5px / 1.45 var(--m-font-mono);
+  color: var(--m-text-3);
+}
+.hg-nws-headline {
+  font: 400 11.5px / 1.4 var(--m-font);
+  color: var(--m-text-2);
+}
+.hg-nws-src a,
+.hg-nws-credit a {
+  color: var(--m-text-2);
+}
+.hg-nws-archived {
+  color: var(--m-text-2);
+}
+.hg-nws-note,
+.hg-nws-credit {
+  margin: 6px 0 0;
+  font: 400 10.5px / 1.45 var(--m-font);
+  color: var(--m-text-3);
+}
+.hg-play.is-dock {
+  min-height: 22px;
+}
+.hg-play.is-dock .hg-play-btn {
+  height: 20px;
+}
+.hg-play.is-dock .hg-step {
+  font-size: 10.5px;
+  line-height: 13px;
+}
+/* the satellite passes along the plot's top: filled where NASA saw something, hollow grey where it saw nothing */
+.hg-pass {
+  fill: var(--m-flood-edge);
+  stroke: rgba(0, 0, 0, 0.6);
+  stroke-width: 0.6;
+}
+.hg-pass.is-noview {
+  fill: none;
+  stroke: #9a9a9a;
+  stroke-width: 1;
+}
+.hg-pass.is-current {
+  stroke: var(--m-text);
+  stroke-width: 1.4;
 }
 
 /* the handle's words: a row as tall as its lines (set inline: 16 px a line, 14 in the dock), above the plot, so the
@@ -448,8 +649,35 @@
   .hg-key {
     display: none;
   }
+  .hg-play {
+    flex-wrap: wrap;
+    gap: 3px 8px;
+  }
+  /* line 1: the buttons and the step's label (it fills the rest of the line, so what follows wraps) */
+  .hg-step {
+    flex: 1 1 calc(100% - 100px);
+    font-size: 10.5px;
+    line-height: 13px;
+  }
+  /* line 2: "NWS · n" and the gap note's short form: the gap note and the "now" note leave the label's two lines, so
+     the image's date is never cut (WFP-R5) */
+  .hg-step .hg-step-gap,
+  .hg-step .hg-step-now {
+    display: none;
+  }
+  .hg-nws-btn {
+    height: 18px;
+    padding: 0 6px;
+  }
+  .hg-step-line {
+    display: block;
+    flex: 1 1 0;
+  }
 }
 @media (forced-colors: active) {
+  .hg-pass {
+    fill: CanvasText;
+  }
   .hg-line.is-observed,
   .hg-line.is-forecast,
   .hg-line.is-model {

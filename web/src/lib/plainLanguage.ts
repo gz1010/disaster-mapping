@@ -52,7 +52,7 @@ export const EXPLAIN = {
   spreadSpeed:
     'Spread speed: how fast the fire edge moves across the ground. Fire scientists call it the rate of spread (ROS) and measure it in chains per hour (1 chain = 66 ft = 20.1 m).',
   fireWeatherSeverity:
-    'Fire weather severity is the Fosberg Fire Weather Index (FFWI, Fosberg 1978): a 0–100 score that combines wind speed, relative humidity and temperature. Higher numbers mean weather more favorable to fire spread. It describes the weather only (not fuels, terrain or the fire itself). Fire-3d computes it from weather-model data at the fire and does not sort it into categories.',
+    'Fire weather severity is the Fosberg Fire Weather Index (FFWI, Fosberg 1978): a 0–100 score that combines wind speed, relative humidity and temperature. Higher numbers mean weather more favorable to fire spread. It describes the weather only (not fuels, terrain or the fire itself). Disaster Mapping computes it from weather-model data at the fire and does not sort it into categories.',
   burnProbability:
     'Burn chance is the share of the model runs (an ensemble with slightly different weather) that burned a spot by the end of the forecast period. It describes this model ensemble, not a guarantee, and it is not an official forecast.',
   arrivalQuantiles:
@@ -104,7 +104,7 @@ export function windSummary(speedMs: number | null | undefined, fromDeg: number 
 }
 
 /** "Fire weather severity" = the Fosberg Fire Weather Index, shown as "42 of 100" with its explanation. Values above
- *  100 (possible with winds above ~30 mph in Fire-3d's uncapped computation) read "100+ of 100". */
+ *  100 (possible with winds above ~30 mph in Disaster Mapping's uncapped computation) read "100+ of 100". */
 export function fireWeatherSeverity(ffwi: number | null | undefined): PlainValue & { explanation: string } {
   const explanation = EXPLAIN.fireWeatherSeverity
   if (!ok(ffwi)) return { ...UNKNOWN('FFWI'), explanation }
@@ -374,9 +374,9 @@ export function sourceName(raw: string | null | undefined): string {
   if (firms) return `NASA FIRMS (${firms[1].toUpperCase()}${firms[2] ? `, ${satelliteName(firms[2].trim())}` : ''})${tag}`
   if (/^observed arrival\b/i.test(s)) {
     const what = /spread direction/i.test(s) ? 'spread direction from the reconstructed fire growth' : 'satellite detections and mapped perimeters'
-    return `Fire-3d reconstruction (${what})${tag}`
+    return `Disaster Mapping reconstruction (${what})${tag}`
   }
-  if (/terrain\s*\+\s*observed arrival/i.test(s)) return `Fire-3d analysis (${/3DEP/i.test(s) ? 'USGS 3DEP terrain' : 'terrain'} + reconstructed spread)${tag}`
+  if (/terrain\s*\+\s*observed arrival/i.test(s)) return `Disaster Mapping analysis (${/3DEP/i.test(s) ? 'USGS 3DEP terrain' : 'terrain'} + reconstructed spread)${tag}`
   if (/^CAL FIRE\s*\+\s*FIRMS GOES$/i.test(s)) return `CAL FIRE report + NASA FIRMS (GOES)${tag}`
   if (/^CAL FIRE\b/i.test(s)) return `CAL FIRE${tag}`
   // brief 3 (§14.12.5): bundle text names the record's issuer ("USFS via NIFC WFIGS", "NIFC WFIGS (IRWIN)")

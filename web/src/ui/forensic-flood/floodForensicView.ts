@@ -2,15 +2,24 @@
 // not, in the backend's own words), the scene key (one item per layer drawn, each with its own time; ages computed at
 // render time, C16), the Evidence tab's products (every version saved, newest first, grouped per NWS product), and the
 // River gauges card rows. Tested in floodForensicView.test.ts.
+// Brief 6 (web-forensic-flood-3d): the key's height line ("Height ×10: heights drawn 10 times taller, distances true",
+// automatic or the user's choice, "Still flat at ×10" when the relief rule could not reach its target), the estimated
+// depth surface (DEPTH_LABEL with its water's own time, or why none is shown) and the height above the river
+// (HAND_LABEL with its bands), each with the backend's caveat, method and citation in the fold-out; the Layers tab's
+// two new rows ('depth', 'hand') say why they are missing (an older bundle, the backend's reason).
 import type { FloodAlert, FloodAlertsResponse, FloodManifest, FloodSummary, RiverGaugesResponse } from '../../api/types'
 import { fmtAt, fmtDayDate, fmtRelative, type TimeFmt } from '../../lib/time'
 import { memberGaugesOf, orderAlerts, senderName, shownGranule } from '../../official/floodModel'
+import type { DepthShown } from '../../scene/flood/depthChoice'
+import { FLOOD_3D } from '../../scene/flood/flood3dCopy'
 import type { FloodSceneAssets } from '../../scene/flood/floodAssets'
 import { productKey, warningsAt } from '../../scene/flood/floodGeo'
+import { fmtFactor, fmtSpan } from '../../scene/flood/heightBoost'
 import { catfimCategoryLabel, catfimCategoryWord } from '../../scene/flood/floodProbe'
 import { categoryCaps, stageCaps } from '../../scene/flood/gaugeBarMath'
 import type { Units } from '../../state/workspace'
 import { ALERTS_UNAVAILABLE, CATFIM_NOTE, fillCopy, MODEL_CAVEAT, NO_PRODUCT, NFHL_LABEL, NFHL_NOTE, RFC_FIM_NOTE, RFC_FIM_OUTSIDE, SAT_NOT_SET_UP_SHORT } from '../shell/floodCopy'
+import { spanText, STEP_EPS_MS } from '../../state/floodTimeline'
 import { futureProductsNote } from '../timeline/hydrographModel'
 import { FLOOD_FORENSIC } from './floodForensicCopy'
 import { shownOpacity, type FloodForensicLayer, type FloodLayerSetting } from './forensicFloodState'
@@ -28,12 +37,16 @@ export const LAYER_STATUS_KEY: Record<FloodForensicLayer, keyof FloodManifest['l
   model: 'water_model',
   contours: null,
   telemetry: null,
+  depth: null,
+  hand: null,
 }
+
+type LayerFlood = Pick<FloodSceneAssets, 'manifest' | 'has' | 'warnings' | 'gauges'> & Partial<Pick<FloodSceneAssets, 'terrain3d'>>
 
 /** Why a toggle has nothing to draw for this flood (null: it can be shown). The backend's own reason when the layer
  *  could not be made (e.g. SAT_UNAVAILABLE) or when it was made but holds nothing here (e.g. NFHL_NO_MAP: FEMA has no
  *  digital flood map; review WFF-R2), else "Not in this bundle". */
-export function layerUnavailable(k: FloodForensicLayer, flood: Pick<FloodSceneAssets, 'manifest' | 'has' | 'warnings' | 'gauges'> | null): string | null {
+export function layerUnavailable(k: FloodForensicLayer, flood: LayerFlood | null): string | null {
   if (!flood) return FLOOD_FORENSIC.loadingTerrain
   const m = flood.manifest
   const sk = LAYER_STATUS_KEY[k]
@@ -58,6 +71,19 @@ export function layerUnavailable(k: FloodForensicLayer, flood: Pick<FloodSceneAs
       return notOk ?? (flood.warnings ? (flood.warnings.status === 'available' ? null : (flood.warnings.reason ?? FLOOD_FORENSIC.evidenceUnavailable)) : FLOOD_FORENSIC.layerUnavailable)
     case 'gauges':
       return notOk ?? (flood.gauges ? (flood.gauges.status === 'available' ? null : (flood.gauges.reason ?? FLOOD_FORENSIC.gaugesUnavailable)) : FLOOD_FORENSIC.layerUnavailable)
+    case 'hand': {
+      // brief 6: an older bundle has no terrain products; else the backend's own reason
+      const t3 = flood.terrain3d ?? m.terrain3d ?? null
+      if (!t3) return FLOOD_3D.depthNoTerrain3d
+      if (t3.hand.status !== 'ok') return t3.hand.reason ?? FLOOD_FORENSIC.layerUnavailable
+      return flood.has.hand ? null : (t3.hand.reason ?? FLOOD_FORENSIC.layerUnavailable)
+    }
+    case 'depth': {
+      const t3 = flood.terrain3d ?? m.terrain3d ?? null
+      if (!t3) return FLOOD_3D.depthNoTerrain3d
+      if (flood.has.depthSatellite || flood.has.depthForecast) return null
+      return t3.depth.find((d) => d.reason)?.reason ?? FLOOD_FORENSIC.layerUnavailable
+    }
     default:
       return notOk
   }
@@ -65,7 +91,7 @@ export function layerUnavailable(k: FloodForensicLayer, flood: Pick<FloodSceneAs
 
 /** The backend's note on a layer that can be shown (layer_status.reason of an 'ok' layer: "NASA Earthdata login is not
  *  set up on this server…", "FEMA's digital flood map covers only part of this area…"; review WFF-R2), else null. */
-export function layerNote(k: FloodForensicLayer, flood: Pick<FloodSceneAssets, 'manifest' | 'has' | 'warnings' | 'gauges'> | null): string | null {
+export function layerNote(k: FloodForensicLayer, flood: LayerFlood | null): string | null {
   if (!flood || layerUnavailable(k, flood) != null) return null
   const sk = LAYER_STATUS_KEY[k]
   return sk ? (flood.manifest.layer_status[sk]?.reason ?? null) : null
@@ -78,7 +104,7 @@ export function floodplainEffective(flood: Pick<FloodSceneAssets, 'manifest'>): 
   return t != null ? fmtDayDate(t, 'UTC', { year: 'always' }) : null
 }
 
-export type KeySwatch = 'satellite' | 'noview' | 'edge' | 'forecast' | 'warning' | 'floodplain' | 'model' | 'catfim' | 'bar' | 'future'
+export type KeySwatch = 'satellite' | 'noview' | 'edge' | 'forecast' | 'warning' | 'floodplain' | 'model' | 'catfim' | 'bar' | 'future' | 'height' | 'depth' | 'hand' | 'none'
 
 export interface SceneKeyItem {
   key: string
@@ -103,7 +129,7 @@ const uniq = (xs: (string | null | undefined)[]): string[] => [...new Set(xs.fil
  *  handle after now, an amber line says the products shown are those in effect now (C1, WFF-R4). The gauge line always
  *  says what the bar height means. */
 export function sceneKeyItems(i: {
-  flood: Pick<FloodSceneAssets, 'has' | 'satellite' | 'manifest' | 'catfim' | 'warnings' | 'gauges'>
+  flood: Pick<FloodSceneAssets, 'has' | 'satellite' | 'manifest' | 'catfim' | 'warnings' | 'gauges'> & Partial<Pick<FloodSceneAssets, 'terrain3d' | 'boost'>>
   layers: Record<FloodForensicLayer, FloodLayerSetting>
   tf: TimeFmt
   nowMs: number
@@ -111,11 +137,32 @@ export function sceneKeyItems(i: {
   hasGauges: boolean
   /** The river-level chart's handle (useFlood.cursorMs; null = now). */
   cursorMs?: number | null
+  /** Brief 6: the height boost in use (store.exaggeration) and whether it is the user's own choice. */
+  height?: { factor: number; user: boolean } | null
+  /** Brief 6: the depth surface on screen (scene/flood/depthChoice.ts), or why there is none. */
+  depth?: DepthShown | null
+  /** Brief 6 (playback): the satellite words at the chart's handle (which image, the gap; or why none is drawn). */
+  satNote?: string | null
 }): SceneKeyItem[] {
   const { flood, layers: L, tf, nowMs } = i
   const out: SceneKeyItem[] = []
   const on = (k: FloodForensicLayer) => shownOpacity(L[k]) > 0
   const st = flood.manifest.layer_status
+  const t3 = flood.terrain3d ?? flood.manifest.terrain3d ?? null
+  // brief 6: the height boost, always on screen while a flood's 3D view shows
+  if (i.height && flood.boost) {
+    const b = flood.boost
+    const n = fmtFactor(i.height.factor)
+    const auto = fillCopy(b.basis === 'bundle' ? FLOOD_3D.keyHeightAuto : FLOOD_3D.keyHeightAutoGrid, { range: fmtSpan(b.rangeM), width: fmtSpan(b.widthM / 1000) })
+    // short notes in the key (the user's choice; how to see more where the rule's cap still looks flat); the automatic
+    // value's reason and the rule in the fold-out
+    const notes = uniq([
+      i.height.user ? fillCopy(FLOOD_3D.keyHeightUser, { n: fmtFactor(b.factor) }) : null,
+      !b.reached && i.height.factor <= b.factor ? fillCopy(FLOOD_3D.keyHeightFlat, { n }) : null,
+    ])
+    const rule = b.relief ? [auto, b.relief.rule, b.relief.area_note] : [auto, FLOOD_3D.heightRuleGrid]
+    out.push({ key: 'height', swatch: 'height', text: fillCopy(FLOOD_3D.keyHeight, { n }), notes, more: { title: FLOOD_3D.keyMoreHeight, texts: uniq(rule) } })
+  }
   if (on('satellite')) {
     const sat = flood.satellite
     const g = shownGranule(sat)
@@ -123,14 +170,26 @@ export function sceneKeyItems(i: {
     const login = sat?.login_note ?? null
     // the login note in short under the line (the full text in the fold-out); any other backend reason in full
     const loginShort = sat?.login === 'not_configured' ? SAT_NOT_SET_UP_SHORT : login
-    const notes = uniq([loginShort, reason && reason !== login ? reason : null])
+    const notes = uniq([i.satNote, loginShort, reason && reason !== login ? reason : null])
     const more = { title: FLOOD_FORENSIC.keyMoreSatellite, texts: uniq([...(sat?.caveats ?? []), login]) }
     if (flood.has.satellite && g) {
       const time = fmtAt(g.acquired_ms, tf, { zone: true, year: 'auto', refMs: nowMs })
-      out.push({ key: 'satellite', swatch: 'satellite', text: fillCopy(FLOOD_FORENSIC.keySatellite, { time, age: fmtRelative(g.acquired_ms, nowMs) }), stale: nowMs - g.acquired_ms > SAT_STALE_MS, notes, more })
+      // its age at the handle while the handle is in the past (review WFF3D-R9), else before now
+      const past = i.cursorMs != null && Number.isFinite(i.cursorMs) && i.cursorMs < nowMs
+      const ref = past ? (i.cursorMs as number) : nowMs
+      const age = !past
+        ? fmtRelative(g.acquired_ms, nowMs)
+        : Math.abs(ref - g.acquired_ms) <= STEP_EPS_MS
+          ? FLOOD_3D.keySatAtHandle
+          : fillCopy(FLOOD_3D.keySatAgeHandle, { age: spanText(ref - g.acquired_ms) })
+      out.push({ key: 'satellite', swatch: 'satellite', text: fillCopy(FLOOD_FORENSIC.keySatellite, { time, age }), stale: ref - g.acquired_ms > SAT_STALE_MS, notes, more })
       if (flood.has.noView) out.push({ key: 'noview', swatch: 'noview', text: FLOOD_FORENSIC.keySatNoView })
       if (sat?.image) out.push({ key: 'edge', swatch: 'edge', text: FLOOD_FORENSIC.keySatEdge })
-    } else out.push({ key: 'satnone', swatch: 'noview', text: reason ?? FLOOD_FORENSIC.keySatNone, notes: uniq([loginShort]).filter((n) => n !== reason), more: more.texts.length ? more : undefined })
+    } else {
+      const text = i.satNote ?? reason ?? FLOOD_FORENSIC.keySatNone
+      // nothing drawn: a hollow swatch, never the "no view" hatch (review WFF3D-R9)
+      out.push({ key: 'satnone', swatch: 'none', text, notes: uniq([loginShort]).filter((n) => n !== text), more: more.texts.length ? more : undefined })
+    }
   }
   if (on('forecastArea') && flood.has.forecast) {
     const t = st.water_forecast?.time_ms
@@ -140,6 +199,29 @@ export function sceneKeyItems(i: {
       text: t != null ? fillCopy(FLOOD_FORENSIC.keyForecast, { time: fmtAt(t, tf, { zone: true, year: 'auto', refMs: nowMs }) }) : FLOOD_FORENSIC.keyForecastNoTime,
       notes: uniq([st.water_forecast?.reason]),
       more: { title: FLOOD_FORENSIC.keyMoreForecast, texts: [RFC_FIM_NOTE, RFC_FIM_OUTSIDE] },
+    })
+  }
+  // brief 6: the estimated depth surface (its water's own time in the backend's source line), or why none is shown
+  if (on('depth') && i.depth && t3) {
+    const d = i.depth
+    const p = d.product
+    const more = p ? { title: FLOOD_3D.keyMoreDepth, texts: uniq([d.from && !d.passKey ? p.source : null, p.caveat, p.method, p.citation]) } : undefined
+    // which water it is of, with that water's own time (a playback pass's acquisition time, else the product's)
+    const tMs = d.timeMs ?? p?.time_ms ?? null
+    const date = tMs != null ? fmtDayDate(tMs, tf.tz, { year: 'auto', refMs: nowMs }) : '—'
+    const of = d.from === 'forecast' ? fillCopy(FLOOD_3D.depthOfForecast, { date }) : fillCopy(FLOOD_3D.depthOfSatellite, { date })
+    if (d.from && p) out.push({ key: 'depth', swatch: 'depth', text: p.label, notes: [of], more })
+    else if (d.note) out.push({ key: 'depth', swatch: 'none', text: p?.label ?? FLOOD_3D.layerDepth, notes: [d.note], more })
+  }
+  // brief 6: the height above the river (off by default), its bands and the backend's caveat
+  if (on('hand') && t3 && flood.has.hand) {
+    const p = t3.hand
+    out.push({
+      key: 'hand',
+      swatch: 'hand',
+      text: p.label,
+      notes: [`${FLOOD_3D.handBand1} · ${FLOOD_3D.handBand2} · ${FLOOD_3D.handBand3} ${FLOOD_3D.handLegend}`],
+      more: { title: FLOOD_3D.keyMoreHand, texts: uniq([p.caveat, p.method, p.source, p.citation]) },
     })
   }
   if (on('warnings') && i.hasWarnings) {
@@ -261,12 +343,14 @@ export function gaugeRows(resp: RiverGaugesResponse | null, summary: Pick<FloodS
 export const COPY_FRESH_MS = 30 * 60_000
 
 /** The dock's products column when no product is drawn at the handle (D24: only for an available copy; review
- *  WFF-R5): before now, at the handle's time "in the copy saved with the 3D data"; at or after now, NO_PRODUCT only
- *  while the copy is fresh, else the copy's own time. */
-export function dockNoProduct(i: { cursorMs: number | null; nowMs: number; savedMs: number | null; tf: TimeFmt }): string {
+ *  WFF-R5): before now, at the handle's time in the list it was read from (the flood's time history, or the copy saved
+ *  with the 3D data; review WFF3D-R4); at or after now, NO_PRODUCT only while the copy is fresh, else the copy's own
+ *  time. */
+export function dockNoProduct(i: { cursorMs: number | null; nowMs: number; savedMs: number | null; tf: TimeFmt; source?: 'timeline' | 'copy' }): string {
   const { cursorMs, nowMs, savedMs, tf } = i
   const at = (ms: number) => fmtAt(ms, tf, { zone: true, year: 'auto', refMs: nowMs })
-  if (cursorMs != null && Number.isFinite(cursorMs) && cursorMs < nowMs) return fillCopy(FLOOD_FORENSIC.dockNoProductAt, { time: at(cursorMs) })
+  if (cursorMs != null && Number.isFinite(cursorMs) && cursorMs < nowMs)
+    return fillCopy(i.source === 'timeline' ? FLOOD_FORENSIC.dockNoProductTimeline : FLOOD_FORENSIC.dockNoProductAt, { time: at(cursorMs) })
   if (savedMs != null && nowMs - savedMs <= COPY_FRESH_MS) return NO_PRODUCT
   return fillCopy(FLOOD_FORENSIC.dockNoProductCopy, { time: savedMs != null ? at(savedMs) : '—' })
 }

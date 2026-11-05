@@ -5,8 +5,8 @@
 // "checked, none in effect here" or "not checked here"; brief 3), then the local officials' alerts relayed by NWS or
 // archived by FEMA; and "Follow local officials" with the fire's agency record and the state evacuation source's page.
 // Issuer, aggregator ("Cal OES", "Oregon OEM") and times come from the answer's sources. Official wording stays
-// verbatim, with its issuer and its own times (Oregon's levels are flagged as Fire-3d's wording of OEM's level number,
-// with OEM's definition); Fire-3d's fetch time is only ever called "checked". Nothing here is an all-clear.
+// verbatim, with its issuer and its own times (Oregon's levels are flagged as Disaster Mapping's wording of OEM's level number,
+// with OEM's definition); Disaster Mapping's fetch time is only ever called "checked". Nothing here is an all-clear.
 import type { CalFireOfficial, EvacuationOfficial, FireWeatherOfficial, OfficialAlert, OfficialInfo, OfficialZone } from '../official/hooks'
 import { area, distance } from '../lib/plainLanguage'
 import { fmtAt, fmtRelative, type TimeFmt } from '../lib/time'
@@ -18,7 +18,7 @@ export type OfficialTone = 'order' | 'warning' | 'other' | 'quiet' | 'unknown' |
 
 export interface OfficialLine {
   key: string
-  /** Official wording verbatim (zone status, NWS event), or Fire-3d's plain statement about the check. */
+  /** Official wording verbatim (zone status, NWS event), or Disaster Mapping's plain statement about the check. */
   text: string
   /** Issuer, times, distance, caveat. */
   sub: string | null
@@ -113,7 +113,7 @@ function zoneLine(z: OfficialZone, c: OfficialContext & { tf: TimeFmt }): Offici
     z.outsideAnalysisArea && c.fireName
       ? `${z.distanceKm != null ? `${distance(z.distanceKm * 1000, c.units).text} from ${c.fireName}; ` : ''}${agg} does not say which fire this is for`
       : null
-  // Oregon: "Level 3" is Fire-3d's wording of OEM's level number; OEM's definition is the line's text
+  // Oregon: "Level 3" is Disaster Mapping's wording of OEM's level number; OEM's definition is the line's text
   const level = z.verbatim === false ? `${agg} level; definition by ${agg}` : null
   // phones keep the issuer, the source's own time and, for a zone away from the fire, that the source does not name the fire
   const whenShort = z.updatedMs != null ? `updated ${at(z.updatedMs, c.tf)}` : z.listedMs != null ? `${listed} ${at(z.listedMs, c.tf)}` : null
@@ -146,7 +146,7 @@ function evacuationLines(e: EvacuationOfficial, c: OfficialContext & { tf: TimeF
         {
           key: 'evac-unchecked',
           text: 'Evacuation zones: not checked here',
-          sub: withoutFollow(e.reason)?.replace(/^Not checked here:\s*/i, '') ?? 'Fire-3d reads official evacuation zones only near the open fire and the selected point.',
+          sub: withoutFollow(e.reason)?.replace(/^Not checked here:\s*/i, '') ?? 'Disaster Mapping reads official evacuation zones only near the open fire and the selected point.',
           subCompact: null,
           official: false,
           tone: 'unknown',

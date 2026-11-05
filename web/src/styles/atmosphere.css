@@ -5,7 +5,8 @@
    and is hidden from assistive technology. Public and Command only (2D and 3D); Forensic has its own scene.
      ::before  the globe-like vignette: a circle at --mw-vig-x / --mw-vig-y (the safe area's centre) whose dark edge
                starts at .6 of --mw-vig-r (half the safe area's shorter side), at the strength --mw-vignette
-               (clamp((zoom − 3) / 7, .25, 1), written by MapAtmosphere when it moves by .02 or more);
+               (clamp((zoom − 3) / 7, .25, 1), written by MapAtmosphere when it moves by .02 or more). Brief 6
+               (decision 4): off by default, shown only with data-vignette="on" (the "Zoom dimming" switch);
      ::after   the per-view edge gradients behind the chrome's text, chosen by data-edges, with the stops of the
                handoff's screens (CommandView / FireView rgba(12,12,12,…), Main rgba(14,14,14,…)). */
 .mw-atmo {
@@ -37,6 +38,10 @@
   );
   opacity: var(--mw-vignette);
   transition: opacity 160ms linear;
+}
+/* brief 6: the zoom dimming is off unless switched on (also before the script marks the layer) */
+.mw-atmo:not([data-vignette='on'])::before {
+  opacity: 0;
 }
 
 /* edge gradients (static per view) */

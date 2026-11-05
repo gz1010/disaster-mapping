@@ -12,8 +12,11 @@
 //   - note: NOTHING_COVERS when no NWS product, forecast area or satellite water covers the spot (whatever is switched
 //     on); NOTHING_COVERS_OFFICIAL when FEMA, the category map or the model says "inside"; the products' outage text
 //     when the bundle's NWS copy could not be read
+//   - brief 6 (web-forensic-flood-3d): DEPTH (while the depth surface shows) the estimate at the spot inside its mapped
+//     water only (nothing outside it: no "0 m"); ABOVE RIVER (while the height above the river is on) the ground's
+//     height above the nearest channel, "Not a flood map"
 // Pure and tested (floodProbe.test.ts); rendered by scene/overlays/SceneOverlays.tsx.
-import type { FloodAlert, FloodAlertsResponse } from '../../api/types'
+import type { FloodAlert, FloodAlertsResponse, SatelliteWaterResponse } from '../../api/types'
 import { pointInRings, type Ring } from '../../location/geometry'
 import { fmtAt, fmtDayDate, type TimeFmt } from '../../lib/time'
 import { shownGranule } from '../../official/floodModel'
@@ -37,7 +40,9 @@ import { FLOOD_FORENSIC } from '../../ui/forensic-flood/floodForensicCopy'
 import { shownOpacity, type FloodForensicLayer, type FloodLayerSetting } from '../../ui/forensic-flood/forensicFloodState'
 import { isUpcoming, productEnd, productStart } from '../../ui/timeline/hydrographModel'
 import type { FloodSceneAssets } from './floodAssets'
+import { FLOOD_3D } from './flood3dCopy'
 import { warningsAt } from './floodGeo'
+import { cellMetres, fmtMetres } from './terrain3d'
 
 export type ProbeTone = 'alert' | 'water' | 'quiet' | 'warn' | 'model'
 
@@ -102,6 +107,14 @@ export function floodProbeRows(i: {
   cursorMs: number | null
   nowMs: number
   tf: TimeFmt
+  /** Brief 6: the depth raster on screen (null: no depth surface is drawn). */
+  depth?: Uint8Array | null
+  /** Brief 6 (playback): the satellite pass on screen at the chart's handle (scene/flood/flood3dHooks.ts
+   *  useSatelliteOnScreen); absent: the 3D data's own satellite layer. */
+  satOnScreen?: { sat: SatelliteWaterResponse | null; has: boolean; arr: Uint8Array | null; imageOnly: boolean; gridOnly?: boolean; note: string | null } | null
+  /** Brief 6 (playback): the NWS products drawn at the handle (flood3dHooks useProductsOnScreen: the time history's
+   *  versions before now); absent: warningsAt on the bundle's copy. */
+  products?: { alerts: FloodAlert[]; zones: FloodAlertsResponse['zones'] } | null
 }): FloodProbe {
   const { flood: fl, layers: L, extent, point: p, tf, nowMs } = i
   const on = (k: FloodForensicLayer) => shownOpacity(L[k]) > 0
@@ -116,9 +129,10 @@ export function floodProbeRows(i: {
   const resp = fl.warnings
   const known = resp?.status === 'available'
   if (resp && known) {
-    const drawn = warningsAt(resp.alerts, i.cursorMs, nowMs).alerts
+    const drawn = i.products ? i.products.alerts : warningsAt(resp.alerts, i.cursorMs, nowMs).alerts
+    const zones = i.products ? i.products.zones : resp.zones
     for (const a of drawn) {
-      if (!productAreas(a, resp.zones).some((poly) => pointInRings(p.lon, p.lat, poly))) continue
+      if (!productAreas(a, zones).some((poly) => pointInRings(p.lon, p.lat, poly))) continue
       covered = true
       if (!on('warnings')) continue
       const zoned: TimeFmt = { tz: a.time_zone || tf.tz, clock: tf.clock }
@@ -129,13 +143,19 @@ export function floodProbeRows(i: {
   } else if (on('warnings')) rows.push({ key: 'nws', label: FLOOD_FORENSIC.probeNws, text: resp?.reason ?? ALERTS_UNAVAILABLE, tone: 'warn' })
 
   // water seen by satellite: the pass's own sentences (C2), never "dry" for a spot it did not see
-  const sat = fl.satellite
+  const so = i.satOnScreen ?? null
+  const sat = so ? so.sat : fl.satellite
+  const satHas = so ? so.has && so.arr != null : fl.has.satellite
   const g = shownGranule(sat)
-  const satCls = fl.has.satellite ? at(fl.arrays.satellite) : null
-  const satInside = fl.has.satellite && !!sat?.image && inBounds(sat.image.bounds_lonlat, p.lon, p.lat)
+  const satCls = satHas ? at(so ? so.arr : fl.arrays.satellite) : null
+  // a pass from the bundle's frozen list has no picture footprint here: its cells say what it covered (review WFF3D-R3)
+  const satInside = satHas && (so?.gridOnly ? satCls != null : !!sat?.image && inBounds(sat.image.bounds_lonlat, p.lon, p.lat))
   if (satInside && (satCls === 1 || satCls === 2)) covered = true
+  // a pass shown as its picture only: the spot is not read, so "no layer covers it" cannot be said (review WFF3D-R9)
+  const unread = !!so?.imageOnly && !!sat?.image && inBounds(sat.image.bounds_lonlat, p.lon, p.lat)
   if (on('satellite')) {
-    if (!fl.has.satellite || !g) rows.push({ key: 'sat', label: FLOOD_FORENSIC.probeWater, text: st.water_satellite?.reason ?? FLOOD_FORENSIC.keySatNone, tone: 'quiet' })
+    if (so?.imageOnly && g) rows.push({ key: 'sat', label: FLOOD_FORENSIC.probeWater, text: fillCopy(FLOOD_3D.probeSatImageOnly, { date: fmtDayDate(g.acquired_ms, tf.tz, { year: 'auto', refMs: nowMs }) }), tone: 'quiet' })
+    else if (!satHas || !g) rows.push({ key: 'sat', label: FLOOD_FORENSIC.probeWater, text: (so ? (so.note ?? sat?.reason) : null) ?? st.water_satellite?.reason ?? FLOOD_FORENSIC.keySatNone, tone: 'quiet' })
     else {
       const date = fmtDayDate(g.acquired_ms, tf.tz, { year: 'auto', refMs: nowMs })
       let text: string
@@ -188,8 +208,21 @@ export function floodProbeRows(i: {
     }
   }
 
+  // brief 6: the estimated depth at the spot (inside the mapped water only) and the height above the river
+  if (on('depth') && i.depth) {
+    const v = cellMetres(at(i.depth) ?? Number.NaN)
+    if (v) rows.push({ key: 'depth', label: FLOOD_3D.probeDepth, text: v.top ? FLOOD_3D.probeDepthTop : fillCopy(FLOOD_3D.probeDepthAt, { m: fmtMetres(v.m) }), tone: 'water' })
+  }
+  if (on('hand') && fl.has.hand && fl.arrays.hand) {
+    const raw = at(fl.arrays.hand)
+    if (raw != null) {
+      const v = cellMetres(raw)
+      rows.push({ key: 'hand', label: FLOOD_3D.probeHand, text: !v ? FLOOD_3D.probeHandFar : v.top ? FLOOD_3D.probeHandTop : fillCopy(FLOOD_3D.probeHandAt, { m: fmtMetres(v.m) }), tone: 'quiet' })
+    }
+  }
+
   let note: string | null = null
   if (!known) note = resp?.reason ?? ALERTS_UNAVAILABLE
-  else if (!covered) note = otherInside ? NOTHING_COVERS_OFFICIAL : NOTHING_COVERS
+  else if (!covered) note = unread ? FLOOD_3D.probeNothingUnread : otherInside ? NOTHING_COVERS_OFFICIAL : NOTHING_COVERS
   return { rows, note }
 }

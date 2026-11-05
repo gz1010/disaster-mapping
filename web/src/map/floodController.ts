@@ -9,6 +9,9 @@
 // floodplain, model) are web-flood-public's and web-flood-command's (map/floodProfile.ts says which view draws what).
 // Brief 5 web-flood-command: Command's own layers (NWS category flood map, the National Water Model's flooded area
 // and high-flow reaches; map/floodCommandLayers.ts) come from state/floodLayerData.ts, each behind its own toggle.
+// Brief 6 web-flood-playback (declared edit; no brief-6 owner): the satellite image and the NWS warning areas follow
+// the chart's handle through the flood's time history (state/floodTimelineData.ts; floodAreaLayers.ts
+// satelliteAtHandle / warningsAtHandle): before now the pass and the NWS versions at the handle, at now brief 5's.
 import type { FilterSpecification, GeoJSONSource, Map as MapLibreMap, PointLike } from 'maplibre-gl'
 import { apiPathUrl, getRiverGauges } from '../api/floods'
 import type { FloodSummary, RiverGauge } from '../api/types'
@@ -37,11 +40,13 @@ import {
   NFHL_STIPPLE_IMAGE,
   nfhlFeatures,
   nfhlStippleImage,
+  satelliteAtHandle,
   satelliteEdge,
   satelliteImage,
   satelliteTiles,
-  warningFeatures,
+  warningsAtHandle,
 } from './floodAreaLayers'
+import { handleFor, isPublicView, timelineFor, useFloodTimeline } from '../state/floodTimelineData'
 import { useNationalGauges } from './floodGaugeStatus'
 import {
   CATFIM_HATCH_IMAGE,
@@ -58,7 +63,6 @@ import {
 } from './floodCommandLayers'
 import { useFloodLayerData } from '../state/floodLayerData'
 import { gaugeKey as hydroGaugeKey, gaugeOf, useHydroData, withChartReading } from '../ui/timeline/hydrographData'
-import { productsShown } from '../ui/timeline/hydrographModel'
 import { floodLayerShown } from './floodProfile'
 import { VECTOR_SOURCE } from './basemapStyle'
 import {
@@ -316,7 +320,12 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
     const extra = useFloodLayerData.getState()
     const mineExtra = s != null && extra.floodId === s.id
     const nowMs = Date.now()
-    const cursorBucket = fl.cursorMs == null ? 'now' : String(Math.round(fl.cursorMs / 600_000))
+    // the flood's time history: the satellite pass and the NWS versions at the handle (brief 6); Public has no time
+    // handle and always draws now, whatever handle Command or Forensic left (review WFP-R1)
+    const tl = s ? timelineFor(useFloodTimeline.getState(), s.id) : null
+    const cursorMs = handleFor(isPublicView(useWorkspace.getState()), fl.cursorMs)
+    const sat = satelliteAtHandle(off.satellite.data, tl, cursorMs, nowMs)
+    const cursorBucket = cursorMs == null ? 'now' : String(Math.round(cursorMs / 60_000))
     const key = mine
       ? [
           s.id,
@@ -327,6 +336,8 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
           // the satellite image's edge follows its answer (review WFP-R3: the image often arrives last)
           off.satellite.data?.retrieved_ms,
           off.satellite.data?.image?.url,
+          sat?.image?.url,
+          tl?.now_ms,
           extra.model.data?.retrieved_ms,
           extra.highFlow.data?.retrieved_ms,
           extra.catfim.data?.retrieved_ms,
@@ -337,12 +348,12 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
       : ''
     if (key !== areaKey) {
       areaKey = key
-      // the products at the chart's handle: the point check's own rule (productsShown; review WFC-R1)
-      const alerts = mine ? productsShown(officialAlerts(off.alerts.data), fl.cursorMs, nowMs).alerts : []
-      setData(FLOOD_AREA_SOURCES.warnings, mine ? warningFeatures(alerts, off.alerts.data?.zones) : EMPTY_FC)
+      // the products at the chart's handle: before now the timeline's versions, at and after now the point check's own
+      // rule (productsShown; review WFC-R1)
+      setData(FLOOD_AREA_SOURCES.warnings, mine ? warningsAtHandle(off.alerts.data, officialAlerts(off.alerts.data), tl, cursorMs, nowMs) : EMPTY_FC)
       setData(FLOOD_AREA_SOURCES.forecast, mine ? mapFeatures(off.fim.data) : EMPTY_FC)
       setData(FLOOD_AREA_SOURCES.floodplain, mine ? nfhlFeatures(off.nfhl.data) : EMPTY_FC)
-      setData(FLOOD_AREA_SOURCES.satelliteEdge, mine ? satelliteEdge(off.satellite.data) : EMPTY_FC)
+      setData(FLOOD_AREA_SOURCES.satelliteEdge, mine ? satelliteEdge(sat) : EMPTY_FC)
       // Command's own layers, each from its own answer (never merged)
       const catfimFc = mineExtra ? catfimFeatures(extra.catfim.data) : EMPTY_FC
       const modelFc = mineExtra ? modelFeatures(extra.model.data) : EMPTY_FC
@@ -353,7 +364,7 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
       setData(FLOOD_CMD_SOURCES.modelPoints, labelPoints(modelFc))
       setData(FLOOD_CMD_SOURCES.highFlow, mineExtra ? highFlowFeatures(extra.highFlow.data) : EMPTY_FC)
     }
-    syncImage(mine ? satelliteImage(off.satellite.data) : null)
+    syncImage(mine ? satelliteImage(sat) : null)
     syncTiles(mine && DRAW_SAT_PICTURE ? satelliteTiles(off.satellite.data) : null)
     // visibility: a flood open, its view's profile and the Layers toggles
     const chrome = viewChrome()
@@ -570,6 +581,10 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
     }),
     useFloodLayerData.subscribe((s, p) => {
       if (s.floodId !== p.floodId || s.model.data !== p.model.data || s.highFlow.data !== p.highFlow.data || s.catfim.data !== p.catfim.data) sync()
+    }),
+    // brief 6: a new time history (passes read, NWS versions) redraws the handle's layers
+    useFloodTimeline.subscribe((s, p) => {
+      if (s.data !== p.data || s.floodId !== p.floodId) sync()
     }),
     useMapRuntime.subscribe((s, p) => {
       if (s.leaderIds !== p.leaderIds) applyLabelFilters()

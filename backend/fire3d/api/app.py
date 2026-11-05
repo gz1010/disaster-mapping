@@ -422,7 +422,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         jobs_mod.shutdown_manager()
 
 
-app = FastAPI(title="Fire-3d API", version=config.VERSION, description="Wildfire Forensics & Forecast (SPEC 6)", lifespan=lifespan)
+app = FastAPI(title="Disaster Mapping API", version=config.VERSION, description="Wildfires and floods: maps, forensics and forecasts (SPEC 6)", lifespan=lifespan)
 app.add_middleware(MaskedErrorMiddleware)
 
 
@@ -550,7 +550,7 @@ def _build_job_fn(incident_id: str, force: bool):
     return fn
 
 
-UNSUPPORTED_TEXT = "Fire-3d does not support Alaska, Hawaii or US territories yet."
+UNSUPPORTED_TEXT = "Disaster Mapping does not support Alaska, Hawaii or US territories yet."
 
 
 def _not_buildable(incident_id: str, summary: dict) -> tuple[int, str]:

@@ -169,7 +169,7 @@ describe('job polling survives failed polls (review WFP-R9)', () => {
     expect(polls).toBe(5)
     const st = useFlood.getState()
     expect(st.job?.status).toBe('running')
-    expect(st.buildError).toMatch(/^Fire-3d lost contact with the preparation \(.+\); it may still be running\.$/)
+    expect(st.buildError).toMatch(/^Disaster Mapping lost contact with the preparation \(.+\); it may still be running\.$/)
     expect(floodPrepState({ id: 'fixture-flood-major', summary: flash(), manifest: null, job: st.job, loading: false, error: st.buildError })).toMatchObject({ kind: 'building', error: st.buildError })
     await vi.advanceTimersByTimeAsync(20_100)
     expect(polls).toBe(6)

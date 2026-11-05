@@ -298,7 +298,7 @@ def test_build_gate_alias_and_unsupported_state(client, fixtures_dir, monkeypatc
     ak = listed.model_copy(update={"id": "fixture-demo", "state": "AK"})
     monkeypatch.setattr(catalog, "resolve_listed", lambda iid: ak)
     r = client.post("/api/incidents/fixture-demo/build", params={"force": "true"})
-    assert r.status_code == 422 and r.json()["detail"] == "Fire-3d does not support Alaska, Hawaii or US territories yet."
+    assert r.status_code == 422 and r.json()["detail"] == "Disaster Mapping does not support Alaska, Hawaii or US territories yet."
     assert app_mod._jobs().active_for("fixture-demo", "build") is None
 
 

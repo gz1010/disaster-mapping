@@ -48,7 +48,7 @@ from fire3d import config  # noqa: E402
 from fire3d import http as fhttp  # noqa: E402
 from fire3d.sources import nwps, nws  # noqa: E402
 
-config.USER_AGENT = "Fire-3d/0.1 test-sample recorder (research prototype; a few requests per run)"
+config.USER_AGENT = "Disaster-Mapping/0.1 test-sample recorder (research prototype; a few requests per run)"
 NWS_HEADERS = {"User-Agent": config.USER_AGENT, "Accept": "application/geo+json"}
 TTL_S = 7 * 86400.0
 PAUSE_S = 1.2
@@ -203,7 +203,7 @@ def main(argv: list[str] | None = None) -> int:
     if _cached:
         how += f", {_cached} of them made by an earlier run and read back here from its `--cache-dir`"
     head = (f"Recorded {fetched} by `backend/scripts/record_test_samples_floods.py` ({how}, one at a time, User-Agent "
-            "\"Fire-3d/0.1 test-sample recorder\", no key or token). Public "
+            "\"Disaster-Mapping/0.1 test-sample recorder\", no key or token). Public "
             "domain U.S. Government data (National Weather Service, NOAA National Water Prediction Service); the IEM file "
             "is the Iowa Environmental Mesonet's public-domain copy (https://mesonet.agron.iastate.edu/disclaimer.php).")
     (NWS_DIR / "PROVENANCE.md").write_text("# Flood samples: NWS\n\n" + head + "\n\n" + "\n".join(notes_nws) + "\n")

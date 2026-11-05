@@ -49,7 +49,7 @@ from fire3d import config  # noqa: E402
 from fire3d import http as fhttp  # noqa: E402
 from fire3d.sources import nfhl, opera, usgs_water, water_maps  # noqa: E402
 
-config.USER_AGENT = "Fire-3d/0.1 test-sample recorder (research prototype; a few requests per run)"
+config.USER_AGENT = "Disaster-Mapping/0.1 test-sample recorder (research prototype; a few requests per run)"
 config.EARTHDATA_TOKEN = None
 TTL_S = 7 * 86400.0
 PAUSE_S = 1.2
@@ -251,7 +251,7 @@ def main(argv: list[str] | None = None) -> int:
     when = datetime.fromtimestamp(max(_fetched_ms) / 1000, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     head = (f"Recorded {when} by `backend/scripts/record_test_samples_flood_maps.py` ({_requests} real requests through "
             f"`fire3d.http`{f', {_cached} read back from an earlier run’s --cache-dir' if _cached else ''}, one at a "
-            "time, User-Agent \"Fire-3d/0.1 test-sample recorder\", no key or token). Area: gauge "
+            "time, User-Agent \"Disaster-Mapping/0.1 test-sample recorder\", no key or token). Area: gauge "
             f"{lid}, box `{args.bbox}`. Untrimmed answers.\n\n")
     prov = {
         "maps": head + (

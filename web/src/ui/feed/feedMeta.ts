@@ -46,22 +46,22 @@ export const KIND_META: Record<FeedKind, KindMeta> = {
     Icon: Eye,
     meaning: 'Observed or measured, not modeled: for example satellite heat detections or images, agency-mapped perimeters, public cameras, or growth measured between satellite observations.',
   },
-  estimate: { label: 'Estimate', Icon: Sigma, meaning: 'Inferred by Fire-3d from observations (for example the reconstructed spread); it can be wrong.' },
+  estimate: { label: 'Estimate', Icon: Sigma, meaning: 'Inferred by Disaster Mapping from observations (for example the reconstructed spread); it can be wrong.' },
   model: { label: 'Model output', Icon: Cpu, meaning: 'Computed by a weather or fire-spread model, not observed.' },
   official: {
     label: 'Official update',
     Icon: Landmark,
-    meaning: "Published by an agency (fire, emergency-management or weather service) and quoted from its data; Fire-3d does not change the wording.",
+    meaning: "Published by an agency (fire, emergency-management or weather service) and quoted from its data; Disaster Mapping does not change the wording.",
   },
   annotation: { label: 'Your note', Icon: PenLine, meaning: 'A note you added; it is saved only in this browser.' },
 }
 
-export const AUTOMATED_NOTE = 'Generated automatically by Fire-3d from the listed data; not reported by a person.'
+export const AUTOMATED_NOTE = 'Generated automatically by Disaster Mapping from the listed data; not reported by a person.'
 
 /** The standing line next to official information (BRIEF-2: model output is never an evacuation order). */
-export const NOT_AN_ORDER = "Fire-3d's modeled spread is experimental and is not an evacuation order. Follow local officials."
+export const NOT_AN_ORDER = "Disaster Mapping's modeled spread is experimental and is not an evacuation order. Follow local officials."
 
 /** Empty feed (live, or nothing loaded): silence is never presented as safety. */
-export const EMPTY_FEED = "No updates from Fire-3d's sources yet. No update does not mean no danger; follow local officials."
+export const EMPTY_FEED = "No updates from Disaster Mapping's sources yet. No update does not mean no danger; follow local officials."
 /** Replay before the first item. */
 export const EMPTY_REPLAY = 'No updates in the record before this time.'

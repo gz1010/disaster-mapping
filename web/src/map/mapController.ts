@@ -1794,7 +1794,7 @@ export class MapController {
       const s = findFire(String(p.id), useStore.getState().summary, catalogOf())
       line(s?.name ?? String(p.name ?? 'Fire'), 'fxm-tip-title')
       line(String(p.chip))
-      line("Open the fire card to prepare the analysis. Fire-3d never prepares one on its own.", 'fxm-tip-hint')
+      line("Open the fire card to prepare the analysis. Disaster Mapping never prepares one on its own.", 'fxm-tip-hint')
       return el
     }
     if (f.layer.id === LYR.nearbyLine || f.layer.id === LYR.nearbyLabel) {

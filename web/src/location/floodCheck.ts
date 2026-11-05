@@ -16,7 +16,10 @@
 //                    own outage text while it could not be loaded (review WFC-R9)
 // Unavailable answers say so with their own "could not be reached" text; NOTHING_COVERS when no layer covers the spot
 // (the narrower NOTHING_COVERS_OFFICIAL when FEMA, the category map or the model says "inside": review WFC-R8). The
-// products follow productsShown (ui/timeline/hydrographModel.ts): the same rule as the map (review WFC-R1).
+// products follow productsShown (ui/timeline/hydrographModel.ts): the same rule as the map (review WFC-R1). Brief 6
+// (web-flood-playback, declared edit; review WFP-R2): the callers pass the products and the satellite answer at the
+// chart's handle (`shown`, the pass at the handle), the same the map draws, so a past step is judged by its own NWS
+// versions and its own satellite pass.
 // Pure and tested (floodCheck.test.ts). Used by the point card (location/FloodPointCard.tsx) and Command's readout.
 import { API_BASE } from '../api/client'
 import { riverGaugesQuery } from '../api/floods'
@@ -62,7 +65,7 @@ import {
 } from '../ui/shell/floodCopy'
 import { fmtStage } from '../ui/public/floodOverviewText'
 import { nfhlEffective, polygonsOf } from '../ui/public/floodView'
-import { futureProductsNote, isUpcoming, productEnd, productStart, productsShown } from '../ui/timeline/hydrographModel'
+import { futureProductsNote, isUpcoming, productEnd, productStart, productsShown, type ShownProducts } from '../ui/timeline/hydrographModel'
 
 /** A DSWx class at the spot: 0 not water, 1 open water, 2 partial water, 252 snow/ice, 253 cloud, 254 ocean, 255 no
  *  data; `'noview'` when only the picture says "no view" (clouds and no data share its grey hatch, D25); `'clear'` when
@@ -98,6 +101,10 @@ export interface FloodPointCheck {
 export interface FloodPointInput {
   point: [number, number]
   alerts: FloodAlert[]
+  /** The NWS products already picked for the handle (brief 6, map/floodAreaLayers.ts productsAtHandle: the timeline's
+   *  versions before now, else the live answer's productsShown), so the check judges exactly what the map draws
+   *  (review WFP-R2). Without it: productsShown on `alerts`. */
+  shown?: ShownProducts<FloodAlert>
   /** The alerts answer's state (D24): only an available answer can say "none here". */
   alertsStatus?: FloodAlertsResponse['status'] | 'failed' | 'loading'
   zones?: FloodAlertsResponse['zones'] | null
@@ -148,8 +155,9 @@ export function checkPoint(i: FloodPointInput): FloodPointCheck {
   let allAnswered = true
   const dist = (km: number) => distance(km * 1000, units).text
 
-  // NWS products at the handle's time (C1): the map's own rule (review WFC-R1)
-  const shown = productsShown(i.alerts, i.cursorMs, i.nowMs)
+  // NWS products at the handle's time (C1): the map's own rule (review WFC-R1); before now the time history's versions
+  // the map draws (brief 6; review WFP-R2)
+  const shown = i.shown ?? productsShown(i.alerts, i.cursorMs, i.nowMs)
   const { alerts, future } = shown
   const status = i.alertsStatus ?? 'available'
   if (status === 'unavailable' || status === 'failed') {

@@ -230,7 +230,7 @@ export function cameraFeedItems(data: CamerasResponse | null, tf?: TimeFmt): Fee
   const w = data.counts.wildfire ?? 0
   const t = data.counts.traffic ?? 0
   const parts = [w ? `${w} wildfire camera${w === 1 ? '' : 's'} (ALERTCalifornia)` : null, t ? `${t} traffic camera${t === 1 ? '' : 's'} (Caltrans)` : null].filter(Boolean)
-  // timed by Cal OES's own update of the camera list, never by Fire-3d's fetch (brief 2 U-R1)
+  // timed by Cal OES's own update of the camera list, never by Disaster Mapping's fetch (brief 2 U-R1)
   const own = data.source_updated_ms != null && Number.isFinite(data.source_updated_ms) && data.source_updated_ms > 0 ? data.source_updated_ms : null
   return [
     {

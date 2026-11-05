@@ -1,7 +1,7 @@
 """CAL FIRE status history (BRIEF-2 U-R6): an append-only JSON-lines log per incident, kept outside the bundles.
 
 CAL FIRE's incident list holds only each incident's current record, so a change of acreage, containment or status
-overwrites the previous one. Fire-3d keeps every distinct record it sees whenever it checks CAL FIRE: the live and
+overwrites the previous one. Disaster Mapping keeps every distinct record it sees whenever it checks CAL FIRE: the live and
 year lists in :mod:`fire3d.catalog` (the list endpoints and the live loop's refresh and summary sync go through it)
 and ``GET /api/official/calfire``.
 
@@ -200,7 +200,7 @@ def tracked_uids() -> set[str]:
 # ----------------------------------------------------------------------------------------------------------------
 def record(recs: Iterable[dict], *, list_name: str, seen_ms: int | None = None, track: bool = False) -> list[str]:
     """Append a snapshot for every record that is active, already tracked or (``track``) asked for, when it differs
-    from that incident's last line. ``seen_ms``: when Fire-3d fetched the list copy (default now). Returns the
+    from that incident's last line. ``seen_ms``: when Disaster Mapping fetched the list copy (default now). Returns the
     UniqueIds that got a new line. Disk errors are logged, never raised."""
     seen = int(seen_ms or now_ms())
     tracked = tracked_uids()
@@ -253,7 +253,7 @@ def missing_active(listed_uids: Iterable[str]) -> dict[int, set[str]]:
 
 
 def find_uid(incident_id: str) -> str | None:
-    """The UniqueId of a tracked incident by its Fire-3d id (files are named by UniqueId; the id carries its first
+    """The UniqueId of a tracked incident by its Disaster Mapping id (files are named by UniqueId; the id carries its first
     six characters), or None."""
     m = re.match(r"^\d{4}-.+-([0-9a-f]{6})$", str(incident_id or ""))
     if not m:

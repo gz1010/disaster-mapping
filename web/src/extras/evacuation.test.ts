@@ -222,7 +222,7 @@ describe('panel details and feed items', () => {
     expect(noGrid.every((i) => i.location === null && i.approximate === false)).toBe(true)
   })
 
-  it("times an item by the issuer, else Cal OES's copy, else the layer's own time; never Fire-3d's fetch (U-R1)", () => {
+  it("times an item by the issuer, else Cal OES's copy, else the layer's own time; never Disaster Mapping's fetch (U-R1)", () => {
     const a = zone('a', 'Evacuation Order', 'order', [square(0, 0, 1)], { aggregated_ms: 1_000 })
     const items = evacuationFeedItems(withZones([a]), null)
     expect(items[0].tMs).toBe(1_000)
@@ -279,12 +279,12 @@ describe('panel details and feed items', () => {
 // ---- brief 3: Oregon OEM (CONTRACT §14.8.4, §14.13) ---------------------------------------------------------------
 describe('Oregon OEM zones (brief 3)', () => {
   const jac043 = OR_EVAC_MEDFORD.zones.features.find((f) => f.properties.zone_name === 'US-OR-JAC-JAC-043')!
-  it('panel details: OEM definition as status, the level flagged as Fire-3d wording, the state-layer time, the fire name as recorded', () => {
+  it('panel details: OEM definition as status, the level flagged as Disaster Mapping wording, the state-layer time, the fire name as recorded', () => {
     const z = zoneDetail(jac043, OR_EVAC_MEDFORD.now_ms, LA24)
     expect(z.status).toBe('Level 3: GO NOW – Leave Immediately!')
     expect(z.jurisdiction).toBe('Jackson County')
     expect(z.updatedText).toBe('Issuer time not given; added to the Oregon state layer Aug 13, 17:20 PDT')
-    expect(z.extra).toContain('"Level 3" is Fire-3d\'s wording of Oregon OEM\'s level number; Oregon OEM defines it as "Level 3: GO NOW – Leave Immediately!".')
+    expect(z.extra).toContain('"Level 3" is Disaster Mapping\'s wording of Oregon OEM\'s level number; Oregon OEM defines it as "Level 3: GO NOW – Leave Immediately!".')
     expect(z.extra).toContain('Fire name as recorded by Oregon OEM: Fielders Mountain; a name match is not proof it is this fire')
     const slide = OR_EVAC_MEDFORD.zones.features.find((f) => f.properties.zone_name === 'HWY 229 Landslide')!
     expect(zoneDetail(slide, OR_EVAC_MEDFORD.now_ms, LA24).extra).toContain('Evacuation for: Other, as recorded by Oregon OEM')

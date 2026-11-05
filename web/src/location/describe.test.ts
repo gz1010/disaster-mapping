@@ -359,7 +359,7 @@ describe('conditions, units and labels', () => {
   })
   it('lists sources with their kind and keeps the caveats', () => {
     const c = card({ forecast: f, rasters: makeRasters(fc(0.5, 30, 40, 50)), weather: makeWeather(m) })
-    expect(c.sources.some((s) => s.text.startsWith('Model: Fire-3d spread model (pyretechnics 2026.8.10)'))).toBe(true)
+    expect(c.sources.some((s) => s.text.startsWith('Model: Disaster Mapping spread model (pyretechnics 2026.8.10)'))).toBe(true)
     expect(c.caveats.join(' ')).toMatch(/describe 31 model runs/)
   })
   it('formats spans', () => {

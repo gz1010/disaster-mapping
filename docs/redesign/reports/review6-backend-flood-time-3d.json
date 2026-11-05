@@ -1,0 +1,152 @@
+{
+  "role": "backend-flood-time-3d",
+  "brief": 6,
+  "step": "review fixes",
+  "summary": "Every finding was checked against the code first. All 16 are fixed (BTD-R14 by a short CONTRACT section 17 that points to the contract6 notes; see its entry). The two major findings: an open flood whose live NWS feed fails now says so (PRODUCTS_LIVE_DOWN, complete false, never kept in a cache), and a rebuild no longer loses the time history. When NASA cannot be reached, a rebuild keeps the earlier pass list and its rasters, every earlier NWS version and NOAA's river lines. After a refresh puts back an earlier water layer, the 3D terrain products are made again, so the depth estimate always belongs to the water shown. Forensic now takes the pass list and the products from GET /timeline and only the rasters from the bundle. Each kept pass has its own depth estimate. The rule text for the height boost states its x10 cap. The caches follow the NWS alerts cache. Command and Forensic list the same passes. The fixture has four simulated passes with a five-day gap. No image is made for a pass with no view.",
+  "findings": [
+    {
+      "id": "BTD-R1",
+      "severity": "major",
+      "outcome": "fixed",
+      "what": "product_history: for a non-past flood whose live read fails (raises or answers unavailable), the caveat PRODUCTS_LIVE_DOWN ('NWS's current flood products could not be loaded right now; only archived copies are shown and the newest may be missing. That is not an all-clear.') is added and complete is false, so neither cached_product_history nor route_timeline keeps it. The build retries only for its own IEM limit (info.busy), not for a live outage.",
+      "test": "tests/test_floods_timeline.py::test_live_feed_down_says_so_and_is_not_kept"
+    },
+    {
+      "id": "BTD-R2",
+      "severity": "major",
+      "outcome": "fixed",
+      "what": "Checked: snapshot() already reads every layer file (water_pass_*, hand, depth_*), so only timeline.json was missing from it. The real gaps were (a) a rebuild during a NASA outage wrote passes 'unavailable' and dropped the pass rasters, and (b) depth_satellite stayed unavailable when keep_what_the_rebuild_lost restored water_satellite. Fixes: floods/build.py reads the earlier ready bundle before its swap (_earlier_bundle). When NASA cannot be reached it keeps the earlier passes block and copies its pass rasters (same grid only). It merges every earlier NWS version (timeline.merge_products; a live copy still replaces the archived copy). It keeps the earlier river lines when NOAA cannot be reached. Each of these adds the manifest warning REBUILD_KEPT. terrain3d.after_refresh makes the 3D products again from the bundle's own layers whenever the refresh put water_satellite or water_forecast back; it is called by one declared line in live.py, a file with no brief-6 owner. Contract: Forensic takes the pass list and the NWS products from GET /timeline (the live loop appends to warnings.json only), and only the pass rasters from the bundle, joined by key.",
+      "test": "tests/test_floods_live.py::test_refresh_keeps_layers_the_rebuild_could_not_load (extended: passes and rasters kept, depth estimates equal to the earlier ones, depth_satellite time = water_satellite time; it fails without the live.py call)"
+    },
+    {
+      "id": "BTD-R3",
+      "severity": "minor",
+      "outcome": "fixed",
+      "what": "Each of the 8 kept passes gets its own FwDET depth layers/depth_pass_<key>.bin (terrain3d.pass_depth; uint8 0.1 m, 255 outside its water). FloodPass.depth_layer is additive in Python, TypeScript and SPEC, and null when the pass maps no water or its water has no edge on open ground. The contract note tells web-forensic-flood-3d to drape the route's PNG for passes without a bundle raster and to say that no depth surface is shown for them. On disk each layer is 1 MB; gzipped they are 25 to 50 kB (St Johns). check_bundle accepts the new layers and checks each one is there.",
+      "test": "tests/test_floods_timeline.py::test_bundle_passes_never_ask_again_and_have_their_own_depth"
+    },
+    {
+      "id": "BTD-R4",
+      "severity": "minor",
+      "outcome": "fixed",
+      "what": "RELIEF_RULE now ends: 'At most ×10, so a very flat floodplain can still look flat at the default: raise the boost or look from closer.' New additive field FloodRelief.target_reached: false for St Johns, Calcasieu and Grand River, so the web can suggest a larger boost or the closer framing. The cap stays at x10, because larger factors turn DEM noise and buildings into spikes and the user can change it anyway.",
+      "test": "tests/test_floods_terrain3d.py::test_relief_near_the_water_or_the_whole_grid"
+    },
+    {
+      "id": "BTD-R5",
+      "severity": "minor",
+      "outcome": "fixed",
+      "what": "bundle_passes no longer adds PASSES_PARTIAL ('ask again in a minute'). Passes that were not read (beyond MAX_BUNDLE_READS, or a read that failed at build) stay 'unknown' with a new bundle-only caveat, PASSES_BUNDLE_UNREAD. complete stays true. PASSES_BUNDLE_LIMIT is now only for usable passes that were read but not kept.",
+      "test": "tests/test_floods_timeline.py::test_bundle_passes_never_ask_again_and_have_their_own_depth"
+    },
+    {
+      "id": "BTD-R6",
+      "severity": "minor",
+      "outcome": "fixed",
+      "what": "route_timeline caches only the passes block (10 min; the cache key includes the window start). The products block is made for every answer from cached_product_history, whose TTL is now nws.ALERTS_TTL_S (2 min). phases_at() recomputes every version's phase and now_ms when an answer is served, for cached answers and for the frozen bundle_timeline. satellite_granules ignores an expired satellite answer (ROUTE_TTL_S).",
+      "test": "tests/test_floods_timeline.py::test_cached_and_frozen_products_are_served_with_phases_of_now, ::test_route_keeps_the_passes_but_makes_the_products_for_each_answer"
+    },
+    {
+      "id": "BTD-R7",
+      "severity": "minor",
+      "outcome": "fixed",
+      "what": "_start_read drops a done future it finds in _inflight, so a stale future never blocks a new read. It also registers its own future only while that future is not done, so a read that fails at once is never left behind.",
+      "test": "tests/test_floods_timeline.py::test_a_failed_read_that_finished_at_once_is_read_again (the reviewer's synchronous-pool probe)"
+    },
+    {
+      "id": "BTD-R8",
+      "severity": "minor",
+      "outcome": "fixed",
+      "what": "timeline.sources_of() makes one OPERA source per (product, route) among the listed passes, using satellite._source and fcopy.opera_credit. It is the additive FloodPassHistory.sources; source stays the first one. The bundle's data_sources credits each one, in both build._timeline_step and flood_3d.add_timeline.",
+      "test": "tests/test_floods_timeline.py::test_sources_credit_every_product_and_route"
+    },
+    {
+      "id": "BTD-R9",
+      "severity": "minor",
+      "outcome": "fixed",
+      "what": "scripts/flood_3d.py fixture-flood now also writes four simulated passes, with keys in the real DSWx-HLS_<time>_<sensor> form: a clear pass before the flood, a pass with no view, a five-day gap, a partly hidden pass and the fixture's own image. Each usable pass has its water_pass and depth_pass rasters and a 2D PNG in the bundle's passes/ folder. The pass PNG route serves these PNGs for synthetic floods, and the bundle passes check_bundle. Left out: (a) the hook in make_fixture.py, which is outside the role table; flood_3d.py must be run after make_fixture.py --only flood, as the contract note and SPEC say. Adding the hook would also change the committed fixture copies (backend/tests/data/floods/fixture_api, web/src/api/__fixtures__/floods). (b) Committed web fixture copies of /timeline: wave-2 roles get the same answer from the real API (FIRE3D_LIVE=0) on the upgraded fixture.",
+      "test": "tests/test_floods_terrain3d.py::test_upgrade_script_adds_products_to_the_fixture (extended: four views, the gap, real key form, layers, PNG route 200 and 404 for the no-view pass, a re-run adds no duplicate credit or layer)"
+    },
+    {
+      "id": "BTD-R10",
+      "severity": "minor",
+      "outcome": "fixed",
+      "what": "flood_window rounds the start down to midnight UTC and takes also_started. The /timeline and pass PNG routes pass the earlier of the live start and the ready bundle's frozen start (api/floods._with_bundle_start). Checked on the real API: Calcasieu now lists the same 5 passes in the route and in the bundle, including DSWx-HLS_20261025T1644_L9.",
+      "test": "tests/test_floods_timeline.py::test_route_and_bundle_windows_list_the_same_passes_when_the_start_is_refined"
+    },
+    {
+      "id": "BTD-R11",
+      "severity": "nit",
+      "outcome": "fixed",
+      "what": "scripts/flood_3d.py replaces old-name notes in manifest.json, satellite.json, warnings.json and timeline.json each time it rewrites a bundle. It knows the old texts from every literal part of today's copy, history and copy_time texts that names the app, plus the fixture's [SYNTHETIC] line. rename-docs had already migrated this container's data and regenerated the fixture; flood_3d.py was then run again on fixture-flood, Calcasieu, St Johns and Grand River, and found nothing left to replace.",
+      "test": "tests/test_floods_terrain3d.py::test_upgrade_script_adds_products_to_the_fixture (plants the old SAT_NOT_SET_UP text and checks that it is replaced)"
+    },
+    {
+      "id": "BTD-R12",
+      "severity": "nit",
+      "outcome": "fixed",
+      "what": "These now live in copy_time.py and are covered by the wording guard through ALL_STRINGS (new BUILD_STRINGS): TIME_NOT_STATED, PROGRESS_* (the build's progress texts), DESC_* (layer descriptions), SRC_* (data_sources details), REBUILD_KEPT and KEPT_*.",
+      "test": "tests/test_floods_timeline.py::test_every_timeline_and_terrain_string_passes_the_wording_guard"
+    },
+    {
+      "id": "BTD-R13",
+      "severity": "nit",
+      "outcome": "fixed",
+      "what": "read_lonlat writes no PNG for a no_view pass and removes any earlier one. pass_png answers None (404) for a pass whose last read had no view. Checked on the real API: Calcasieu DSWx-HLS_20261026T1638_L8 now returns 404, where the review got 200.",
+      "test": "tests/test_floods_timeline.py::test_route_passes_read_once_mark_no_view_and_make_pngs (extended)"
+    },
+    {
+      "id": "BTD-R14",
+      "severity": "nit",
+      "outcome": "fixed",
+      "what": "Appended CONTRACT.md section 17 'Brief 6 interfaces': it points to contract6/*.md and SPEC 5.3, 5.4, 6 and 8.11, and lists the new routes and types. It was added after rename-docs committed its own CONTRACT.md lines, so neither role overwrote the other."
+    },
+    {
+      "id": "BTD-R15",
+      "severity": "nit",
+      "outcome": "fixed",
+      "what": "_event_keys orders the flood's events newest first, by the latest issue time known for each. When there are more than MAX_EVENTS (20), the newest are kept and PRODUCTS_EVENTS_TRUNCATED is added.",
+      "test": "tests/test_floods_timeline.py::test_more_events_than_listed_keeps_the_newest_and_says_so"
+    },
+    {
+      "id": "BTD-R16",
+      "severity": "nit",
+      "outcome": "fixed",
+      "what": "SPEC 5.4 now says 'the whole grid when there is none, or when the ground within 2 km of it covers under 1 % of the grid', which matches the code. The comments on RELIEF_MIN_FRAC and in the terrain3d module docstring say the same."
+    }
+  ],
+  "files": [
+    "backend/fire3d/floods/timeline.py",
+    "backend/fire3d/floods/copy_time.py",
+    "backend/fire3d/floods/terrain3d.py",
+    "backend/fire3d/floods/build.py",
+    "backend/fire3d/api/floods.py",
+    "backend/fire3d/contracts.py",
+    "web/src/api/floodTypes.ts",
+    "backend/scripts/flood_3d.py",
+    "backend/scripts/check_bundle.py (declared, outside the role table: depth_pass_* layers)",
+    "backend/fire3d/floods/live.py (declared, outside the role table: one call of terrain3d.after_refresh)",
+    "backend/tests/test_floods_timeline.py",
+    "backend/tests/test_floods_terrain3d.py",
+    "backend/tests/test_floods_live.py",
+    "SPEC.md (5.3, 5.4, 6, 8.11)",
+    "docs/redesign/CONTRACT.md (section 17, appended)",
+    "docs/redesign/contract6/backend-flood-time-3d.md",
+    "docs/redesign/progress/brief6-backend-flood-time-3d.md"
+  ],
+  "screenshots": [],
+  "screenshots_note": "These are backend changes only, and no web view reads the new fields yet; wave 2 will. None of this role's screenshots were affected (it has none). Instead, the real API on port 8764 (stopped afterwards) was used to check R10 (Calcasieu: route and bundle list the same 5 passes) and R13 (no-view PNG now 404). The fixture's three pass PNGs were viewed.",
+  "data_on_disk": "scripts/flood_3d.py was run again on fixture-flood (4 simulated passes, 3 with images and depth), Calcasieu (5 passes, 3 kept with depth; 21.4 MB), St Johns (23 passes, 8 kept with depth, 102 product versions; 37.9 MB on disk) and Grand River (3 passes, all with no view). check_bundle found 0 problems in each.",
+  "known_issues": [
+    "make_fixture.py is outside the role table, so it does not call flood_3d. After make_fixture.py --only flood, run uv run python scripts/flood_3d.py fixture-flood, or the fixture keeps one simulated pass and no terrain3d. Adding the call would also mean regenerating the committed fixture copies.",
+    "The bundle's timeline.json products are a frozen record. The live loop appends new NWS versions to warnings.json only. Forensic must take products from GET /timeline, as the contract note and SPEC 8.11 say.",
+    "Each kept pass adds a 1 MB depth raster on disk. St Johns is now 37.9 MB on disk. On the wire the depth rasters are 25 to 50 kB each (gzip).",
+    "A rebuild on a different grid (the flood's area changed) keeps the earlier pass list without its rasters (layer null)."
+  ],
+  "notes_for_others": "web-flood-playback and web-forensic-flood-3d: read contract6/backend-flood-time-3d.md first. Take the pass list and products from GET /timeline, and the pass rasters from the bundle's timeline.json, joined by key. Use FloodPass.depth_layer for each pass's depth surface; when it is null, say that no depth surface is shown for that pass. Use FloodPassHistory.sources for credits. phase is the state now; for playback, draw from shown_from_ms until shown_until_ms. Use FloodRelief.target_reached to suggest a larger boost or the closer framing. For the fixture with four passes, run scripts/flood_3d.py fixture-flood after make_fixture.py --only flood. final-check: live.py and check_bundle.py carry declared edits from this role.",
+  "gates": {
+    "backend": "uv run pytest -q: 1466 passed (no network)",
+    "web": "typecheck clean; lint 55 warnings, all in src/scene; 140 files / 1813 tests passed (2 skipped); build ok"
+  },
+  "scans": "count-only: 1 secret configured, 0 hits in the changed files, the report and the bundles' manifest / timeline files; the banned reference-demo name 0 in the diff"
+}

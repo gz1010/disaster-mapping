@@ -22,7 +22,7 @@ products (an archived copy, not an official NWS source; credited as such):
     an emergency; warnings whose polygons overlap (30 % of the smaller) within 12 h are one flood.
 
   Smaller floods are not listed (the web's ``PAST_RULE_NOTE`` says so; never an all-clear).
-* **Ids agree with live ids:** the registry is looked up by VTEC key first, so a 2026 flood Fire-3d saw live keeps its
+* **Ids agree with live ids:** the registry is looked up by VTEC key first, so a 2026 flood Disaster Mapping saw live keeps its
   live id (and its live name); groups that map to one live id are merged. Other ids are deterministic
   (``naming.make_flood_id`` from the start, the name before duplicate suffixes, and the gauge or the oldest VTEC key).
 * Rows: ``mode: "historical"``, ``status: "inactive"``, level ``warning``, ``max_category`` from the H-VTEC severity
@@ -42,7 +42,7 @@ products (an archived copy, not an official NWS source; credited as such):
   true``, source IEM. At most :data:`MAX_PAST_EVENTS` events per answer.
 * :func:`past_gauges`: member gauges with USGS's measured stage and flow around the flood (provisional data, USGS v1,
   no key), NWS's thresholds and impacts of today (``THRESHOLDS_TODAY``), no forecast (``PAST_NO_FORECAST``); the
-  reading's category is ``unknown`` (NWS's category of a past reading is not kept; Fire-3d does not infer one).
+  reading's category is ``unknown`` (NWS's category of a past reading is not kept; Disaster Mapping does not infer one).
 * An area or point at a past time answers ``not_available_for_past_dates`` with :data:`PAST_AREA_ALERTS` /
   :data:`PAST_AREA_GAUGES` (open a past flood for its archived products and readings).
 """
@@ -95,7 +95,7 @@ MONTH_TTL_OPEN_S = 6 * 3600.0                                # the current month
 YEAR_REFRESH_H = 6.0                                         # the current year's list is rebuilt after this
 FAILED_RETRY_S = 600.0                                       # a failed or partial year build is retried after this
 IEM_TIMEOUT_S = 180.0                                        # a busy month's CSV takes IEM a while to make
-BUSY_WAIT_S = 4.0                                            # Fire-3d's own IEM limit reached: wait, then try again
+BUSY_WAIT_S = 4.0                                            # Disaster Mapping's own IEM limit reached: wait, then try again
 BUSY_TRIES = 30
 GAUGE_BATCH = 150
 GAUGE_TTL_S = 30 * 86400.0
@@ -107,13 +107,13 @@ SEVERITY_CATEGORY = {2: "moderate", 3: "major"}
 DAMAGE = {"CONSIDERABLE": 2, "CATASTROPHIC": 3}
 EVENT = {"FL": "Flood Warning", "FF": "Flash Flood Warning"}
 
-# Fire-3d's own sentences (guard-tested in tests/test_floods_history.py with the PLAN-5 5.1 patterns)
+# Disaster Mapping's own sentences (guard-tested in tests/test_floods_history.py with the PLAN-5 5.1 patterns)
 SOURCE_NAME = "National Weather Service, archived copy via the Iowa Environmental Mesonet (Iowa State University)"
 ARCHIVE_DOWN = ("The archive of NWS warnings (Iowa Environmental Mesonet) could not be reached right now, so past floods "
                 "could not be listed. That is not an all-clear.")
 ARCHIVE_PARTIAL = ("Part of the archive of NWS warnings (Iowa Environmental Mesonet) could not be read ({months}); "
                    "floods of those months may be missing. That is not an all-clear.")
-YEAR_NOT_KEPT = "Fire-3d lists past floods for {years} only. That is not an all-clear."
+YEAR_NOT_KEPT = "Disaster Mapping lists past floods for {years} only. That is not an all-clear."
 PAST_AREA_ALERTS = ("Past NWS flood products are shown per flood: open a past flood to see its archived products. "
                     "That is not an all-clear.")
 PAST_AREA_GAUGES = ("Past river gauge readings are shown per flood and per gauge; nearby gauges are not kept for past "
@@ -122,9 +122,9 @@ PAST_ALERTS_DOWN = ("The archive of NWS flood products (Iowa Environmental Meson
                     "That is not an all-clear: follow local officials.")
 NO_USGS_SITE = "NWS names no USGS site for this gauge, so its past readings are not available here."
 PAST_GAUGE_NOT_KEPT = "Past readings are not kept for this gauge. That is not an all-clear."
-PAST_BEFORE_FLOOD = ("This flood's NWS products were sent after that time; Fire-3d shows a flood's products from its "
+PAST_BEFORE_FLOOD = ("This flood's NWS products were sent after that time; Disaster Mapping shows a flood's products from its "
                      "start. That is not an all-clear.")
-PAST_NO_BUNDLE = ("Fire-3d prepares 3D data for current floods only: NWS's forecast maps, the model and river forecasts "
+PAST_NO_BUNDLE = ("Disaster Mapping prepares 3D data for current floods only: NWS's forecast maps, the model and river forecasts "
                   "are not kept for a past flood's dates.")
 PAST_STRINGS = {"PAST_NO_BUNDLE": PAST_NO_BUNDLE, "ARCHIVE_DOWN": ARCHIVE_DOWN, "ARCHIVE_PARTIAL": ARCHIVE_PARTIAL,
                 "YEAR_NOT_KEPT": YEAR_NOT_KEPT,
@@ -197,7 +197,7 @@ def sbw_params(start_ms: int, end_ms: int) -> list[tuple[str, str]]:
 
 
 def _iem_get(url: str, params: Any, ttl_s: float | None, *, wait: bool = True) -> fhttp.Response:
-    """A cached IEM GET on ``nws.IEM_LIMITER``; waits for a slot when Fire-3d's own limit is reached (``wait``)."""
+    """A cached IEM GET on ``nws.IEM_LIMITER``; waits for a slot when Disaster Mapping's own limit is reached (``wait``)."""
     name = "The Iowa Environmental Mesonet archive of NWS warnings"
     for _ in range(BUSY_TRIES if wait else 1):
         hit = fhttp.peek_cache("GET", url, params, ttl_s)
@@ -206,10 +206,10 @@ def _iem_get(url: str, params: Any, ttl_s: float | None, *, wait: bool = True) -
         if nws.IEM_LIMITER.try_acquire():
             break
         if not wait:
-            raise SourceBusy(f"{name}: Fire-3d's request limit is reached; try again in a minute")
+            raise SourceBusy(f"{name}: Disaster Mapping's request limit is reached; try again in a minute")
         time.sleep(BUSY_WAIT_S)
     else:
-        raise SourceBusy(f"{name}: Fire-3d's request limit is reached; try again in a minute")
+        raise SourceBusy(f"{name}: Disaster Mapping's request limit is reached; try again in a minute")
     try:
         return fhttp.request("GET", url, params=params, ttl_s=ttl_s, timeout=IEM_TIMEOUT_S, retries=1)
     except fhttp.HttpError as e:
@@ -237,7 +237,7 @@ def fetch_month(start_ms: int, end_ms: int, ttl_s: float | None, *,
         doc = r2.json()
     except ValueError:
         fhttp.evict_cache("GET", SBW_URL, p2)
-        raise SourceError("The Iowa Environmental Mesonet sent a reply Fire-3d could not read") from None
+        raise SourceError("The Iowa Environmental Mesonet sent a reply Disaster Mapping could not read") from None
     feats = doc.get("features") if isinstance(doc, dict) else None
     if not isinstance(feats, list):
         fhttp.evict_cache("GET", SBW_URL, p2)
@@ -538,7 +538,7 @@ def summarize(group: list[Event], gauges: dict[str, dict], names: dict[str, str]
 
 def assign(rows: list[dict], reg: reg_mod.Registry) -> list[dict]:
     """Ids (rule 10): a registered VTEC key gives its live id (rows of one live id merged; the live name kept when
-    Fire-3d has a last-known summary for it); else ``make_flood_id(start, base name, anchor)``. Then names deduped."""
+    Disaster Mapping has a last-known summary for it); else ``make_flood_id(start, base name, anchor)``. Then names deduped."""
     by_id: dict[str, dict] = {}
     for r in rows:
         hits = sorted({hit for k in r["_keys"] for hit in [reg.id_for(k)] if hit}, key=lambda h: (h[1], h[0]))
@@ -603,7 +603,7 @@ def build_rows(events: dict[tuple, Event], year: int, *, reg: reg_mod.Registry |
 
 
 def canonical_rows(rows: list[dict], reg: reg_mod.Registry | None = None) -> list[dict]:
-    """Year rows with ids that follow the registry's aliases **now** (a merge Fire-3d recorded after the year was built
+    """Year rows with ids that follow the registry's aliases **now** (a merge Disaster Mapping recorded after the year was built
     must not leave an old id in the list: it would open as a past row instead of the canonical flood; review BFL-R3).
     Rows that land on one id are merged; ``aliases`` updated. No request."""
     reg = reg or reg_mod.get_registry()

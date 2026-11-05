@@ -15,7 +15,7 @@ CONTRACT 16.4).
 
 FEMA's connection resets often (8 of 14 tries in the audit): 4 tries with backoff (``fire3d.http``), a 30-day cache
 (the maps change by revisions, not daily) and an outage memory (:data:`NFHL_DOWN`, 60 s). The GeoJSON has no zoom limit
-(FEMA's 1:36,112 limit is for its export images, which Fire-3d does not use): ``min_zoom`` is always null. Errors raise
+(FEMA's 1:36,112 limit is for its export images, which Disaster Mapping does not use): ``min_zoom`` is always null. Errors raise
 ``nws.SourceError`` / ``SourceBusy``; the bundle and the maps route turn them into ``NFHL_DOWN``.
 """
 
@@ -88,7 +88,7 @@ def parse_zone(f: Any) -> dict | None:
 
 def zones(bbox: BBox) -> tuple[list[dict], int]:
     """The SFHA (with floodway) and 0.2 % band polygons in ``bbox`` (simplified to about 20 m). The list's
-    ``truncated`` attribute is True when FEMA had more than Fire-3d pages through."""
+    ``truncated`` attribute is True when FEMA had more than Disaster Mapping pages through."""
     params = {**envelope(bbox), "where": ZONE_WHERE, "outFields": ZONE_FIELDS, "returnGeometry": "true",
               "outSR": "4326", "f": "geojson", "geometryPrecision": "5", "maxAllowableOffset": f"{SIMPLIFY_DEG:g}"}
     raw, fetched = _q(ZONES_LAYER, params)

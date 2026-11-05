@@ -745,7 +745,7 @@ def _print_progress(step: str, fraction: float, message: str) -> None:
 
 def main(argv: Sequence[str] | None = None) -> int:
     """``hindcast`` (batch calibration) and ``bench`` (timing) commands."""
-    p = argparse.ArgumentParser(prog="python -m fire3d.spread.validate", description="Fire-3d spread verification")
+    p = argparse.ArgumentParser(prog="python -m fire3d.spread.validate", description="Disaster Mapping spread verification")
     sub = p.add_subparsers(dest="command", required=True)
     h = sub.add_parser("hindcast", help="batch hindcast / spread_adjustment grid search")
     h.add_argument("bundles", nargs="+", help="bundle directories or incident ids; 'id:6,12,24' gives that bundle its own offsets")

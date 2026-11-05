@@ -119,7 +119,7 @@ export const LIST_EMPTY = (): FloodListResponse => clone(listEmpty)
 
 /** A year list whose IEM archive could not be read (review WFO-R3): the shape the real API answers before past floods
  *  are listed (backend-flood-live M2): no floods, no past rule, the archive unavailable with its reason. */
-export const YEAR_ARCHIVE_DOWN_REASON = 'Fire-3d does not list past floods yet. That is not an all-clear.'
+export const YEAR_ARCHIVE_DOWN_REASON = 'Disaster Mapping does not list past floods yet. That is not an all-clear.'
 export const LIST_YEAR_ARCHIVE_DOWN = (): FloodListResponse => {
   const l = LIST_2026()
   l.floods = []

@@ -148,10 +148,10 @@ def write_manifest(data_dir: Path, iid: str, mode: str, point: tuple[float, floa
 # ----------------------------------------------------------------------------------------------------------------
 def test_user_agent(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("FIRE3D_NWS_CONTACT", raising=False)
-    assert nws.user_agent() == "Fire-3d/0.1 (research prototype)"            # no personal data by default
+    assert nws.user_agent() == "Disaster-Mapping/0.1 (research prototype)"            # no personal data by default
     monkeypatch.setenv("FIRE3D_NWS_CONTACT", "ops@example.org\r\nX-Evil: 1 (x)")
     ua = nws.user_agent()
-    assert ua == "Fire-3d/0.1 (research prototype; ops@example.orgX-Evil: 1 x)" and "\n" not in ua
+    assert ua == "Disaster-Mapping/0.1 (research prototype; ops@example.orgX-Evil: 1 x)" and "\n" not in ua
 
 
 def test_parse_vtec_and_ugc_blocks() -> None:
@@ -341,7 +341,7 @@ def test_archive_for_eaton_on_jan_8_2025(upstream: Upstream) -> None:
     assert "CAZ380" in zones and set(zones["CAZ380"]["alert_ids"]) == {"2025-KLOX-FW-W-0001", "2025-KLOX-FW-A-0001"}
     assert res["caveats"] == [] and res["retrieved_ms"] is not None
     assert upstream.count("geojson/vtec_event.py") == 2                     # polygons only for events issued by then
-    assert all("user-agent" in h and "Fire-3d/0.1" in h["user-agent"] for h in upstream.headers)
+    assert all("user-agent" in h and "Disaster-Mapping/0.1" in h["user-agent"] for h in upstream.headers)
 
 
 def test_archive_lists_ended_alerts_for_48_hours(upstream: Upstream) -> None:
@@ -408,7 +408,7 @@ def test_endpoint_live_none_is_not_an_all_clear(upstream: Upstream, client: Test
     assert d["reported_location"] == list(HENDERSON) and d["area_bbox"][0] < HENDERSON_AOI[0]
     assert any("not an all-clear" in c for c in d["caveats"]) and any("not an evacuation order" in c for c in d["caveats"])
     ua = [h for h, u in zip(upstream.headers, upstream.calls) if "api.weather.gov" in u]
-    assert ua and all(h["user-agent"] == "Fire-3d/0.1 (research prototype)" and h["accept"] == "application/geo+json" for h in ua)
+    assert ua and all(h["user-agent"] == "Disaster-Mapping/0.1 (research prototype)" and h["accept"] == "application/geo+json" for h in ua)
     n = upstream.count("alerts/active")
     client.get("/api/official/fire-weather", params={"incident": "2026-henderson-fire-3e3dfe"})
     assert upstream.count("alerts/active") == n                            # one statewide answer, cached 2 min

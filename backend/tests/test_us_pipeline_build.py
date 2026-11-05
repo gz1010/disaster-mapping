@@ -88,16 +88,16 @@ def test_bundle_only_id_is_refused_with_409(fake) -> None:
 def test_alaska_is_refused_with_422_by_the_cli_and_the_api(fake, capsys) -> None:
     with pytest.raises(pipeline.BuildRefused) as ei:
         pipeline.build_incident(AK_ID)
-    assert ei.value.status == 422 and str(ei.value) == "Fire-3d does not support Alaska, Hawaii or US territories yet."
+    assert ei.value.status == 422 and str(ei.value) == "Disaster Mapping does not support Alaska, Hawaii or US territories yet."
     assert cli.main(["build", AK_ID]) == 1
     err = capsys.readouterr().err
-    assert "Fire-3d does not support Alaska, Hawaii or US territories yet." in err and "422" in err
+    assert "Disaster Mapping does not support Alaska, Hawaii or US territories yet." in err and "422" in err
     assert not (bundle.bundle_dir(AK_ID) / "manifest.json").exists()
     from fire3d.api.app import app
 
     with TestClient(app) as client:
         r = client.post(f"/api/incidents/{AK_ID}/build")
-        assert r.status_code == 422 and r.json()["detail"] == "Fire-3d does not support Alaska, Hawaii or US territories yet."
+        assert r.status_code == 422 and r.json()["detail"] == "Disaster Mapping does not support Alaska, Hawaii or US territories yet."
         r = client.post(f"/api/incidents/{WFIGS_ID}/build")
         assert r.status_code == 200 and r.json()["kind"] == "build"
 

@@ -2,29 +2,44 @@
 //   FloodFxDriver  the per-frame shared fx uniforms (exaggeration, viewport, fog) the draped lines and labels read
 //                  (the fire FxDriver is not mounted for a flood)
 //   WarningLines   NWS warning areas as pink lines draped on the terrain (scene/fx/lines.ts ribbons), the products drawn
-//                  at the hydrograph handle (floodGeo.warningsAt, C1): before now the ones in effect then; after now the
-//                  ones in effect NOW. Warnings 2 px, advisories 1.6 px, watches dashed
+//                  at the hydrograph handle (brief 6: state/floodTimeline.ts productsAt via useProductsOnScreen: before
+//                  now the time history's versions from GET /timeline, each from its issue time until its own end;
+//                  at and after now the ones in effect NOW, C1). Warnings 2 px, advisories 1.6 px, watches dashed
 //   SatelliteEdge  the satellite image's edge (thin dashed grey), so "no view" outside it never reads as dry ground
 //   DrapeLabels    "MODEL · EXPERIMENTAL" (amber) and "NWS CATEGORY MAP · EXPERIMENTAL" on those drapes when switched on
 //   GaugeBars      the river gauges as thin bars (GaugeBars.tsx)
+// Brief 6 (web-forensic-flood-3d):
+//   HeightBoost    the flood's height boost on the shared exaggeration while the flood scene is mounted (heightBoost.ts:
+//                  the automatic value from the bundle's relief, or the user's choice for this flood); the fire view's
+//                  own value comes back when it unmounts. A layout effect, so the camera frames the flood at its height
+//   DepthSurface   the estimated water surface (FwDET) with its depth tint, inside the mapped water only (DepthSurface.tsx)
+//   PassDrapeDriver the satellite drape at the river-level chart's handle (floodPassDrape.ts): a kept pass's classes
+//                  from the bundle (loaded on demand), else its 2D picture, else nothing; SatelliteEdge follows the
+//                  pass on screen
 // Nothing here animates: lines, bars and labels are static (prefers-reduced-motion has nothing to stop).
 import { useFrame } from '@react-three/fiber'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
+import { apiPathUrl } from '../../api/floods'
+import { dataTexture } from '../../lib/raster'
 import { lonLatToLocal } from '../../lib/reproject'
-import { useFlood } from '../../state/flood'
+import { useFloodTimelineSync } from '../../state/floodTimelineData'
 import { useStore } from '../../state/store'
 import { shownOpacity, useForensicFlood } from '../../ui/forensic-flood/forensicFloodState'
 import { FLOOD_FORENSIC } from '../../ui/forensic-flood/floodForensicCopy'
-import { useNow } from '../../ui/hooks'
 import type { IncidentAssets } from '../assets'
 import { GLSL_COMMON, GLSL_OUTPUT, GLSL_VERT, ORDER, STYLE_INDEX, fogDensity, fxUniforms } from '../fx/common'
 import { GLSL_RIBBON_FRAG, GLSL_RIBBON_VERT, drape, ribbonGeometry, type RibbonLine } from '../fx/lines'
 import { InOverlay, Overlay, ScreenLabel } from '../fx/text'
 import { useSceneStore } from '../sceneStore'
 import type { FloodSceneAssets } from './floodAssets'
-import { clipRingToBox, polygonsLocal, warningsAt } from './floodGeo'
+import { useBundleRaster } from './bundleRaster'
+import { DepthSurface } from './DepthSurface'
+import { imageAffine, passDrapeGpu, usePassDrape } from './floodPassDrape'
+import { useProductsOnScreen } from './flood3dHooks'
+import { clipRingToBox, polygonsLocal } from './floodGeo'
 import { GaugeBars } from './GaugeBars'
+import { boostInUse } from './heightBoost'
 import { SAT_NO_VIEW } from './satClasses'
 
 const DEFAULT_FOG = new THREE.Color('#0b0f0d')
@@ -127,10 +142,10 @@ const PRODUCT_STYLE = (event: string): [number, number] => {
 function WarningLines({ assets, flood }: { assets: IncidentAssets; flood: FloodSceneAssets }) {
   const visible = useForensicFlood((s) => s.layers.warnings.visible)
   const opacity = useForensicFlood((s) => s.layers.warnings.opacity)
-  const cursorMs = useFlood((s) => s.cursorMs)
-  const now = useNow(60_000)
-  const resp = flood.warnings
-  const drawn = useMemo(() => (resp && resp.status === 'available' ? warningsAt(resp.alerts, cursorMs, now).alerts : []), [resp, cursorMs, now])
+  // brief 6 (playback): before now the time history's versions (GET /timeline), else the bundle's copy (productsAt)
+  const shown = useProductsOnScreen(flood)
+  const drawn = useMemo(() => shown?.alerts ?? [], [shown])
+  const zones = shown?.zones ?? null
   const drawnKey = drawn.map((a) => a.id).join('|')
   const geometry = useMemo(() => {
     if (!drawn.length) return null
@@ -141,13 +156,13 @@ function WarningLines({ assets, flood }: { assets: IncidentAssets; flood: FloodS
     for (const a of drawn) {
       const [wf, dashed] = PRODUCT_STYLE(a.event)
       const data: [number, number, number, number] = [a.emergency ? 1 : 0.92, a.emergency ? 1.25 : wf, dashed, 0]
-      const polys = a.geometry ? polygonsLocal(a.geometry, grid) : (resp?.zones.features ?? []).filter((f) => f.properties.alert_ids.includes(a.id)).flatMap((f) => polygonsLocal(f.geometry, grid))
+      const polys = a.geometry ? polygonsLocal(a.geometry, grid) : (zones?.features ?? []).filter((f) => f.properties.alert_ids.includes(a.id)).flatMap((f) => polygonsLocal(f.geometry, grid))
       for (const poly of polys) drapedOutline(poly, half, assets.heightAt, maxSeg, data, lines)
     }
     return lines.length ? ribbonGeometry(lines) : null
     // drawnKey stands for `drawn`
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drawnKey, assets.heightAt, assets.extent, flood.manifest.grid, resp])
+  }, [drawnKey, assets.heightAt, assets.extent, flood.manifest.grid, zones])
   useEffect(() => () => geometry?.dispose(), [geometry])
   const material = useMemo(() => lineMaterial('#ee7aa0', 2.2, warningOpacity, 0.012), [])
   useEffect(() => () => material.dispose(), [material])
@@ -158,12 +173,80 @@ function WarningLines({ assets, flood }: { assets: IncidentAssets; flood: FloodS
   return <mesh geometry={geometry} material={material} frustumCulled={false} renderOrder={ORDER.perimeters} name="flood-warning-lines" />
 }
 
+/** Brief 6: the satellite drape at the chart's handle (floodPassDrape.ts): the textures the terrain swaps in. */
+function PassDrapeDriver({ flood }: { flood: FloodSceneAssets }) {
+  useFloodTimelineSync(flood.manifest.id)
+  const d = usePassDrape(flood)
+  const layerName = d?.mode === 'raster' ? d.waterLayer : null
+  const raster = useBundleRaster(flood.manifest, layerName)
+  const w = flood.arrays.width
+  const h = flood.arrays.height
+  const layers = flood.manifest.layers
+  const satTex = useMemo(() => {
+    if (!raster || !layerName || raster.length !== w * h) return null
+    const info = layers[layerName]
+    return info ? dataTexture({ name: layerName, url: '', info, data: raster, width: w, height: h }, { filter: 'nearest' }) : null
+  }, [raster, layerName, layers, w, h])
+  useEffect(() => () => satTex?.dispose(), [satTex])
+  const imgUrl = d?.mode === 'image' && d.image ? apiPathUrl(d.image.url) : null
+  const [img, setImg] = useState<{ url: string; tex: THREE.Texture } | null>(null)
+  useEffect(() => {
+    if (!imgUrl) return
+    let live = true
+    let made: THREE.Texture | null = null
+    new THREE.TextureLoader().load(
+      imgUrl,
+      (tex) => {
+        tex.colorSpace = THREE.NoColorSpace // the shader converts the picture's sRGB itself
+        tex.minFilter = THREE.LinearFilter
+        tex.generateMipmaps = false
+        made = tex
+        if (live) setImg({ url: imgUrl, tex })
+        else tex.dispose()
+      },
+      undefined,
+      () => {
+        if (live) setImg(null)
+      },
+    )
+    return () => {
+      live = false
+      made?.dispose()
+    }
+  }, [imgUrl])
+  const imgTex = img && img.url === imgUrl ? img.tex : null
+  const affine = useMemo(() => (d?.mode === 'image' && d.image ? imageAffine(d.image.bounds_lonlat, flood.manifest.grid) : null), [d, flood.manifest.grid])
+  useEffect(() => {
+    const g = passDrapeGpu
+    g.mode = d ? d.mode : 'bundle'
+    g.sat = d?.mode === 'raster' ? satTex : null
+    g.img = d?.mode === 'image' && affine ? imgTex : null
+    if (affine) {
+      g.imgU.set(affine.u[0], affine.u[1], affine.u[2])
+      g.imgV.set(affine.v[0], affine.v[1], affine.v[2])
+    }
+  }, [d, satTex, imgTex, affine])
+  useEffect(
+    () => () => {
+      passDrapeGpu.mode = 'bundle'
+      passDrapeGpu.sat = null
+      passDrapeGpu.img = null
+    },
+    [],
+  )
+  return null
+}
+
 function SatelliteEdge({ assets, flood }: { assets: IncidentAssets; flood: FloodSceneAssets }) {
   const visible = useForensicFlood((s) => s.layers.satellite.visible)
   const sat = flood.satellite
-  const bounds = sat?.measured && sat.image ? sat.image.bounds_lonlat : null
+  // brief 6: the edge of the pass on screen (the chart's handle), else the 3D data's own image
+  const d = usePassDrape(flood)
+  const passBounds = d ? (d.mode === 'none' ? null : (d.pass?.image?.bounds_lonlat ?? (d.mode === 'bundle' && sat?.image ? sat.image.bounds_lonlat : null))) : undefined
+  const ownBounds = sat?.measured && sat.image ? sat.image.bounds_lonlat : null
+  const bounds = passBounds === undefined ? (flood.has.satellite ? ownBounds : null) : passBounds
   const geometry = useMemo(() => {
-    if (!bounds || !flood.has.satellite) return null
+    if (!bounds) return null
     const [w, s, e, n] = bounds
     const grid = flood.manifest.grid
     const steps = 32
@@ -188,7 +271,7 @@ function SatelliteEdge({ assets, flood }: { assets: IncidentAssets; flood: Flood
     const lines: RibbonLine[] = []
     drapedOutline([ring], assets.extent / 2, assets.heightAt, Math.max(24, (assets.extent / assets.elevation.width) * 2), [0.85, 0.6, 1, 0], lines)
     return lines.length ? ribbonGeometry(lines) : null
-  }, [bounds, flood.has.satellite, flood.manifest.grid, assets.extent, assets.heightAt, assets.elevation.width])
+  }, [bounds, flood.manifest.grid, assets.extent, assets.heightAt, assets.elevation.width])
   useEffect(() => () => geometry?.dispose(), [geometry])
   const material = useMemo(() => lineMaterial(SAT_NO_VIEW, 1.6, edgeOpacity, 0.006), [])
   useEffect(() => () => material.dispose(), [material])
@@ -219,10 +302,34 @@ function DrapeLabels({ assets, flood }: { assets: IncidentAssets; flood: FloodSc
   )
 }
 
+/** The flood's height boost on the shared exaggeration (store.exaggeration, which the terrain, camera, probe, lines and
+ *  bars all read) while this flood's scene is mounted; the value from before (the fire view's) comes back after. */
+function HeightBoost({ floodId, auto }: { floodId: string; auto: number }) {
+  useLayoutEffect(() => {
+    const before = useStore.getState().exaggeration
+    const apply = () => {
+      const { factor } = boostInUse(floodId, auto, useForensicFlood.getState().boost)
+      if (useStore.getState().exaggeration !== factor) useStore.getState().setExaggeration(factor)
+    }
+    apply()
+    const unsub = useForensicFlood.subscribe((s, p) => {
+      if (s.boost !== p.boost) apply()
+    })
+    return () => {
+      unsub()
+      useStore.getState().setExaggeration(before)
+    }
+  }, [floodId, auto])
+  return null
+}
+
 export function FloodFx({ assets, flood }: { assets: IncidentAssets; flood: FloodSceneAssets }) {
   return (
     <Overlay>
+      <HeightBoost floodId={flood.manifest.id} auto={flood.boost.factor} />
+      <PassDrapeDriver flood={flood} />
       <FloodFxDriver extent={assets.extent} />
+      <DepthSurface assets={assets} flood={flood} />
       <WarningLines assets={assets} flood={flood} />
       <SatelliteEdge assets={assets} flood={flood} />
       <GaugeBars assets={assets} flood={flood} />

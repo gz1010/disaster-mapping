@@ -2014,7 +2014,7 @@ def build_flood_fixture(data_dir: Path, now: int | None = None, *, copy_api: Pat
                 "- Flood stage is 15.0 feet.\n"
                 f"- Forecast...The river is expected to rise to a crest of 18.0 feet {_local_text(crest_ms, '%A %p')}.")
     instr = ("Turn around, don't drown when encountering flooded roads. Most flood deaths occur in vehicles.\n\n"
-             "[SYNTHETIC] This text is test data for Fire-3d, not an instruction from any office.")
+             "[SYNTHETIC] This text is test data for Disaster Mapping, not an instruction from any office.")
     zones_geom = {"NMZ901": _rect(*_local_lonlat(v, -2500.0, 0.0), 0.06, 0.05), "NMZ902": _rect(*_local_lonlat(v, 4200.0, 0.0), 0.05, 0.05)}
     alerts_all = [
         syn_alert(aid="urn:oid:synthetic.fixture-flood.flw.1", event="Flood Warning", ph="FL", sig="W", etn=1, action="NEW",
@@ -2043,7 +2043,7 @@ def build_flood_fixture(data_dir: Path, now: int | None = None, *, copy_api: Pat
                               "* IMPACTS...Excessive runoff may result in flooding of rivers, creeks, streams and other "
                               "low-lying and flood-prone locations.",
                   instruction="You should monitor later forecasts and be alert for possible Flood Warnings.\n\n"
-                              "[SYNTHETIC] This text is test data for Fire-3d, not an instruction from any office.",
+                              "[SYNTHETIC] This text is test data for Disaster Mapping, not an instruction from any office.",
                   area_desc="Example Mesa; Sample Valley", ugcs=list(zones_geom), geometry=None, flood_ids=[FLOOD_ID]),
     ]
     current = [alerts_all[1], alerts_all[2], alerts_all[3]]                # the versions in effect now
@@ -2453,7 +2453,7 @@ def demo_floods(now: int, rng: np.random.Generator) -> list[dict]:
                                "Some locations that will experience flash flooding include...\n"
                                "Example Creek, Mock Hollow and Sample Flats.",
                    instruction="Move to higher ground now. Act quickly to protect your life.\n\n"
-                               "[SYNTHETIC] This text is test data for Fire-3d, not an instruction from any office.",
+                               "[SYNTHETIC] This text is test data for Disaster Mapping, not an instruction from any office.",
                    area_desc="Kerr, TX", ugcs=["TXC265"], flood_ids=[], emergency=True, damage="CATASTROPHIC",
                    detection="OBSERVED", box=(-99.30, 30.06, 0.06, 0.04, -12.0))
     far = _simple_gauge("ZZEC1", "Sample Brook at Mock Ford", "Sample Brook", -99.30 + 0.0626, 30.06, {"action": 9.0, "minor": 12.0,

@@ -515,7 +515,7 @@ class ListSource(ContractModel):
     id: RecordSource
     name: str                           # "CAL FIRE" | "NIFC WFIGS (IRWIN)"
     status: Literal["available", "unavailable"]
-    retrieved_ms: int | None            # when Fire-3d fetched that list (never an issue time)
+    retrieved_ms: int | None            # when Disaster Mapping fetched that list (never an issue time)
     reason: str | None                  # plain words when unavailable, or when stale
     stale: bool = False                 # CONTRACT 14.16: the list could not be refreshed; an older copy is shown
 
@@ -682,7 +682,7 @@ class OfficialEnvelope(ContractModel):
     reason_code: OfficialReasonCode | None
     reason: str | None
     source: OfficialSource
-    retrieved_ms: int | None            # when Fire-3d fetched it from the source
+    retrieved_ms: int | None            # when Disaster Mapping fetched it from the source
     source_updated_ms: int | None       # the source's own update time
     requested_at_ms: int | None
     now_ms: int
@@ -701,7 +701,7 @@ class CalFireCurrent(ContractModel):
 
 class CalFireChange(ContractModel):
     updated_ms: int | None              # CAL FIRE's "Updated" of the new record
-    seen_ms: int                        # when Fire-3d first saw it
+    seen_ms: int                        # when Disaster Mapping first saw it
     acres: tuple[float | None, float | None] | None = Optional_()                  # [old, new]
     percent_contained: tuple[float | None, float | None] | None = Optional_()
     is_active: tuple[bool, bool] | None = Optional_()
@@ -1025,7 +1025,74 @@ class FloodManifestFiles(ContractModel):
     satellite: str | None               # "satellite.json"
     satellite_image: str | None         # "satellite.png"
     maps: dict[str, str]                # "rfc_fim" -> "maps/rfc_fim.geojson", "catfim_ZZRF1_moderate" -> ..., "nfhl" -> ...
+    #                                     brief 6: "flowlines" -> "maps/flowlines.geojson" (NWM river lines, HAND input)
     model: dict[str, str]               # "nwm_analysis" -> ..., "nwm_series_ZZRF1" -> ...
+    # brief 6 (additive): "timeline.json" (FloodTimelineResponse frozen at build); absent in brief-5 bundles
+    timeline: str | None = Optional_()
+
+
+# --- brief 6: 3D terrain products of the flood bundle (manifest.terrain3d; SPEC 5.4) ------------------------------
+TerrainProductKind = Literal["hand", "depth"]
+
+
+class FloodRelief(ContractModel):
+    """Relief of the flood's area and the suggested height boost (SPEC 5.4.1; ``copy_time.RELIEF_RULE``)."""
+
+    area: Literal["water", "grid"]      # ground near the mapped water, or the whole grid when there is none
+    area_note: str                      # RELIEF_AREA_WATER | RELIEF_AREA_GRID
+    cells: int                          # grid cells measured
+    min_m: float
+    max_m: float
+    p05_m: float
+    p95_m: float
+    range_m: float                      # p95_m - p05_m
+    width_m: float                      # the 3D area's width (grid extent)
+    exaggeration: float                 # suggested height boost: 1.5 | 2 | 3 | 5 | 8 | 10
+    rule: str                           # RELIEF_RULE, written down
+    # review BTD-R4 (additive): false when even x10 leaves the middle 90% under 2% of the width (a very flat
+    # floodplain still looks flat at the default; the web may suggest a larger boost or the closer framing)
+    target_reached: bool | None = Optional_()
+
+
+class FloodTerrainStats(ContractModel):
+    """Values of one HAND or depth raster over its cells with a value."""
+
+    cells: int
+    area_km2: float
+    p50_m: float
+    p90_m: float
+    max_m: float
+
+
+class FloodTerrainProduct(ContractModel):
+    """One raster of the 3D view: ``hand`` or a ``depth`` estimate of one mapped water layer."""
+
+    key: str                            # "hand" | "depth_satellite" | "depth_forecast"
+    kind: TerrainProductKind
+    layer: str | None                   # manifest.layers key (uint8 decimetres, FloodTerrain3d encoding); null: not made
+    status: LayerState                  # ok | unavailable | not_covered
+    reason: str | None                  # why it is missing (copy_time texts)
+    label: str                          # HAND_LABEL | DEPTH_LABEL
+    caveat: str                         # HAND_CAVEAT | DEPTH_CAVEAT
+    method: str                         # HAND_METHOD | DEPTH_METHOD, plain words
+    citation: str                       # HAND_CITATION | DEPTH_CITATION
+    source_layer: str | None            # "elevation" (hand), "water_satellite" | "water_forecast" (depth)
+    source: str                         # what it is made from, with the source layer's own time
+    time_ms: int | None                 # the source layer's own time (image time, forecast reference time)
+    stats: FloodTerrainStats | None
+
+
+class FloodTerrain3d(ContractModel):
+    version: Literal[1]
+    relief: FloodRelief | None          # null without elevation
+    hand: FloodTerrainProduct
+    depth: list[FloodTerrainProduct]    # satellite first, then the NWS forecast flooded area
+    # every hand / depth raster is uint8 on the render grid: metres = value * scale_m; top_code means top_code * scale_m
+    # or more; nodata = no value there (outside the mapped water, far from a channel)
+    scale_m: float                      # 0.1
+    top_code: int                       # 254 (25.4 m or more)
+    nodata: int                         # 255
+    built_ms: int
 
 
 class FloodManifest(ContractModel):
@@ -1049,6 +1116,9 @@ class FloodManifest(ContractModel):
     # brief 5 backend-flood-live (additive): when the flood live loop last appended NWS product versions or gauge
     # readings to warnings.json / gauges.json (built_ms stays; absent or null: never since the build)
     refreshed_ms: int | None = Optional_()
+    # brief 6 (additive): relief statistics, height above the river (HAND) and depth estimates (FwDET) for the 3D view;
+    # absent in brief-5 bundles
+    terrain3d: FloodTerrain3d | None = Optional_()
 
 
 class FloodDetailResponse(ContractModel):
@@ -1234,7 +1304,7 @@ class FloodMapResponse(FloodEnvelope):
     reference_ms: int | None            # rfc_fim reference_time (forecast base)
     updated_ms: int | None              # service update_time
     # rfc_fim: union area of the polygons on the flood's member gauges' reaches (layer-3 feature_id join), never a bbox
-    # crop; null when the join fails. Fire-3d's measurement, includes the river channel; shown in Command only.
+    # crop; null when the join fails. Disaster Mapping's measurement, includes the river channel; shown in Command only.
     stats: FloodMapStats | None
     coverage_note: str                  # RFC_FIM_NOTE | CATFIM_NOTE | NFHL_NOTE
     outside_note: str | None            # RFC_FIM_OUTSIDE (rfc_fim)
@@ -1305,6 +1375,89 @@ class SatelliteWaterResponse(ContractModel):
     flood_id: str | None
     synthetic: bool
     caveats: list[str]                  # SAT_CAVEAT always
+
+
+# --- brief 6: a flood's time history (GET /api/floods/{id}/timeline; bundle timeline.json; SPEC 8.11) ------------
+PassView = Literal["clear", "partly_hidden", "no_view", "unknown"]
+PassStatsOver = Literal["map_area", "bundle_grid"]
+
+
+class FloodPassImage(ContractModel):
+    url: str                            # "/api/floods/{id}/passes/{key}.png?area=<hash>"
+    bounds_lonlat: tuple[float, float, float, float]
+
+
+class FloodPass(ContractModel):
+    """One satellite pass over the flood's area (the tiles of one overpass, locked: the image time is exact)."""
+
+    key: str                            # "DSWx-HLS_20261029T1756_L9" (URL-safe)
+    product: Literal["DSWx-HLS", "DSWx-S1"]
+    platform: str | None                # "Landsat 9", "Sentinel-2C", "Sentinel-1A"
+    acquired_ms: int                    # the image time
+    route: Literal["earthdata_gis", "podaac"]
+    granules: list[str]                 # NASA granule ids
+    url: str | None                     # NASA search page of the first granule
+    view: PassView                      # clear: saw >= 50 % clearly; partly_hidden; no_view: < 1 %; unknown: not read
+    usable: bool                        # view clear or partly_hidden; a no_view pass is listed, never drawn as water
+    clear_pct: float | None             # share of the area seen clearly (not cloud, not no data)
+    cloud_pct: float | None
+    nodata_pct: float | None            # no data and outside the pass's tiles
+    water_km2: float | None             # open water seen (includes the river's normal water)
+    partial_km2: float | None
+    image: FloodPassImage | None        # the 2D PNG (route answers, usable passes only)
+    layer: str | None                   # bundle: manifest.layers key of its classes on the render grid
+    caveat: str | None                  # SAT_CAVEAT of this pass, or PASS_NO_VIEW; null while unknown
+    # review BTD-R3 (additive): bundle: manifest.layers key of this pass's FwDET depth estimate ("depth_pass_<key>",
+    # uint8 0.1 m, 255 outside its water; FloodTerrain3d encoding); null: no depth surface for this pass
+    depth_layer: str | None = Optional_()
+
+
+class FloodPassHistory(ContractModel):
+    status: OfficialStatus
+    reason_code: SatelliteReasonCode | None
+    reason: str | None
+    login: SatelliteLogin               # never the token
+    login_note: str | None
+    source: OfficialSource
+    # review BTD-R8 (additive): one source per (product, route) among the listed passes, each with its exact credit
+    sources: list[OfficialSource] | None = Optional_()
+    retrieved_ms: int | None
+    start_ms: int                       # the window searched
+    end_ms: int
+    complete: bool                      # false: some passes are still being read (view unknown); ask again
+    truncated: bool                     # more passes than listed (the oldest left out)
+    stats_over: PassStatsOver           # route: the 2D map area; bundle: the render grid
+    passes: list[FloodPass]             # oldest first
+    shown_key: str | None               # the pass the satellite layer shows by default
+    caveats: list[str]                  # PASSES_NOTE always
+
+
+class FloodTimelineProduct(FloodAlert):
+    """One version of one NWS product (verbatim, its own issuer, times and link) with its place in time."""
+
+    vtec_key: str | None                # "KMLB.FL.W.0003.2026"
+    replaced_ms: int | None             # issue time of the next version of the same event
+    shown_from_ms: int | None           # its issue time
+    shown_until_ms: int | None          # min(its own end, replaced_ms); its issue time for CAN / UPG; null: open
+
+
+class FloodProductHistory(FloodEnvelope):
+    kind: Literal["flood_alerts"]
+    products: list[FloodTimelineProduct]   # every version, oldest first
+    zones: dict[str, Any]               # GeoJSON FeatureCollection; properties {ugc, name, alert_ids}
+    archive_source: OfficialSource | None  # the IEM archive when archived versions are included
+    complete: bool                      # false: some events could not be read yet (Disaster Mapping's own limit)
+
+
+class FloodTimelineResponse(ContractModel):
+    kind: Literal["flood_timeline"]
+    flood_id: str
+    now_ms: int
+    start_ms: int
+    end_ms: int
+    passes: FloodPassHistory            # observation (NASA), never merged with the NWS products
+    products: FloodProductHistory       # official (NWS)
+    synthetic: bool
 
 
 # --- 16.6 model output (National Water Model) ----------------------------------------------------------------------

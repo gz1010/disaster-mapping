@@ -73,8 +73,8 @@ export function overviewFires(catalog: OverviewCatalog, filter: OverviewFilter):
   return out.sort((a, b) => Number(isActiveFire(b)) - Number(isActiveFire(a)) || byAcres(a, b))
 }
 
-/** Newest record update among the rows: the agencies' own times, not when Fire-3d fetched the list (the list's
- *  `updated_ms` is Fire-3d's check time). */
+/** Newest record update among the rows: the agencies' own times, not when Disaster Mapping fetched the list (the list's
+ *  `updated_ms` is Disaster Mapping's check time). */
 export function newestRecordMs(rows: readonly Pick<IncidentSummary, 'updated_ms'>[]): number | null {
   let best: number | null = null
   for (const r of rows) if (r.updated_ms != null && Number.isFinite(r.updated_ms) && (best == null || r.updated_ms > best)) best = r.updated_ms
@@ -118,7 +118,7 @@ export function fireStatus(s: Pick<IncidentSummary, 'mode' | 'is_active' | 'perc
 
 export type AnalysisState = 'ready' | 'building' | 'error' | 'none'
 
-/** Whether Fire-3d's analysis (the incident bundle) exists for a fire. */
+/** Whether Disaster Mapping's analysis (the incident bundle) exists for a fire. */
 export function analysisState(s: Pick<IncidentSummary, 'bundle_status'>): AnalysisState {
   return s.bundle_status === 'ready' || s.bundle_status === 'building' || s.bundle_status === 'error' ? s.bundle_status : 'none'
 }
@@ -227,7 +227,7 @@ export interface ListHealth {
   down: Set<ListSource['id']>
   /** Sources served from an older copy that could not be refreshed, with that copy's fetch time (the oldest). */
   stale: Map<ListSource['id'], number | null>
-  /** When Fire-3d fetched the lists shown: the oldest `retrieved_ms` of the available sources (null: not reported). */
+  /** When Disaster Mapping fetched the lists shown: the oldest `retrieved_ms` of the available sources (null: not reported). */
   fetchedMs: number | null
   /** The newest of those `retrieved_ms` (several lists may have been fetched at different times). */
   fetchedNewestMs: number | null
@@ -264,13 +264,13 @@ export function listHealth(sources: readonly (readonly ListSource[] | null | und
 }
 
 /** "newest record 10 min old" (final fixes R7): the newest agency time inside the list, said as an age, so it never
- *  reads as an update newer than Fire-3d's last check ("updated 10 min ago · checked 30 min ago" did). */
+ *  reads as an update newer than Disaster Mapping's last check ("updated 10 min ago · checked 30 min ago" did). */
 export function newestRecordText(newestMs: number, nowMs: number): string {
   const r = fmtRelative(newestMs, nowMs)
   return `newest record ${r.endsWith(' ago') ? `${r.slice(0, -4)} old` : 'under a minute old'}`
 }
 
-/** When Fire-3d fetched the list(s) shown (final fixes R7): "list checked 30 min ago"; sources fetched at different
+/** When Disaster Mapping fetched the list(s) shown (final fixes R7): "list checked 30 min ago"; sources fetched at different
  *  times "lists checked in the last 30 min", or "sources checked in the last 8 min" for one list built from two
  *  sources (the Active list: CAL FIRE and NIFC WFIGS are kept for different times), since the oldest fetch bounds them
  *  all and a single "checked" time would read as older than the newest record; a copy that could not be refreshed

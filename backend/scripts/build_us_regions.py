@@ -43,7 +43,7 @@ os.environ.setdefault("FIRE3D_CACHE_DIR", _TMP.name)
 from fire3d import config  # noqa: E402
 from fire3d import http as fhttp  # noqa: E402
 
-config.USER_AGENT = "Fire-3d/0.1 region builder (research prototype; a few requests per run)"
+config.USER_AGENT = "Disaster-Mapping/0.1 region builder (research prototype; a few requests per run)"
 
 TIGER = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb"
 STATES_URL = TIGER + "/State_County/MapServer/0/query"

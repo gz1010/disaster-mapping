@@ -579,7 +579,7 @@ function Freshness({ model }: { model: CompactTimelineModel }) {
   const tf = useTimeFormat()
   // the date only when it is not the current day (in the fire's zone)
   const fmt = (ms: number) => (fmtDayDate(ms, tf.tz) !== fmtDayDate(wall, tf.tz) ? fmtAt(ms, tf, { zone: true }) : fmtClock(ms, tf, { zone: true }))
-  const tip = `Latest observation = the newest satellite detection, mapped perimeter or confirmed satellite pass over the fire that saw no new fire. Fire-3d flags live data as stale when that is more than ${STALE_AFTER_MS / HOUR_MS} h older than the current time. Satellites pass over only a few times a day, so gaps can be normal; it means "check the time", not "the fire is out". Data last refreshed ${fmtRelative(model.checkedMs, wall)}.`
+  const tip = `Latest observation = the newest satellite detection, mapped perimeter or confirmed satellite pass over the fire that saw no new fire. Disaster Mapping flags live data as stale when that is more than ${STALE_AFTER_MS / HOUR_MS} h older than the current time. Satellites pass over only a few times a day, so gaps can be normal; it means "check the time", not "the fire is out". Data last refreshed ${fmtRelative(model.checkedMs, wall)}.`
   return (
     <span className="ctl-fresh">
       <span className={`ctl-latest ${stale ? 'is-stale' : ''}`} data-tip={tip}>
@@ -737,7 +737,7 @@ function SlimStops({ model, scale, w }: { model: CompactTimelineModel; scale: Tr
   const live = model.mode === 'live'
   const latest = model.latestObservationMs
   const stale = model.stale.isStale
-  const freshTip = `Latest observation = the newest satellite detection, mapped perimeter or confirmed satellite pass over the fire that saw no new fire. Fire-3d flags live data as stale when that is more than ${STALE_AFTER_MS / HOUR_MS} h older than the current time. Satellites pass over only a few times a day, so gaps can be normal; it means "check the time", not "the fire is out". Data last refreshed ${fmtRelative(model.checkedMs, model.wallClockMs)}.`
+  const freshTip = `Latest observation = the newest satellite detection, mapped perimeter or confirmed satellite pass over the fire that saw no new fire. Disaster Mapping flags live data as stale when that is more than ${STALE_AFTER_MS / HOUR_MS} h older than the current time. Satellites pass over only a few times a day, so gaps can be normal; it means "check the time", not "the fire is out". Data last refreshed ${fmtRelative(model.checkedMs, model.wallClockMs)}.`
   const text = (s: TimelineStop, short: boolean): string => {
     if (s.id === 'past') return fmtDayDate(model.startMs, tf.tz)
     if (s.id === 'now') {

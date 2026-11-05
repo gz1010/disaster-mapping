@@ -68,7 +68,7 @@ ZONE_NAMES: dict[str, str] = {
     "America/Boise": "Mountain Time", "America/Chicago": "Central Time", "America/New_York": "Eastern Time",
     "America/Detroit": "Eastern Time", "America/Indiana/Indianapolis": "Eastern Time",
 }
-# Coarse boxes (w, s, e, n) of the places Fire-3d does not support yet (CONTRACT 14.3); generous on the ocean side.
+# Coarse boxes (w, s, e, n) of the places Disaster Mapping does not support yet (CONTRACT 14.3); generous on the ocean side.
 OUTSIDE_L48_BOXES: tuple[tuple[str, tuple[float, float, float, float]], ...] = (
     ("alaska", (-179.99, 51.0, -129.9, 71.6)),
     ("alaska", (172.0, 51.0, 180.0, 53.2)),           # western Aleutians (east of 180)
@@ -87,8 +87,8 @@ COVERAGE_TOLERANCE_KM = 1.0
 COUNTY_MAX_KM = 2.0
 KM_PER_DEG = 111.32
 
-NOT_SUPPORTED_NOTE = "Fire-3d does not support Alaska, Hawaii or US territories yet."
-OUTSIDE_US_NOTE = "Outside the United States: Fire-3d has no data here."
+NOT_SUPPORTED_NOTE = "Disaster Mapping does not support Alaska, Hawaii or US territories yet."
+OUTSIDE_US_NOTE = "Outside the United States: Disaster Mapping has no data here."
 
 Coverage = Literal["lower48", "alaska", "hawaii", "territory", "outside_us"]
 
@@ -149,8 +149,8 @@ class _Layer:
 
 _lock = threading.Lock()
 _layers: dict[str, _Layer] = {}
-REGIONS_UNAVAILABLE_TEXT = ("Fire-3d's region files (states, counties and time zones) could not be read on this server, "
-                            "so the state, county and time zone are unknown here. Reinstall Fire-3d.")
+REGIONS_UNAVAILABLE_TEXT = ("Disaster Mapping's region files (states, counties and time zones) could not be read on this server, "
+                            "so the state, county and time zone are unknown here. Reinstall Disaster Mapping.")
 
 
 class RegionsUnavailable(RuntimeError):

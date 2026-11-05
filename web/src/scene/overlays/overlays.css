@@ -481,6 +481,21 @@
   }
 }
 
+/* brief 6: a flood's height boost ("Height ×10 · auto") stays on screen on phones and narrow tablets (the quality select
+   still waits in "View options"); compact there */
+@media (max-width: 900px) {
+  .sc-dock .sc-select.sc-height {
+    display: inline-flex;
+  }
+  .sc-dock .sc-select.sc-height select {
+    padding: 0 18px 0 7px;
+    font-size: 11px;
+  }
+  .sc-dock .sc-select.sc-height::after {
+    right: 7px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sc-loading-bar::after {
     animation: none;

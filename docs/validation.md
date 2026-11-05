@@ -1,4 +1,4 @@
-# Fire-3d forecast validation
+# Disaster Mapping forecast validation
 
 Section 10 (outside California, brief 3) was added on 2026-10-23 by the brief-3 validation run. Sections 1-9: last updated 2026-10-17 (evening) by the backend follow-up run, which added the live forecast start (section 6);
 sections 5.2, 5.3 and 6.3 were re-checked against the code and the published bundles on 2026-10-18. It

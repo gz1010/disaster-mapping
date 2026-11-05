@@ -388,7 +388,7 @@ function restAfter(reason: string | null, value: string): string | null {
   return rest || null
 }
 
-/** Fire-3d's own words in an evacuation fact never name a fire (the issuer's verbatim words may; C5 guard). */
+/** Disaster Mapping's own words in an evacuation fact never name a fire (the issuer's verbatim words may; C5 guard). */
 export function evacOwnWordsMentionFire(f: Pick<FloodEvacFact, 'value' | 'verbatim' | 'sub'>): boolean {
   return (!f.verbatim && ORDER_WORDS.test(f.value)) || ORDER_WORDS.test(f.sub ?? '')
 }

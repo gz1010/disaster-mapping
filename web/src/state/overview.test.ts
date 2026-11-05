@@ -239,7 +239,7 @@ describe('outages of the source lists (§14.16)', () => {
     expect(listHealth([null, undefined]).allDown).toBe(false) // nothing reported: not "down"
   })
 
-  it('an old copy says how old it is; "checked" is when Fire-3d fetched the lists (panel SR-M1, F2)', () => {
+  it('an old copy says how old it is; "checked" is when Disaster Mapping fetched the lists (panel SR-M1, F2)', () => {
     const t = NOW - 47 * 60_000
     const h = listHealth([[cal(), wf({ stale: true, retrieved_ms: t, reason: 'could not be refreshed' })]])
     expect(h.allDown).toBe(false)

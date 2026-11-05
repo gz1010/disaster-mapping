@@ -368,7 +368,7 @@ export interface ListSource {
   id: 'calfire' | 'wfigs'
   name: string // "CAL FIRE" | "NIFC WFIGS (IRWIN)"
   status: 'available' | 'unavailable'
-  retrieved_ms: number | null // when Fire-3d fetched that list (never an issue time)
+  retrieved_ms: number | null // when Disaster Mapping fetched that list (never an issue time)
   reason: string | null // plain words when unavailable, or when stale
   /** CONTRACT 14.16: the list could not be refreshed and an older copy is shown (`retrieved_ms` is that copy's time). */
   stale?: boolean

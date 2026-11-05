@@ -108,7 +108,7 @@ def fetch_window(start_ms: int, end_ms: int, *, now: int | None = None, timeout:
                  retries: int = RETRIES) -> tuple[list[dict], int, bool]:
     """Every actual IPAWS message sent in ``[start_ms, end_ms)``: ``(records, fetched_ms, truncated)``; updates and
     cancellations also carry their ``originalMessage`` (a second, smaller query) so their references can be read.
-    Raises ``nws.SourceError`` (unreachable, unreadable) or ``nws.SourceBusy`` (Fire-3d's own limit)."""
+    Raises ``nws.SourceError`` (unreachable, unreadable) or ``nws.SourceBusy`` (Disaster Mapping's own limit)."""
     recs, fetched, truncated = _fetch_pages(start_ms, end_ms, now=now, timeout=timeout, retries=retries, refs=False)
     try:
         xml, _, _ = _fetch_pages(start_ms, end_ms, now=now, timeout=timeout, retries=retries, refs=True)
@@ -132,7 +132,7 @@ def _fetch_pages(start_ms: int, end_ms: int, *, now: int | None, timeout: float,
         params = window_params(start_ms, end_ms, page * PAGE_SIZE, refs=refs)
         hit = fhttp.peek_cache("GET", API_URL, params, ttl)
         if hit is None and not OPENFEMA_LIMITER.try_acquire():
-            raise nws.SourceBusy(f"{_NAME}: Fire-3d's request limit is reached; try again in a minute")
+            raise nws.SourceBusy(f"{_NAME}: Disaster Mapping's request limit is reached; try again in a minute")
         try:
             resp = hit or fhttp.request("GET", API_URL, params=params, ttl_s=ttl, timeout=timeout, retries=retries)
             data = resp.json()
@@ -141,7 +141,7 @@ def _fetch_pages(start_ms: int, end_ms: int, *, now: int | None, timeout: float,
             raise nws.SourceError(f"{_NAME} could not be reached ({code})", e.status) from None
         except ValueError:
             fhttp.evict_cache("GET", API_URL, params)
-            raise nws.SourceError(f"{_NAME} sent a reply Fire-3d could not read") from None
+            raise nws.SourceError(f"{_NAME} sent a reply Disaster Mapping could not read") from None
         rows = data.get("IpawsArchivedAlerts") if isinstance(data, dict) else None
         if not isinstance(rows, list):
             fhttp.evict_cache("GET", API_URL, params)

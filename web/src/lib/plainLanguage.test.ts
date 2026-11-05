@@ -207,8 +207,8 @@ describe('names and sources', () => {
     expect(sourceName('FIRMS VIIRS NOAA-21')).toBe('NASA FIRMS (VIIRS, NOAA-21)')
     expect(sourceName('FIRMS VIIRS (fixture)')).toBe('NASA FIRMS (VIIRS) (fixture)')
     expect(sourceName('open-meteo:historical-forecast:gfs_hrrr (10 m gust at the fire)')).toBe('Archived NOAA HRRR weather-model forecasts (via Open-Meteo)')
-    expect(sourceName('Observed arrival (FIRMS VIIRS/MODIS + WFIGS)')).toBe('Fire-3d reconstruction (satellite detections and mapped perimeters)')
-    expect(sourceName('USGS 3DEP terrain + observed arrival')).toBe('Fire-3d analysis (USGS 3DEP terrain + reconstructed spread)')
+    expect(sourceName('Observed arrival (FIRMS VIIRS/MODIS + WFIGS)')).toBe('Disaster Mapping reconstruction (satellite detections and mapped perimeters)')
+    expect(sourceName('USGS 3DEP terrain + observed arrival')).toBe('Disaster Mapping analysis (USGS 3DEP terrain + reconstructed spread)')
     expect(sourceName('CAL FIRE + FIRMS GOES')).toBe('CAL FIRE report + NASA FIRMS (GOES)')
     expect(sourceName('CAL FIRE (100% contained)')).toBe('CAL FIRE')
     // brief 3: the record's issuer outside California, never "CAL FIRE"

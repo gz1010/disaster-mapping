@@ -99,7 +99,7 @@ function FloodMiniBar() {
   return (
     <div className="minibar">
       <Logo size={20} />
-      <span className="brand-name">Fire-3d</span>
+      <span className="brand-name">Disaster Mapping</span>
       {s && <span className="minibar-name ellipsis">{floodDisplayName(s)}</span>}
       {s &&
         (s.mode === 'live' ? (

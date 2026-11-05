@@ -9,7 +9,7 @@
 // fire's reported location · may be about another fire" (the location card measures from its point instead), and the
 // messages are listed in effect first, then the area covering the location, then the nearest, then the newest. The
 // feed shows that phrase in full on every collapsed row (`FeedItem.place`; review round 2, N1). At the location card's
-// point, "none here" needs the point's state: Fire-3d checks the lower 48 only (N2), and the live box answer's left-out
+// point, "none here" needs the point's state: Disaster Mapping checks the lower 48 only (N2), and the live box answer's left-out
 // messages are its own, never "the fire's" (N3). Pure; tested in localAlerts.test.ts.
 import type { IncidentManifest } from '../api/types'
 import { NOT_FOUND_TEXT } from '../extras/format'
@@ -22,7 +22,7 @@ import type { GeoPolygon, LocalAlert, LocalAlertsResponse, LocalChannelStatus } 
 import { httpsUrl } from './url'
 
 export const LOCAL_STANDING_CAVEAT =
-  'Fire-3d lists only the local alerts the National Weather Service relays; most are not relayed (about 1 in 20 fire and evacuation alerts in 2024-26). No alert here is not an all-clear: follow local officials.'
+  'Disaster Mapping lists only the local alerts the National Weather Service relays; most are not relayed (about 1 in 20 fire and evacuation alerts in 2024-26). No alert here is not an all-clear: follow local officials.'
 export const ARCHIVE_CAVEAT = 'Archived copy from FEMA (OpenFEMA, published about a day later); FEMA does not validate message content. Replays can list more than was visible live.'
 /** Required by the OpenFEMA terms (https://www.fema.gov/about/openfema/terms-conditions); no FEMA or DHS logos. The
  *  exact text of CONTRACT §14.7 (no full stop: add one in a sentence). */
@@ -33,7 +33,7 @@ export const OPENFEMA_TERMS_URL = 'https://www.fema.gov/about/openfema/terms-con
 export const NWS_LOCAL_URL = 'https://www.weather.gov/dsb/nonweatheralerts'
 /** Why a line says "may be about another fire" (Official now's "More", the feed's notes). */
 export const LOCAL_PLACE_NOTE =
-  "Fire-3d ties a message to this fire only by where its area lies; it does not read which fire the message is about, so a message near this fire may be about another one."
+  "Disaster Mapping ties a message to this fire only by where its area lies; it does not read which fire the message is about, so a message near this fire may be about another one."
 
 export type LocalAlertsState = 'listed' | 'none' | 'not-checked' | 'unavailable' | 'loading'
 
@@ -92,7 +92,7 @@ export interface LocalAlertsOfficial {
   archivePending: boolean
   /** Why it is not checked / unavailable, in plain words. */
   reason: string | null
-  /** When Fire-3d checked the live channel (NWS). */
+  /** When Disaster Mapping checked the live channel (NWS). */
   checkedMs: number | null
   /** The answer's caveats (always the standing one first). */
   caveats: string[]
@@ -234,7 +234,7 @@ export function localAlertsAt<T extends Pick<LocalAlertsOfficial, 'state' | 'ale
 /**
  * Where the message's area lies, in the words of every line (Official now, the feed, the location card): "area
  * covers the fire's reported location"; "area 1.7 mi from the fire's reported location · may be about another fire"
- * (Fire-3d never reads which fire a message is about); "matched by county, not by an exact area · may be about
+ * (Disaster Mapping never reads which fire a message is about); "matched by county, not by an exact area · may be about
  * another fire". Measured from the selected point on the card ("area covers this point", "area 0.2 mi from this
  * point"; "may be about another fire" only while a fire is open). Units from the viewer's setting.
  */
@@ -290,11 +290,11 @@ export function localAlertsAtPoint(l: LocalAlertsOfficial, lon: number, lat: num
   return { ...l, alerts: [], state: 'none', reason: null, ...counts }
 }
 
-export const LOCAL_LOWER48_REASON = "Fire-3d checks local officials' alerts in the lower 48 states only."
-export const LOCAL_LOOKUP_FAILED_REASON = 'Fire-3d could not tell which state this point is in.'
+export const LOCAL_LOWER48_REASON = "Disaster Mapping checks local officials' alerts in the lower 48 states only."
+export const LOCAL_LOOKUP_FAILED_REASON = 'Disaster Mapping could not tell which state this point is in.'
 
 /**
- * Local alerts at a point, gated by the point's state (review round 2, N2; as for NWS fire weather, R2): Fire-3d's
+ * Local alerts at a point, gated by the point's state (review round 2, N2; as for NWS fire weather, R2): Disaster Mapping's
  * national request covers the lower 48 only, so while the point's state is being looked up (`pointState` undefined)
  * the answer is "loading", and where it has none (outside the lower 48, or the lookup failed: null) "none here"
  * becomes "not checked", never "none". Messages listed there stay listed (their area reaches the point).
@@ -349,7 +349,7 @@ export function localAlertsState(
   if (!q) return { ...empty, state: 'not-checked', reason: null }
   const d = q.data
   if (!d) {
-    if (q.error === NOT_FOUND_TEXT) return { ...empty, state: 'not-checked', reason: 'This Fire-3d server does not check local alerts.' }
+    if (q.error === NOT_FOUND_TEXT) return { ...empty, state: 'not-checked', reason: 'This Disaster Mapping server does not check local alerts.' }
     if (q.error) return { ...empty, state: 'unavailable', reason: q.error }
     return { ...empty, state: 'loading', reason: null }
   }

@@ -1,5 +1,5 @@
 // The flood view's title (brief 5, FloodView.dc.html "Title: place and date"; PLAN-5 §4.4): the place of the flood's
-// point ("San Juan County, New Mexico") at 24 / 600, the date line in mono ("NOV 2 2026 — PRESENT", "SEEN BY FIRE-3D
+// point ("San Juan County, New Mexico") at 24 / 600, the date line in mono ("NOV 2 2026 — PRESENT", "SEEN BY DISASTER MAPPING
 // SINCE NOV 3 2026", a past flood "NOV 2 2026 — LAST NWS PRODUCT NOV 5 2026"; never "ENDED") and the distance chip.
 // The flood's name is the heading's first words for screen readers (the circle shows its short name).
 // The chip (the fire chip's look, ui/public/DistanceChip.tsx DistanceChipView) measures, in order, to the edge of the

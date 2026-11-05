@@ -1,5 +1,5 @@
 // The flood wording guard (PLAN-5 §5.1, CONTRACT §16.0, C24): every exported string of every `*[Ff]lood*[Cc]opy*.ts`
-// file (test files excepted: they hold banned words as inputs) is free of the banned words in Fire-3d's own voice;
+// file (test files excepted: they hold banned words as inputs) is free of the banned words in Disaster Mapping's own voice;
 // rendered output is scanned with the issuers' own words (`data-verbatim`) stripped first. A planted banned word must
 // make the guard fail. Rendered flood views of the other roles use floodWordingProblems + stripVerbatim the same way.
 import { createElement } from 'react'
@@ -38,7 +38,7 @@ describe('flood wording guard (PLAN-5 §5.1)', () => {
     const p = moduleProblems(planted)
     expect(Object.keys(p).sort()).toEqual(['/planted.ts#A', '/planted.ts#B', '/planted.ts#C', '/planted.ts#D'])
     for (const word of ['safe', 'safely', 'safety', 'low risk', 'all clear', 'all-clear', 'no flooding', 'dry', 'receded', 'the flood is over', 'ended', 'normal level', 'no danger', 'you are outside the flood', 'minimal flood hazard', 'FireTrace'])
-      expect(floodWordingProblems(`Fire-3d says ${word} here`), word).not.toEqual([])
+      expect(floodWordingProblems(`Disaster Mapping says ${word} here`), word).not.toEqual([])
   })
 
   it('word boundaries: "extended", "recommended", "unsafe" stems and "dryer" do not match; allowed phrases pass', () => {
@@ -54,7 +54,7 @@ describe('flood wording guard (PLAN-5 §5.1)', () => {
     expect(floodWordingProblems('all clear')).toEqual(['all clear'])
   })
 
-  it('rendered output: issuer text inside data-verbatim is not scanned, Fire-3d text is', () => {
+  it('rendered output: issuer text inside data-verbatim is not scanned, Disaster Mapping text is', () => {
     const view = createElement(
       'div',
       null,

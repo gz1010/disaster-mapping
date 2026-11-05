@@ -1,6 +1,6 @@
-// The Fire-3d mark (brief 4 handoff, every screen's top bar): a mountain outline in light grey with an orange flame
+// The Disaster Mapping mark (brief 4 handoff, every screen's top bar): a mountain outline in light grey with an orange flame
 // at its foot. Shared by the map workspace's top bar and the Forensic header (re-exported from ui/Header.tsx).
-// `size` is the width in px; the mark is 26:22. Decorative: the "Fire-3d" name next to it is the text.
+// `size` is the width in px; the mark is 26:22. Decorative: the "Disaster Mapping" name next to it is the text.
 
 export function Logo({ size = 24 }: { size?: number }) {
   return (

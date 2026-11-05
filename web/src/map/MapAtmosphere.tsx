@@ -2,7 +2,10 @@
 // Command only, never Forensic). One aria-hidden layer that never catches pointer events:
 //   - the globe-like vignette: a circle centred on the safe area, radius half its shorter side, darker towards the
 //     edges; its strength follows the zoom (--mw-vignette = clamp((zoom − 3) / 7, .25, 1)), written straight to the
-//     element from a useMapRuntime subscription and only when it moves by .02 or more (no React render per frame);
+//     element from a useMapRuntime subscription and only when it moves by .02 or more (no React render per frame).
+//     Brief 6 (decision 4): OFF by default. It shows only while the "Zoom dimming" switch is on (useWorkspace
+//     `zoomDimming`, remembered in this browser: map/zoomDimming.ts), marked data-vignette="on"; while off nothing
+//     follows the zoom and the stylesheet hides it;
 //   - static per-view edge gradients behind the chrome's text, chosen by data-edges ("overview" top / bottom, "fire"
 //     the left column, "command" left / right / bottom / top), with the screens' exact stops (styles/atmosphere.css).
 // The layer sits inside the MapLibre map, right above the canvas: the map's own DOM overlays (the selection pin, hover
@@ -30,6 +33,7 @@ export function MapAtmosphere({ edges }: { edges: AtmosphereEdges }) {
   const map = useMapRuntime((s) => s.map)
   const actions = useMapRuntime((s) => s.actions)
   const tintRequest = useMapRuntime((s) => s.tintRequest)
+  const dimming = useWorkspace((s) => s.zoomDimming)
 
   // inside the map, directly above the canvas (below markers and popups, which MapLibre appends later)
   useLayoutEffect(() => {
@@ -42,9 +46,15 @@ export function MapAtmosphere({ edges }: { edges: AtmosphereEdges }) {
     el?.setAttribute('data-edges', edges)
   }, [el, edges])
 
-  // the vignette: strength from the zoom, centre and radius from the safe area and the map's size
+  // the switch (brief 6): the stylesheet shows the vignette only on data-vignette="on"
+  useLayoutEffect(() => {
+    el?.setAttribute('data-vignette', dimming ? 'on' : 'off')
+  }, [el, dimming])
+
+  // the vignette (only while switched on): strength from the zoom, centre and radius from the safe area and the
+  // map's size
   useEffect(() => {
-    if (!el) return
+    if (!el || !dimming) return
     let strength: number | null = null
     let geo = ''
     const writeStrength = () => {
@@ -80,7 +90,7 @@ export function MapAtmosphere({ edges }: { edges: AtmosphereEdges }) {
       unsubWs()
       ro?.disconnect()
     }
-  }, [el, map])
+  }, [el, map, dimming])
 
   // the basemap tint of this view, unless the chrome asked for another
   useEffect(() => {

@@ -18,7 +18,7 @@ import { readUrlParams } from './runtime'
 import { useStore } from './store'
 import { parseWorkspaceParams, useWorkspace } from './workspace'
 
-/** history.state of the entries Fire-3d writes. `fromOverview`: pushed when a fire was opened from the overview, so
+/** history.state of the entries Disaster Mapping writes. `fromOverview`: pushed when a fire was opened from the overview, so
  *  "All fires" can go back instead of stacking another overview entry. Brief 5: true only when no event at all (fire or
  *  flood) was open just before, so the back buttons never go Back to the other hazard's event (review WFO-R1). `flood`:
  *  the open flood; optional, so entries written before brief 5 still parse. */

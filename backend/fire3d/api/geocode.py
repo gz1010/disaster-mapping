@@ -14,7 +14,7 @@ CONTRACT 14.10). Owned by us-catalog in brief 3; app.py mounts ``router``.
 * Town, county names and ZIP codes are matched locally in ``fire3d/data/gazetteer_us.json`` (built by
   ``scripts/build_gazetteer.py`` from the public-domain U.S. Census Bureau Gazetteer Files: the places, counties and ZIP
   Code Tabulation Areas of every state; Alaska, Hawaii and territory rows are kept and flagged ``supported: false`` with
-  "Fire-3d does not support Alaska, Hawaii or US territories yet."). A trailing state ("Springfield, IL",
+  "Disaster Mapping does not support Alaska, Hawaii or US territories yet."). A trailing state ("Springfield, IL",
   "Springfield IL", "83702 ID", "ID 83702") narrows the search; a bare name lists the largest matches across states.
   Each local match carries ``state``, ``state_name``, ``county``, ``supported`` and ``"<Name>, <ST>"`` names. No
   upstream call is made for them. Positions are each area's Census internal point
@@ -156,7 +156,7 @@ _TYPE_RANK = {"city": 0, "government": 0, "town": 1, "village": 2, "borough": 2,
 _SYNONYMS = {"mount": "mt", "saint": "st", "fort": "ft"}
 _COUNTRY_WORDS = {"usa", "us"}
 EXAMPLES = "e.g. 600 E Mariposa St, Altadena; Boise, ID; 83702"
-NOT_SUPPORTED_NOTE = "Fire-3d does not support Alaska, Hawaii or US territories yet."
+NOT_SUPPORTED_NOTE = "Disaster Mapping does not support Alaska, Hawaii or US territories yet."
 PLACE_NOTE = ("Town positions are the Census Bureau's internal point of the area (approximate), not a street address. "
               "To check a spot, enter a street address with a house number or click the map.")
 ZIP_NOTE = ("ZIP areas are Census ZIP Code Tabulation Areas, which approximate USPS ZIP codes (PO-box-only ZIP codes "

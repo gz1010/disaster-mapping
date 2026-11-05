@@ -60,7 +60,7 @@ describe('brief 5: the 3D flood branch (web-flood-forensic)', () => {
     ssrState(useFlood, { floodId: d.summary.id, summary: { ...d.summary, bundle_status: 'none' }, manifest: null, job: null, detailLoading: false, buildError: null })
     const html = renderToStaticMarkup(createElement(ForensicWorkspace))
     const t = text(html)
-    expect(t).toContain("Fire-3d has not prepared this flood's 3D terrain yet.")
+    expect(t).toContain("Disaster Mapping has not prepared this flood's 3D terrain yet.")
     expect(t).toContain('Prepare 3D data (about 1 min)')
     expect(t).toContain(d.summary.name)
     expect(html).toContain('aria-label="Back to all floods"')

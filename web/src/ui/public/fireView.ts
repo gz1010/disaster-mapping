@@ -27,9 +27,9 @@ export const MODEL_IN_COMMAND = 'Model weather (wind, dryness) and the experimen
 export const LAYERS_IN_COMMAND =
   'Modeled spread (experimental), the burned-area estimate from satellite detections, the detections and event locations are in Command'
 /** An unprepared fire (decision a): under the facts, in place of the top notice. */
-export const NOT_PREPARED = "Fire-3d has not prepared this fire's map data yet."
+export const NOT_PREPARED = "Disaster Mapping has not prepared this fire's map data yet."
 export const PREPARE_LABEL = 'Prepare map data (1-3 min)'
-export const PREPARE_FAILED = "Fire-3d's last preparation of this fire's map data failed."
+export const PREPARE_FAILED = "Disaster Mapping's last preparation of this fire's map data failed."
 export const PREPARE_AGAIN_LABEL = 'Prepare again (1-3 min)'
 export const PREPARING = "Preparing this fire's map data (1-3 min)"
 /** A bundle without a perimeter (decision a): the observed raster is an estimate and is not put in its place. */
@@ -439,7 +439,7 @@ export interface FactsSource {
   link: { url: string; label: string } | null
 }
 
-/** The line under the facts: who published them and when Fire-3d last checked (decision i-2: the sources named). */
+/** The line under the facts: who published them and when Disaster Mapping last checked (decision i-2: the sources named). */
 export function factsSource(i: FactsInput): FactsSource {
   const s = i.summary
   if (i.demo) return { badge: 'demo', line: 'Demo data: a simulated fire, not an agency record', link: null }

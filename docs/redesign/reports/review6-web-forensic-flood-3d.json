@@ -1,0 +1,117 @@
+{
+  "role": "web-forensic-flood-3d",
+  "brief": 6,
+  "step": "review fixes",
+  "summary": "All ten findings were checked against the code and found real. The blocker is fixed: the terrain shader now compiles a fire version (12 textures) and a flood version (13 textures). Each leaves room for the shadow map under the 16 texture units every WebGL2 GPU must offer. A unit test counts them, and a live check in SwiftShader read the linked programs: fire 13 units and flood 14 units, both with the shadow map, with no link failures. The fire view looks the same as before (0.10 % of pixels differ). The majors and minors are fixed: (1) before the first satellite pass nothing is drawn; (2) the satellite words always match the pass that is drawn; (3) the dock lists the same NWS versions as the 3D lines, with their own issuer, times, words, link and the IEM archive credit; (4) the terrain layers are tagged experimental; (5) the depth choice can go back to automatic; (6) a turned map keeps its heading on the hand-off; (7) the key says when newer passes exist. Cheap nits fixed too.",
+  "findings": [
+    {
+      "id": "WFF3D-R1",
+      "severity": "blocker",
+      "outcome": "fixed",
+      "what": "terrainMaterial.ts: one shader source, two program versions picked by the TERRAIN_FLOOD define. Fire: uElev, uNaip, uFuel, uLut, uCanopy, uSkyView, uWater, uBakeA, uBakeB, uObserved, uForecast, uSeverity (12). Flood: the 8 shared ones plus uFloodPack, uSatWater, uSatLut, uHand, uSatImg (13). A flood never has fuel, observed fire, forecast or burn severity, and the fire version skips the flood drapes (a no-op for a fire before). Terrain.tsx sets the version in a layout effect (setTerrainVariant, which recompiles only when the version changes). terrain/terrainMaterial.test.ts runs a small GLSL preprocessor over both versions. It checks that each samples at most 15 textures, that every sampled texture is declared in its version, and the split between fire and flood. Runtime check (SwiftShader, high quality with shadows; scratchpad probe wrapping linkProgram): fire3d-terrain 13 active sampler units with the shadow map, fire3d-terrain+FLOOD 14, no link failures, also when a fire is switched to a flood in one session. Fire Forensic screenshot vs the earlier one: 0.10 % of pixels differ below the top bar (labels only).",
+      "not_done": "No real GPU in the cloud, so `shot.mjs --backend gpu` could not run. The fix does not depend on the GPU: 14 units fit under the guaranteed 16."
+    },
+    {
+      "id": "WFF3D-R2",
+      "severity": "major",
+      "outcome": "fixed",
+      "what": "depthChoice.depthShown: in automatic mode, a playback pass of its own (or no image yet before the first pass) returns its own answer and never swaps to the forecast. 'before' gives depthNoImageYet with passKey null. The NWS forecast area surface is refused for a handle before its own issue time (new atMs input; depthForecastLater), whether chosen by the user or by the automatic fallback. Tests: before:true with the forecast available, a user forecast choice before and after the issue time, and the automatic fallback with the bundle's own pass. Screenshot docs/screenshots/brief6-web-forensic-flood-3d-review-fixture-before-first.png: at Oct 21 the key says no image, the depth line has a hollow swatch and 'No depth surface: no satellite image at or before this time…', and no depth sheet is drawn."
+    },
+    {
+      "id": "WFF3D-R3",
+      "severity": "major",
+      "outcome": "fixed",
+      "what": "PassDrape now records where its pass list came from (source 'route' | 'bundle'). The new satelliteOfDrape builds the satellite answer for the key, the Layers tab date, the hover and the image edge. For a route pass it uses the route's own answer for the same pass. For a pass from the bundle's frozen list it uses the drape's own pass: its time, platform, cloud share and caveat, plus the note 'From the copy of the flood's time history saved with the 3D data…', with no picture and no image edge. The hover then reads that pass's cells directly (gridOnly), never 'outside the image'. In mode 'none' with a known pass the key says satPassNotDrawn, and the depth line says depthPassNotDrawn, never 'drawn flat'. Tests cover passDrapeAt and the scene key's satellite line with the route unavailable, mode 'none', and the hover. Screenshot docs/screenshots/brief6-web-forensic-flood-3d-review-fixture-route-down.png: route passes unavailable, handle Oct 31. The Oct 30 pass is drawn, and the key ('Oct 30, 05:15 MDT (25 hours before the handle)'), the Layers tab ('Oct 30, 2026') and the depth line ('Of the satellite water seen Oct 30') all agree."
+    },
+    {
+      "id": "WFF3D-R4",
+      "severity": "major",
+      "outcome": "fixed",
+      "what": "New scene/flood/productsOnScreen.ts productsOnScreenOf. Before now it lists the time history's versions, with the IEM archive credit through archiveCreditAtHandle. At and after now it lists the saved copy's newest version of each product (warningsAt, as before brief 6; this also fixes an unreported change where the 3D lines at now could draw several versions of one product). useProductsOnScreen returns it, and the warning lines, the hover and the dock's NWS column all read it. FloodDock's ProductsColumn renders each version with web-flood-playback's NwsVersion: event and issuer verbatim, own issue and end times, the headline verbatim, the ARCHIVED_COPY tag and the link. Below the list come the IEM credit, then 'From the flood's time history · read {time}' or the saved copy's time. dockNoProduct names the time history when that is the source (dockNoProductTimeline). The key's 'NWS warning area' line now appears only while a product is drawn. Tests: productsOnScreen.test.ts covers the past handle with an archived version and its credit, the newest version per product at now, an unreadable copy, the empty-list sentence, and source checks that the lines, the hover and the dock call the same hook. Screenshot docs/screenshots/brief6-web-forensic-flood-3d-review-stjohns-oct20-dock.png: St Johns at Oct 20 14:00 EDT lists the archived Flood Warning (NWS Melbourne FL, issued Oct 20, 09:54 EDT, its headline, 'Archived copy (Iowa Environmental Mesonet)', its link) and the IEM credit."
+    },
+    {
+      "id": "WFF3D-R5",
+      "severity": "minor",
+      "outcome": "fixed",
+      "what": "The 'From the terrain' group header shows the 'experimental' tag (FLOOD_3D.groupTerrain3dTag), so it stays on screen while the rows are off. The HAND note carries the experimental tag too. The depth row label is now 'Depth (estimated)', so 'estimated' survives the column width. Screenshot docs/screenshots/brief6-web-forensic-flood-3d-review-layers-terrain.png."
+    },
+    {
+      "id": "WFF3D-R6",
+      "severity": "minor",
+      "outcome": "fixed",
+      "what": "forensicFloodState.depthFrom is now { floodId, from } | null, read through depthChoiceFor(state, floodId), so another flood starts automatic. Pressing the chosen water again, setDepthFrom(id, null) or Reset to defaults goes back to automatic. The Layers tab shows 'Depth of (automatic)' until a water is picked, and the picked button's tooltip reads 'Your choice. Press again for the automatic choice'. Test in forensicFloodState.test.ts."
+    },
+    {
+      "id": "WFF3D-R7",
+      "severity": "minor",
+      "outcome": "fixed",
+      "what": "CameraRig: on a flood hand-off that uses the river view, a map the user turned (isRotated(bearingDeg)) keeps its heading, and only the place, distance and tilt come from the river view. A north-up map gets the heading along the river (BRIEF-6 decision 3). This flood exception is written next to decision k in CONTRACT §17 and in contract6. Checked live: Command map at bearing 45, then Forensic gives the compass '045° · 21°'."
+    },
+    {
+      "id": "WFF3D-R8",
+      "severity": "minor",
+      "outcome": "fixed",
+      "what": "Done with the reviewer's note option: drawing a newer pass at now would make 3D disagree with the 2D map and the backend's shown_key rule, which belong to other roles. At now, useSatelliteOnScreen compares the 3D data's pass with the newest usable pass in the time history (newerPassThanShown). When a newer one exists, the key says 'Newer satellite passes exist (Oct 29): step back with the river-level chart to see them.' Screenshot docs/screenshots/brief6-web-forensic-flood-3d-review-stjohns-now.png. Cross-role note in contract6: the backend could prefer the newest usable pass for shown_key, and web-flood-playback could show the same note on the 2D map."
+    },
+    {
+      "id": "WFF3D-R9",
+      "severity": "nit",
+      "outcome": "fixed",
+      "what": "(a) The no-surface depth line and the 'no satellite image' line use a hollow swatch (.fxf-key-none), never the no-view hatch. (b) A picture-only pass under the hover counts as 'not read', and the note becomes probeNothingUnread instead of NOTHING_COVERS. (c) At past handles the satellite line's age is counted from the handle ('2 days before the handle', or 'at the handle'), and it turns amber only when the image is more than 3 days older than the handle. (d) FloodProbeReadout subscribes to depthOnScreen."
+    },
+    {
+      "id": "WFF3D-R10",
+      "severity": "nit",
+      "outcome": "fixed",
+      "what": "reports/brief6-web-forensic-flood-3d.json now lists 6a6f36f for the final commit, plus the review-fix commits. Dead keys removed: depthNotShownSource and depthNoView (unreachable, since passAt never returns a no-view pass; PassOnScreen.noView dropped). groupTerrain3dTag is now used. The report notes which tests skip without data/."
+    }
+  ],
+  "also_fixed": [
+    "At now, the 3D warning lines drew every saved version of a product in effect (productsShown on the whole saved copy); they now draw the newest version of each product, as brief 5 did."
+  ],
+  "files": [
+    "web/src/scene/terrain/terrainMaterial.ts",
+    "web/src/scene/terrain/terrainMaterial.test.ts",
+    "web/src/scene/terrain/Terrain.tsx",
+    "web/src/scene/flood/depthChoice.ts",
+    "web/src/scene/flood/depthChoice.test.ts",
+    "web/src/scene/flood/floodPassDrape.ts",
+    "web/src/scene/flood/floodPassDrape.test.ts",
+    "web/src/scene/flood/flood3dHooks.ts",
+    "web/src/scene/flood/flood3dCopy.ts",
+    "web/src/scene/flood/floodProbe.ts",
+    "web/src/scene/flood/productsOnScreen.ts",
+    "web/src/scene/flood/productsOnScreen.test.ts",
+    "web/src/scene/overlays/SceneOverlays.tsx",
+    "web/src/scene/camera/CameraRig.tsx",
+    "web/src/ui/forensic-flood/FloodDock.tsx",
+    "web/src/ui/forensic-flood/FloodForensic.tsx",
+    "web/src/ui/forensic-flood/FloodLayersTab.tsx",
+    "web/src/ui/forensic-flood/floodForensicCopy.ts",
+    "web/src/ui/forensic-flood/floodForensicView.ts",
+    "web/src/ui/forensic-flood/forensicFloodState.ts",
+    "web/src/ui/forensic-flood/forensicFloodState.test.ts",
+    "web/src/styles/forensic-flood.css",
+    "docs/redesign/contract6/web-forensic-flood-3d.md",
+    "docs/redesign/CONTRACT.md (section 17: review note, flood exception to decision k)",
+    "docs/redesign/reports/brief6-web-forensic-flood-3d.json",
+    "docs/redesign/progress/brief6-web-forensic-flood-3d.md"
+  ],
+  "screenshots": [
+    "docs/screenshots/brief6-web-forensic-flood-3d-review-fixture-before-first.png",
+    "docs/screenshots/brief6-web-forensic-flood-3d-review-fixture-route-down.png",
+    "docs/screenshots/brief6-web-forensic-flood-3d-review-stjohns-oct20-dock.png",
+    "docs/screenshots/brief6-web-forensic-flood-3d-review-stjohns-now.png",
+    "docs/screenshots/brief6-web-forensic-flood-3d-review-layers-terrain.png",
+    "docs/screenshots/brief6-web-forensic-flood-3d-review-fire-forensic.png"
+  ],
+  "gates": {
+    "backend": "uv run pytest -q: 1466 passed",
+    "web": "typecheck ok; lint 55 warnings, all in src/scene; vitest 151 files, 1917 passed, 2 skipped; build ok"
+  },
+  "known_issues": [
+    "No real GPU in this cloud session: the texture-unit fix was checked by a unit test and by reading the linked programs in SwiftShader (fire 13, flood 14 units with the shadow map, under the 16 every WebGL2 GPU offers), not on a Mac or Windows GPU.",
+    "Under SwiftShader the page makes almost no frames, so CSS transitions stall. In review-layers-terrain.png the 'Height above the river' checkbox looks empty although it is checked (aria-checked true, its tick in the DOM, its transition stuck at time 0). This only affects the capture, not the app.",
+    "R8 is handled with a key note, not by drawing the newest pass at now: the 2D map and the backend's shown_key rule (other roles) still pick the satellite route's pass at now."
+  ]
+}

@@ -1,18 +1,18 @@
-# Running a Fire-3d build in a Claude Code cloud session
+# Running a Disaster Mapping build in a Claude Code cloud session
 
-A cloud session runs on Anthropic's machines, so you can close your Mac. It copies the project from the private GitHub repository `gz1010/fire-3d`. You check on it from claude.ai/code or the Claude app's Code tab.
+A cloud session runs on Anthropic's machines, so you can close your Mac. It copies the project from the private GitHub repository `gz1010/disaster-mapping` (called `gz1010/fire-3d` until Nov 5, 2026; the old address redirects). You check on it from claude.ai/code or the Claude app's Code tab.
 
 ## One-time setup (about 10 minutes)
 
 ### 1. Let Claude reach the repository
 
-Open https://github.com/apps/claude and choose **Install** (or **Configure** if you installed it before). Under "Repository access", pick **Only select repositories**, choose **fire-3d**, and save.
+Open https://github.com/apps/claude and choose **Install** (or **Configure** if you installed it before). Under "Repository access", pick **Only select repositories**, choose **disaster-mapping**, and save.
 
-### 2. Create a cloud environment for Fire-3d
+### 2. Create a cloud environment for Disaster Mapping
 
-Go to https://claude.ai/code, open the environment selector and create a new environment named **Fire-3d**, or edit **Default**. Set:
+Go to https://claude.ai/code, open the environment selector and create a new environment named **Disaster Mapping** (an existing one named **Fire-3d** works as it is), or edit **Default**. Set:
 
-- **Network access: Full.** Fire-3d downloads from about 20 public data services (USGS, LANDFIRE, NASA, NOAA/NWS, Open-Meteo, NIFC, CAL FIRE, Census, map tiles…). The default "Trusted" level blocks them.
+- **Network access: Full.** Disaster Mapping downloads from about 20 public data services (USGS, LANDFIRE, NASA, NOAA/NWS, Open-Meteo, NIFC, CAL FIRE, Census, map tiles…). The default "Trusted" level blocks them.
 - **Environment variables.** Type your real NASA FIRMS key here, and never paste it into a chat:
   ```text
   FIRMS_MAP_KEY=your-key-here
@@ -24,11 +24,11 @@ Go to https://claude.ai/code, open the environment selector and create a new env
 
 ### 3. Make the terminal use that environment
 
-In Claude Code on your Mac, type `/remote-env` and pick **Fire-3d**.
+In Claude Code on your Mac, type `/remote-env` and pick that environment.
 
 ## Start the build
 
-In a terminal, in the Fire-3d folder:
+In a terminal, in the project folder:
 
 ```bash
 claude --cloud "Follow docs/redesign/RUNBOOK-3.md to build brief 3 (fires across the lower 48 states) end to end."

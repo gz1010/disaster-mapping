@@ -1,5 +1,5 @@
 // CAL FIRE incident record (owner: official-web; BRIEF-2 decision 3, PLAN-2 U-R6): the current record, the changes
-// Fire-3d has recorded since it started checking, and their feed rows ("CAL FIRE: 65 % contained (was 50 %)"), each
+// Disaster Mapping has recorded since it started checking, and their feed rows ("CAL FIRE: 65 % contained (was 50 %)"), each
 // with CAL FIRE's own update time and the incident page. Past fires only have CAL FIRE's final record: the app says
 // so. Values are CAL FIRE's (acres as published); nothing is interpolated. Pure, tested in calfire.test.ts.
 import type { IncidentManifest, IncidentSummary, Mode } from '../api/types'
@@ -29,13 +29,13 @@ export interface CalFireStatus {
   /** The incident page (https). */
   url?: string
   agencies?: string
-  /** When Fire-3d last checked CAL FIRE. */
+  /** When Disaster Mapping last checked CAL FIRE. */
   checkedMs?: number
-  /** When Fire-3d started recording changes for this fire (null = not recording). */
+  /** When Disaster Mapping started recording changes for this fire (null = not recording). */
   recordingSinceMs?: number | null
   /** Plain-language reason when unavailable. */
   reason?: string
-  /** Unavailable because CAL FIRE or the Fire-3d server could not be reached (not because no record exists). */
+  /** Unavailable because CAL FIRE or the Disaster Mapping server could not be reached (not because no record exists). */
   unreachable?: boolean
   /** Containment date from CAL FIRE's record (past fires). */
   containedMs?: number
@@ -68,7 +68,7 @@ export function agenciesText(a: CalFireResponse['agencies'] | undefined): string
 export function calfireStatus(q: Pick<QueryState<CalFireResponse>, 'data' | 'loading' | 'error'> | null, summary: IncidentSummary | null, demo: boolean): CalFireStatus {
   if (demo) return { state: 'unavailable', reason: 'Demo data: this simulated incident has no CAL FIRE record.' }
   const d = q?.data
-  // 'unavailable' with a record = CAL FIRE could not be reached (or dropped the fire): the last record Fire-3d saw
+  // 'unavailable' with a record = CAL FIRE could not be reached (or dropped the fire): the last record Disaster Mapping saw
   if (d && d.current && d.status !== 'not_available_for_past_dates') {
     const c = d.current
     return {
@@ -149,11 +149,11 @@ export function officialSeekable(tMs: number, manifest: Pick<IncidentManifest, '
 const fmtWhenYear = (ms: number, tf: TimeFmt = getTimeFormat()) => fmtAt(ms, tf, { year: 'always', zone: true })
 
 const RECORDING_NOTE = (since: number | null | undefined, tf?: TimeFmt) =>
-  since != null ? `Fire-3d records CAL FIRE's changes since ${fmtWhenYear(since, tf)}; earlier changes are not available.` : "Fire-3d has not recorded CAL FIRE's changes for this fire."
+  since != null ? `Disaster Mapping records CAL FIRE's changes since ${fmtWhenYear(since, tf)}; earlier changes are not available.` : "Disaster Mapping has not recorded CAL FIRE's changes for this fire."
 
 /**
  * Feed rows: one per recorded change (official, not automated, key), timed at CAL FIRE's update time (else when
- * Fire-3d first saw it, said so). Past fires (historical, or a final record) get one "CAL FIRE final record" row
+ * Disaster Mapping first saw it, said so). Past fires (historical, or a final record) get one "CAL FIRE final record" row
  * with the note that CAL FIRE's update-by-update history is not available for past fires.
  */
 export function calfireFeedItems(d: CalFireResponse | null, ctx: CalFireFeedContext): FeedItem[] {
@@ -182,7 +182,7 @@ export function calfireFeedItems(d: CalFireResponse | null, ctx: CalFireFeedCont
   for (const c of changes) {
     const parts = changeTitleParts(c)
     if (!parts.length) continue
-    // the row's time is CAL FIRE's own update time; when Fire-3d saw the change is only "checked" (backend note g)
+    // the row's time is CAL FIRE's own update time; when Disaster Mapping saw the change is only "checked" (backend note g)
     const t = c.updated_ms ?? c.seen_ms
     const notes = [c.updated_ms == null ? 'CAL FIRE gives no update time for this change.' : null].filter((n): n is string => n != null)
     items.push({

@@ -453,7 +453,7 @@ describe('raster sets', () => {
     answer = (url) => (url.includes('arrival_p50') ? { ok: false, status: 500, body: '' } : url.includes('fuel') ? new TypeError('Failed to fetch') : defaultAnswer(url))
     const set = await loadRasterSet(m, f, { ...REQ, incident: [...REQ.incident!, 'naip'] })
     expect(set.forecastLayers.arrival_p50).toEqual({ status: 'error', layer: null, error: 'Server error (HTTP 500)' })
-    expect(set.incident.fuel).toEqual({ status: 'error', layer: null, error: 'Cannot reach the Fire-3d API' })
+    expect(set.incident.fuel).toEqual({ status: 'error', layer: null, error: 'Cannot reach the Disaster Mapping API' })
     expect(set.incident.naip.status).toBe('error')
     expect(set.incident.naip.error).toMatch(/not a raster/)
     expect(set.incident.observed_arrival.status).toBe('ready')
