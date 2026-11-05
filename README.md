@@ -880,9 +880,9 @@ multiplier schedule, the share of the perimeter held and the live fuel moisture 
 - **Time steps show only what was seen.** A satellite passes every few days, and NASA lists a pass 2 to 4 days after
   it, so the newest days of a flood often have no image yet ("No satellite image after Oct 29 yet"). Nothing is drawn
   or guessed between two passes. At a past step the NWS forecast flooded area, FEMA, NWS category maps and the model
-  still show *now* (tagged "now"), "Official now" lists what is in effect now, and the selected spot's lines in the
-  left panel can still name the pass of now. At now, the map shows the pass the satellite layer picked, which can be
-  older than the newest pass in the time steps (the 3D key says "Newer satellite passes exist").
+  still show *now* (tagged "now"), and "Official now" lists what is in effect now (the step's own NWS versions are in
+  the **NWS · n** list). At now, the map shows the pass the satellite layer picked, which can be older than the newest
+  pass in the time steps (the 3D key says "Newer satellite passes exist"; the 2D legend does not yet).
 - **The 3D estimates are rough.** The estimated depth reads a little low near gentle banks and can be off by a metre or
   more where banks are steep or the water map and the terrain do not line up; the river's normal channel reads near
   0 m, because the terrain shows the water's surface, not the river bed. It exists only for the satellite pass the
