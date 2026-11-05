@@ -96,9 +96,29 @@ export interface ProductChange {
 const actionOf = (p: Pick<FloodAlert, 'vtec'>): string => (p.vtec?.action ?? '').toUpperCase()
 const eventKey = (p: Pick<FloodTimelineProduct, 'vtec_key' | 'id'>): string => p.vtec_key ?? `id:${p.id}`
 
-/** Where a version is drawn: its polygon, else its zones. */
-function areaOf(p: Pick<FloodAlert, 'geometry' | 'ugcs'>): string {
-  return p.geometry ? JSON.stringify(p.geometry) : `ugc:${[...(p.ugcs ?? [])].sort().join(',')}`
+/** A ring as text that does not depend on its first vertex, its direction or the closing vertex (the live CAP copy and
+ *  the IEM archive copy of one polygon start at different vertices), at about 100 m. */
+function ringKey(ring: unknown): string {
+  if (!Array.isArray(ring)) return ''
+  const pts = ring.filter((p): p is number[] => Array.isArray(p) && p.length >= 2).map((p) => `${Number(p[0]).toFixed(3)},${Number(p[1]).toFixed(3)}`)
+  if (pts.length > 1 && pts[0] === pts[pts.length - 1]) pts.pop()
+  const rotated = (list: string[]) => {
+    let i0 = 0
+    for (let i = 1; i < list.length; i++) if (list[i] < list[i0]) i0 = i
+    return [...list.slice(i0), ...list.slice(0, i0)].join(';')
+  }
+  const fwd = rotated(pts)
+  const back = rotated([...pts].reverse())
+  return fwd < back ? fwd : back
+}
+
+/** Where a version is drawn: its polygon(s) (vertex order and start ignored), else its zones. */
+export function areaOf(p: Pick<FloodAlert, 'geometry' | 'ugcs'>): string {
+  const g = p.geometry as { type?: string; coordinates?: unknown } | null
+  if (!g) return `ugc:${[...(p.ugcs ?? [])].sort().join(',')}`
+  const polys = (g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? (g.coordinates as unknown[]) : []) as unknown[]
+  const keys = polys.map((rings) => (Array.isArray(rings) ? rings.map(ringKey).join('|') : '')).sort()
+  return keys.length ? keys.join('||') : JSON.stringify(g)
 }
 
 /** When a version stops being drawn (exclusive): shown_until_ms; without one, its expiry when NWS's phase says it is

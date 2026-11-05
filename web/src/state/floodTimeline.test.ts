@@ -6,6 +6,7 @@ import { DAY_MS, HOUR_MS, MINUTE_MS, type TimeFmt } from '../lib/time'
 import { floodWordingProblems } from '../ui/shell/floodCopy'
 import { SQUARE as TEST_SQUARE, testPass, testTimeline, versionBuilder } from './floodTimeline.testutil'
 import {
+  areaOf,
   beforeNowText,
   floodKeyframes,
   gapNote,
@@ -116,6 +117,19 @@ describe('NWS product changes', () => {
   it('a version issued again after its event was off the map counts as issued', () => {
     const gap = [version('e1', 'KMLB.FL.W.0009', 'NEW', T0, T0 + HOUR_MS), version('e2', 'KMLB.FL.W.0009', 'EXT', T0 + 5 * HOUR_MS, T0 + 9 * HOUR_MS)]
     expect(productChanges(gap, NOW).map((x) => `${x.product.id}:${x.kind}`)).toEqual(['e1:issued', 'e1:until', 'e2:issued', 'e2:until'])
+  })
+
+  it('the same polygon from the IEM archive and from NWS’s live copy (another first vertex, direction, precision) is no step', () => {
+    const ring = [[-93.09, 30.36], [-93.03, 30.29], [-93.28, 30.14], [-93.35, 30.17], [-93.32, 30.35], [-93.09, 30.36]]
+    const live = [...ring.slice(1), ring[1]]
+    const backwards = [...ring].reverse().map(([x, y]) => [x + 0.0001, y])
+    const a = version('j1', 'KLCH.FL.W.0048', 'NEW', T0, null, { geometry: { type: 'Polygon', coordinates: [ring] } as FloodAlert['geometry'], replaced_ms: T0 + 6 * HOUR_MS, shown_until_ms: T0 + 6 * HOUR_MS })
+    const b = version('j2', 'KLCH.FL.W.0048', 'EXT', T0 + 6 * HOUR_MS, null, { geometry: { type: 'Polygon', coordinates: [live] } as FloodAlert['geometry'], archived: false, replaced_ms: T0 + 9 * HOUR_MS, shown_until_ms: T0 + 9 * HOUR_MS })
+    const c = version('j3', 'KLCH.FL.W.0048', 'CON', T0 + 9 * HOUR_MS, null, { geometry: { type: 'Polygon', coordinates: [backwards] } as FloodAlert['geometry'], archived: false })
+    expect(productChanges([a, b, c], NOW).map((x) => `${x.product.id}:${x.kind}`)).toEqual(['j1:issued'])
+    expect(areaOf(a)).toBe(areaOf(b))
+    expect(areaOf(a)).toBe(areaOf(c))
+    expect(areaOf(a)).not.toBe(areaOf({ geometry: SQUARE(0.2) as FloodAlert['geometry'], ugcs: [] }))
   })
 
   it('no change after now (the views keep what is in effect now)', () => {

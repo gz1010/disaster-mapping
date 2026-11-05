@@ -37,3 +37,9 @@ store), `ui/timeline/floodPlaybackCopy.ts` (strings, under the flood wording gua
   Also fixed in the chart: the level labels on their lines start under the levels pinned to the top ("MINOR 2.0" over
   "MODERATE 4.0 ↑" on Calcasieu), day labels keep 8 px apart. Screenshots: fixture steps 1-2, Calcasieu steps 1-2
   (Oct 25 pass; NWS Flood Warning issued Nov 4), Forensic dock.
+- 2026-11-05: **final.** Found on Calcasieu: the IEM archive copy and NWS's live copy of one polygon start at another
+  vertex, so the EXT counted as "updated: new area"; `areaOf` now ignores the first vertex, direction and closing
+  vertex (about 100 m), with a test. Real steps: fixture 3 passes + 3 NWS; Calcasieu 3 + 1; St Johns 17 + 5 (from
+  102 versions). Gates: backend 1466 passed; web typecheck, lint (55 warnings, all in src/scene), 1888 tests, build.
+  Report `docs/redesign/reports/brief6-web-flood-playback.json`, as-built `docs/redesign/contract6/web-flood-playback.md`,
+  CONTRACT §17 pointer.

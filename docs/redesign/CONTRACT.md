@@ -5123,6 +5123,11 @@ uses it, and keep `SPEC.md`, `backend/fire3d/contracts.py` and `web/src/api/floo
 - **Notes:** `docs/redesign/contract6/backend-flood-time-3d.md` (flood time history and 3D terrain products, with
   their exact strings, after the review fixes BTD-R1..R16) and `docs/redesign/contract6/rename-docs.md` (the name
   "Disaster Mapping", internal names kept, the zoom-dimming switch). Wave-2 roles add theirs here.
+- **Flood time steps (web-flood-playback):** `docs/redesign/contract6/web-flood-playback.md`: the shared helper
+  `web/src/state/floodTimeline.ts` (keyframes, `passAt`, `productsAt`, `step`, labels), the timeline store
+  `state/floodTimelineData.ts`, Play / step on the river-level chart (both variants; no autoplay; reduced motion one
+  step per press; keys Space, comma, full stop), and the 2D map at the handle (`satelliteAtHandle`,
+  `warningsAtHandle`). Strings: `web/src/ui/timeline/floodPlaybackCopy.ts`.
 - **SPEC:** §5.3 (bundle files: `timeline.json`, `layers/water_pass_<key>.bin`, `layers/depth_pass_<key>.bin`,
   `layers/hand.bin`, `layers/depth_satellite.bin`, `layers/depth_forecast.bin`, `maps/flowlines.geojson`), §5.4 (3D
   terrain products: relief and height boost, height above the river, FwDET depth), §6 (routes), §8.11 (time history).
