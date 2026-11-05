@@ -6,7 +6,7 @@ Role `web-flood-public` (wave 2), PLAN-5 §4.4, CONTRACT §16.10-16.12. Ports AP
 
 - [x] M1 HazardDisc split (fire markup byte-identical, checked before/after with a temporary SSR capture), WaterTexture
   verbatim, FloodHazardCircle, FloodTitle, status words and meanings (`ui/public/floodView.ts`), Public flood chrome.
-- [ ] M2 floodModel + floodHooks (envelope-status rule), FloodEvacRows, FloodFacts per kind, FloodKey, areaDistance +
+- [x] M2 floodModel + floodHooks (envelope-status rule), FloodEvacRows, FloodFacts per kind, FloodKey, areaDistance +
   DistanceChip props, startFloodBuild + job polling (canned job, then the real route after bundle-api M2).
 - [ ] M3 map area layers, leader, FloodPointCard variant + floodCheck, FloodOfficialNow, FloodLayersPanel, phones,
   screenshots.

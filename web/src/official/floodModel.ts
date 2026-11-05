@@ -177,10 +177,18 @@ export function officialAlerts(resp: unknown): FloodAlert[] {
   return isFloodAlerts(resp) && resp.status === 'available' ? resp.alerts : []
 }
 
-/** The alert behind the flood's highest product (Emergency first), from the answer, else null. */
+/** The alert behind the flood's highest product in effect now (Emergency first), from the answer, else null. */
 export function leadAlert(resp: unknown, nowMs: number): FloodAlert | null {
   const alerts = productsAt(officialAlerts(resp), null, nowMs).alerts
   return orderAlerts(alerts)[0] ?? null
+}
+
+/** The flood's main NWS product for its own fields (detection, damage threat, watch area): the highest in effect now,
+ *  else the highest still to start, else the highest of the answer (a product that has run out still said what it
+ *  said; its row shows its own times). */
+export function mainAlert(resp: unknown, nowMs: number): FloodAlert | null {
+  const all = officialAlerts(resp)
+  return leadAlert(resp, nowMs) ?? orderAlerts(all.filter((a) => a.phase === 'upcoming'))[0] ?? orderAlerts(all)[0] ?? null
 }
 
 // ------------------------------------------------------------------------------------------------ gauges

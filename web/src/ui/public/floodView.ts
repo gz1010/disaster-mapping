@@ -15,7 +15,7 @@ import { bearingDeg, distanceM } from '../../lib/geodesy'
 import { directionWord, distance } from '../../lib/plainLanguage'
 import { fmtAt, fmtClock, fmtDayDate, fmtRelative, HOUR_MS, DAY_MS, MONTHS, timeFmt, wallParts, type TimeFmt } from '../../lib/time'
 import { stateName } from '../../lib/usStates'
-import { answerReason, answerState, fimMapped, floodEvacuation, leadAlert, memberGaugesOf, primaryMemberGauge, rfcName, senderName, shownGranule, type Answer, type FloodEvacFact } from '../../official/floodModel'
+import { answerReason, answerState, fimMapped, floodEvacuation, leadAlert, mainAlert, memberGaugesOf, orderAlerts, primaryMemberGauge, rfcName, senderName, shownGranule, type Answer, type FloodEvacFact } from '../../official/floodModel'
 import { gaugeCategoryRank, highestProduct } from '../../state/floodOverview'
 import type { Units } from '../../state/workspace'
 import type { EvacuationsResponse } from '../../extras/types'
@@ -312,9 +312,10 @@ function memberGaugeRows(i: FloodFactsInput, key: 'gauges', label: string): Floo
 /** The NWS product row (row 5): the highest product in effect, its own times and sender, verbatim event name. */
 function productRow(i: FloodFactsInput): FloodFactRow {
   const s = i.summary
-  const p = s ? highestProduct(s) : null
   const past = s != null && isPastFlood(s)
-  const alert = leadAlert(i.alerts.data, i.nowMs)
+  // a past flood: its own last products (they were in effect then; "Was in effect" with the date)
+  const p = s ? (highestProduct(s) ?? (past ? (orderAlerts(s.products)[0] ?? null) : null)) : null
+  const alert = past ? mainAlert(i.alerts.data, i.nowMs) : leadAlert(i.alerts.data, i.nowMs)
   if (!p && !alert) {
     const st = answerState(i.alerts)
     const q = quietRow('product', FLOOD_PUBLIC.labelNoProduct, st, ALERTS_UNAVAILABLE, answerReason(i.alerts))
@@ -363,7 +364,7 @@ export function floodFacts(i: FloodFactsInput): FloodFactRow[] {
   const members = memberGaugesOf(i.gauges.data)
   const primary = primaryMemberGauge(i.gauges.data, s)
   const watchOnly = s?.level === 'watch'
-  const alert = leadAlert(i.alerts.data, i.nowMs)
+  const alert = mainAlert(i.alerts.data, i.nowMs)
   if (watchOnly) {
     // WATCH AREA (NWS): the watch's own area words, verbatim (first two areas, "and N more")
     const st = answerState(i.alerts)
