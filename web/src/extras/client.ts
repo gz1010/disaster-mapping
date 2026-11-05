@@ -20,6 +20,9 @@ export interface AreaQuery {
   /** A past time (replay) from `extrasAtMs`; null / absent = now. */
   atMs?: number | null
   marginKm?: number | null
+  /** Brief 5 (CONTRACT §16.7): evacuations for a flood (`hazard=flood`: Oregon's wildfire-only feed answers
+   *  not-available, Cal OES keeps its event type verbatim). Absent or 'fire' = the fire query, byte-for-byte as before. */
+  hazard?: 'fire' | 'flood' | null
 }
 
 export interface ImageryQuery extends AreaQuery {
@@ -43,6 +46,7 @@ export function areaParams(q: ImageryQuery): URLSearchParams {
   if (q.atMs != null && Number.isFinite(q.atMs)) p.set('at_ms', String(Math.max(0, Math.round(q.atMs))))
   if (q.marginKm != null && Number.isFinite(q.marginKm)) p.set('margin_km', String(q.marginKm))
   if (q.families?.length) p.set('families', q.families.join(','))
+  if (q.hazard === 'flood') p.set('hazard', 'flood')
   return p
 }
 

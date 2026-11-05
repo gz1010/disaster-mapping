@@ -1,0 +1,184 @@
+{
+ "role": "review5-backend-flood-sources (fix step)",
+ "reviewed_role": "backend-flood-sources",
+ "reviewed_commits": [
+  "ad49a51 M1 contracts",
+  "76cc9df M2 fixture",
+  "c079864 M3 sources",
+  "0264180 M4 catalog",
+  "2c8f05a report commit list"
+ ],
+ "fix_commit_subject": "brief 5 backend-flood-sources: review fixes",
+ "resumed_from": "c69c324 (work-in-progress snapshot after a container restart: most of R1-R10 done, gates not run); finished, re-verified and extended here",
+ "findings": [
+  {
+   "id": "BFS-R1",
+   "severity": "major",
+   "title": "A flood that left the NWS lists keeps its cancelled products as 'in_effect' for 48 h",
+   "verified": "Yes. Reproduced with the reviewer's carry_over.py and on hand-made inputs: a carried-over flood kept KFGZ.FA.W.0038 'in_effect' with level warning and a future expires_ms beside status inactive; a product with ends_ms null was never ended.",
+   "outcome": "fixed",
+   "fix": "catalog.as_left: once NWS answered, every product of a flood that left the lists is phase 'ended' (a product NWS still lists keeps its current phase); status, level, expires_ms and emergency follow the products still in effect (none: inactive, last level kept, expires_ms null, emergency false). Used by the carry-overs and by the alias, bundle and last-known steps of GET /api/floods/{id}. Fix step addition: a carry-over's 'ended' phases are saved into its last-known summary with its old last-seen time, so a later NWS outage cannot show them in effect again.",
+   "tests": [
+    "test_floods_grouping.py::test_rule8_a_product_nws_dropped_is_ended_never_in_effect (CAN version and an 'until further notice' product with no end time)",
+    "test_floods_grouping.py::test_rule8_a_carry_over_stays_ended_through_a_later_outage",
+    "test_floods_list_api.py::test_detail_bundle_last_known_and_404 (last-known products 'ended', expires_ms null; a product NWS still lists keeps its phase)"
+   ]
+  },
+  {
+   "id": "BFS-R2",
+   "severity": "major",
+   "title": "GAUGE_ONLY_CAVEAT is stated for coastal gauges where NWS Coastal Flood products are in effect",
+   "verified": "Yes. On the recorded day 15 of the gauge-only floods are Florida tide, pier, canal or estuary gauges (SHEF HM/HC codes, '(in MHHW)' / '(in NAVD88)' datums, 'Tide Station', 'Intracoastal Waterway').",
+   "outcome": "fixed",
+   "fix": "New backend string GAUGE_ONLY_COASTAL_CAVEAT (copy.py): 'No NWS Flood or Flash Flood product names this gauge right now. It may measure tidal or lake water: Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products, which may be in effect here.' Chosen over dropping the gauges because D1 keeps gauges that NWS puts in flood as river floods. A gauge is tidal by SHEF code (riv_gauges pedts HM/HC, now parsed), a tidal datum note, or a coastal word in its waterbody, plus gauges within 10 km of one (grouping.is_tidal_row, coastal_lids, ref_looks_tidal). Fix step addition: a flood that left the lists gets its caveat decided again ('Fisher Island flood' at the Atlantic Ocean tide gauge had kept an old-code plain caveat). Real list 2026-11-04 23:51 UTC: 19 of 25 gauge-only floods carry it; the 6 inland ones (Devils Lake, Eastern Stump Lake, Joshua Creek, Clear Creek, Mancos River, Salinas River) keep GAUGE_ONLY_CAVEAT. The wording change is for the integration to add to CONTRACT 16.14 (contract5 note).",
+   "tests": [
+    "test_floods_grouping.py::test_rule5_a_tide_gauge_caveat_never_claims_no_coastal_product",
+    "test_floods_grouping.py::test_rule8_a_left_gauge_flood_never_keeps_a_false_caveat",
+    "test_floods_catalog.py::test_recorded_day_winslow_is_one_flood_and_tide_gauges_say_so",
+    "test_floods_copy.py::test_list_strings_live_in_copy_and_pass_the_guard"
+   ]
+  },
+  {
+   "id": "BFS-R3",
+   "severity": "major",
+   "title": "An areal Flood Warning naming a gauge is not linked to it (Winslow / Little Colorado River)",
+   "verified": "Yes. river_from_text and water_from_text returned None for KFGZ.FA.W.0038's '* WHERE...The Little Colorado River from Winslow to Leupp' and 'Flooding of the Little Colorado River'; the list had 'Winslow flood' and a gauge-only 'Little Colorado River flood'.",
+   "outcome": "fixed",
+   "fix": "naming.WHERE_RE accepts 'from <A> to <B>', ALONG_RE accepts 'Flooding of the <water>', and naming.text_names_water links a gauge inside a FL/FA area (+2 km) whose waterbody the segment's own text names, token-matched (the '<River> near <Place> affecting <County>' lines listing a whole product's rivers never count). One flood 'Little Colorado River flood' (KFGZ.FA.W.0038 + LCWA3) on the recorded day and in the real list; cases.json updated after review.",
+   "tests": [
+    "test_floods_grouping.py::test_rule2_an_areal_warning_links_the_gauge_its_text_names",
+    "test_floods_catalog.py::test_recorded_day_matches_the_reviewed_groups (cases.json)",
+    "test_floods_catalog.py::test_recorded_day_winslow_is_one_flood_and_tide_gauges_say_so"
+   ]
+  },
+  {
+   "id": "BFS-R4",
+   "severity": "major",
+   "title": "With NWS unreachable every warning flood becomes gauge_only with the false caveat; product floods turn 'inactive'; the edge fixture shows another shape",
+   "verified": "Yes, with the reviewer's nws_down.py: false GAUGE_ONLY_CAVEAT, St. Johns split into a new id, Winslow/Salt/Gila/San Juan carried over as inactive with products in_effect, 41 -> 45 floods; edge/list-nws-down.json kept warning rows with products.",
+   "outcome": "fixed",
+   "fix": "NWS down: gauge-only rows say ALERTS_UNAVAILABLE (never GAUGE_ONLY_CAVEAT); gauges whose open episodes belong to one flood stay joined, so ids survive and nothing splits; floods that left the lists are not listed while a needed source is down ('cannot decide'; their detail answers the last-known summary, products in effect until their own NWS end); last-known summaries are not overwritten during an outage; carry-over episodes are not retired during an outage. edge/list-nws-down.json and edge/list-gauges-down.json are now made by catalog.nws_down_row / gauges_down_row, which a test checks against build_list on the recorded day (same ids, kinds, levels, products, caveats, status). Real path: 40 floods -> 33 during the outage, the same 40 ids after it.",
+   "tests": [
+    "test_floods_grouping.py::test_rule11_nws_down_never_claims_an_absence_or_an_end",
+    "test_floods_catalog.py::test_recorded_day_outages_have_the_fixture_shapes",
+    "test_floods_fixture.py (committed fixture equals a fresh run)"
+   ]
+  },
+  {
+   "id": "BFS-R5",
+   "severity": "major",
+   "title": "After more than 6 h without Fire-3d running, gauge-only floods get a new id and the old one stays listed",
+   "verified": "Yes, with the reviewer's downtime.py: Devils Lake, Eastern Stump Lake and Joshua Creek listed twice after a 23 h gap; 41 -> 62 floods.",
+   "outcome": "fixed",
+   "fix": "catalog.reusable_episode: an open gauge episode is reused until its flood has been quiet longer than INACTIVE_LISTED_H (PLAN-5 rule 10), judged from the flood's last-known summary (active: since last seen; inactive: since ended_ms), never from Fire-3d's build gaps. Fix step addition: the quiet time is never before the episode began, so a gauge whose flood-stage reading is already old cannot open a new episode at every build. downtime.py now: 40 -> 40, same ids.",
+   "tests": [
+    "test_floods_grouping.py::test_rule10_a_restart_after_a_long_gap_keeps_gauge_ids",
+    "test_floods_grouping.py::test_rule10_an_old_reading_never_churns_episodes",
+    "test_floods_grouping.py one gauge flooding twice 30 days apart (unchanged: two ids)"
+   ]
+  },
+  {
+   "id": "BFS-R6",
+   "severity": "minor",
+   "title": "GET /api/floods never answers 503 FLOOD_LISTS_DOWN; deviation not recorded",
+   "verified": "Yes: a 200 with floods [] and every source unavailable.",
+   "outcome": "fixed (recorded as a deviation)",
+   "fix": "Kept the 200 (the reviewer's second option): the sources say exactly what is unknown, and the web already shows FLOOD_LISTS_DOWN ('... Not an all-clear: follow local officials.') and 'FLOOD LISTS UNAVAILABLE' for it, never FLOOD_LIST_EMPTY; a 503 would only show the shorter FLOOD_LISTS_503. Recorded in contract5/backend-flood-sources.md ('Deviation: GET /api/floods with both lists down') with the CONTRACT 16.7 wording for the integration, in SPEC §6, in the route's docstring and in the test's docstring. The rows from disk now go through as_left.",
+   "tests": [
+    "test_floods_list_api.py::test_503_only_when_the_lists_could_not_decide"
+   ]
+  },
+  {
+   "id": "BFS-R7",
+   "severity": "minor",
+   "title": "The areal 'issued within 12 h' join uses each product's latest message time",
+   "verified": "Yes: catalog compared sent_ms of the current CAP message.",
+   "outcome": "fixed",
+   "fix": "grouping.issued_ms: the oldest message of the CAP references chain, else the VTEC begin when not after this message, else sent_ms; rule 3's AREAL_NEAR_H compares it.",
+   "tests": [
+    "test_floods_grouping.py::test_rule3_an_update_never_splits_an_areal_join"
+   ]
+  },
+  {
+   "id": "BFS-R8",
+   "severity": "nit",
+   "title": "Backend strings that cross HTTP live outside copy.py and its guard",
+   "verified": "Yes.",
+   "outcome": "fixed",
+   "fix": "RFC_DOWN, STALE_NWS/GAUGES/RFC/IEM, IEM_JOIN_DOWN, PAST_NOT_YET, FLOOD_NOT_LISTED_DETAIL, IEM_JOIN_NAME, GAUGE_ONLY_COASTAL_CAVEAT and SOURCE_NAMES are copy.py constants (copy.LIST_STRINGS) under the guard; catalog and api/floods read them from there; listed in the contract5 note for CONTRACT 16.14.",
+   "tests": [
+    "test_floods_copy.py::test_list_strings_live_in_copy_and_pass_the_guard"
+   ]
+  },
+  {
+   "id": "BFS-R9",
+   "severity": "nit",
+   "title": "PROVENANCE.md files say '0 real requests'",
+   "verified": "Yes: a cache-served re-run overwrote the count.",
+   "outcome": "fixed",
+   "fix": "Both PROVENANCE.md files say 13 real requests at 2026-11-04T22:15:38Z (the answers' own fetch time); the recorder now counts answers read back from its --cache-dir and writes their fetch time.",
+   "tests": []
+  },
+  {
+   "id": "BFS-R10",
+   "severity": "nit",
+   "title": "The live list gives the web no hook to credit IEM",
+   "verified": "Yes.",
+   "outcome": "fixed",
+   "fix": "The live list's sources[] has an 'iem_archive' entry named 'Iowa Environmental Mesonet (copy of NWS flood warnings, used to link river gauges)', available when the join answered, else unavailable with IEM_JOIN_DOWN; its outage never shortens the list cache. SPEC §2 now has rows with credit lines for the flood list's sources (NWS flood products, riv_gauges, rfc_max_forecast, IEM current flood warnings, NWPS per gauge). README credits are the integration's.",
+   "tests": [
+    "test_floods_grouping.py::test_rule11_the_iem_join_is_a_credited_source",
+    "test_floods_list_api.py::test_live_list_status_and_gzip"
+   ]
+  }
+ ],
+ "found_in_fix_step": [
+  {
+   "id": "BFS-F1",
+   "severity": "major",
+   "title": "A replaced areal warning listed the same flood twice (found on the real list in the fix step)",
+   "evidence": "Real list 2026-11-04 ~23:40 UTC: NWS Pueblo replaced its Conejos River Flood Warning KPUB.FA.W.0026 with a new one, KPUB.FA.W.0028. The list showed two 'Conejos River flood's: the new one (warning) and the old one carried over as inactive, whose status means 'no NWS product is in effect here', false with 0028 in effect over it.",
+   "fix": "Rule 10 continuation (catalog.continuations, grouping.CONTINUE_KINDS): a new flash or areal flood with no registered member whose own products cover at least AREAL_OVERLAP of the last-known area of a flash or areal flood that left the lists within INACTIVE_LISTED_H continues it (same id and start, listed once, no alias), as rule 3 would have joined the two products while both were listed. Checked on real data: recorded 22:15 build, then the 23:45 answers -> one 'Conejos River flood' with the old id flood-20261102-conejos-river-flood-36f416 and KPUB.FA.W.0028 in effect; no duplicate names in the 45 floods. For the integration: PLAN-5 rule 10 / CONTRACT 16.8 wording.",
+   "tests": [
+    "test_floods_grouping.py::test_rule10_a_replaced_areal_warning_continues_its_flood"
+   ]
+  }
+ ],
+ "summary": {
+  "fixed": [
+   "BFS-R1",
+   "BFS-R2",
+   "BFS-R3",
+   "BFS-R4",
+   "BFS-R5",
+   "BFS-R6",
+   "BFS-R7",
+   "BFS-R8",
+   "BFS-R9",
+   "BFS-R10"
+  ],
+  "skipped": [],
+  "extra_fixed": [
+   "BFS-F1",
+   "carry-over caveat decided again (part of R2)",
+   "episode quiet time floored at its start (part of R5)",
+   "carry-over 'ended' phases saved (part of R1)"
+  ]
+ },
+ "verification": {
+  "reviewer_scripts": "carry_over.py, downtime.py, fix_check.py (R1/R4), inspect_areal.py re-run on the current code: R1 product 'ended', status inactive, expires_ms null; R4 no false caveat, no split, ids equal after the outage; R5 40 -> 40 floods, same ids.",
+  "real_api": "Port 8751 (FIRE3D_LIVE=0), 2026-11-04 ~23:40 UTC and a fresh-folder build at 23:51 UTC: 45 floods, 31 NWS products in effect, 4 sources available (iem_archive included), no duplicate names, 'Little Colorado River flood' = KFGZ.FA.W.0038 + LCWA3, 19 coastal caveats. Requests: 5 for the API's list, up to 5 for each fresh-folder build (the shared cache answered most).",
+  "screenshot": "docs/screenshots/brief5-backend-flood-sources-list.png: Public overview, Floods, details on, against the real API (42 floods in a fresh data folder; the orange gauges line is /api/official/river-gauges?scope=national answering 404, a route of backend-flood-bundle-api M3, not yet built)."
+ },
+ "gates": {
+  "backend": "uv run pytest -q: 1227 passed, 0 skipped (role M4: 1213)",
+  "web": "typecheck clean; lint 55 warnings, all in src/scene; npm test 113 files, 1469 passed, 2 skipped (pre-existing, not flood); build OK",
+  "test_skip_count": 0
+ },
+ "notes_for_others": [
+  "web-flood-overview: copy backend/tests/data/floods/fixture_api/edge/{list-nws-down,list-gauges-down,detail-last-known}.json into web/src/api/__fixtures__/floods/edge/ (plain cp): they now have the real path's shape.",
+  "web-flood-public: for a gauge_only flood show summary.caveat as sent; CIRCLE_MEANING.gaugeOnly is false for tide gauges (GAUGE_ONLY_COASTAL_CAVEAT) and during an NWS outage (ALERTS_UNAVAILABLE).",
+  "All flood views: CIRCLE_MEANING.noProductNow only while the list's nws_alerts source is available (D24); during an NWS outage a gauge-only flood with an old reading is listed inactive with caveat ALERTS_UNAVAILABLE.",
+  "integration: CONTRACT 16.14 gets the copy.LIST_STRINGS texts; 16.2 caveat and products comments; 16.7 list route answers 200 with every source unavailable instead of 503; PLAN-5/CONTRACT 16.8 rule 10 continuation; README credits for the IEM join of the live list."
+ ]
+}

@@ -1,0 +1,147 @@
+{
+  "role": "web-flood-overview (review fixes)",
+  "brief": 5,
+  "reviewed_role": "web-flood-overview",
+  "summary": "All 13 review findings handled: 12 fixed, 1 skipped (WFO-R9: the file is not this role's; handed to the integration). Each fix was checked in the running app (fixture server on 8752, Vite 5212; the real API with FIRE3D_LIVE=0 for the fire regression and the real 2026 tab) with Playwright probes and screenshots, and is covered by tests. The fix work began before a container restart; the code reached git in two work-in-progress snapshots (c69c324, e155020) and this commit adds the reports and notes.",
+  "findings": [
+    {
+      "id": "WFO-R1",
+      "severity": "major",
+      "outcome": "fixed",
+      "what": "state/history.ts installHistorySync: fromOverview is true only when no event at all (fire or flood) was open before the push. A close made under crossingHazard marks the switch (a flag cleared by the next entry, or at the end of the task); the other subscription then writes fromOverview: false. So 'Back to all floods' after fire -> flood pushes the flood overview, and 'Back to all fires' after flood -> fire pushes the fire overview, instead of history.back() to the other hazard's event.",
+      "verified": "Playwright (fixture server): selectIncident('fixture-live') -> openFlood('fixture-flood') -> 'Back to all floods' ends on /?ws=map&hazard=flood with no event open; openFlood -> selectIncident -> 'Back to all fires' ends on /?ws=map with hazard fire. history.test.ts: two new cases (fire -> flood -> goToFloodOverview, flood -> fire -> goToOverview) and one that an event opened from its own overview still goes Back."
+    },
+    {
+      "id": "WFO-R2",
+      "severity": "major",
+      "outcome": "fixed",
+      "what": "App.tsx mounts <FloodMissingNotice /> in .top-center next to <MissingFireNotice />.",
+      "verified": "/?flood=flood-20261104-nope-abcdef shows 'This flood is no longer listed. (flood-20261104-nope-abcdef)' (docs/screenshots/brief5-web-flood-overview-missing-flood.png); a 503 on the detail route shows FLOOD_LISTS_503. FloodListPanel.test.ts renders the whole App on the server with missingReason 'not_listed' and 'lists_down' and finds both texts."
+    },
+    {
+      "id": "WFO-R3",
+      "severity": "major",
+      "outcome": "fixed",
+      "what": "state/floodOverview.ts: a year list is read from iem_archive (listSourceIds); floodListHealth gives 'archive_down' when it is unavailable; floodListUnreadable, listDownReasons; knownFloodCount is null (never 0) for an unreadable list. FloodStatus says FLOOD LIST UNAVAILABLE; the list shows the backend's reason verbatim (and the banner when the list is closed), 'could not be read right now' on the source line, never 'No listed floods in this view', and no rule note unless past_rule says which rule; the Show details pill shows a dash, never 0.",
+      "verified": "Real API (FIRE3D_LIVE=0) 2026 tab: bar 'NOV 4 2026 · FLOOD LIST UNAVAILABLE', list 'Fire-3d does not list past floods yet. That is not an all-clear.', no PAST_RULE_NOTE. Fixture with the same shape: docs/screenshots/brief5-web-flood-overview-year-archive-down.png. Tests: floodOverview.test.ts, floodOverviewText.test.ts, FloodListPanel.test.ts (fixture LIST_YEAR_ARCHIVE_DOWN in edgeCases.ts)."
+    },
+    {
+      "id": "WFO-R4",
+      "severity": "minor",
+      "outcome": "fixed",
+      "what": "floodCountPart returns FLOOD LISTS UNAVAILABLE whenever NWS and the gauges are both down, even with floods listed from disk (as the fire bar does).",
+      "verified": "Probe with both sources unavailable and 1 flood: bar 'NOV 4 2026 · FLOOD LISTS UNAVAILABLE'. floodOverviewText.test.ts: count 1 and 12 with bothDown."
+    },
+    {
+      "id": "WFO-R5",
+      "severity": "minor",
+      "outcome": "fixed",
+      "what": "history.ts linkWithBothUrl(href): at bootstrap (App.tsx) a link with both ?incident= and ?flood= is replaced by one without flood. navigationUrl(href, incident, floodOpen = false) drops a stale ?flood= when a fire closes unless a flood is open.",
+      "verified": "/?flood=fixture-flood&incident=fixture-live -> /?incident=fixture-live&ws=map&mode=live; 'Back to all fires' -> /?ws=map; reload stays on the fire overview. history.test.ts covers both functions."
+    },
+    {
+      "id": "WFO-R6",
+      "severity": "minor",
+      "outcome": "fixed",
+      "what": "FloodPointCard: under 'Nearest listed floods' the line FLOOD_OVERVIEW.nearestDistanceNote ('Distance from here to each flood's marker (its river gauge or a point of its NWS warning area), not to the water's edge. Distance alone does not tell you the risk; not an all-clear.'), kept in floodCopy.ts.",
+      "verified": "docs/screenshots/brief5-web-flood-overview-point-card-nearest.png; the wording guard scans it (floodCopy.test.ts globs floodCopy.ts; floodOverviewText.test.ts checks it explicitly)."
+    },
+    {
+      "id": "WFO-R7",
+      "severity": "minor",
+      "outcome": "fixed",
+      "what": "Point card gauge line: 'reading {time} ({age})' in the gauge's zone (gaugeReadingLine), the gauge's data_attribution verbatim (data-verbatim, linked when it has a URL) and a link 'NWS gauge page' to gauge.url. Gauge hover: the reading time line too (GaugePoint gains observed_ms and time_zone; member gauges take the flood's zone).",
+      "verified": "Point card: 'reading Nov 4, 3:00 PM MST (2 h ago) · Observations courtesy of U.S. Geological Survey · NWS gauge page' (docs/screenshots/brief5-web-flood-overview-point-card.png). Hover on ZZRF2: 'Action stage (NWS) · NOAA National Water Prediction Service (NWS) / reading Nov 4, 3:00 PM MST (2 h ago)'. floodOverviewText.test.ts tests gaugeReadingLine (12 h, 24 h, no time)."
+    },
+    {
+      "id": "WFO-R8",
+      "severity": "minor",
+      "outcome": "fixed",
+      "what": "New map/floodGaugeStatus.ts (useNationalGauges, nationalGaugesDown): floodController records whether the national gauge answer was available. While it is unavailable or failed (and the gauges layer is on, no flood open, on the map workspace) the flood legend, the list foot and the Layers panel say FLOOD_OVERVIEW.nationalGaugesDown: 'River gauges outside the listed floods could not be loaded right now. That is not an all-clear.' It shows on the year tabs too (the map draws today's gauges there), not on Forensic's entry page (no map).",
+      "verified": "Probe with the national route answering 404 (as the real API does today): the line shows in the legend and the list foot (docs/screenshots/brief5-web-flood-overview-gauges-down.png). FloodListPanel.test.ts: shown when unavailable (live and 2026 tabs), absent when available, with the gauges layer off, or on Forensic."
+    },
+    {
+      "id": "WFO-R9",
+      "severity": "minor",
+      "outcome": "skipped",
+      "why": "location/CoordinateStrip.tsx is owned only by integration / final-check ('**' in plan5-roles.json); no edit made. Handed over in notes_for_others and contract5/web-flood-overview.md: say 'No flood open' when hazard is 'flood'."
+    },
+    {
+      "id": "WFO-R10",
+      "severity": "nit",
+      "outcome": "fixed",
+      "what": "styles/flood-overview.css .hz-btn height 22px (22 + 2 x 2 padding + 2 x 1 border = 28).",
+      "verified": "Measured .hz-switch getBoundingClientRect().height = 28 on /?hazard=flood."
+    },
+    {
+      "id": "WFO-R11",
+      "severity": "nit",
+      "outcome": "fixed",
+      "what": "OverviewChrome h1: 'United States' plus a visually hidden ', floods' / ', all fires' that follows the hazard, then the '·' with aria-hidden. Nothing visible changes.",
+      "verified": "h1 textContent 'United States, floods ·' (Floods) / 'United States, all fires ·' (Fires); the dot is aria-hidden, so the accessible name is 'United States, floods'."
+    },
+    {
+      "id": "WFO-R12",
+      "severity": "nit",
+      "outcome": "fixed",
+      "what": "Both: the stub PublicFloodChrome now calls useMapTint('flood') (PLAN-5 4.4), and the as-built note says web-flood-public must keep that call when it replaces the stub.",
+      "verified": "/?flood=fixture-flood: __mapRuntime tintRequest 'flood', tint 'flood'; Command flood and the overview leave it (null)."
+    },
+    {
+      "id": "WFO-R13",
+      "severity": "nit",
+      "outcome": "fixed",
+      "what": "Moved into floodCopy.ts FLOOD_OVERVIEW: PAST_ALERTS (pastAlerts), the point card's titles and 'Checking …' lines, 'Nearest listed floods', the hover texts (hoverOpen, hoverGroup, hoverZoom, hoverCheckSpot, hoverGaugeSource), the LayersPanel flood note and gauge toggle, the list's source and loading lines, and also the tab tips, the phone peek bar and the flood legend's rows and paragraphs. The guard now scans them; rendered text is unchanged.",
+      "verified": "floodCopy.test.ts (guard over every exported string) passes; screenshots show the same words."
+    }
+  ],
+  "files": [
+    "web/src/state/history.ts",
+    "web/src/state/history.test.ts",
+    "web/src/App.tsx",
+    "web/src/state/floodOverview.ts",
+    "web/src/state/floodOverview.test.ts",
+    "web/src/api/__fixtures__/floods/edgeCases.ts",
+    "web/src/ui/public/floodOverviewText.ts",
+    "web/src/ui/public/floodOverviewText.test.ts",
+    "web/src/ui/public/FloodStatus.tsx",
+    "web/src/ui/shell/FloodListPanel.tsx",
+    "web/src/ui/shell/FloodListPanel.test.ts",
+    "web/src/ui/shell/floodCopy.ts",
+    "web/src/ui/shell/OverviewChrome.tsx",
+    "web/src/ui/shell/LayersPanel.tsx",
+    "web/src/ui/shell/PublicFloodChrome.tsx",
+    "web/src/location/FloodPointCard.tsx",
+    "web/src/map/floodController.ts",
+    "web/src/map/floodLayers.ts",
+    "web/src/map/floodGaugeStatus.ts",
+    "web/src/map/FloodLegend.tsx",
+    "web/src/styles/flood-overview.css",
+    "docs/redesign/reports/brief5-web-flood-overview.json",
+    "docs/redesign/contract5/web-flood-overview.md",
+    "docs/redesign/progress/brief5-web-flood-overview.md",
+    "docs/redesign/reports/review5-web-flood-overview.json"
+  ],
+  "screenshots": [
+    "docs/screenshots/brief5-web-flood-overview-public-floods.png",
+    "docs/screenshots/brief5-web-flood-overview-public-floods-details.png",
+    "docs/screenshots/brief5-web-flood-overview-command-floods.png",
+    "docs/screenshots/brief5-web-flood-overview-phone-floods.png",
+    "docs/screenshots/brief5-web-flood-overview-point-card.png",
+    "docs/screenshots/brief5-web-flood-overview-point-card-nearest.png",
+    "docs/screenshots/brief5-web-flood-overview-forensic-entry.png",
+    "docs/screenshots/brief5-web-flood-overview-public-fires.png",
+    "docs/screenshots/brief5-web-flood-overview-missing-flood.png",
+    "docs/screenshots/brief5-web-flood-overview-gauges-down.png",
+    "docs/screenshots/brief5-web-flood-overview-year-archive-down.png"
+  ],
+  "gates": "web: typecheck OK, lint 55 warnings (all src/scene, none added), vitest 113 files / 1469 passed / 2 skipped (pre-existing), build OK; backend: uv run pytest -q 1227 passed (no network).",
+  "known_issues": [
+    "WFO-R9 is left to the integration: the overview readout (location/CoordinateStrip.tsx) still says 'No fire open' in Floods."
+  ],
+  "commits": [
+    "c69c324 work-in-progress snapshot (most fix code)",
+    "e155020 work-in-progress snapshot (fix code, screenshots)",
+    "658805a review fixes (last change, reports, notes)"
+  ]
+}

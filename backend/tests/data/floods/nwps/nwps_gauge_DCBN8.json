@@ -1,0 +1,324 @@
+{
+ "lid": "DCBN8",
+ "usgsId": "05056500",
+ "reachId": "14299883",
+ "name": "Devils Lake near Devils Lake",
+ "description": "",
+ "rfc": {
+  "abbreviation": "NCRFC",
+  "name": "North Central River Forecast Center"
+ },
+ "wfo": {
+  "abbreviation": "FGF",
+  "name": "Grand Forks"
+ },
+ "state": {
+  "abbreviation": "ND",
+  "name": "North Dakota"
+ },
+ "county": "Ramsey",
+ "timeZone": "CST6CDT",
+ "latitude": 48.0994444444444,
+ "longitude": -98.9027777777778,
+ "pedts": {
+  "observed": "HPIRP",
+  "forecast": ""
+ },
+ "status": {
+  "observed": {
+   "primary": 49.93,
+   "primaryUnit": "ft",
+   "secondary": -999,
+   "secondaryUnit": "kcfs",
+   "floodCategory": "major",
+   "validTime": "2026-11-04T21:00:00Z"
+  },
+  "forecast": {
+   "primary": -999,
+   "primaryUnit": "",
+   "secondary": -999,
+   "secondaryUnit": "",
+   "floodCategory": "fcst_not_current",
+   "validTime": "0001-01-01T00:00:00Z"
+  }
+ },
+ "flood": {
+  "stageUnits": "ft",
+  "flowUnits": "cfs",
+  "categories": {
+   "major": {
+    "stage": 0.3,
+    "flow": -9999
+   },
+   "moderate": {
+    "stage": 0.2,
+    "flow": -9999
+   },
+   "minor": {
+    "stage": 0.1,
+    "flow": -9999
+   },
+   "action": {
+    "stage": -9999,
+    "flow": -9999
+   }
+  },
+  "lro": null,
+  "crests": {
+   "historic": [
+    {
+     "occurredTime": "2011-06-27T00:00:00Z",
+     "stage": 54.3,
+     "flow": 0,
+     "preliminary": "R",
+     "olddatum": false
+    },
+    {
+     "occurredTime": "2013-06-25T00:00:00Z",
+     "stage": 54.13,
+     "flow": 0,
+     "preliminary": "O",
+     "olddatum": false
+    },
+    {
+     "occurredTime": "2014-06-28T00:00:00Z",
+     "stage": 53.72,
+     "flow": 0,
+     "preliminary": "O",
+     "olddatum": false
+    },
+    {
+     "occurredTime": "2012-04-16T00:00:00Z",
+     "stage": 53.54,
+     "flow": 0,
+     "preliminary": "O",
+     "olddatum": false
+    },
+    {
+     "occurredTime": "2010-07-26T00:00:00Z",
+     "stage": 52.25,
+     "flow": 0,
+     "preliminary": "O",
+     "olddatum": false
+    },
+    {
+     "occurredTime": "2015-06-07T00:00:00Z",
+     "stage": 51.96,
+     "flow": 0,
+     "preliminary": "O",
+     "olddatum": false
+    },
+    {
+     "occurredTime": "2017-06-10T00:00:00Z",
+     "stage": 51.94,
+     "flow": 0,
+     "preliminary": "O",
+     "olddatum": false
+    },
+    {
+     "occurredTime": "2022-07-22T00:00:00Z",
+     "stage": 51.27,
+     "flow": 0,
+     "preliminary": "O",
+     "olddatum": false
+    }
+   ],
+   "recent": [
+    {
+     "occurredTime": "2024-07-12T00:00:00Z",
+     "stage": 50.35,
+     "flow": 0,
+     "preliminary": "O",
+     "olddatum": false
+    },
+    {
+     "occurredTime": "2023-06-08T00:00:00Z",
+     "stage": 50.87,
+     "flow": 0,
+     "preliminary": "O",
+     "olddatum": false
+    },
+    {
+     "occurredTime": "2022-07-22T00:00:00Z",
+     "stage": 51.27,
+     "flow": 0,
+     "preliminary": "O",
+     "olddatum": false
+    },
+    {
+     "occurredTime": "2021-03-30T00:00:00Z",
+     "stage": 48.62,
+     "flow": 0,
+     "preliminary": "O",
+     "olddatum": false
+    },
+    {
+     "occurredTime": "2020-07-08T00:00:00Z",
+     "stage": 50.33,
+     "flow": 0,
+     "preliminary": "O",
+     "olddatum": false
+    },
+    {
+     "occurredTime": "2019-06-29T00:00:00Z",
+     "stage": 49.36,
+     "flow": 0,
+     "preliminary": "O",
+     "olddatum": false
+    },
+    {
+     "occurredTime": "2018-06-29T00:00:00Z",
+     "stage": 50.46,
+     "flow": 0,
+     "preliminary": "O",
+     "olddatum": false
+    },
+    {
+     "occurredTime": "2017-06-10T00:00:00Z",
+     "stage": 51.94,
+     "flow": 0,
+     "preliminary": "O",
+     "olddatum": false
+    }
+   ]
+  },
+  "lowWaters": {
+   "historic": []
+  },
+  "impacts": [
+   {
+    "stage": 60,
+    "statement": "Top of dike raised to this elevation in 2006 (current dike protection level plus 5.0 feet of freeboard equal top of dike elevation)."
+   },
+   {
+    "stage": 59,
+    "statement": "Prior to January 2010, the height that Devils Lake/Stump Lake spills into Sheyenne River through Tolna Coulee. Combined area of Devils and Stump Lakes would be 450 sq mi."
+   },
+   {
+    "stage": 58,
+    "statement": "Tolna Coulee clean-out height (January 2010)."
+   },
+   {
+    "stage": 56,
+    "statement": "Amtrak service from Grand Forks to Devils Lake affected due to water on track."
+   },
+   {
+    "stage": 55,
+    "statement": "Current dike protection level (2006; without freeboard). Combined area of Devils and Stump Lakes would be 227 sq mi."
+   },
+   {
+    "stage": 54.3,
+    "statement": "**** Record level - June 27, 2011 - USGS Max Daily Average ****"
+   },
+   {
+    "stage": 49.2,
+    "statement": "Drainage problems for Minnewaukan. Ramsey Co. Hwy 2 affected."
+   },
+   {
+    "stage": 49,
+    "statement": "Devils Lake at 213 sq mi."
+   },
+   {
+    "stage": 48.3,
+    "statement": "US Hwy 281 (north of Minnewaukan) closed during high winds."
+   },
+   {
+    "stage": 48,
+    "statement": "Devils Lake at 202 sq mi."
+   },
+   {
+    "stage": 47.2,
+    "statement": "Devils Lake at 195 sq mi."
+   },
+   {
+    "stage": 47.1,
+    "statement": "Devils Lake spilled into Stump Lake (August 1999; previous overflow in the 1820s)."
+   },
+   {
+    "stage": 47,
+    "statement": "Ordinary High Water Mark (OHWM). Devils Lake at 191 sq mi."
+   },
+   {
+    "stage": 46.5,
+    "statement": "Approximate height of Jerusalem Coulee from East Lake to West Stump Lake (surveyed by ND SWC 2021)."
+   },
+   {
+    "stage": 46,
+    "statement": "Minimum level for ND Department of Water Resources pumping operations for both the West and East End Outlets."
+   },
+   {
+    "stage": 38.4,
+    "statement": "Devils Lake at 140 sq mi. First recorded lake level (1867)."
+   },
+   {
+    "stage": 22.4,
+    "statement": "Devils Lake at 68 sq mi (October 1992)."
+   },
+   {
+    "stage": 0.9,
+    "statement": "Devils Lake at 10 sq mi (October 1940)."
+   }
+  ]
+ },
+ "dataAttribution": [
+  {
+   "abbrev": "USGS (05056500)",
+   "text": "USGS Readings",
+   "title": "Observations courtesy of U.S. Geological Survey",
+   "url": "https://waterdata.usgs.gov/monitoring-location/05056500"
+  }
+ ],
+ "impactsLowWaters": [],
+ "normalThreshold": null,
+ "hydronotes": [
+  {
+   "statement": "Stage may be affected by ice during winter months.",
+   "effective": "1101",
+   "expiration": "0401"
+  }
+ ],
+ "datums": {
+  "vertical": {
+   "value": [
+    {
+     "label": "North American Vertical Datum of 1988",
+     "abbrev": "NAVD88",
+     "description": "A fixed reference for elevations determined by geodetic leveling. The datum was derived from a general adjustment of the first-order terrestrial leveling nets of the United States, Canada, and Mexico. In the adjustment, only the height of the primary tidal bench mark, referenced to the International Great Lakes Datum of 1985 (IGLD 85) local mean sea level height value, at Father Point, Rimouski, Quebec, Canada was held fixed, thus providing minimum constraint. NAVD 88 and IGLD 85 are identical. However, NAVD 88 bench mark values are given in Helmert orthometric height units while IGLD 85 values are in dynamic heights. See International Great Lakes Datum of 1985, National Geodetic Vertical Datum of 1929, and geopotential difference. NAVD 88 should not be used as Mean Sea Level.",
+     "value": 1401.33
+    },
+    {
+     "label": "National Geodetic Vertical Datum of 1929",
+     "abbrev": "NGVD29",
+     "description": "A fixed reference adopted as a standard geodetic datum for elevations determined by leveling. The datum was derived for surveys from a general adjustment of the first-order leveling nets of both the United States and Canada. In the adjustment, mean sea level was held fixed as observed at 21 tide stations in the United States and 5 in Canada. The year indicates the time of the general adjustment. A synonym for Sea-level Datum of 1929. The geodetic datum is fixed and does not take into account the changing stands of sea level. Because there are many variables affecting sea level, and because the geodetic datum represents a best fit over a broad area, the relationship between the geodetic datum and local mean sea level is not consistent from one location to another in either time or space. For this reason, the National Geodetic Vertical Datum should not be confused with mean sea level. See North American Vertical Datum of 1988 (NAVD 88). NGVD 29 should not be used as Mean Sea Level. NGVD 29 is no longer supported by NGS.",
+     "value": 1400
+    }
+   ]
+  },
+  "horizontal": {
+   "value": []
+  },
+  "notes": {
+   "value": []
+  }
+ },
+ "inundation": {
+  "enabled": false,
+  "url": "",
+  "zeroDatum": null,
+  "downloads": null,
+  "siteSpecificInfo": "",
+  "dataAttribution": []
+ },
+ "upstreamLid": "CFCN8",
+ "downstreamLid": "ESLN8",
+ "inService": {
+  "enabled": true,
+  "message": ""
+ },
+ "lowThreshold": null,
+ "forecastReliability": "Forecasts are not available. Only observed stages are available for this point.",
+ "TruncateObs": "-1",
+ "TruncateFcst": "7",
+ "ObservedFloodCategory": "major",
+ "ForecastFloodCategory": "fcst_not_current"
+}

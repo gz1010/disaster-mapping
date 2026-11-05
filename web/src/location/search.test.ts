@@ -447,3 +447,18 @@ describe('overviewNearby', () => {
     expect(overviewNearby([], here.lat, here.lon, () => true)).toEqual({ fires: [], active: null, inside: null })
   })
 })
+
+describe('brief 5: flood search (the second hit provider)', () => {
+  it('exact names (with or without "flood"), prefixes, rivers; live floods first', async () => {
+    const { searchFloods } = await import('./search')
+    const { LIST, PAST_FLOOD } = await import('../api/__fixtures__/floods/edgeCases')
+    const pool = [...LIST().floods, PAST_FLOOD()]
+    expect(searchFloods('Ridge Fork River flood', pool)[0]).toMatchObject({ exact: true, flood: { id: 'fixture-flood' } })
+    expect(searchFloods('ridge fork river', pool)[0]).toMatchObject({ exact: true, flood: { id: 'fixture-flood' } })
+    expect(searchFloods('Example Creek', pool)[0]).toMatchObject({ exact: true, flood: { id: 'fixture-flood-flash' } })
+    expect(searchFloods('sample', pool)[0]).toMatchObject({ exact: false, flood: { id: 'fixture-flood-major' } })
+    expect(searchFloods('fixture-flood', pool)[0].exact).toBe(true)
+    expect(searchFloods('nothing like it', pool)).toEqual([])
+    expect(searchFloods('', pool)).toEqual([])
+  })
+})

@@ -1,0 +1,6 @@
+# Flood samples: NWS
+
+Recorded 2026-11-04T22:15:38Z by `backend/scripts/record_test_samples_floods.py` (13 real requests through `fire3d.http`, 13 of them made by an earlier run and read back here from its `--cache-dir`, one at a time, User-Agent "Fire-3d/0.1 test-sample recorder", no key or token). Public domain U.S. Government data (National Weather Service, NOAA National Water Prediction Service); the IEM file is the Iowa Environmental Mesonet's public-domain copy (https://mesonet.agron.iastate.edu/disclaimer.php).
+
+* `nws_flood_active.json`: `https://api.weather.gov/alerts/active?area=AL,AZ,AR,CA,CO,CT,DE,DC,FL,GA,ID,IL,IN,IA,KS,KY,LA,ME,MD,MA,MI,MN,MS,MO,MT,NE,NV,NH,NJ,NM,NY,NC,ND,OH,OK,OR,PA,RI,SC,SD,TN,TX,UT,VT,VA,WA,WV,WI,WY&event=Flood%20Warning,Flash%20Flood%20Warning,Flood%20Watch,Flash%20Flood%20Watch,Flood%20Advisory,Flood%20Statement,Flash%20Flood%20Statement` as recorded (35 products, untrimmed).
+* `nws_products_FLS_TWC.json`: `/products/types/FLS/locations/TWC` (first 10 of `@graph`); `nws_product_6aae63c5-4a6a-48e8-8e6f-c1bc03850a46.json`: `/products/6aae63c5-4a6a-48e8-8e6f-c1bc03850a46` untrimmed (the product of alert `urn:oid:2.49.0.1.840.0.1b813938b52c231f22748fb583c788db044c1d43.001.1`; its H-VTEC NWSLI GLCA3).

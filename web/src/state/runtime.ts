@@ -4,8 +4,11 @@
 // for opening and leaving fires are written by state/history.ts.
 import { useEffect } from 'react'
 import type { Mode } from '../api/types'
+import { useFlood } from './flood'
+import { getSlot } from './floodCatalog'
 import { popoverOpen, rotationKey, runRotationKey } from './rotation'
 import { defaultTimeFor, getTimeBounds, useStore } from './store'
+import { useWorkspace } from './workspace'
 
 const HOUR = 3_600_000
 
@@ -97,6 +100,25 @@ export function useLivePolling({ aircraft = true }: { aircraft?: boolean } = {})
     const t = window.setInterval(() => visible() && void useStore.getState().loadCatalog({ lists: ['live'] }), 5 * 60_000)
     return () => window.clearInterval(t)
   }, [mode, overview])
+}
+
+/** Brief 5 (CONTRACT §16.10): the flood lists load lazily, on the first switch to Floods (or at start with
+ *  ?hazard=flood / ?flood=), then the live list every 5 min while Floods is picked or a flood is open (the backend caches
+ *  it 5 min). The fire start-up is unchanged. Paused while the tab is hidden. */
+export function useFloodPolling(): void {
+  const floods = useWorkspace((s) => s.hazard === 'flood')
+  const open = useFlood((s) => s.floodId != null)
+  const active = floods || open
+  useEffect(() => {
+    if (!active) return
+    const st = useFlood.getState()
+    for (const key of ['live', st.filter] as const) {
+      const slot = getSlot(st.lists, key)
+      if (!slot.response && !slot.loading) void st.loadFloods(key)
+    }
+    const t = window.setInterval(() => visible() && void useFlood.getState().loadFloods('live'), 5 * 60_000)
+    return () => window.clearInterval(t)
+  }, [active])
 }
 
 export interface UrlParams {

@@ -1,5 +1,48 @@
 // Derived values of bundle series at the timeline time (pure functions; safe to call in selectors / render).
+// Brief 5 (CONTRACT §16.10): which event is open, fire or flood (the shell's "no incident = the overview" checks use
+// noEventOpen()), and the area of the open event for the area queries (extras, official answers).
 import type { ForecastManifest, TimeseriesFile, WeatherFile } from '../api/types'
+import { expandBbox, incidentAreaBbox, type BBox } from '../extras/client'
+import { openFloodSummary, useFlood } from './flood'
+import { useStore } from './store'
+
+/** No fire and no flood open: the national overview (either hazard). */
+export function noEventOpen(): boolean {
+  return useStore.getState().incidentId == null && useFlood.getState().floodId == null
+}
+
+/** The open event's kind (a fire wins when both are somehow set: a link with both opens the fire). */
+export function openEventKind(): 'fire' | 'flood' | null {
+  if (useStore.getState().incidentId != null) return 'fire'
+  return useFlood.getState().floodId != null ? 'flood' : null
+}
+
+/** The same for a hook's selector inputs (no store reads inside). */
+export function eventKindOf(incidentId: string | null, floodId: string | null): 'fire' | 'flood' | null {
+  return incidentId != null ? 'fire' : floodId != null ? 'flood' : null
+}
+
+/** The flood's bbox with a 10 % margin on each side (a degenerate box gets 2 km). */
+export function floodArea(b: readonly number[] | null | undefined): BBox | null {
+  if (!b || b.length !== 4 || !b.every(Number.isFinite)) return null
+  const dx = (b[2] - b[0]) * 0.1
+  const dy = (b[3] - b[1]) * 0.1
+  if (dx <= 0 || dy <= 0) return expandBbox([b[0], b[1], b[2], b[3]], 2)
+  return [b[0] - dx, b[1] - dy, b[2] + dx, b[3] + dy]
+}
+
+/** The open event's area: the fire's analysis area (or its reported point ± 10 km), else the open flood's bbox + 10 %;
+ *  null with no event open. `marginKm` widens the fire's area only (as extras/client.ts incidentAreaBbox does). */
+export function currentArea(marginKm = 0): BBox | null {
+  const s = useStore.getState()
+  if (s.incidentId != null) {
+    const summary = s.summary && s.summary.id === s.incidentId ? s.summary : null
+    const manifest = s.manifest?.status === 'ready' && s.manifest.id === s.incidentId ? s.manifest : null
+    return incidentAreaBbox(summary, manifest, marginKm)
+  }
+  const f = openFloodSummary(useFlood.getState())
+  return f ? floodArea(f.bbox_lonlat) : null
+}
 
 const HOUR = 3_600_000
 

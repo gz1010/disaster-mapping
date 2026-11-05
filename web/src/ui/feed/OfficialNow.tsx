@@ -44,10 +44,11 @@ import { fmtAt, localYear, recordYearMode, zoneAbbr, zoneLine } from '../../lib/
 import { useTimeFormat, useZoneSource } from '../../state/timeZone'
 import { useWorkspace } from '../../state/workspace'
 import { useNow } from '../hooks'
-import { NOT_ALL_CLEAR } from '../shell/fixedCopy'
+import { NOT_ALL_CLEAR } from '../shell/fixedCopyText'
 import { NOT_AN_ORDER } from './feedMeta'
 
-function SourceLink({ href, children }: { href: string | null | undefined; children: ReactNode }) {
+/** A source link with its outward arrow (exported for the flood rows, brief 5; no behaviour change). */
+export function SourceLink({ href, children }: { href: string | null | undefined; children: ReactNode }) {
   if (!href) return null
   return (
     <a className="on-link" href={href} target="_blank" rel="noreferrer noopener">
@@ -63,7 +64,7 @@ type Tone = 'alert' | 'quiet' | 'muted' | 'info'
 export type OfficialNowVariant = 'panel' | 'command'
 const RowsVariant = createContext<OfficialNowVariant>('panel')
 
-interface RowProps {
+export interface RowProps {
   icon: ReactNode
   label: string
   source: string | null
@@ -81,7 +82,8 @@ interface RowProps {
   startOpen?: boolean
 }
 
-function Row(p: RowProps) {
+/** One row of "Official now" (exported for the flood rows, brief 5; no behaviour change). */
+export function Row(p: RowProps) {
   const variant = useContext(RowsVariant)
   return variant === 'command' ? <CommandRow {...p} /> : <PanelRow {...p} />
 }
@@ -710,6 +712,11 @@ export function LocalAlertsRow({ l: answer, wallMs, refMs }: { l: LocalAlertsOff
       {pending}
     </Row>
   )
+}
+
+/** Rows drawn as Command's one-line rows (the flood view's "Official now", brief 5). */
+export function CommandRows({ children }: { children: ReactNode }) {
+  return <RowsVariant.Provider value="command">{children}</RowsVariant.Provider>
 }
 
 /** Command's foot (decision i-8): the model is not an order, and not an all-clear: "Fire-3d's modeled spread is

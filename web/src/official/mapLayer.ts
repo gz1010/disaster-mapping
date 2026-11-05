@@ -13,7 +13,9 @@ import { LayerGroupHandle, type BeforeId, type LayerGroup } from '../extras/mapL
 import { useExtrasRuntime } from '../extras/runtime'
 import type { EvacuationsResponse } from '../extras/types'
 import { isPastForCurrentSources } from '../extras/client'
+import { useFlood } from '../state/flood'
 import { nowMarkerMs, useStore } from '../state/store'
+import { useWorkspace } from '../state/workspace'
 import { fireWeatherDisplayData } from './fireWeather'
 import { forIncident } from './guard'
 import { FW_LINE, FW_OPACITY, OFFICIAL_COLORS } from './style'
@@ -244,6 +246,13 @@ export function mountOfficialLayers(map: MapLibreMap, opts: OfficialLayerOptions
     useStore.subscribe((s, p) => {
       // the replay time moves which alerts are in effect: re-check when the hour changes or the incident switches
       if (s.incidentId !== p.incidentId || Math.floor(s.timeMs / 3_600_000) !== Math.floor(p.timeMs / 3_600_000)) sync()
+    }),
+    // brief 5: no Red Flag outlines while Floods is picked or a flood is open (fireWeatherDataNow answers null then)
+    useWorkspace.subscribe((s, p) => {
+      if (s.hazard !== p.hazard) sync()
+    }),
+    useFlood.subscribe((s, p) => {
+      if (s.floodId !== p.floodId) sync()
     }),
   ]
   // live alerts expire as the clock moves on

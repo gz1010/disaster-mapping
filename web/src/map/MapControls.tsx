@@ -20,6 +20,7 @@ import { createPortal } from 'react-dom'
 import { headingLabel, isRotated } from '../lib/compass'
 import { controlsShift, useSearchUi } from '../location/searchUi'
 import { useNarrow } from '../location/useNarrow'
+import { useFlood } from '../state/flood'
 import { ROTATE_STEP_DEG } from '../state/rotation'
 import { useStore } from '../state/store'
 import { useWorkspace, type Basemap, type PanelKey, type Perspective } from '../state/workspace'
@@ -317,11 +318,32 @@ function BasemapMenu({ up = false }: { up?: boolean }) {
   )
 }
 
-/** "Incident" (the fire, then its modeled area) / "All states". */
+/** "Incident" (the fire, then its modeled area) / "All states"; brief 5: "Flood" frames the open flood. */
 function FrameButton({ narrow }: { narrow: boolean }) {
   const actions = useMapRuntime((s) => s.actions)
   const framedKind = useMapRuntime((s) => s.framedKind)
   const hasIncident = useStore((s) => s.incidentId != null)
+  const hasFlood = useFlood((s) => s.floodId != null)
+  if (hasFlood && !hasIncident)
+    return (
+      <button
+        type="button"
+        className="mw-btn fxm-return"
+        aria-label="Frame the flood"
+        data-tip="Frame the flood (its NWS products and river gauges)"
+        disabled={!actions}
+        onClick={() => {
+          if (narrow) {
+            const ws = useWorkspace.getState()
+            for (const k of SHEETS) if (ws.panels[k]) ws.setPanel(k, false)
+          }
+          actions?.frameFlood()
+        }}
+      >
+        <Crosshair size={14} aria-hidden="true" />
+        <span>Flood</span>
+      </button>
+    )
   // inside a fire the button toggles: the fire, then (pressed again while still framed on it) the modeled area
   const nextArea = hasIncident && framedKind === 'fire'
   const frameLabel = !hasIncident ? 'Show all of the lower 48 states' : nextArea ? 'Show the whole modeled area' : 'Frame the fire'

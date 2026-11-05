@@ -18,7 +18,11 @@ import { ImageryLayerSummary, ImageryPanel } from '../../extras/ImageryPanel'
 import { useExtrasRuntime } from '../../extras/runtime'
 import { fmtAt } from '../../lib/time'
 import { useTimeFormat } from '../../state/timeZone'
+import { FloodLegend } from '../../map/FloodLegend'
+import { nationalGaugesDown, useNationalGauges } from '../../map/floodGaugeStatus'
+import { FLOOD_OVERVIEW } from './floodCopy'
 import { MapLegend } from '../../map/MapLegend'
+import { useFlood } from '../../state/flood'
 import { fitOfficialBounds } from '../../official/select'
 import { BASEMAP_LABEL } from '../../map/providers'
 import { useStore } from '../../state/store'
@@ -217,6 +221,12 @@ export function LayersPanel() {
   const units = useWorkspace((s) => s.units)
   const command = useWorkspace((s) => s.preset === 'command')
   const overview = useStore((s) => s.incidentId == null)
+  // brief 5: Floods picked or a flood open (no fire): the flood legend and the flood layers
+  const floods = useWorkspace((s) => s.hazard === 'flood')
+  const floodOpen = useFlood((s) => s.floodId != null)
+  const floodMode = overview && (floods || floodOpen)
+  const gaugesOn = useFlood((s) => s.layers.gauges)
+  const nationalDown = useNationalGauges(nationalGaugesDown)
   // the Public fire view (decision a): no model or estimate toggles here
   const fireView = !command && !overview
   const changed = useWorkspace((s) => (Object.keys(DEFAULT_MAP_LAYERS) as MapLayerKey[]).some((k) => s.mapLayers[k] !== DEFAULT_MAP_LAYERS[k]))
@@ -255,12 +265,26 @@ export function LayersPanel() {
         </Section>
         {(narrow || overviewLegendHere) && (
           <Section title="Legend">
-            <div className="mw-legend-inline">
-              <MapLegend />
-            </div>
+            <div className="mw-legend-inline">{floodMode ? <FloodLegend variant="panel" /> : <MapLegend />}</div>
           </Section>
         )}
-        {overview ? (
+        {floodMode ? (
+          <Section title="Flood layers">
+            <ul className="mw-check-list">
+              <li>
+                <label className="mw-check-row">
+                  <input type="checkbox" checked={gaugesOn} onChange={(e) => useFlood.getState().setFloodLayer('gauges', e.target.checked)} />
+                  <span className="mw-check-text">
+                    <span className="mw-check-label">{FLOOD_OVERVIEW.layersGauges}</span>
+                    <span className="mw-check-desc">{FLOOD_OVERVIEW.layersGaugesDesc}</span>
+                  </span>
+                </label>
+              </li>
+            </ul>
+            {gaugesOn && nationalDown && <p className="mw-set-note fxo-gauges-down">{FLOOD_OVERVIEW.nationalGaugesDown}</p>}
+            <p className="mw-set-note">{FLOOD_OVERVIEW.layersNote}</p>
+          </Section>
+        ) : overview ? (
           <Section title="Fire layers">
             <p className="mw-set-note">Open a fire to choose its map layers, official sources and forecast run. The overview shows CAL FIRE's official records only.</p>
           </Section>
@@ -314,7 +338,7 @@ export function LayersPanel() {
             workspace with the charts, replay, {command ? 'hindcasts' : 'model re-runs on past weather'} and forecast controls.
           </p>
           <button type="button" className="mw-btn is-sm" onClick={() => switchWorkspace('forensic')}>
-            <Box size={13} /> {overview ? 'Open Forensic (pick a fire there)' : 'Open Forensic workspace'}
+            <Box size={13} /> {floodMode ? 'Open Forensic (pick a flood there)' : overview ? 'Open Forensic (pick a fire there)' : 'Open Forensic workspace'}
           </button>
         </Section>
       </div>

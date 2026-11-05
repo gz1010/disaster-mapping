@@ -56,6 +56,9 @@ import { attachRotateGesture } from '../lib/rotateGesture'
 import { fmtAt, timeFmt, type TimeFmt } from '../lib/time'
 import { mountOfficialLayers, type OfficialLayersHandle } from '../official/mapLayer'
 import { useAnnotations } from '../state/annotations'
+import { openFloodSummary, pickFlood, useFlood } from '../state/flood'
+import { isCrossingHazard } from '../state/floodNav'
+import { noEventOpen } from '../state/selectors'
 import { openFireView, opensFireView, pickFire } from '../state/fireCard'
 import { findFire, overviewFires, PAST_YEAR, SEASON_YEAR, type OverviewCatalog } from '../state/overview'
 import { registerRotation } from '../state/rotation'
@@ -69,8 +72,9 @@ import { aerialTintPaint, BUILDINGS_3D_LAYER, DARK, HILLSHADE_SOURCE, IMAGERY_LA
 import { maskGeometry } from './contours'
 import { MapInput } from './userInput'
 import { allFocusCandidates, CENTRAL_FRACTION, chipTargets, FocusHold, focusUnlessHeld, FOCUS_DEBOUNCE_MS, FOCUS_OUT_ZOOM, type FocusCurrent, type FocusView } from './focus'
-import { boundsCenter, Framing, goalFor, latestPerimeter, LOWER48_BOUNDS, LOWER48_START, mapCovered, zoomForBounds, type CameraPose, type FrameGoal } from './framing'
+import { boundsCenter, floodGoalFor, floodTarget, Framing, goalFor, isFloodTarget, latestPerimeter, LOWER48_BOUNDS, LOWER48_START, mapCovered, zoomForBounds, type CameraPose, type FrameGoal } from './framing'
 import { mapProfileOf, newestPerimeter, profileLayers, type MapProfile } from './fireProfile'
+import { floodMapMode, mountFloodLayers, type FloodLayersHandle } from './floodController'
 import { drapedLayers, HATCH_IMAGE, hatchImage, incidentLabelField, LAYER_GROUPS, LYR, SRC, topLayers, type MapTheme } from './layers'
 import { recordHoverLines, zoneHoverLines } from './hoverText'
 import { fmtLatLon, SelectionPin } from './markers'
@@ -251,6 +255,10 @@ export class MapController {
   private readonly extras: ExtrasLayers
   /** Official layers (NWS fire weather outlines, highlight of a selected official item; I6). */
   private readonly official: OfficialLayersHandle
+  /** Brief 5: the flood markers, groups and river gauges (map/floodController.ts). */
+  private readonly floods: FloodLayersHandle
+  /** Brief 5: the fire overview markers are drawn (false while Floods is picked or a flood is open); null = not applied. */
+  private fireOverviewShown: boolean | null = null
   /** Opening camera (map/framing.ts). */
   private readonly framing: Framing
   /** True while issueFit runs: moveends fired inside it belong to the moves it interrupts (or its own instant jump). */
@@ -321,7 +329,9 @@ export class MapController {
     this.popup = new Popup({ closeButton: false, closeOnClick: false, className: 'fxm-popup', maxWidth: '300px', offset: 12 })
     this.flyNonce = ws.mapFlyTo?.nonce ?? 0
     this.localNonce = st.flyTo?.nonce ?? 0
-    this.framing = new Framing({ incidentId: st.incidentId, restoredView: v != null, urlIncident: typeof window !== 'undefined' ? readUrlParams().incident : null })
+    // brief 5: an open flood is the target 'flood:<id>' (a fire wins when both are set)
+    const fl = useFlood.getState().floodId
+    this.framing = new Framing({ incidentId: st.incidentId ?? (fl != null ? floodTarget(fl) : null), restoredView: v != null, urlIncident: typeof window !== 'undefined' ? readUrlParams().incident : null })
     useMapRuntime.setState({ map: this.map, overlays: EMPTY_OVERLAYS, aoiInView: null, terrainOn: false, actions: this.actions(), framing: this.framing.phase, framedKind: null, fireBounds: null })
 
     this.bindMapEvents()
@@ -331,6 +341,8 @@ export class MapController {
     this.extras = bindExtrasLayers(this.map)
     // NWS outlines below the evacuation zones and fire layers; their labels and the highlight below map-core's top layers
     this.official = mountOfficialLayers(this.map, { beforeId: [EVAC_LAYERS.tint, ...drapedLayers().map((l) => l.id)], topBeforeId: topLayers().map((l) => l.id) })
+    // brief 5: flood markers and gauges above the fire overview's, below map-core's top layers
+    this.floods = mountFloodLayers(this.map, { topBeforeId: topLayers().map((l) => l.id) })
     // the safe area is the map's persistent padding: centring and framing use the visible part of the map
     this.applySafeInsets(false)
     void this.applyBasemap(ws.basemap)
@@ -357,6 +369,7 @@ export class MapController {
     this.popup.remove()
     this.pin.remove()
     this.official.remove()
+    this.floods.remove()
     this.extras.destroy()
     this.map.remove()
     useMapRuntime.setState({ map: null, camera: null, terrainOn: false, aoiInView: null, actions: null, framing: 'idle', framedKind: null, fireBounds: null, viewBox: null })
@@ -367,7 +380,7 @@ export class MapController {
     this.flyNonce = req.nonce
     // a requested target is the user's choice: data arriving later keeps it
     this.framing.explicit()
-    if (useStore.getState().incidentId == null) this.overviewFireFly = true
+    if (noEventOpen()) this.overviewFireFly = true
     // showing an official area (an evacuation zone, an NWS alert's zones) never changes the open fire, even when the
     // area touches another prepared fire: the focus rule waits for the user's next move
     this.focusHold.flight(req.source)
@@ -395,6 +408,11 @@ export class MapController {
           this.placeScreenLabels()
         }
         if (s.fireCardId !== p.fireCardId) this.updateFireCardRing()
+        // brief 5: Floods hides the fire markers and chips and stops the zoom focus
+        if (s.hazard !== p.hazard) {
+          this.applyOverviewState()
+          this.scheduleFocus()
+        }
         if (s.overviewFilter !== p.overviewFilter || s.units !== p.units) {
           this.updateOverview()
           // another set of fires may be in view: focus and outlines follow it
@@ -420,8 +438,10 @@ export class MapController {
           const fromMap = s.incidentSource === 'zoom'
           this.focusAsked = undefined
           this.focusHold.release()
-          this.framing.setTarget(s.incidentId, { keepCamera: fromMap })
-          if (s.incidentId == null) this.overviewFireFly = false
+          // a fire closed on the way to a flood (brief 5): the flood's own subscription below sets the target, so the
+          // camera does not start towards the overview first
+          if (!(s.incidentId == null && isCrossingHazard())) this.framing.setTarget(s.incidentId, { keepCamera: fromMap })
+          if (s.incidentId == null && useFlood.getState().floodId == null) this.overviewFireFly = false
           this.feed.clear()
           this.resetRasterWait()
           if (useMapRuntime.getState().fireBounds) useMapRuntime.setState({ fireBounds: null })
@@ -446,6 +466,21 @@ export class MapController {
           this.scheduleFocus()
         }
         if (newIncident || manifestChanged || s.summary !== p.summary || s.incidentLoading !== p.incidentLoading || s.perimeters !== p.perimeters) this.offerGoal(true)
+      }),
+    )
+    // brief 5: an open flood is framed like a fire (one flight when its summary is in; Back to the overview restores
+    // the overview as the user left it)
+    this.unsubs.push(
+      useFlood.subscribe((s, p) => {
+        if (s.floodId !== p.floodId) {
+          this.focusHold.release()
+          if (s.floodId != null) this.framing.setTarget(floodTarget(s.floodId))
+          // a flood closed on the way to a fire: the fire's subscription sets the target
+          else if (!isCrossingHazard() && useStore.getState().incidentId == null) this.framing.setTarget(null)
+          if (s.floodId == null && useStore.getState().incidentId == null) this.overviewFireFly = false
+          this.applyOverviewState()
+          this.offerGoal(true)
+        } else if (s.summary !== p.summary) this.offerGoal(true)
       }),
     )
     this.unsubs.push(
@@ -537,6 +572,9 @@ export class MapController {
     this.narrowLabels = width < NARROW_PX
     for (const layer of overviewLayers(theme, { narrow: this.narrowLabels })) map.addLayer(layer)
     for (const layer of topLayers(theme, useWorkspace.getState().preset)) map.addLayer(layer)
+    // brief 5: the flood layers, re-added from their cached data
+    this.fireOverviewShown = null
+    this.floods.restyle(theme)
     this.aoiFilterKey = '' // the new label layer has no filter yet
     this.shownLayers = null
     this.shownProfile = null
@@ -692,6 +730,12 @@ export class MapController {
       this.overviewDim = dim
       for (const [id, props] of Object.entries(overviewPaint(dim))) if (map.getLayer(id)) for (const [k, v] of Object.entries(props)) map.setPaintProperty(id, k, v)
     }
+    // brief 5: no fire marker, group, label or chip while Floods is picked or a flood is open
+    const fireShown = !floodMapMode()
+    if (fireShown !== this.fireOverviewShown) {
+      this.fireOverviewShown = fireShown
+      for (const l of overviewLayers(this.theme())) if (map.getLayer(l.id)) map.setLayoutProperty(l.id, 'visibility', fireShown ? 'visible' : 'none')
+    }
   }
 
   /** The overview's MapLibre labels leave out the fires the leader-line overlay names (brief 4 H3, decision e). */
@@ -816,6 +860,12 @@ export class MapController {
   /** What the opening camera should frame now (null while the data is not ready). */
   private goal(): FrameGoal | null {
     const s = useStore.getState()
+    // brief 5: an open flood's goal is its bbox (no bundle needed)
+    if (isFloodTarget(this.framing.target)) {
+      const f = useFlood.getState()
+      const sum = openFloodSummary(f)
+      return sum && this.framing.target === floodTarget(f.floodId ?? '') ? floodGoalFor(sum) : null
+    }
     return goalFor({
       target: this.framing.target,
       incidentId: s.incidentId,
@@ -992,7 +1042,7 @@ export class MapController {
     // the national overview keeps the map where it is when its panels come and go (brief 4, Main.dc.html: "Show
     // details", a location card): the point at the middle of the new free area stays under the same pixel, so nothing
     // on the map moves; the padding still applies to the next framing ("All states", a search)
-    if (!settling && useStore.getState().incidentId == null) {
+    if (!settling && noEventOpen()) {
       const c = this.map.getContainer()
       const center = this.map.unproject([(c.clientWidth + padding.left - padding.right) / 2, (c.clientHeight + padding.top - padding.bottom) / 2])
       this.input.ours(() => this.map.jumpTo({ center, padding }))
@@ -1058,7 +1108,7 @@ export class MapController {
     // hold, and on the overview it is the user's view (not a fly to a fire)
     if (user) {
       this.focusHold.release()
-      if (useStore.getState().incidentId == null) this.overviewFireFly = false
+      if (noEventOpen()) this.overviewFireFly = false
     }
     this.afterMove(byUser)
   }
@@ -1080,7 +1130,7 @@ export class MapController {
       useWorkspace.getState().setView({ centerLon: p.lon, centerLat: p.lat, zoom: p.zoom, bearing: p.bearing, pitch: p.pitch })
       // the overview view Back returns to: never one zoomed in far enough to focus a fire again (Public has no zoom
       // focus: any zoom the user left, brief 4)
-      if (useStore.getState().incidentId == null && !this.overviewFireFly && (p.zoom < FOCUS_OUT_ZOOM || useWorkspace.getState().preset === 'public')) this.overviewView = { lon: p.lon, lat: p.lat, zoom: p.zoom }
+      if (noEventOpen() && !this.overviewFireFly && (p.zoom < FOCUS_OUT_ZOOM || useWorkspace.getState().preset === 'public')) this.overviewView = { lon: p.lon, lat: p.lat, zoom: p.zoom }
       this.scheduleFocus()
     }
     this.updateCamera()
@@ -1165,6 +1215,19 @@ export class MapController {
     if (this.destroyed || this.map.isMoving() || this.input.active) return
     const phase = this.framing.phase
     if (phase === 'waiting' || phase === 'flying') return
+    // brief 5: in Floods (or a flood open) no fire focus, chips or other fires' outlines
+    if (floodMapMode()) {
+      if (this.chipIds.length) {
+        this.chipIds = []
+        this.applyOverviewState()
+      }
+      if (this.nearbyList.length) {
+        this.nearbyList = []
+        this.markDirty('vectors')
+      }
+      this.keepShownFocus()
+      return
+    }
     const v = this.focusView()
     this.updateNearby(v)
     const st = useStore.getState()
@@ -1223,6 +1286,7 @@ export class MapController {
       frameFire: () => this.frameRequest('fire'),
       frameArea: () => this.frameRequest('area'),
       frameOverview: () => this.frameRequest('overview'),
+      frameFlood: () => this.frameRequest('flood'),
       rotateBy: (deg) => {
         if (!Number.isFinite(deg)) return
         // a press while the previous turn still runs continues from that turn's end
@@ -1323,6 +1387,7 @@ export class MapController {
 
   private requestGoal(kind: FrameGoal['kind']): FrameGoal | null {
     if (kind === 'overview') return { key: 'overview:request', kind: 'overview', provisional: false, bounds: LOWER48_BOUNDS }
+    if (kind === 'flood') return floodGoalFor(openFloodSummary(useFlood.getState()), 'request')
     const s = useStore.getState()
     const id = s.incidentId
     if (id == null) return null
@@ -1390,7 +1455,7 @@ export class MapController {
       this.rotGoal = null
       this.focusHold.release()
       this.framing.userGesture()
-      if (useStore.getState().incidentId == null) this.overviewFireFly = false
+      if (noEventOpen()) this.overviewFireFly = false
       this.publishFraming()
     })
     map.on('moveend', (e: { originalEvent?: unknown }) => this.onMoveEnd(e.originalEvent != null))
@@ -1519,6 +1584,8 @@ export class MapController {
     // a camera icon opens that camera (extras/cameras.ts handles the click); it never selects a location
     const camLayers = present(EXTRAS_HOVER_LAYERS.cameras)
     if (camLayers.length && map.queryRenderedFeatures(e.point, { layers: camLayers }).length) return
+    // brief 5: in Floods a flood marker opens its view for the preset (D14), a group zooms in, a gauge checks its spot
+    if (floodMapMode() && this.floodClick(e)) return
     // an unprepared fire's chip, or another fire's perimeter outline: its card (I3), no camera move, never a build;
     // Public opens that fire's view (brief 4 decision b)
     const cardId = this.cardTargetAt(e.point)
@@ -1566,6 +1633,30 @@ export class MapController {
     ws.selectLocation({ lat: e.lngLat.lat, lon: e.lngLat.lng, source: 'click' })
   }
 
+  /** A click on the flood layers (brief 5); true when it meant something there. */
+  private floodClick(e: MapMouseEvent): boolean {
+    const h = this.floods.hit(e.point)
+    if (!h) return false
+    this.input.consumeClick()
+    if (h.kind === 'flood') {
+      if (h.id !== useFlood.getState().floodId) pickFlood(h.id, 'marker')
+      return true
+    }
+    if (h.kind === 'group') {
+      useWorkspace.getState().setOverviewShowAll(false)
+      this.framing.explicit()
+      this.focusHold.release()
+      this.publishFraming()
+      this.floods.zoomToGroup(h, (center, zoom) => {
+        if (!this.destroyed) this.input.ours(() => this.map.easeTo({ center, zoom, duration: motionMs(700) }))
+      })
+      return true
+    }
+    const at = h.lngLat ?? [e.lngLat.lng, e.lngLat.lat]
+    useWorkspace.getState().selectLocation({ lat: at[1], lon: at[0], source: 'click' })
+    return true
+  }
+
   private hideHover(): void {
     this.popup.remove()
     this.map.getCanvas().style.cursor = ''
@@ -1579,6 +1670,22 @@ export class MapController {
       const p = this.lastHover
       if (!p || this.destroyed || !this.styleReady) return
       const map = this.map
+      // brief 5: a flood, a group of floods or a river gauge under the pointer
+      const fl = floodMapMode() ? this.floods.hoverLines([p.x, p.y]) : null
+      if (fl) {
+        const el = document.createElement('div')
+        el.className = 'fxm-tip'
+        for (const l of fl.lines) {
+          const d = document.createElement('div')
+          if (l.cls) d.className = l.cls
+          d.textContent = l.text
+          el.append(d)
+        }
+        map.getCanvas().style.cursor = fl.clickable ? 'pointer' : ''
+        this.popup.setDOMContent(el).setLngLat(map.unproject([p.x, p.y]))
+        if (!this.popup.isOpen()) this.popup.addTo(map)
+        return
+      }
       const cams = EXTRAS_HOVER_LAYERS.cameras
       const zones = EXTRAS_HOVER_LAYERS.zones
       const fires = OVERVIEW_HIT_LAYERS

@@ -1,0 +1,98 @@
+{
+ "@context": {
+  "@version": "1.1",
+  "@vocab": "https://api.weather.gov/ontology#"
+ },
+ "@graph": [
+  {
+   "@id": "https://api.weather.gov/products/6aae63c5-4a6a-48e8-8e6f-c1bc03850a46",
+   "id": "6aae63c5-4a6a-48e8-8e6f-c1bc03850a46",
+   "wmoCollectiveId": "WGUS85",
+   "issuingOffice": "KTWC",
+   "issuanceTime": "2026-11-04T18:33:00+00:00",
+   "productCode": "FLS",
+   "productName": "Flood Statement"
+  },
+  {
+   "@id": "https://api.weather.gov/products/3e089755-1b68-4a41-bbc6-ff8ee149f9a9",
+   "id": "3e089755-1b68-4a41-bbc6-ff8ee149f9a9",
+   "wmoCollectiveId": "WGUS85",
+   "issuingOffice": "KTWC",
+   "issuanceTime": "2026-11-04T18:26:00+00:00",
+   "productCode": "FLS",
+   "productName": "Flood Statement"
+  },
+  {
+   "@id": "https://api.weather.gov/products/fab8b3f8-bb90-4fd3-8bbb-f9e58aa25db9",
+   "id": "fab8b3f8-bb90-4fd3-8bbb-f9e58aa25db9",
+   "wmoCollectiveId": "WGUS85",
+   "issuingOffice": "KTWC",
+   "issuanceTime": "2026-11-04T18:23:00+00:00",
+   "productCode": "FLS",
+   "productName": "Flood Statement"
+  },
+  {
+   "@id": "https://api.weather.gov/products/0d5ee213-d797-43f6-82b8-8349fe3acdda",
+   "id": "0d5ee213-d797-43f6-82b8-8349fe3acdda",
+   "wmoCollectiveId": "WGUS85",
+   "issuingOffice": "KTWC",
+   "issuanceTime": "2026-11-04T18:10:00+00:00",
+   "productCode": "FLS",
+   "productName": "Flood Statement"
+  },
+  {
+   "@id": "https://api.weather.gov/products/4245aaa9-c034-4357-a3d1-697bc74c7c2c",
+   "id": "4245aaa9-c034-4357-a3d1-697bc74c7c2c",
+   "wmoCollectiveId": "WGUS85",
+   "issuingOffice": "KTWC",
+   "issuanceTime": "2026-11-04T05:42:00+00:00",
+   "productCode": "FLS",
+   "productName": "Flood Statement"
+  },
+  {
+   "@id": "https://api.weather.gov/products/abd7dc27-6eb7-4bb4-a743-efa9bc59303f",
+   "id": "abd7dc27-6eb7-4bb4-a743-efa9bc59303f",
+   "wmoCollectiveId": "WGUS85",
+   "issuingOffice": "KTWC",
+   "issuanceTime": "2026-11-04T03:33:00+00:00",
+   "productCode": "FLS",
+   "productName": "Flood Statement"
+  },
+  {
+   "@id": "https://api.weather.gov/products/e6654ece-0e01-4b3d-9d19-3ae0fb29afab",
+   "id": "e6654ece-0e01-4b3d-9d19-3ae0fb29afab",
+   "wmoCollectiveId": "WGUS85",
+   "issuingOffice": "KTWC",
+   "issuanceTime": "2026-11-04T00:39:00+00:00",
+   "productCode": "FLS",
+   "productName": "Flood Statement"
+  },
+  {
+   "@id": "https://api.weather.gov/products/1a0587bc-b125-4338-87c1-d7c457eeb709",
+   "id": "1a0587bc-b125-4338-87c1-d7c457eeb709",
+   "wmoCollectiveId": "WGUS85",
+   "issuingOffice": "KTWC",
+   "issuanceTime": "2026-11-03T17:26:00+00:00",
+   "productCode": "FLS",
+   "productName": "Flood Statement"
+  },
+  {
+   "@id": "https://api.weather.gov/products/330def16-9912-4efa-a823-c613994f8b55",
+   "id": "330def16-9912-4efa-a823-c613994f8b55",
+   "wmoCollectiveId": "WGUS85",
+   "issuingOffice": "KTWC",
+   "issuanceTime": "2026-11-03T17:19:00+00:00",
+   "productCode": "FLS",
+   "productName": "Flood Statement"
+  },
+  {
+   "@id": "https://api.weather.gov/products/af027f5b-154c-49d9-97d9-ef68d0b78a7d",
+   "id": "af027f5b-154c-49d9-97d9-ef68d0b78a7d",
+   "wmoCollectiveId": "WGUS85",
+   "issuingOffice": "KTWC",
+   "issuanceTime": "2026-11-03T17:11:00+00:00",
+   "productCode": "FLS",
+   "productName": "Flood Statement"
+  }
+ ]
+}

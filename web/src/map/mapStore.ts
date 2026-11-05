@@ -69,6 +69,8 @@ export interface MapActions {
   frameArea(): void
   /** Frame the lower 48 (the overview). */
   frameOverview(): void
+  /** Brief 5: frame the open flood (its bbox_lonlat, else its point at z11). */
+  frameFlood(): void
   /** Rotate by `deg` (clockwise), tilt by `deg` (3D), straight down (3D, terrain kept), north up. */
   rotateBy(deg: number): void
   tiltBy(deg: number): void

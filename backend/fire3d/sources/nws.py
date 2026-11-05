@@ -17,6 +17,13 @@ weather events at sample points, ``json/vtec_event.py`` gives each event's per-z
 ``geojson/vtec_event.py`` its zone polygons. NWS keeps no archive itself (it answers an empty list for past dates), so
 an archive failure is an error for the caller ("not available for past dates"), never "no alerts".
 
+Floods (brief 5, CONTRACT 16.8; fire defaults keep every fire answer byte-for-byte the same): :func:`flood_active` is a
+second cached national request for the flood products (:data:`FLOOD_EVENTS`, same limiter, 2 min) normalised by
+``normalize_alert(feature, family="flood")``; :func:`product_hvtec` reads a river product's H-VTEC line (its gauge)
+from the product text, per flood on demand, cached for good; ``local_in_scope(..., hazard="flood")`` keeps the Civil
+Emergency Messages and Local Area Emergencies that mention flood, water, levees or dams; ``bypoint_events(...,
+phenomena=FLOOD_PHENOMENA)`` groups archived flood events; :data:`EVENT_LABELS` names every (phenomena, significance).
+
 Wording (event names, headlines, descriptions, instructions, the issuer's name) is passed through verbatim; the
 operator's ``sender`` address of a local message is never read into an answer. Archived text is the
 segment for the zone in question of the latest statement issued by the requested time; archived times are the
@@ -56,6 +63,18 @@ NWS_WEB = "https://www.weather.gov"
 FIRE_EVENTS = ("Red Flag Warning", "Fire Weather Watch")
 FIRE_PHENOMENA = "FW"                                   # VTEC: FW.W Red Flag Warning, FW.A Fire Weather Watch
 EVENT_BY_SIGNIFICANCE = {"W": "Red Flag Warning", "A": "Fire Weather Watch"}
+# Brief 5 (CONTRACT 16.8): inland flood products only (coastal CF and lakeshore LS are out, PLAN-5 D1)
+FLOOD_EVENTS = ("Flood Warning", "Flash Flood Warning", "Flood Watch", "Flash Flood Watch", "Flood Advisory",
+                "Flood Statement", "Flash Flood Statement")
+FLOOD_PHENOMENA = ("FL", "FA", "FF")
+# NWS event name of each VTEC (phenomena, significance) Fire-3d reads (archive labels)
+EVENT_LABELS: dict[tuple[str, str], str] = {
+    ("FW", "W"): "Red Flag Warning", ("FW", "A"): "Fire Weather Watch",
+    ("FL", "W"): "Flood Warning", ("FL", "Y"): "Flood Advisory", ("FL", "A"): "Flood Watch",
+    ("FA", "W"): "Flood Warning", ("FA", "Y"): "Flood Advisory", ("FA", "A"): "Flood Watch",
+    ("FF", "W"): "Flash Flood Warning", ("FF", "A"): "Flash Flood Watch",
+}
+PRODUCT_LIST_TTL_S = 300.0
 ALERTS_TTL_S = 120.0
 ZONE_TTL_S = 30 * 86400.0
 ZONE_MISS_TTL_S = 3600.0
@@ -116,12 +135,18 @@ _details_lock = threading.Lock()
 _details: dict[tuple, tuple[float, "EventDetail"]] = {}
 
 
+_hvtec_lock = threading.Lock()
+_hvtec: dict[tuple[str, str], "dict | None"] = {}
+
+
 def reset_state() -> None:
     """Forget the in-memory caches (tests)."""
     with _zones_lock:
         _zones.clear()
     with _details_lock:
         _details.clear()
+    with _hvtec_lock:
+        _hvtec.clear()
 
 
 # ----------------------------------------------------------------------------------------------------------------
@@ -399,9 +424,14 @@ def zones_collection(zones: dict[str, dict], tol_deg: float = SIMPLIFY_DEG) -> d
 # ----------------------------------------------------------------------------------------------------------------
 # Live alerts
 # ----------------------------------------------------------------------------------------------------------------
-def normalize_alert(feature: dict) -> dict[str, Any] | None:
+def normalize_alert(feature: dict, family: str = "fire") -> dict[str, Any] | None:
     """One CAP alert of ``/alerts/active`` -> the endpoint's alert dict (wording verbatim); None unless it is an
-    actual Red Flag Warning or Fire Weather Watch. Keys starting with "_" are internal."""
+    actual Red Flag Warning or Fire Weather Watch. Keys starting with "_" are internal. ``family="flood"``: the flood
+    products of :data:`FLOOD_EVENTS` instead (:func:`normalize_flood_alert`)."""
+    if family == "flood":
+        return normalize_flood_alert(feature)
+    if family != "fire":
+        raise ValueError(f"unknown alert family {family!r}")
     p = feature.get("properties") if isinstance(feature, dict) else None
     if not isinstance(p, dict):
         return None
@@ -604,6 +634,8 @@ LOCAL_ALWAYS = frozenset({"FRW", "EVI", "SPW", "CDW"})       # always in scope
 LOCAL_KEYWORD = frozenset({"CEM", "LAE"})                     # only when the text mentions fire, smoke or evacuation
 LOCAL_CODES = LOCAL_ALWAYS | LOCAL_KEYWORD
 _FIRE_WORDS = re.compile(r"\b(fires?|wildfires?|brush ?fires?|grass ?fires?|smoke|evacuat\w*)\b", re.IGNORECASE)
+_FLOOD_WORDS = re.compile(r"\b(flood\w*|flash ?flood\w*|inundat\w*|high water|rising water|water|levees?|dams?|dikes?)\b",
+                          re.IGNORECASE)
 # Names that contain "fire" or "smoke" without being about one ("Get sandbags at Fire Station 7"), removed before the
 # CEM / LAE keyword test. The text itself is never changed.
 _NOT_A_FIRE = re.compile(r"\b(fire\s+(stations?|departments?|dept\.?|halls?|hydrants?|chiefs?|districts?|marshals?|"
@@ -718,6 +750,7 @@ class NationalAnswer:
     updated_ms: int | None
     states: list[str]                   # the states asked for
     dropped_no_link: int = 0            # local messages without an https link (never shown)
+    local_flood: list[dict] = field(default_factory=list)   # brief 5: the local messages in scope for a flood
 
 
 def national_url(states: Iterable[str] | None = None) -> str:
@@ -739,7 +772,8 @@ def national_active() -> NationalAnswer:
         raise SourceError(f"{_NWS_NAME} sent an unexpected reply")
     fire = [a for a in (normalize_alert(f) for f in data["features"]) if a is not None]
     local, dropped = split_local(data["features"])
-    return NationalAnswer(fire, local, int(resp.fetched_ms), _ms(data.get("updated")), states, dropped)
+    local_flood, _ = split_local(data["features"], hazard="flood")
+    return NationalAnswer(fire, local, int(resp.fetched_ms), _ms(data.get("updated")), states, dropped, local_flood)
 
 
 def mentions_fire(*texts: Any) -> bool:
@@ -752,10 +786,18 @@ def is_platform_sender(name: str | None) -> bool:
     return bool(name) and str(name).strip().strip(",").strip().lower() in PLATFORM_SENDERS
 
 
-def local_in_scope(code: str | None, *texts: Any) -> bool:
-    """FRW, EVI, SPW and CDW always; CEM and LAE only when their text mentions fire, smoke or evacuation."""
+def mentions_flood(*texts: Any) -> bool:
+    """True when any text mentions flooding, water, levees or dams (the flood CEM / LAE scope rule, brief 5)."""
+    return any(isinstance(t, str) and _FLOOD_WORDS.search(t) for t in texts)
+
+
+def local_in_scope(code: str | None, *texts: Any, hazard: str = "fire") -> bool:
+    """FRW, EVI, SPW and CDW always; CEM and LAE only when their text mentions fire, smoke or evacuation (``hazard``
+    "fire", the default), or flooding, water, levees or dams (``hazard`` "flood")."""
     if code in LOCAL_ALWAYS:
         return True
+    if hazard == "flood":
+        return code in LOCAL_KEYWORD and mentions_flood(*texts)
     return code in LOCAL_KEYWORD and mentions_fire(*texts)
 
 
@@ -773,10 +815,10 @@ def geojson_out(geom: BaseGeometry | None) -> dict | None:
     return mapping(shapely.set_precision(geom, COORD_PRECISION / 10))
 
 
-def normalize_local_nws(feature: dict) -> dict[str, Any] | None:
+def normalize_local_nws(feature: dict, hazard: str = "fire") -> dict[str, Any] | None:
     """One NWS-relayed local officials' message -> a LocalAlert dict (``channel`` nws_api; text verbatim; keys
-    starting with "_" internal); None when it is not an actual message in scope. ``source_url`` is the alert's own
-    API URL (``@id``); the operator's ``sender`` address is never read."""
+    starting with "_" internal); None when it is not an actual message in scope (:func:`local_in_scope` for
+    ``hazard``). ``source_url`` is the alert's own API URL (``@id``); the operator's ``sender`` address is never read."""
     p = feature.get("properties") if isinstance(feature, dict) else None
     if not isinstance(p, dict) or p.get("status") != "Actual":
         return None
@@ -788,7 +830,7 @@ def normalize_local_nws(feature: dict) -> dict[str, Any] | None:
     params = p.get("parameters") if isinstance(p.get("parameters"), dict) else {}
     wea, wea_long = _param(params, "CMAMtext"), _param(params, "CMAMlongtext")
     headline, desc, instr = _text(p.get("headline")), _verbatim(p.get("description")), _verbatim(p.get("instruction"))
-    if not local_in_scope(code, event, headline, desc, instr, wea, wea_long):
+    if not local_in_scope(code, event, headline, desc, instr, wea, wea_long, hazard=hazard):
         return None
     geocode = p.get("geocode") if isinstance(p.get("geocode"), dict) else {}
     same = [c for c in (geocode.get("SAME") or []) if isinstance(c, str) and re.fullmatch(r"\d{6}", c)]
@@ -826,13 +868,13 @@ def normalize_local_nws(feature: dict) -> dict[str, Any] | None:
     }
 
 
-def split_local(features: Iterable[Any]) -> tuple[list[dict], int]:
-    """The local officials' messages in scope among ``features`` (one per CAP id), and how many were dropped for
-    want of an https link."""
+def split_local(features: Iterable[Any], hazard: str = "fire") -> tuple[list[dict], int]:
+    """The local officials' messages in scope (for ``hazard``) among ``features`` (one per CAP id), and how many were
+    dropped for want of an https link."""
     out: dict[str, dict] = {}
     dropped = 0
     for f in features:
-        a = normalize_local_nws(f) if isinstance(f, dict) else None
+        a = normalize_local_nws(f, hazard) if isinstance(f, dict) else None
         if a is None or not a["id"]:
             continue
         if not a["source_url"]:
@@ -929,10 +971,10 @@ def past_local_url(states: Iterable[str], start_ms: int, end_ms: int) -> str:
     return f"{NWS_API}/alerts?start={a}&end={b}&event={events}&area={area}&limit={PAST_LIMIT}"
 
 
-def past_local(states: Iterable[str], at_ms: int, *, now: int | None = None) -> tuple[list[dict], int, int]:
-    """Local officials' messages NWS sent in ``[at_ms - 24 h, at_ms + 1 h]`` in ``states``: one cached
-    ``/alerts?start=&end=&event=&area=`` request (TTL 10 min). Returns ``(alerts, fetched_ms, dropped_no_link)``.
-    Raises SourceError / SourceBusy."""
+def past_local(states: Iterable[str], at_ms: int, *, now: int | None = None, hazard: str = "fire") -> tuple[list[dict], int, int]:
+    """Local officials' messages NWS sent in ``[at_ms - 24 h, at_ms + 1 h]`` in ``states`` (in scope for ``hazard``):
+    one cached ``/alerts?start=&end=&event=&area=`` request (TTL 10 min). Returns ``(alerts, fetched_ms,
+    dropped_no_link)``. Raises SourceError / SourceBusy."""
     t_now = now if now is not None else now_ms()
     start = int(at_ms) - PAST_BEFORE_MS
     end = min(int(at_ms) + PAST_AFTER_MS, t_now)
@@ -942,7 +984,7 @@ def past_local(states: Iterable[str], at_ms: int, *, now: int | None = None) -> 
     if not isinstance(data, dict) or not isinstance(data.get("features"), list):
         fhttp.evict_cache("GET", url, None)
         raise SourceError(f"{_NWS_NAME} sent an unexpected reply")
-    local, dropped = split_local(data["features"])
+    local, dropped = split_local(data["features"], hazard)
     return local, int(resp.fetched_ms), dropped
 
 
@@ -977,15 +1019,20 @@ class ArchiveEvent:
 
     @property
     def event(self) -> str:
-        return EVENT_BY_SIGNIFICANCE.get(self.significance, f"{self.phenomena}.{self.significance}")
+        return EVENT_LABELS.get((self.phenomena, self.significance)) or EVENT_BY_SIGNIFICANCE.get(
+            self.significance, f"{self.phenomena}.{self.significance}")
 
 
-def bypoint_events(rows: Iterable[dict], *, at_point: bool, into: dict[tuple, ArchiveEvent] | None = None) -> dict[tuple, ArchiveEvent]:
-    """Group IEM ``vtec_events_bypoint`` rows into fire weather events (FW.W / FW.A only)."""
+def bypoint_events(rows: Iterable[dict], *, at_point: bool, into: dict[tuple, ArchiveEvent] | None = None,
+                   phenomena: Iterable[str] = (FIRE_PHENOMENA,)) -> dict[tuple, ArchiveEvent]:
+    """Group IEM ``vtec_events_bypoint`` rows into events of ``phenomena`` (default: fire weather, FW.W / FW.A only;
+    floods: :data:`FLOOD_PHENOMENA`), each (phenomena, significance) named in :data:`EVENT_LABELS`."""
     out = into if into is not None else {}
+    wanted = set(phenomena)
     for r in rows:
-        if not isinstance(r, dict) or r.get("phenomena") != FIRE_PHENOMENA or r.get("significance") not in EVENT_BY_SIGNIFICANCE:
+        if not isinstance(r, dict) or r.get("phenomena") not in wanted or (r.get("phenomena"), r.get("significance")) not in EVENT_LABELS:
             continue
+        ph = str(r["phenomena"])
         wfo = str(r.get("wfo") or "").upper()
         try:
             etn = int(r.get("eventid"))
@@ -997,10 +1044,10 @@ def bypoint_events(rows: Iterable[dict], *, at_point: bool, into: dict[tuple, Ar
         year = int(m.group(1)) if m else (ms_to_dt(issue).year if issue else None)
         if not re.fullmatch(r"[A-Z]{3}", wfo) or year is None:
             continue
-        key = (wfo, year, FIRE_PHENOMENA, r["significance"], etn)
+        key = (wfo, year, ph, r["significance"], etn)
         ev = out.get(key)
         if ev is None:
-            ev = out[key] = ArchiveEvent(wfo, year, FIRE_PHENOMENA, r["significance"], etn,
+            ev = out[key] = ArchiveEvent(wfo, year, ph, r["significance"], etn,
                                          f"{IEM_ROOT}{url}" if url.startswith("/vtec/") else None)
         ugc = str(r.get("ugc") or "")
         if UGC_RE.match(ugc):
@@ -1284,3 +1331,265 @@ def archive_for_area(area: BBox, point: tuple[float, float], samples: list[tuple
                        "archive's times only.")
     alerts, zones = place_archive(cand, details, area, point, at_ms)
     return {"alerts": alerts, "zones": zones, "caveats": caveats, "retrieved_ms": min(fetched) if fetched else None}
+
+
+# ----------------------------------------------------------------------------------------------------------------
+# Floods (brief 5, CONTRACT 16.4 and 16.8): the national flood request, flood alerts, H-VTEC from product text
+# ----------------------------------------------------------------------------------------------------------------
+HVTEC_RE = re.compile(r"/([A-Z0-9]{5})\.([N0123U])\.([A-Z]{2})\.(\d{6}T\d{4}Z)\.(\d{6}T\d{4}Z)\.(\d{6}T\d{4}Z)\.([A-Z]{2})/")
+_PVTEC_HVTEC_RE = re.compile(VTEC_RE.pattern + r"\s*" + HVTEC_RE.pattern)
+_FLOOD_NAME = "The National Weather Service flood product service"
+
+
+def _first_param(params: dict, key: str) -> str | None:
+    v = params.get(key) if isinstance(params, dict) else None
+    if isinstance(v, list):
+        v = v[0] if v else None
+    return _text(v)
+
+
+def _zone_type(ugc: str) -> str:
+    """The NWS zone type of a UGC when ``affectedZones`` does not say: county for C, forecast for Z."""
+    return "county" if len(ugc) > 2 and ugc[2] == "C" else "forecast"
+
+
+def vtec_key(v: dict | None) -> str | None:
+    """``{office}.{ph}.{sig}.{etn:04d}.{year}`` of a flood VTEC dict (CONTRACT 16.1), or None."""
+    if not v or v.get("year") is None:
+        return None
+    return f"{v['office']}.{v['phenomena']}.{v['significance']}.{int(v['etn']):04d}.{int(v['year'])}"
+
+
+def normalize_flood_alert(feature: dict) -> dict[str, Any] | None:
+    """One CAP flood product of ``/alerts/active`` -> a ``FloodAlert`` dict (CONTRACT 16.4; wording verbatim), or None
+    unless it is an actual product of :data:`FLOOD_EVENTS`. ``phase``, ``time_zone``, ``hvtec`` (product text) and
+    ``flood_ids`` are filled by the caller. Internal keys ("_"): ``_geometry`` (shapely), ``_zone_types``, ``_same``
+    (SAME county codes), ``_references`` ([{identifier, sent_ms}]), ``_awips`` (AWIPS id, e.g. "FLSABQ"),
+    ``_vtec_begin_ms`` / ``_vtec_end_ms`` (None for 000000T0000Z), ``_event_ending_ms``.
+
+    The VTEC ``year`` (part of the event key: the ETN restarts every year) is the year of the event's VTEC begin
+    time, else of the oldest message in the CAP ``references`` chain, else of this message."""
+    p = feature.get("properties") if isinstance(feature, dict) else None
+    if not isinstance(p, dict):
+        return None
+    event = _text(p.get("event"))
+    if event not in FLOOD_EVENTS or p.get("status") != "Actual":
+        return None
+    params = p.get("parameters") if isinstance(p.get("parameters"), dict) else {}
+    vt = [v for s in (params.get("VTEC") or []) for v in parse_vtec(str(s))]
+    fl = next((v for v in vt if v["phenomena"] in FLOOD_PHENOMENA), None)
+    geocode = p.get("geocode") if isinstance(p.get("geocode"), dict) else {}
+    ugcs = list(dict.fromkeys(u for u in (geocode.get("UGC") or []) if isinstance(u, str) and UGC_RE.match(u)))
+    same = list(dict.fromkeys(c for c in (geocode.get("SAME") or []) if isinstance(c, str) and re.fullmatch(r"\d{6}", c)))
+    types: dict[str, str] = {}
+    for z in p.get("affectedZones") or []:
+        m = _ZONE_URL_RE.search(str(z))
+        if m:
+            types[m.group(2)] = m.group(1)
+    refs = []
+    for r in p.get("references") or []:
+        if isinstance(r, dict) and r.get("identifier"):
+            refs.append({"identifier": str(r["identifier"]), "sent_ms": _ms(r.get("sent"))})
+    sent = _ms(p.get("sent"))
+    year = None
+    if fl is not None:
+        if fl.get("begin_ms"):
+            year = ms_to_dt(fl["begin_ms"]).year
+        else:
+            ref_times = [r["sent_ms"] for r in refs if r["sent_ms"]]
+            base = min(ref_times) if ref_times else sent
+            year = ms_to_dt(base).year if base else None
+    vtec = {**_vtec_out(fl), "year": year} if fl is not None and year is not None else None
+    headline = params.get("NWSheadline") or [None]
+    nws_headline = _text(headline[0] if isinstance(headline, list) and headline else None)
+    damage = _first_param(params, "flashFloodDamageThreat")
+    detection = _first_param(params, "flashFloodDetection")
+    desc = _verbatim(p.get("description"))
+    texts = " ".join(t for t in (nws_headline, _text(p.get("headline")), desc) if t).upper()
+    emergency = (damage or "").upper() == "CATASTROPHIC" or "FLASH FLOOD EMERGENCY" in texts
+    event_ending = _ms(_first_param(params, "eventEndingTime"))
+    geom = polygonal(feature.get("geometry"))
+    return {
+        "id": str(p.get("id") or feature.get("id") or ""),
+        "url": _https(p.get("@id")) or _https(feature.get("id")),
+        "office_url": office_url(fl["office"] if fl else None),
+        "event": event,
+        "vtec": vtec,
+        "hvtec": None,
+        "sender_name": _text(p.get("senderName")),
+        "sent_ms": sent,
+        "effective_ms": _ms(p.get("effective")),
+        "onset_ms": _ms(p.get("onset")),
+        "expires_ms": _ms(p.get("expires")),
+        "ends_ms": _ms(p.get("ends")) or event_ending,
+        "headline": _text(p.get("headline")),
+        "nws_headline": nws_headline,
+        "description": desc,
+        "instruction": _verbatim(p.get("instruction")),
+        "area_desc": _text(p.get("areaDesc")),
+        "ugcs": ugcs,
+        "message_type": _text(p.get("messageType")),
+        "status": "Actual",
+        "archived": False,
+        "emergency": emergency,
+        "damage_threat": damage,
+        "detection": detection,
+        "geometry": geojson_out(geom),
+        "covers_point": None,
+        "flood_ids": [],
+        "_geometry": geom,
+        "_zone_types": {u: types.get(u, _zone_type(u)) for u in ugcs},
+        "_same": same,
+        "_references": refs,
+        "_awips": _first_param(params, "AWIPSidentifier"),
+        "_vtec_begin_ms": fl.get("begin_ms") if fl else None,
+        "_vtec_end_ms": fl.get("end_ms") if fl else None,
+        "_event_ending_ms": event_ending,
+    }
+
+
+@dataclass
+class FloodNational:
+    """The shared national flood request (:func:`flood_active`)."""
+
+    alerts: list[dict]                  # normalize_flood_alert dicts (internal keys kept), every lower-48 + DC answer
+    fetched_ms: int
+    updated_ms: int | None              # NWS's own "updated"
+    states: list[str]                   # the states asked for
+    from_cache: bool = False
+
+
+def flood_url(states: Iterable[str] | None = None) -> str:
+    """The one live flood request: every lower-48 state + DC, the :data:`FLOOD_EVENTS`."""
+    codes = ",".join(states or national_states())
+    return f"{NWS_API}/alerts/active?area={codes}&event={quote(','.join(FLOOD_EVENTS), safe=',')}"
+
+
+def flood_active() -> FloodNational:
+    """The current NWS flood products in the lower 48 states + DC: one request, cached :data:`ALERTS_TTL_S` (2 min),
+    behind :data:`NWS_LIMITER` (so fire weather calls are never starved). Raises SourceError / SourceBusy."""
+    states = list(national_states())
+    url = flood_url(states)
+    resp = _get(url, None, ttl_s=ALERTS_TTL_S, limiter=NWS_LIMITER, name=_FLOOD_NAME, headers=_nws_headers())
+    data = _json(resp, url, None, _FLOOD_NAME)
+    if not isinstance(data, dict) or not isinstance(data.get("features"), list):
+        fhttp.evict_cache("GET", url, None)
+        raise SourceError(f"{_FLOOD_NAME} sent an unexpected reply")
+    alerts = [a for a in (normalize_flood_alert(f) for f in data["features"]) if a is not None and a["id"]]
+    return FloodNational(alerts, int(resp.fetched_ms), _ms(data.get("updated")), states, bool(resp.from_cache))
+
+
+def parse_hvtec(text: str) -> list[dict[str, Any]]:
+    """Every H-VTEC line in ``text`` as ``{nwsli, severity, cause, begin_ms, crest_ms, end_ms, record}`` (times None
+    for 000000T0000Z); NWSLI "00000" (no forecast point) is skipped."""
+    out = []
+    for m in HVTEC_RE.finditer(text or ""):
+        if m.group(1) == "00000":
+            continue
+        out.append({"nwsli": m.group(1), "severity": m.group(2), "cause": m.group(3), "begin_ms": _vtec_time(m.group(4)),
+                    "crest_ms": _vtec_time(m.group(5)), "end_ms": _vtec_time(m.group(6)), "record": m.group(7)})
+    return out
+
+
+def parse_hvtec_for(text: str, alert: dict) -> dict[str, Any] | None:
+    """The H-VTEC of ``alert``'s event in a product's text: the H-VTEC line right after a P-VTEC line with the
+    alert's office, phenomena, significance and ETN; None when the product has none for it (or NWSLI 00000)."""
+    v = alert.get("vtec") or {}
+    for m in _PVTEC_HVTEC_RE.finditer(text or ""):
+        if (m.group(3), m.group(4), m.group(5), int(m.group(6))) != (v.get("office"), v.get("phenomena"),
+                                                                      v.get("significance"), v.get("etn")):
+            continue
+        if m.group(9) == "00000":
+            return None
+        return {"nwsli": m.group(9), "severity": m.group(10), "cause": m.group(11), "begin_ms": _vtec_time(m.group(12)),
+                "crest_ms": _vtec_time(m.group(13)), "end_ms": _vtec_time(m.group(14)), "record": m.group(15)}
+    return None
+
+
+def product_list_url(product_type: str, location: str) -> str:
+    return f"{NWS_API}/products/types/{product_type}/locations/{location}"
+
+
+def product_url(product_id: str) -> str:
+    return f"{NWS_API}/products/{product_id}"
+
+
+def pick_product_id(listing: Any, sent_ms: int | None, *, tolerance_ms: int = 15 * 60_000) -> str | None:
+    """The id of the listed product issued closest to ``sent_ms`` (within ``tolerance_ms``), else None."""
+    best: tuple[int, str] | None = None
+    for item in (listing.get("@graph") if isinstance(listing, dict) else None) or []:
+        if not isinstance(item, dict) or not item.get("id"):
+            continue
+        t = _ms(item.get("issuanceTime"))
+        if t is None or sent_ms is None:
+            continue
+        d = abs(t - sent_ms)
+        if d <= tolerance_ms and (best is None or d < best[0]):
+            best = (d, str(item["id"]))
+    return best[1] if best else None
+
+
+def _ld_headers() -> dict[str, str]:
+    return {"User-Agent": user_agent(), "Accept": "application/ld+json"}
+
+
+def product_hvtec(alert: dict) -> dict[str, Any] | None:
+    """The H-VTEC (gauge NWSLI, severity, cause, begin / crest / end) of a river flood product from its text: the
+    product list of its AWIPS type and office (cached 5 min), then the product (cached for good). Per flood on demand
+    or in the live loop's background budget, never in the list build (C9). None when the product names no gauge.
+    Raises SourceError / SourceBusy."""
+    awips = alert.get("_awips") or ""
+    v = alert.get("vtec") or {}
+    if len(awips) < 4 or v.get("phenomena") != "FL":
+        return None
+    key = (awips, vtec_key(v) or "")
+    with _hvtec_lock:
+        if _hvtec.get(key) is not None:
+            return _hvtec[key]
+    ptype, loc = awips[:3], awips[3:]
+    lurl = product_list_url(ptype, loc)
+    listing = _json(_get(lurl, None, ttl_s=PRODUCT_LIST_TTL_S, limiter=NWS_LIMITER, name=_FLOOD_NAME,
+                         headers=_ld_headers()), lurl, None, _FLOOD_NAME)
+    pid = pick_product_id(listing, alert.get("sent_ms"))
+    if pid is None:
+        return None
+    purl = product_url(pid)
+    prod = _json(_get(purl, None, ttl_s=None, limiter=NWS_LIMITER, name=_FLOOD_NAME, headers=_ld_headers()),  # type: ignore[arg-type]
+                 purl, None, _FLOOD_NAME)
+    hv = parse_hvtec_for(str((prod or {}).get("productText") or ""), alert) if isinstance(prod, dict) else None
+    with _hvtec_lock:
+        _hvtec[key] = hv
+    return hv
+
+
+def flood_phase(a: dict, now: int) -> str:
+    """``upcoming`` | ``in_effect`` | ``ended`` of a live flood product (as :func:`live_phase`; a product whose end
+    passed while its expiry has not is ended too)."""
+    return live_phase(a, now)
+
+
+def cached_product_hvtec(alert: dict) -> dict[str, Any] | None:
+    """The H-VTEC of a river product **from caches only** (memory, then the disk cache of an earlier
+    :func:`product_hvtec`): never a request, so the flood list build stays within its request budget (C9)."""
+    awips = alert.get("_awips") or ""
+    v = alert.get("vtec") or {}
+    if len(awips) < 4 or v.get("phenomena") != "FL":
+        return None
+    key = (awips, vtec_key(v) or "")
+    with _hvtec_lock:
+        if key in _hvtec:
+            return _hvtec[key]
+    lurl = product_list_url(awips[:3], awips[3:])
+    hit = fhttp.peek_cache("GET", lurl, None, None)
+    if hit is None:
+        return None
+    try:
+        pid = pick_product_id(hit.json(), alert.get("sent_ms"))
+        prod = fhttp.peek_cache("GET", product_url(pid), None, None) if pid else None
+        hv = parse_hvtec_for(str(prod.json().get("productText") or ""), alert) if prod is not None else None
+    except (ValueError, AttributeError):
+        return None
+    if prod is not None:
+        with _hvtec_lock:
+            _hvtec[key] = hv
+    return hv

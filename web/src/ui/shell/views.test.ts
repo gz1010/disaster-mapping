@@ -18,17 +18,21 @@ describe('Public · Command · Forensic switch', () => {
 })
 
 describe('map chrome (brief 4: exactly one chrome over one map)', () => {
-  it('overview without a fire in both presets; Public or Command chrome inside a fire', () => {
-    expect(mapChromeOf(false, 'public')).toBe('overview')
-    expect(mapChromeOf(false, 'command')).toBe('overview')
-    expect(mapChromeOf(true, 'public')).toBe('public-fire')
-    expect(mapChromeOf(true, 'command')).toBe('command-fire')
+  it('overview without an event in both presets; Public or Command chrome inside a fire or a flood (brief 5)', () => {
+    expect(mapChromeOf(null, 'public')).toBe('overview')
+    expect(mapChromeOf(null, 'command')).toBe('overview')
+    expect(mapChromeOf('fire', 'public')).toBe('public-fire')
+    expect(mapChromeOf('fire', 'command')).toBe('command-fire')
+    expect(mapChromeOf('flood', 'public')).toBe('public-flood')
+    expect(mapChromeOf('flood', 'command')).toBe('command-flood')
   })
 
-  it('picks the atmosphere edges of the chrome', () => {
+  it('picks the atmosphere edges of the chrome (a flood view uses its fire twin)', () => {
     expect(atmosphereEdgesOf('overview')).toBe('overview')
     expect(atmosphereEdgesOf('public-fire')).toBe('fire')
     expect(atmosphereEdgesOf('command-fire')).toBe('command')
+    expect(atmosphereEdgesOf('public-flood')).toBe('fire')
+    expect(atmosphereEdgesOf('command-flood')).toBe('command')
   })
 })
 

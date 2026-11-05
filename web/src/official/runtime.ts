@@ -3,11 +3,15 @@
 // record (CAL FIRE's or NIFC WFIGS's, CONTRACT §14.5) and NWS fire weather alerts here, whatever the map layers show. The hooks (hooks.ts), the "Official now"
 // block, the feed producers and the official map layer read this store, so each source is fetched once.
 // Evacuation zones stay in useExtrasRuntime().evac (fetched for the incident whatever the layer toggle says).
+// Brief 5 (PLAN-5 §4.1): no fire weather in flood mode. The national fire weather answer is fetched only on the FIRE
+// overview (no event open and the map lists fires), and nothing here is shown while Floods is picked or a flood is open
+// (flood official answers are web-flood-public's: official/floodHooks.ts).
 import { useLayoutEffect, useMemo, useState } from 'react'
 import { create } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
+import { useFlood } from '../state/flood'
 import { nowMarkerMs, useStore } from '../state/store'
-import { isDemoBundle } from '../state/workspace'
+import { isDemoBundle, useWorkspace } from '../state/workspace'
 import { useNow } from '../ui/hooks'
 import { IDLE_QUERY, sameQueryState } from '../extras/hooks'
 import { fireWeatherAtMs, fireWeatherStatewideUrl, fireWeatherUrl, localAlertsUrl, OFFICIAL_REFRESH_MS, recordUrl, secondaryRecordUrl } from './client'
@@ -135,8 +139,10 @@ export function useOfficialSync(): void {
     timeoutMs: 45_000,
     isCurrent: isCurrentLocal,
   })
-  // the overview: the national answer (outlines and "Official now · lower 48 states"; the scope follows states_checked)
-  const statewide = useJsonQuery<FireWeatherResponse>(incidentId == null ? fireWeatherStatewideUrl() : null, {
+  // the overview: the national answer (outlines and "Official now · lower 48 states"; the scope follows states_checked);
+  // brief 5: only on the fire overview, never while Floods is picked or a flood is open
+  const fireOverview = useFireOverview()
+  const statewide = useJsonQuery<FireWeatherResponse>(incidentId == null && fireOverview ? fireWeatherStatewideUrl() : null, {
     refreshMs: OFFICIAL_REFRESH_MS.fireWeather,
     timeoutMs: 45_000,
     isCurrent: isCurrentFw,
@@ -161,19 +167,34 @@ export function useOfficialSync(): void {
   })
 }
 
-/** The fire weather answer to show: the published one plus remembered live alerts (see withRememberedAlerts). */
+/** Brief 5: the map lists fires and no flood is open (fire weather may be fetched and shown). */
+export function fireMode(hazard: 'fire' | 'flood', floodId: string | null): boolean {
+  return hazard === 'fire' && floodId == null
+}
+
+function useFireOverview(): boolean {
+  const hazard = useWorkspace((s) => s.hazard)
+  const floodId = useFlood((s) => s.floodId)
+  return fireMode(hazard, floodId)
+}
+
+/** The fire weather answer to show: the published one plus remembered live alerts (see withRememberedAlerts); none in
+ *  flood mode unless a fire is open (brief 5). */
 export function useFireWeatherData(): FireWeatherResponse | null {
   const { data, seen, incidentId, statewide } = useOfficialRuntime(
     useShallow((s) => ({ data: s.fireWeather.data, seen: s.seen.alerts, incidentId: s.seen.incidentId, statewide: s.statewide.data })),
   )
   const current = useStore((s) => s.incidentId)
-  return useMemo(() => fireWeatherFor(current, data, incidentId, seen, statewide), [current, data, incidentId, seen, statewide])
+  const fire = useFireOverview()
+  return useMemo(() => (current == null && !fire ? null : fireWeatherFor(current, data, incidentId, seen, statewide)), [current, data, incidentId, seen, statewide, fire])
 }
 
 /** Non-React read of the same (map layer). */
 export function fireWeatherDataNow(): FireWeatherResponse | null {
   const s = useOfficialRuntime.getState()
-  return fireWeatherFor(useStore.getState().incidentId, s.fireWeather.data, s.seen.incidentId, s.seen.alerts, s.statewide.data)
+  const current = useStore.getState().incidentId
+  if (current == null && !fireMode(useWorkspace.getState().hazard, useFlood.getState().floodId)) return null
+  return fireWeatherFor(current, s.fireWeather.data, s.seen.incidentId, s.seen.alerts, s.statewide.data)
 }
 
 /** The open fire's answer (never another fire's), with the alerts remembered for it this session; on the overview

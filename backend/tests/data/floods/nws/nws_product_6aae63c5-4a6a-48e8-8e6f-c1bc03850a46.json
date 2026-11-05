@@ -1,0 +1,14 @@
+{
+ "@context": {
+  "@version": "1.1",
+  "@vocab": "https://api.weather.gov/ontology#"
+ },
+ "@id": "https://api.weather.gov/products/6aae63c5-4a6a-48e8-8e6f-c1bc03850a46",
+ "id": "6aae63c5-4a6a-48e8-8e6f-c1bc03850a46",
+ "wmoCollectiveId": "WGUS85",
+ "issuingOffice": "KTWC",
+ "issuanceTime": "2026-11-04T18:33:00+00:00",
+ "productCode": "FLS",
+ "productName": "Flood Statement",
+ "productText": "\n000\nWGUS85 KTWC 041833\nFLSTWC\n\nFlood Advisory\nNational Weather Service Tucson AZ\n1133 AM MST Wed Nov 4 2026\n\n...The Flood Advisory continues for the following rivers in\nArizona...\n\n  Gila River Near Gila River at Calva affecting Graham County.\n\nFor the Upper Gila...including Gila River at Calva...elevated river\nlevels are forecast.\n\nPRECAUTIONARY/PREPAREDNESS ACTIONS...\n\nIf you encounter a flooded roadway, turn around and find an\nalternative route.\n\nCaution is urged when walking near riverbanks.\n\nAdditional information is available at www.weather.gov.\n\nThe next statement will be issued this evening at 1115 PM MST.\n\n&&\n\nAZC009-050615-\n/O.CON.KTWC.FL.Y.0005.000000T0000Z-261106T0900Z/\n/GLCA3.N.ER.000000T0000Z.000000T0000Z.000000T0000Z.NO/\n1133 AM MST Wed Nov 4 2026\n\n...FLOOD ADVISORY REMAINS IN EFFECT UNTIL LATE THURSDAY NIGHT...\n\n* WHAT...Flooding caused by excessive rainfall from this past weekend\n  continues.\n\n* WHERE...Gila River near Gila River at Calva.\n\n* WHEN...Until late Thursday night.\n\n* IMPACTS...At 15.0 feet, Low-lying riparian areas flooded.\n\n* ADDITIONAL DETAILS...\n  - At 11:00 AM MST Wednesday the stage was 17.1 feet.\n  - Bankfull stage is 15.0 feet.\n  - Forecast...The river is expected to fall below 15.0 feet (action\n    stage) between 3 PM MST and 6 PM MST Thursday.\n  - Action stage is 15.0 feet.\n  - Flood stage is 20.0 feet.\n  - http://www.weather.gov/safety/flood\n\n&&\n\nLAT...LON 3300 11000 3315 11019 3316 11045 3324 11045\n      3322 11015 3307 10994\n\n\n$$\n\nDVS\n"
+}

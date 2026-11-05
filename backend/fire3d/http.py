@@ -12,6 +12,10 @@
 * Every request to ``firms.modaps.eosdis.nasa.gov/api/`` first takes a slot from :data:`firms_limiter`
   (150 per rolling 10 min); cache hits don't count.
 * URLs in logs and exceptions always go through :func:`fire3d.config.mask_secrets`.
+* ``headers=`` (brief 5, CONTRACT 16.1): per-request headers never enter the cache key. An ``Authorization`` header is
+  allowed only over https to a host in ``config.EARTHDATA_AUTH_HOSTS`` (NASA PO.DAAC); any other host raises
+  ``ValueError`` before a request is made. A redirect to another host is followed without it (httpx drops
+  ``Authorization`` when a redirect leaves the origin), so a pre-signed S3 address never receives the token.
 * :class:`DownMemo` remembers a failed upstream for a short time (60 s), so request paths that would ask the same dead
   host again (the fire lists, resolution of ids) answer from a cached copy, or say "unavailable", at once
   (brief 3 final verification; CONTRACT 14.16).
@@ -256,6 +260,21 @@ def is_firms_api(url: str) -> bool:
     return rest.startswith(config.FIRMS_API_PREFIX) or rest.startswith("www." + config.FIRMS_API_PREFIX)
 
 
+def check_auth_headers(url: str, headers: Mapping[str, str] | None) -> None:
+    """Raise ``ValueError`` when ``headers`` carry an ``Authorization`` header and ``url`` is not https on a host in
+    ``config.EARTHDATA_AUTH_HOSTS`` (CONTRACT 16.1). The message never contains the header's value."""
+    if not headers or not any(str(k).strip().lower() == "authorization" for k in headers):
+        return
+    try:
+        u = httpx.URL(url)
+        scheme, host = u.scheme.lower(), (u.host or "").lower()
+    except Exception:  # noqa: BLE001 - an unparsable URL is not an allowed host
+        scheme, host = "", ""
+    if scheme != "https" or host not in {h.lower() for h in config.EARTHDATA_AUTH_HOSTS}:
+        raise ValueError(f"an Authorization header may only be sent to {', '.join(config.EARTHDATA_AUTH_HOSTS)} "
+                         f"over https, not to {config.mask_secrets(host or url)}")
+
+
 def _norm_params(params: Params) -> list[tuple[str, str]]:
     if not params:
         return []
@@ -426,6 +445,7 @@ def request(
     ``connect_timeout`` (default ``min(15, timeout)``) bounds the connection; ``expect_json``: a 2xx body that is not
     JSON is returned but never cached (see :func:`is_error_body`)."""
     method = method.upper()
+    check_auth_headers(url, headers)
     body = orjson.dumps(json_body, option=orjson.OPT_SORT_KEYS) if json_body is not None else data
     shown = display_url(url, params)
     use_cache = ttl_s is None or ttl_s > 0
@@ -504,11 +524,15 @@ def stream_download(
     retries: int = DEFAULT_RETRIES,
     overwrite: bool = False,
     chunk_size: int = 1 << 20,
+    headers: Mapping[str, str] | None = None,
 ) -> Path:
-    """Stream ``url`` to ``path`` atomically (temp file + rename). An existing file is kept unless ``overwrite``."""
+    """Stream ``url`` to ``path`` atomically (temp file + rename). An existing file is kept unless ``overwrite``.
+    ``headers``: per-request headers (an ``Authorization`` header only to ``config.EARTHDATA_AUTH_HOSTS``)."""
+    check_auth_headers(url, headers)
     dest = Path(path)
     if dest.exists() and not overwrite:
         return dest
+    hdrs = dict(headers or {})
     dest.parent.mkdir(parents=True, exist_ok=True)
     shown = display_url(url, params)
     norm = _norm_params(params) or None
@@ -521,7 +545,7 @@ def stream_download(
         fd, tmp = tempfile.mkstemp(dir=dest.parent, prefix=f".{dest.name}.", suffix=".part")
         try:
             with _semaphore, os.fdopen(fd, "wb") as f:
-                with _client().stream("GET", url, params=norm, timeout=httpx.Timeout(timeout, connect=min(15.0, timeout))) as r:
+                with _client().stream("GET", url, params=norm, headers=hdrs, timeout=httpx.Timeout(timeout, connect=min(15.0, timeout))) as r:
                     status = r.status_code
                     if 200 <= status < 300:
                         for chunk in r.iter_bytes(chunk_size):

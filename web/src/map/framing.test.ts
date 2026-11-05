@@ -316,3 +316,18 @@ describe('Framing state machine', () => {
     expect(f.viewIsSettled()).toBe(true)
   })
 })
+
+describe('brief 5: framing a flood', () => {
+  it('its bbox with a 10 % margin, else its point at z11; flood targets never look like fire ids', async () => {
+    const { floodGoalFor, floodTarget, isFloodTarget } = await import('./framing')
+    const g = floodGoalFor({ id: 'fixture-flood', lat: 36.79, lon: -108.06, bbox_lonlat: [-108.2, 36.7, -107.9, 36.9] })!
+    expect(g.kind).toBe('flood')
+    expect(g.bounds![0]).toBeCloseTo(-108.23, 5)
+    expect(g.bounds![3]).toBeCloseTo(36.92, 5)
+    expect(floodGoalFor({ id: 'x', lat: 36.79, lon: -108.06, bbox_lonlat: [0, 0, 0, 0] })).toMatchObject({ kind: 'flood', view: { lon: -108.06, lat: 36.79, zoom: 11 } })
+    expect(floodGoalFor(null)).toBeNull()
+    expect(isFloodTarget(floodTarget('fixture-flood'))).toBe(true)
+    expect(isFloodTarget('2026-eaton-fire-abc')).toBe(false)
+    expect(isFloodTarget(null)).toBe(false)
+  })
+})

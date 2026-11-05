@@ -113,3 +113,13 @@ describe('safeHref', () => {
     expect(safeHref(undefined)).toBeUndefined()
   })
 })
+
+describe('brief 5: flood credits', () => {
+  it('NWS and NOAA NWPS in flood mode only, https links', async () => {
+    const { floodCredits } = await import('./dataCredits')
+    expect(floodCredits(false)).toEqual([])
+    const c = floodCredits(true)
+    expect(c.map((x) => x.text)).toEqual(['Flood products: National Weather Service', 'River gauges: NOAA National Water Prediction Service (NWS)'])
+    expect(c.every((x) => x.href?.startsWith('https://'))).toBe(true)
+  })
+})

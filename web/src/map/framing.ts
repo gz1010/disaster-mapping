@@ -50,7 +50,8 @@ export interface CameraPose {
 export interface FrameGoal {
   /** Identifies what the goal was computed from; a provisional goal is replaced when the key changes. */
   key: string
-  kind: 'overview' | 'fire' | 'area'
+  /** brief 5: 'flood' frames an open flood (its bbox, else its point at z11). */
+  kind: 'overview' | 'fire' | 'area' | 'flood'
   /** Point / acreage estimate or a building bundle: better data may re-frame while the user has not moved. */
   provisional: boolean
   /** Fit these bounds ... */
@@ -172,6 +173,30 @@ export function goalFor(i: GoalInput): FrameGoal | null {
   // no bundle (or it failed, or its files did not load): the agency's reported point and acreage
   const bounds = fireBounds({ point, acres: sum.acres })
   return bounds ? { key: `fire:${id}:point`, kind: 'fire', provisional: true, bounds } : null
+}
+
+// ------------------------------------------------------------------------------------------------- floods
+/** Brief 5: the framing target of an open flood ('flood:<id>'; fire ids never start with "flood:"). */
+export function floodTarget(id: string): string {
+  return `flood:${id}`
+}
+
+export function isFloodTarget(target: string | null): boolean {
+  return target != null && target.startsWith('flood:')
+}
+
+/** Brief 5 (MapActions.frameFlood, CONTRACT §16.11): the flood's bbox_lonlat with a 10 % margin, else its point at z11;
+ *  null without a usable summary. */
+export function floodGoalFor(summary: { id: string; lat: number; lon: number; bbox_lonlat: readonly number[] } | null, key = 'open'): FrameGoal | null {
+  if (!summary) return null
+  const b = summary.bbox_lonlat
+  if (b && b.length === 4 && b.every(Number.isFinite) && b[2] > b[0] && b[3] > b[1]) {
+    const dx = (b[2] - b[0]) * 0.1
+    const dy = (b[3] - b[1]) * 0.1
+    return { key: `flood:${summary.id}:${key}`, kind: 'flood', provisional: false, bounds: [b[0] - dx, b[1] - dy, b[2] + dx, b[3] + dy] }
+  }
+  if (Number.isFinite(summary.lat) && Number.isFinite(summary.lon)) return { key: `flood:${summary.id}:${key}`, kind: 'flood', provisional: false, view: { lon: summary.lon, lat: summary.lat, zoom: 11 } }
+  return null
 }
 
 // ------------------------------------------------------------------------------------------------- state machine

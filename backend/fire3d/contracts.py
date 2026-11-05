@@ -864,6 +864,480 @@ class LocalAlertsResponse(OfficialEnvelope):
 
 
 # ----------------------------------------------------------------------------------------------------------------
+# Brief 5: floods (docs/redesign/CONTRACT.md section 16; TS mirror web/src/api/floodTypes.ts, re-exported by
+# web/src/api/types.ts). Floods live beside fires: own ids, folder, routes and models; no fire model or union changes.
+# Inline TS object types get a named Python model here (FloodTimeRange, FloodManifestFiles, GaugeImpact, ...);
+# tests/test_flood_contracts.py checks field names, optionality and every string-literal union against the TS file.
+# ----------------------------------------------------------------------------------------------------------------
+Hazard = Literal["fire", "flood"]
+FloodKind = Literal["river", "flash", "areal"]
+FloodLevel = Literal["warning", "advisory", "watch", "gauge_only"]
+FloodStatus = Literal["active", "inactive"]             # internal: never shown as a word in the UI
+FloodCategory = Literal["action", "minor", "moderate", "major"]
+GaugeCategory = Literal[                                 # NWPS / riv_gauges category values, verbatim
+    "no_flooding", "action", "minor", "moderate", "major", "not_defined", "low_threshold",
+    "obs_not_current", "out_of_service", "fcst_not_current", "unknown",
+]
+StartedBasis = Literal["nws_product", "gauge", "first_seen"]
+FloodSourceId = Literal["nws_alerts", "nwps_gauges", "rfc_forecasts", "iem_archive"]
+FloodAlertPhase = AlertPhase                             # same values: upcoming | in_effect | ended
+FloodBundleStatus = BundleStatus
+FloodManifestStatus = ManifestStatus
+ResolvedFrom = Literal["live", "year", "alias", "bundle", "last_known"]
+PastRule = Literal["moderate_or_worse", "fallback"]
+
+
+class FloodVtec(ContractModel):
+    office: str                         # "KABQ"
+    phenomena: str                      # "FL" | "FA" | "FF"
+    significance: str                   # "W" | "Y" | "A"
+    etn: int
+    action: str                         # NEW CON EXT EXA EXB CAN EXP UPG COR ROU
+    year: int                           # ETN restarts each year: part of the key
+
+
+class FloodProductRef(ContractModel):
+    id: str                             # CAP id (live) or IEM product id (archived)
+    event: str                          # NWS event name verbatim ("Flood Warning")
+    vtec_key: str | None                # "KABQ.FL.W.0019.2026"
+    sender_name: str | None             # "NWS Albuquerque NM"
+    phase: FloodAlertPhase
+    sent_ms: int | None
+    onset_ms: int | None
+    ends_ms: int | None                 # ends ?? eventEndingTime ?? expires
+    emergency: bool                     # Flash Flood Emergency tag
+    damage_threat: str | None           # flashFloodDamageThreat verbatim ("CONSIDERABLE", "CATASTROPHIC")
+    gauge_lids: list[str]               # H-VTEC NWSLI(s) linked to this product; [] when none
+    url: str | None                     # the alert's page (api.weather.gov) or the archived product
+    archived: bool
+
+
+class FloodGaugeRef(ContractModel):
+    lid: str                            # NWS id ("SHRN5")
+    name: str                           # verbatim ("San Juan River at Shiprock")
+    waterbody: str | None               # riv_gauges waterbody verbatim
+    state: str | None
+    lat: float
+    lon: float
+    observed_category: GaugeCategory
+    observed_value: float | None        # stage
+    unit: str | None                    # "ft"
+    observed_ms: int | None
+    forecast_category: GaugeCategory | None   # null: not a forecast point
+    forecast_max_value: float | None
+    forecast_max_ms: int | None
+    forecast_issued_ms: int | None
+    url: str                            # https://water.noaa.gov/gauges/<lid lower case>
+
+
+class FloodSummary(ContractModel):
+    id: str
+    hazard: Literal["flood"]
+    name: str
+    kind: FloodKind
+    level: FloodLevel
+    emergency: bool
+    status: FloodStatus
+    mode: Mode
+    year: int
+    started_ms: int
+    started_basis: StartedBasis
+    updated_ms: int | None              # newest product or member gauge reading
+    expires_ms: int | None              # latest end of the products in effect ("NWS warning until")
+    last_product_ms: int | None         # newest NWS product's sent time
+    ended_ms: int | None                # internal; never labelled "ended"
+    lat: float                          # primary gauge, else the largest polygon's representative point
+    lon: float
+    bbox_lonlat: tuple[float, float, float, float]
+    state: str | None                   # USPS code of the point (48 states + "DC")
+    states: list[str]
+    county: str | None
+    time_zone: str                      # IANA (regions.time_zone_at), never NWPS's POSIX zone
+    rivers: list[str]
+    primary_gauge: FloodGaugeRef | None
+    gauges: list[FloodGaugeRef]         # member gauges at action or above, primary first
+    gauges_in_flood: int                # observed minor or worse
+    max_category: FloodCategory | None  # highest observed or NWS-forecast category among members
+    products: list[FloodProductRef]     # in effect or upcoming (live; "ended" once the flood left the lists); every product (past)
+    offices: list[str]                  # "KABQ"
+    bundle_status: FloodBundleStatus
+    bundle_built_ms: int | None
+    aliases: list[str]
+    synthetic: bool                     # fixture-flood and the fixture server's list rows
+    caveat: str | None                  # level gauge_only: GAUGE_ONLY_CAVEAT, GAUGE_ONLY_COASTAL_CAVEAT (a tide or
+    #                                     lake gauge) or ALERTS_UNAVAILABLE (NWS not read); else null
+
+
+class FloodListSource(ContractModel):
+    id: FloodSourceId
+    name: str                           # "National Weather Service", "NOAA National Water Prediction Service (NWS)", ...
+    status: Literal["available", "unavailable"]
+    retrieved_ms: int | None
+    reason: str | None                  # FLOOD_NWS_DOWN etc.; the stale reason when stale
+    stale: bool
+
+
+class FloodListResponse(ContractModel):
+    hazard: Literal["flood"]
+    mode: Mode
+    updated_ms: int
+    year: int | None = Optional_()                  # historical lists
+    past_rule: PastRule | None = Optional_()        # historical: PAST_RULE or PAST_RULE_FALLBACK (PLAN-5 3.6)
+    preparing: bool | None = Optional_()            # historical: the one-time year build is still running
+    floods: list[FloodSummary]          # ordered by floodRank (CONTRACT 16.8); includes level 'watch'
+    sources: list[FloodListSource]
+    products_in_effect: int | None      # NWS flood products in effect in the lower 48 (null when NWS could not be read)
+
+
+class FloodLiveStatus(ContractModel):
+    last_refresh_ms: int | None
+    next_refresh_ms: int | None
+    active_floods: int | None           # null: unknown (lists down), never 0 for unknown
+    gauges_in_flood: int | None
+    auto_build: bool
+
+
+# --- 16.3 the flood bundle -----------------------------------------------------------------------------------------
+FloodLayerId = Literal["terrain", "naip", "water_forecast", "floodplain", "water_satellite", "water_model", "warnings", "gauges"]
+LayerState = Literal["ok", "unavailable", "not_configured", "not_covered", "not_available_for_past_dates"]
+
+
+class FloodLayerStatus(ContractModel):
+    status: LayerState
+    reason: str | None                  # a CONTRACT 16.14 text
+    source: str                         # credit line (16.15)
+    time_ms: int | None                 # the layer's own time (image time, forecast reference time, ...)
+
+
+class FloodTimeRange(ContractModel):
+    """``FloodManifest.time_range`` (an inline object in TS)."""
+
+    start_ms: int
+    end_ms: int
+    now_ms: int
+
+
+class FloodManifestFiles(ContractModel):
+    """``FloodManifest.files`` (an inline object in TS)."""
+
+    warnings: str                       # "warnings.json"
+    gauges: str                         # "gauges.json"
+    satellite: str | None               # "satellite.json"
+    satellite_image: str | None         # "satellite.png"
+    maps: dict[str, str]                # "rfc_fim" -> "maps/rfc_fim.geojson", "catfim_ZZRF1_moderate" -> ..., "nfhl" -> ...
+    model: dict[str, str]               # "nwm_analysis" -> ..., "nwm_series_ZZRF1" -> ...
+
+
+class FloodManifest(ContractModel):
+    schema_version: Literal[1]
+    id: str
+    hazard: Literal["flood"]
+    name: str
+    mode: Mode
+    status: FloodManifestStatus
+    summary: FloodSummary               # frozen at build
+    time_origin_ms: int                 # = time_range.start_ms (kept so the fire grid helpers work)
+    time_range: FloodTimeRange
+    grid: ManifestGrid                  # fire = render (unused for floods)
+    aoi_note: str | None                # "Cut to 60 km around the primary gauge" when cut
+    layers: dict[str, LayerInfo]
+    layer_status: dict[FloodLayerId, FloodLayerStatus]
+    files: FloodManifestFiles
+    data_sources: list[DataSource]
+    warnings: list[str]
+    built_ms: int                       # also the cache-buster (?v=built_ms)
+
+
+class FloodDetailResponse(ContractModel):
+    summary: FloodSummary               # summary.id is the canonical id (may differ from the requested id after a merge)
+    manifest: FloodManifest | None
+    job: JobStatus | None               # job.incident_id carries the flood id
+    resolved_from: ResolvedFrom         # PLAN-5 3.2 rule 13: live -> year -> alias -> bundle -> last_known -> 404
+
+
+# --- 16.4 official flood answers (alerts, gauges, maps) ------------------------------------------------------------
+FloodOfficialKind = Literal["flood_alerts", "river_gauges", "flood_map"]
+FloodReasonCode = Literal["past_date", "upstream_error", "not_covered", "not_in_lower48", "unknown_flood"]   # | null
+
+
+class FloodEnvelope(ContractModel):
+    """The fire OfficialEnvelope's fields, with flood kinds and reason codes (fire unions are not widened)."""
+
+    kind: FloodOfficialKind
+    status: OfficialStatus              # 'available' | 'unavailable' | 'not_available_for_past_dates'
+    reason_code: FloodReasonCode | None
+    reason: str | None
+    source: OfficialSource
+    retrieved_ms: int | None
+    source_updated_ms: int | None
+    requested_at_ms: int | None
+    now_ms: int
+    flood_id: str | None
+    synthetic: bool                     # fixture-flood
+    caveats: list[str]                  # CONTRACT 16.14 texts
+
+
+class FloodHvtec(ContractModel):
+    nwsli: str                          # "SHRN5"; "00000" is never returned (null hvtec instead)
+    severity: Literal["N", "0", "1", "2", "3", "U"]
+    cause: str                          # "ER", "SM", "RS", "DM", "IJ", ...
+    begin_ms: int | None
+    crest_ms: int | None
+    end_ms: int | None
+    record: str                         # "NO" | "NR" | "UU" | "OO"
+
+
+class FloodAlert(ContractModel):
+    id: str
+    url: str | None
+    office_url: str | None
+    event: str                          # verbatim
+    vtec: FloodVtec | None
+    hvtec: FloodHvtec | None
+    sender_name: str | None
+    sent_ms: int | None
+    effective_ms: int | None
+    onset_ms: int | None
+    expires_ms: int | None
+    ends_ms: int | None
+    headline: str | None                # verbatim, line breaks kept
+    nws_headline: str | None
+    description: str | None
+    instruction: str | None
+    area_desc: str | None
+    ugcs: list[str]
+    message_type: str | None            # Alert | Update | Cancel; null for archived copies
+    status: str
+    phase: FloodAlertPhase
+    archived: bool
+    time_zone: str | None               # IANA zone of the issuing area
+    emergency: bool
+    damage_threat: str | None
+    detection: str | None               # flashFloodDetection verbatim ("RADAR INDICATED", "OBSERVED")
+    geometry: dict[str, Any] | None     # the product polygon; null for zone-based products (see zones)
+    covers_point: bool | None           # with ?bbox= of a point query: the point is inside
+    flood_ids: list[str]                # listed floods this product belongs to
+
+
+class FloodAlertsResponse(FloodEnvelope):
+    kind: Literal["flood_alerts"]
+    alerts: list[FloodAlert]            # Emergency first, then warnings, advisories, watches; newest first within
+    zones: dict[str, Any]               # GeoJSON FeatureCollection; properties {ugc, name, alert_ids}
+    area_bbox: tuple[float, float, float, float] | None
+    states_checked: list[str]
+
+
+class GaugeThresholds(ContractModel):
+    unit: str
+    action: float | None
+    minor: float | None
+    moderate: float | None
+    major: float | None
+
+
+class GaugeReading(ContractModel):
+    value: float | None
+    unit: str | None
+    flow: float | None
+    flow_unit: str | None
+    category: GaugeCategory
+    valid_ms: int | None
+
+
+class GaugeForecast(ContractModel):
+    category: GaugeCategory | None
+    max_value: float | None
+    max_ms: int | None
+    issued_ms: int | None
+    producer: str | None                # RFC code "CBRFC"
+    producer_name: str | None           # "Colorado Basin River Forecast Center"
+    issuer: str | None                  # WFO "ABQ"
+    url: str | None
+    # The highest forecast value is at the last forecast step (or rfc_max_forecast's max_value_timestep is the last
+    # step, or the H-VTEC crest is 000000T0000Z): not a crest; the web says FORECAST HIGH, "still forecast to rise".
+    crest_at_end: bool
+
+
+class GaugeSeries(ContractModel):
+    """Rows ``[valid_ms, stage | None, flow | None]``."""
+
+    observed: list[tuple[int, float | None, float | None]]
+    forecast: list[tuple[int, float | None, float | None]]
+    forecast_issued_ms: int | None
+    stage_unit: str | None
+    flow_unit: str | None
+
+
+class GaugeImpact(ContractModel):
+    """``RiverGauge.impacts[]`` (an inline object in TS): NWPS flood.impacts, verbatim."""
+
+    stage: float
+    statement: str
+
+
+class GaugeAttribution(ContractModel):
+    """``RiverGauge.data_attribution[]`` (an inline object in TS)."""
+
+    text: str                           # "Observations courtesy of U.S. Geological Survey"
+    url: str | None
+
+
+class RiverGauge(ContractModel):
+    lid: str
+    usgs_id: str | None
+    reach_id: str | None                # NWM reach (for nwm_series)
+    name: str
+    waterbody: str | None
+    state: str | None
+    county: str | None
+    time_zone: str                      # IANA
+    lat: float
+    lon: float
+    url: str
+    rfc: str | None
+    wfo: str | None
+    member: bool                        # member of the flood (vs nearby)
+    is_forecast_point: bool
+    thresholds: GaugeThresholds | None  # null: NWS has not set flood stages
+    observed: GaugeReading
+    forecast: GaugeForecast | None
+    series: GaugeSeries | None = Optional_()             # with ?series=1
+    impacts: list[GaugeImpact] | None = Optional_()      # verbatim (NWPS flood.impacts)
+    forecast_reliability: str | None = Optional_()
+    hydronotes: list[str] | None = Optional_()
+    data_attribution: list[GaugeAttribution]
+
+
+class RiverGaugesResponse(FloodEnvelope):
+    kind: Literal["river_gauges"]
+    gauges: list[RiverGauge]            # members first (primary first), then nearby by distance (riv_gauges envelope)
+    area_bbox: tuple[float, float, float, float] | None
+
+
+FloodMapKind = Literal["rfc_fim", "catfim", "nfhl"]
+NfhlAvailability = Literal["mapped", "no_digital_map", "unknown"]
+
+
+class FloodMapStats(ContractModel):
+    """``FloodMapResponse.stats`` (an inline object in TS)."""
+
+    area_km2: float
+
+
+class FloodMapResponse(FloodEnvelope):
+    kind: Literal["flood_map"]
+    map: FloodMapKind
+    features: dict[str, Any]            # GeoJSON FeatureCollection, simplified
+    reference_ms: int | None            # rfc_fim reference_time (forecast base)
+    updated_ms: int | None              # service update_time
+    # rfc_fim: union area of the polygons on the flood's member gauges' reaches (layer-3 feature_id join), never a bbox
+    # crop; null when the join fails. Fire-3d's measurement, includes the river channel; shown in Command only.
+    stats: FloodMapStats | None
+    coverage_note: str                  # RFC_FIM_NOTE | CATFIM_NOTE | NFHL_NOTE
+    outside_note: str | None            # RFC_FIM_OUTSIDE (rfc_fim)
+    experimental: bool                  # true for rfc_fim and catfim
+    category: FloodCategory | None      # catfim
+    min_zoom: float | None              # always null: GeoJSON has no zoom limit
+    availability: NfhlAvailability | None = Optional_()   # nfhl: layer 0; NFHL_OUTSIDE only when 'mapped'
+    effective_min_ms: int | None = Optional_()            # nfhl: oldest FIRM panel EFF_DATE over the area (layer 3)
+    effective_max_ms: int | None = Optional_()            # nfhl: newest
+
+
+# --- 16.5 satellite water ------------------------------------------------------------------------------------------
+SatelliteLogin = Literal["not_configured", "configured", "refused"]
+SatelliteReasonCode = Literal["upstream_error", "no_image", "before_archive", "not_configured", "login_refused"]   # | null
+
+
+class SatelliteGranule(ContractModel):
+    id: str                             # NASA granule id / title
+    product: Literal["DSWx-HLS", "DSWx-S1"]
+    platform: str | None                # "Sentinel-2B", "Landsat 9", "Sentinel-1A"
+    acquired_ms: int                    # the image time (shown); never the production time
+    produced_ms: int | None
+    cloud_pct: float | None             # over the flood's area (measured), null for S1
+    route: Literal["earthdata_gis", "podaac", "gibs"]
+    url: str | None                     # NASA page or search link
+
+
+class SatelliteImage(ContractModel):
+    """``SatelliteWaterResponse.image`` (an inline object in TS)."""
+
+    url: str                            # "/api/floods/{id}/satellite.png?granule=..."
+    bounds_lonlat: tuple[float, float, float, float]
+
+
+class SatelliteTiles(ContractModel):
+    """``SatelliteWaterResponse.tiles`` (an inline object in TS): the GIBS picture fallback."""
+
+    url_template: str
+    date: str
+    max_zoom: int
+
+
+class SatelliteStats(ContractModel):
+    """``SatelliteWaterResponse.stats`` (an inline object in TS): measured only."""
+
+    area_km2: float
+    water_km2: float
+    partial_km2: float
+    cloud_pct: float
+    nodata_pct: float
+
+
+class SatelliteWaterResponse(ContractModel):
+    kind: Literal["satellite_water"]
+    status: OfficialStatus
+    reason_code: SatelliteReasonCode | None
+    reason: str | None                  # SAT_UNAVAILABLE etc.
+    login: SatelliteLogin               # never the token
+    login_note: str | None              # SAT_NOT_SET_UP | SAT_LOGIN_REFUSED | null
+    measured: bool                      # false for the GIBS picture
+    granules: list[SatelliteGranule]    # the image shown first
+    image: SatelliteImage | None
+    tiles: SatelliteTiles | None
+    stats: SatelliteStats | None
+    source: OfficialSource
+    retrieved_ms: int | None
+    now_ms: int
+    flood_id: str | None
+    synthetic: bool
+    caveats: list[str]                  # SAT_CAVEAT always
+
+
+# --- 16.6 model output (National Water Model) ----------------------------------------------------------------------
+ModelKind = Literal["nwm_analysis", "nwm_5day", "nwm_high_flow", "nwm_series"]
+
+
+class ModelSeries(ContractModel):
+    name: Literal["analysis_assimilation", "short_range", "medium_range_blend"]
+    reference_ms: int                   # model run time
+    unit: Literal["ft3/s"]
+    points: list[tuple[int, float]]     # [valid_ms, flow]
+
+
+class ModelOutputResponse(ContractModel):
+    """Deliberately not a FloodEnvelope: model output is never official information."""
+
+    kind: ModelKind
+    model_output: Literal[True]
+    label: str                          # MODEL_LABEL
+    status: OfficialStatus
+    reason: str | None
+    source: OfficialSource              # NOAA/NWS National Water Center, National Water Model
+    retrieved_ms: int | None
+    reference_ms: int | None
+    updated_ms: int | None
+    features: dict[str, Any] | None     # map kinds; nwm_high_flow features carry recur_cat verbatim (an AEP in percent)
+    series: list[ModelSeries] | None    # nwm_series
+    reach_id: str | None
+    lid: str | None
+    now_ms: int
+    flood_id: str | None
+    synthetic: bool
+    caveats: list[str]                  # MODEL_CAVEAT always
+
+
+# ----------------------------------------------------------------------------------------------------------------
 # Helpers
 # ----------------------------------------------------------------------------------------------------------------
 M = TypeVar("M", bound=BaseModel)

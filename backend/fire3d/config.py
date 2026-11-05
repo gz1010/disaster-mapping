@@ -5,8 +5,12 @@ Imported (directly or indirectly) by every backend module. At import time it:
   * points SSL_CERT_FILE / REQUESTS_CA_BUNDLE / CURL_CA_BUNDLE at certifi (SPEC 1), so httpx,
     rasterio/GDAL ``/vsicurl/`` and friends verify certificates on this machine.
 
-Secrets: the only secret is ``FIRMS_MAP_KEY``. Never print or log it; pass any text that may contain it
-(URLs, exception messages) through :func:`mask_secrets` first.
+Secrets: two secrets, ``FIRMS_MAP_KEY`` (NASA FIRMS) and, since brief 5 (BRIEF-5 decision 2), the optional NASA
+Earthdata user token ``EARTHDATA_TOKEN``. Both come only from the environment or the gitignored ``.env``; both may be
+missing. Never print or log either; pass any text that may contain one (URLs, headers, exception messages) through
+:func:`mask_secrets` first, which also masks ``Authorization: Bearer ...`` text and the values of pre-signed S3 query
+parameters (``X-Amz-Security-Token``, ``X-Amz-Signature``, ``X-Amz-Credential``). An ``Authorization`` header is only
+ever sent to :data:`EARTHDATA_AUTH_HOSTS` (``fire3d.http`` refuses any other host).
 """
 
 from __future__ import annotations
@@ -83,6 +87,7 @@ def resolve_dir(value: str | None, default: Path) -> Path:
 DATA_DIR = resolve_dir(os.environ.get("FIRE3D_DATA_DIR"), REPO_ROOT / "data")
 CACHE_DIR = resolve_dir(os.environ.get("FIRE3D_CACHE_DIR"), REPO_ROOT / "data" / "cache")   # shared even when DATA_DIR moves
 INCIDENTS_DIR = DATA_DIR / "incidents"
+FLOODS_DIR = DATA_DIR / "floods"   # brief 5: flood bundles data/floods/{id}/, registry.jsonl, last_known/ (CONTRACT 16.1)
 
 # ----------------------------------------------------------------------------------------------------------------
 # SSL (SPEC 1): python.org Python's urllib fails cert checks here; make every client use certifi's bundle.
@@ -127,27 +132,40 @@ HTTP_MAX_CONCURRENCY = 4
 HTTP_CACHE_DIR_NAME = "http"
 
 # ----------------------------------------------------------------------------------------------------------------
-# Secrets: NASA FIRMS MAP_KEY (SPEC 1). May be None; everything must work without it.
+# Secrets (SPEC 1): NASA FIRMS MAP_KEY and NASA EARTHDATA_TOKEN. Either may be None; everything must work without.
 # ----------------------------------------------------------------------------------------------------------------
 FIRMS_MAP_KEY: str | None = (os.environ.get("FIRMS_MAP_KEY") or "").strip() or None
 FIRMS_MAX_REQUESTS_PER_10MIN = 150          # client-side cap (the key allows 5000 transactions / 10 min)
 FIRMS_API_PREFIX = "firms.modaps.eosdis.nasa.gov/api/"
+
+# Brief 5 (BRIEF-5 decision 2): the optional NASA Earthdata user token (urs.earthdata.nasa.gov, "Generate Token").
+# Without it everything works; satellite water then uses NASA's public routes and says so (CONTRACT 16.5).
+EARTHDATA_TOKEN: str | None = (os.environ.get("EARTHDATA_TOKEN") or "").strip() or None
+# The only hosts an Authorization header may be sent to (CONTRACT 16.1): NASA PO.DAAC's archive. CMR search needs no
+# login; a host is added only when a recorded flow needs it (with a docs/redesign/contract5 note).
+EARTHDATA_AUTH_HOSTS: tuple[str, ...] = ("archive.podaac.earthdata.nasa.gov",)
 
 _SECRET_PATTERNS = (
     # FIRMS key as a query parameter (mapkey_status etc.)
     (re.compile(r"(?i)(MAP_?KEY=)[^&\s'\"]+"), r"\1***"),
     # FIRMS key as a path segment: /api/<endpoint>/<format>/<KEY>/ or /api/data_availability/csv/<KEY>/
     (re.compile(r"(?i)(firms\.modaps\.eosdis\.nasa\.gov/api/[a-z_]+/(?:[a-z_]+/)?)[0-9a-f]{32}"), r"\1***"),
+    # Any bearer credential ("Authorization: Bearer <token>", a headers dict repr, an error text)
+    (re.compile(r"(?i)\b(bearer)(\s+|%20|\+)[^\s'\",;)}\]]+"), r"\1\2***"),
+    # Pre-signed S3 URLs (PO.DAAC redirects there): the signature, credential and session token values
+    (re.compile(r"(?i)(X-Amz-(?:Security-Token|Signature|Credential)(?:=|%3D|:\s*|\"\s*:\s*\"|'\s*:\s*'))[^&\s'\",;)}\]]+"), r"\1***"),
 )
 
 
 def mask_secrets(text: object) -> str:
-    """Return ``str(text)`` with the FIRMS MAP_KEY (and anything that looks like one in a FIRMS URL) replaced
-    by ``***``. Use on every URL / message that may reach a log, an exception or a file."""
+    """Return ``str(text)`` with both secrets (the FIRMS MAP_KEY and the Earthdata token, and anything that looks
+    like the FIRMS key in a FIRMS URL), any ``Bearer <credential>`` and the values of ``X-Amz-Security-Token``,
+    ``X-Amz-Signature`` and ``X-Amz-Credential`` replaced by ``***``. Use on every URL / message that may reach a log,
+    an exception or a file."""
     s = text if isinstance(text, str) else str(text)
-    key = FIRMS_MAP_KEY
-    if key:
-        s = s.replace(key, "***")
+    for key in (FIRMS_MAP_KEY, EARTHDATA_TOKEN):
+        if key:
+            s = s.replace(key, "***")
     for pat, repl in _SECRET_PATTERNS:
         s = pat.sub(repl, s)
     return s
@@ -162,6 +180,10 @@ LIVE_ENABLED = _env_flag("FIRE3D_LIVE", "1")                       # run the liv
 OPEN_METEO_DAILY_SOFT_CAP = 6000.0
 LIVE_WEATHER_REFETCH_S = 3600.0
 AUTO_BUILD_LIVE = _env_flag("FIRE3D_AUTO_BUILD_LIVE", "1")          # auto-build live incidents on startup
+# Brief 5 (CONTRACT 16.1): the flood live task (a second loop beside the fire one; the flood routes always answer) and
+# flood auto-builds (PLAN-5 D4).
+FLOODS_ENABLED = _env_flag("FIRE3D_FLOODS", "1")
+AUTO_BUILD_FLOODS = _env_flag("FIRE3D_AUTO_BUILD_FLOODS", "1" if AUTO_BUILD_LIVE else "0")
 
 # ----------------------------------------------------------------------------------------------------------------
 # Live fuel moisture defaults for California (SPEC 8.4), kg/kg (fractions). Configurable here.

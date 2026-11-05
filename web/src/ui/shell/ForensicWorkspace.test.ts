@@ -8,7 +8,7 @@ import { useStore } from '../../state/store'
 import { useWorkspace } from '../../state/workspace'
 import { restoreSsrState, ssrState } from '../ssr.testutil'
 import ForensicWorkspace from './ForensicWorkspace'
-import { NOT_ALL_CLEAR, PROTOTYPE_LINE } from './fixedCopy'
+import { NOT_ALL_CLEAR, PROTOTYPE_LINE } from './fixedCopyText'
 
 const decode = (h: string) => h.replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
 const text = (h: string) => decode(h.replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ')
@@ -26,5 +26,26 @@ describe('Forensic, no fire open', () => {
     expect(text(foot)).toContain(`${PROTOTYPE_LINE} · ${NOT_ALL_CLEAR}`)
     // the footer comes after the list's panel, not inside it
     expect(html.indexOf('<footer class="fx-empty-foot"')).toBeGreaterThan(html.indexOf('</main>'))
+  })
+})
+
+describe('brief 5: Forensic entry page in Floods', () => {
+  it('has the Fires | Floods switch, lists floods (DEMO tags) and keeps the fixed copy at its foot', async () => {
+    const { useFlood } = await import('../../state/flood')
+    const { LIST } = await import('../../api/__fixtures__/floods/edgeCases')
+    ssrState(useStore, { incidentId: null, summary: null })
+    ssrState(useWorkspace, { fireCardId: null, workspace: 'forensic', hazard: 'flood' })
+    ssrState(useFlood, { lists: { live: { response: LIST(), loading: false, error: null, status: null } }, filter: 'live', showWatches: false, floodId: null })
+    const html = renderToStaticMarkup(createElement(ForensicWorkspace))
+    const t = text(html)
+    expect(html).toContain('role="radiogroup" aria-label="Show: fires or floods"')
+    expect(t).toContain('Pick a flood')
+    expect(t).toContain('Ridge Fork River flood')
+    expect(t).toContain('DEMO')
+    // watches hidden by default, and said so (C27)
+    expect(t).toContain('1 Flood Watch hidden · Show')
+    expect(t).not.toContain('Zoom in on a fire or pick one')
+    const foot = html.slice(html.indexOf('<footer class="fx-empty-foot"'))
+    expect(text(foot)).toContain(`${PROTOTYPE_LINE} · ${NOT_ALL_CLEAR}`)
   })
 })

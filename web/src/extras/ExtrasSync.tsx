@@ -3,8 +3,12 @@
 // is on, for the incident's area (analysis area + the source's margin) and the timeline position (extrasAtMs: current
 // status only at / after the live NOW marker, otherwise "not available for past dates"; imagery up to the selected
 // time). While the timeline plays, the query time is held so playback never fetches; it catches up on pause.
+// Brief 5 (PLAN-5 §4.1, D23): with a flood open, evacuations are asked for the flood's area (its bbox + 10 %, from
+// state/selectors.ts currentArea) with hazard=flood, for now; cameras and the fire imagery chip are not fetched.
 import { useEffect, useLayoutEffect, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
+import { openFloodSummary, useFlood } from '../state/flood'
+import { floodArea } from '../state/selectors'
 import { nowMarkerMs, useStore } from '../state/store'
 import { useWorkspace } from '../state/workspace'
 import { useNow } from '../ui/hooks'
@@ -50,7 +54,14 @@ export function ExtrasSync() {
   if (!playing && (held.evac !== at.evac || held.cams !== at.cams || held.imgs !== at.imgs)) setHeld(at)
   const times = playing ? held : at
 
+  // brief 5: the open flood's area (no fire open); a flood's evacuations are for now (current status only)
+  const floodBbox = useFlood((s) => {
+    const f = s.floodId != null && incidentId == null ? openFloodSummary(s) : null
+    return f ? floodArea(f.bbox_lonlat)?.join(',') ?? null : null
+  })
+  const floodQuery: AreaQuery | null = floodBbox ? { bbox: floodBbox.split(',').map(Number) as [number, number, number, number], hazard: 'flood', atMs: null } : null
   const query = (k: 'evacuations' | 'cameras' | 'imagery', atMs: number | null): AreaQuery | null => {
+    if (floodQuery) return k === 'evacuations' ? floodQuery : null
     const bbox = incidentAreaBbox(summary, manifest, DEFAULT_MARGIN_KM[k])
     // wait for the fire's own timeline: right after a switch the time still belongs to the previous fire; a fire
     // without a ready bundle has no timeline and is asked for the present
@@ -74,7 +85,7 @@ export function ExtrasSync() {
   useEffect(() => {
     useExtrasRuntime.getState().resetChoices()
     clearFrame()
-  }, [incidentId, clearFrame])
+  }, [incidentId, floodBbox, clearFrame])
 
   useLayoutEffect(() => {
     const cur = useExtrasRuntime.getState()

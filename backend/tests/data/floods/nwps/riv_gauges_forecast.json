@@ -1,0 +1,3359 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "id": 154,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -94.70261100029722,
+     39.68802799906501
+    ]
+   },
+   "properties": {
+    "objectid": 154,
+    "gaugelid": "AGYM7",
+    "status": "moderate",
+    "location": "Agency",
+    "latitude": 39.688028,
+    "longitude": -94.702611,
+    "waterbody": "Platte River",
+    "state": "MO",
+    "fcsttime": "2026-11-05 06:00:00",
+    "fcstissunc": "2026-11-04 14:36:00",
+    "units": "ft",
+    "lowthreshu": "ft",
+    "wfo": "eax",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/agym7",
+    "action": "15",
+    "forecast": "26.5",
+    "lowthresh": "4.00",
+    "secvalue": "18.9",
+    "flood": "20",
+    "moderate": "25",
+    "major": "30",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 179,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -105.88002179956621,
+     37.48139932730524
+    ]
+   },
+   "properties": {
+    "objectid": 179,
+    "gaugelid": "ALAC2",
+    "status": "minor",
+    "location": "Alamosa",
+    "latitude": 37.481398999999996,
+    "longitude": -105.880022,
+    "waterbody": "Rio Grande",
+    "state": "CO",
+    "fcsttime": "2026-11-05 00:00:00",
+    "fcstissunc": "2026-11-04 18:39:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "pub",
+    "hdatum": "none",
+    "pedts": "HGIFF",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/alac2",
+    "action": "7",
+    "forecast": "9.6",
+    "lowthresh": "",
+    "secvalue": "2.9",
+    "flood": "9",
+    "moderate": "11",
+    "major": "13",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 238,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.33434719966328,
+     42.495544438984346
+    ]
+   },
+   "properties": {
+    "objectid": 238,
+    "gaugelid": "ALOI4",
+    "status": "action",
+    "location": "Waterloo",
+    "latitude": 42.495544,
+    "longitude": -92.334347,
+    "waterbody": "Cedar River",
+    "state": "IA",
+    "fcsttime": "2026-11-06 18:00:00",
+    "fcstissunc": "2026-11-04 16:20:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "dmx",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/aloi4",
+    "action": "8.5",
+    "forecast": "9",
+    "lowthresh": "",
+    "secvalue": "12.4",
+    "flood": "13",
+    "moderate": "19",
+    "major": "21",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 291,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.33805555521951,
+     29.44944444359739
+    ]
+   },
+   "properties": {
+    "objectid": 291,
+    "gaugelid": "AMRL1",
+    "status": "action",
+    "location": "Amerada Pass",
+    "latitude": 29.449444,
+    "longitude": -91.338056,
+    "waterbody": "Tide Station (LCH)",
+    "state": "LA",
+    "fcsttime": "2026-11-07 23:00:00",
+    "fcstissunc": "2026-11-04 16:51:00",
+    "units": "ft",
+    "lowthreshu": "ft",
+    "wfo": "lch",
+    "hdatum": "none",
+    "pedts": "HMIFV",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/amrl1",
+    "action": "2.57",
+    "forecast": "2.69",
+    "lowthresh": "-1.00",
+    "secvalue": "-999",
+    "flood": "4",
+    "moderate": "5",
+    "major": "6",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 340,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -76.48000000029958,
+     38.9830555544469
+    ]
+   },
+   "properties": {
+    "objectid": 340,
+    "gaugelid": "APAM2",
+    "status": "action",
+    "location": "Annapolis (IN MLLW)",
+    "latitude": 38.983056,
+    "longitude": -76.48,
+    "waterbody": "Severn River",
+    "state": "MD",
+    "fcsttime": "2026-11-05 19:00:00",
+    "fcstissunc": "2026-11-04 18:56:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "lwx",
+    "hdatum": "none",
+    "pedts": "HMIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/apam2",
+    "action": "2",
+    "forecast": "2.4",
+    "lowthresh": "",
+    "secvalue": "-999",
+    "flood": "2.6",
+    "moderate": "3.3",
+    "major": "5",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 372,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -81.87611111143838,
+     27.221944443412784
+    ]
+   },
+   "properties": {
+    "objectid": 372,
+    "gaugelid": "ARCF1",
+    "status": "major",
+    "location": "SR 70 Arcadia",
+    "latitude": 27.221944,
+    "longitude": -81.876111,
+    "waterbody": "Peace River",
+    "state": "FL",
+    "fcsttime": "2026-11-06 00:00:00",
+    "fcstissunc": "2026-11-04 12:33:00",
+    "units": "ft",
+    "lowthreshu": "ft",
+    "wfo": "tbw",
+    "hdatum": "none",
+    "pedts": "HGIFF",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/arcf1",
+    "action": "9",
+    "forecast": "16.5",
+    "lowthresh": "0.00",
+    "secvalue": "12.4",
+    "flood": "11",
+    "moderate": "14",
+    "major": "16",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 393,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -81.98861111121357,
+     27.19916666554109
+    ]
+   },
+   "properties": {
+    "objectid": 393,
+    "gaugelid": "ARHF1",
+    "status": "minor",
+    "location": "Arcadia at SR 72",
+    "latitude": 27.199167000000003,
+    "longitude": -81.988611,
+    "waterbody": "Horse Creek",
+    "state": "FL",
+    "fcsttime": "2026-11-05 00:00:00",
+    "fcstissunc": "2026-11-04 12:33:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "tbw",
+    "hdatum": "none",
+    "pedts": "HGIFF",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/arhf1",
+    "action": "10",
+    "forecast": "13.6",
+    "lowthresh": "",
+    "secvalue": "1.44",
+    "flood": "12",
+    "moderate": "14.5",
+    "major": "16",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 463,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -81.52222222237742,
+     29.166666665530244
+    ]
+   },
+   "properties": {
+    "objectid": 463,
+    "gaugelid": "ASTF1",
+    "status": "moderate",
+    "location": "Astor",
+    "latitude": 29.166667,
+    "longitude": -81.522222,
+    "waterbody": "St. Johns River",
+    "state": "FL",
+    "fcsttime": "2026-11-09 06:00:00",
+    "fcstissunc": "2026-11-04 14:22:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "mlb",
+    "hdatum": "none",
+    "pedts": "HGIFF",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/astf1",
+    "action": "2",
+    "forecast": "3.4",
+    "lowthresh": "",
+    "secvalue": "-999",
+    "flood": "2.3",
+    "moderate": "3",
+    "major": "4",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 561,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -77.03833333311661,
+     38.805277776526
+    ]
+   },
+   "properties": {
+    "objectid": 561,
+    "gaugelid": "AXTV2",
+    "status": "action",
+    "location": "Alexandria",
+    "latitude": 38.805278,
+    "longitude": -77.03833300000001,
+    "waterbody": "Potomac River",
+    "state": "VA",
+    "fcsttime": "2026-11-05 22:00:00",
+    "fcstissunc": "2026-11-04 14:10:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "lwx",
+    "hdatum": "none",
+    "pedts": "HGIFF",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/axtv2",
+    "action": "2.5",
+    "forecast": "2.6",
+    "lowthresh": "",
+    "secvalue": "-999",
+    "flood": "3.3",
+    "moderate": "4.2",
+    "major": "6.6",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 601,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -96.804444444855,
+     39.725833332314316
+    ]
+   },
+   "properties": {
+    "objectid": 601,
+    "gaugelid": "BANK1",
+    "status": "action",
+    "location": "Barnes",
+    "latitude": 39.725833,
+    "longitude": -96.804444,
+    "waterbody": "Little Blue River",
+    "state": "KS",
+    "fcsttime": "2026-11-05 06:00:00",
+    "fcstissunc": "2026-11-04 14:31:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "top",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/bank1",
+    "action": "11",
+    "forecast": "12.7",
+    "lowthresh": "",
+    "secvalue": "7.37",
+    "flood": "16",
+    "moderate": "23",
+    "major": "39",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 907,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -109.86668889977273,
+     37.15067777904728
+    ]
+   },
+   "properties": {
+    "objectid": 907,
+    "gaugelid": "BFFU1",
+    "status": "minor",
+    "location": "Bluff",
+    "latitude": 37.150678,
+    "longitude": -109.86668900000001,
+    "waterbody": "San Juan River",
+    "state": "UT",
+    "fcsttime": "2026-11-05 11:00:00",
+    "fcstissunc": "2026-11-04 17:20:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "gjt",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/bffu1",
+    "action": "22",
+    "forecast": "23.06",
+    "lowthresh": "",
+    "secvalue": "32.3",
+    "flood": "23",
+    "moderate": "27",
+    "major": "32",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 1024,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -76.03833330004159,
+     38.219999998882976
+    ]
+   },
+   "properties": {
+    "objectid": 1024,
+    "gaugelid": "BISM2",
+    "status": "action",
+    "location": "Bishops Head (IN MLLW)",
+    "latitude": 38.22,
+    "longitude": -76.03833300000001,
+    "waterbody": "Chesapeake Bay",
+    "state": "MD",
+    "fcsttime": "2026-11-06 16:00:00",
+    "fcstissunc": "2026-11-04 17:43:00",
+    "units": "ft",
+    "lowthreshu": "ft",
+    "wfo": "akq",
+    "hdatum": "none",
+    "pedts": "HMIFM",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/bism2",
+    "action": "3",
+    "forecast": "3.1",
+    "lowthresh": "-1.00",
+    "secvalue": "-999",
+    "flood": "3.2",
+    "moderate": "3.7",
+    "major": "4.2",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 1148,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -96.63972222220252,
+     39.687222220900864
+    ]
+   },
+   "properties": {
+    "objectid": 1148,
+    "gaugelid": "BLRK1",
+    "status": "action",
+    "location": "Blue Rapids",
+    "latitude": 39.687222,
+    "longitude": -96.639722,
+    "waterbody": "Big Blue River",
+    "state": "KS",
+    "fcsttime": "2026-11-06 18:00:00",
+    "fcstissunc": "2026-11-04 14:31:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "top",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/blrk1",
+    "action": "21",
+    "forecast": "23",
+    "lowthresh": "",
+    "secvalue": "-999",
+    "flood": "26",
+    "moderate": "52",
+    "major": "68",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 1160,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -76.58000000009974,
+     39.26999999947508
+    ]
+   },
+   "properties": {
+    "objectid": 1160,
+    "gaugelid": "BLTM2",
+    "status": "action",
+    "location": "Baltimore/Fort McHenry (IN MLLW)",
+    "latitude": 39.27,
+    "longitude": -76.58,
+    "waterbody": "Northwest Branch Patapsco River",
+    "state": "MD",
+    "fcsttime": "2026-11-05 20:00:00",
+    "fcstissunc": "2026-11-04 18:56:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "lwx",
+    "hdatum": "none",
+    "pedts": "HMIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/bltm2",
+    "action": "2.5",
+    "forecast": "2.6",
+    "lowthresh": "",
+    "secvalue": "-999",
+    "flood": "3.4",
+    "moderate": "4.6",
+    "major": "6",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 1366,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -73.18396900016899,
+     41.17581899871223
+    ]
+   },
+   "properties": {
+    "objectid": 1366,
+    "gaugelid": "BRHC3",
+    "status": "minor",
+    "location": "Bridgeport Harbor (IN MLLW)",
+    "latitude": 41.175819000000004,
+    "longitude": -73.18396899999999,
+    "waterbody": "Long Island Sound",
+    "state": "CT",
+    "fcsttime": "2026-11-07 14:00:00",
+    "fcstissunc": "2026-11-04 08:20:00",
+    "units": "ft",
+    "lowthreshu": "ft",
+    "wfo": "okx",
+    "hdatum": "none",
+    "pedts": "HMIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/brhc3",
+    "action": "",
+    "forecast": "8.7",
+    "lowthresh": "-1.80",
+    "secvalue": "-999",
+    "flood": "8.7",
+    "moderate": "10.2",
+    "major": "11.2",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 1406,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.15972200036981,
+     39.43027799920401
+    ]
+   },
+   "properties": {
+    "objectid": 1406,
+    "gaugelid": "BRNM7",
+    "status": "action",
+    "location": "Brunswick",
+    "latitude": 39.430278,
+    "longitude": -93.159722,
+    "waterbody": "Grand River",
+    "state": "MO",
+    "fcsttime": "2026-11-07 06:00:00",
+    "fcstissunc": "2026-11-04 14:26:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "eax",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/brnm7",
+    "action": "14",
+    "forecast": "17.3",
+    "lowthresh": "",
+    "secvalue": "-999",
+    "flood": "19",
+    "moderate": "27",
+    "major": "33",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 1771,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.34277777797183,
+     29.76805555480582
+    ]
+   },
+   "properties": {
+    "objectid": 1771,
+    "gaugelid": "CAPL1",
+    "status": "action",
+    "location": "Calcasieu Pass",
+    "latitude": 29.768056,
+    "longitude": -93.342778,
+    "waterbody": "Tide Station (LCH)",
+    "state": "LA",
+    "fcsttime": "2026-11-07 22:00:00",
+    "fcstissunc": "2026-11-04 16:51:00",
+    "units": "ft",
+    "lowthreshu": "ft",
+    "wfo": "lch",
+    "hdatum": "none",
+    "pedts": "HMIFV",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/capl1",
+    "action": "2.95",
+    "forecast": "3.31",
+    "lowthresh": "-1.00",
+    "secvalue": "-999",
+    "flood": "4",
+    "moderate": "5",
+    "major": "6",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 1788,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -70.24666699988188,
+     43.656666999039956
+    ]
+   },
+   "properties": {
+    "objectid": 1788,
+    "gaugelid": "CASM1",
+    "status": "action",
+    "location": "Portland (IN MLLW)",
+    "latitude": 43.656667,
+    "longitude": -70.246667,
+    "waterbody": "Atlantic Coast",
+    "state": "ME",
+    "fcsttime": "2026-11-07 14:00:00",
+    "fcstissunc": "2026-11-04 21:11:00",
+    "units": "ft",
+    "lowthreshu": "ft",
+    "wfo": "gyx",
+    "hdatum": "none",
+    "pedts": "HMIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/casm1",
+    "action": "10.5",
+    "forecast": "10.9",
+    "lowthresh": "-3.00",
+    "secvalue": "-999",
+    "flood": "12",
+    "moderate": "13",
+    "major": "14",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 2003,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.44349170028147,
+     42.537569438937986
+    ]
+   },
+   "properties": {
+    "objectid": 2003,
+    "gaugelid": "CEDI4",
+    "status": "action",
+    "location": "Cedar Falls",
+    "latitude": 42.537569000000005,
+    "longitude": -92.44349199999999,
+    "waterbody": "Cedar River",
+    "state": "IA",
+    "fcsttime": "2026-11-07 00:00:00",
+    "fcstissunc": "2026-11-04 16:20:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "dmx",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/cedi4",
+    "action": "85",
+    "forecast": "85.3",
+    "lowthresh": "",
+    "secvalue": "11.1",
+    "flood": "89",
+    "moderate": "92",
+    "major": "94",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 2043,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.24683329971674,
+     41.681805558841816
+    ]
+   },
+   "properties": {
+    "objectid": 2043,
+    "gaugelid": "CFXI4",
+    "status": "action",
+    "location": "Colfax",
+    "latitude": 41.681806,
+    "longitude": -93.246833,
+    "waterbody": "South Skunk River",
+    "state": "IA",
+    "fcsttime": "2026-11-05 00:00:00",
+    "fcstissunc": "2026-11-04 17:33:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "dmx",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/cfxi4",
+    "action": "15",
+    "forecast": "15.3",
+    "lowthresh": "",
+    "secvalue": "4.48",
+    "flood": "18",
+    "moderate": "19",
+    "major": "21",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 2158,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.25988889995256,
+     40.95197219892321
+    ]
+   },
+   "properties": {
+    "objectid": 2158,
+    "gaugelid": "CHTI4",
+    "status": "action",
+    "location": "Chariton",
+    "latitude": 40.951972000000005,
+    "longitude": -93.259889,
+    "waterbody": "Chariton River",
+    "state": "IA",
+    "fcsttime": "2026-11-05 00:00:00",
+    "fcstissunc": "2026-11-04 19:03:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "dmx",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/chti4",
+    "action": "16",
+    "forecast": "16.1",
+    "lowthresh": "",
+    "secvalue": "2.42",
+    "flood": "19.5",
+    "moderate": "26",
+    "major": "29",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 2162,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -79.92399000043793,
+     32.77503699929833
+    ]
+   },
+   "properties": {
+    "objectid": 2162,
+    "gaugelid": "CHTS1",
+    "status": "action",
+    "location": "Charleston Harbor (IN MLLW)",
+    "latitude": 32.775037,
+    "longitude": -79.92399,
+    "waterbody": "Cooper River",
+    "state": "SC",
+    "fcsttime": "2026-11-07 11:00:00",
+    "fcstissunc": "2026-11-04 14:21:00",
+    "units": "ft",
+    "lowthreshu": "ft",
+    "wfo": "chs",
+    "hdatum": "none",
+    "pedts": "HMIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/chts1",
+    "action": "6.5",
+    "forecast": "6.7",
+    "lowthresh": "-1.50",
+    "secvalue": "0.001",
+    "flood": "7",
+    "moderate": "7.5",
+    "major": "8",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 2173,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.5586109995977,
+     39.75583299896544
+    ]
+   },
+   "properties": {
+    "objectid": 2173,
+    "gaugelid": "CHZM7",
+    "status": "minor",
+    "location": "Chillicothe",
+    "latitude": 39.755833,
+    "longitude": -93.558611,
+    "waterbody": "Grand River",
+    "state": "MO",
+    "fcsttime": "2026-11-05 06:00:00",
+    "fcstissunc": "2026-11-04 14:26:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "eax",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/chzm7",
+    "action": "19",
+    "forecast": "25.1",
+    "lowthresh": "",
+    "secvalue": "33.6",
+    "flood": "24",
+    "moderate": "28",
+    "major": "35",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 2394,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -106.11166666668305,
+     36.073611110365654
+    ]
+   },
+   "properties": {
+    "objectid": 2394,
+    "gaugelid": "CMTN5",
+    "status": "action",
+    "location": "Chamita",
+    "latitude": 36.073611,
+    "longitude": -106.111667,
+    "waterbody": "Rio Chama",
+    "state": "NM",
+    "fcsttime": "2026-11-05 00:00:00",
+    "fcstissunc": "2026-11-04 18:39:00",
+    "units": "ft",
+    "lowthreshu": "ft",
+    "wfo": "abq",
+    "hdatum": "none",
+    "pedts": "HGIFF",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/cmtn5",
+    "action": "5.5",
+    "forecast": "5.8",
+    "lowthresh": "0.00",
+    "secvalue": "1.76",
+    "flood": "6",
+    "moderate": "8",
+    "major": "11.5",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 2415,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.29027777739725,
+     41.409166665572585
+    ]
+   },
+   "properties": {
+    "objectid": 2415,
+    "gaugelid": "CNEI4",
+    "status": "action",
+    "location": "Conesville",
+    "latitude": 41.409167000000004,
+    "longitude": -91.290278,
+    "waterbody": "Cedar River",
+    "state": "IA",
+    "fcsttime": "2026-11-07 06:00:00",
+    "fcstissunc": "2026-11-04 16:06:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "dvn",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/cnei4",
+    "action": "12",
+    "forecast": "12.1",
+    "lowthresh": "",
+    "secvalue": "18.2",
+    "flood": "13",
+    "moderate": "15",
+    "major": "16.5",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 2462,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -80.87277777807174,
+     28.369444443616274
+    ]
+   },
+   "properties": {
+    "objectid": 2462,
+    "gaugelid": "COCF1",
+    "status": "major",
+    "location": "Cocoa",
+    "latitude": 28.369443999999998,
+    "longitude": -80.872778,
+    "waterbody": "St. Johns River",
+    "state": "FL",
+    "fcsttime": "2026-11-06 18:00:00",
+    "fcstissunc": "2026-11-04 13:52:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "mlb",
+    "hdatum": "none",
+    "pedts": "HGIFF",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/cocf1",
+    "action": "15.8",
+    "forecast": "17",
+    "lowthresh": "",
+    "secvalue": "10.8",
+    "flood": "16",
+    "moderate": "16.5",
+    "major": "17",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 2689,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -96.96072000012771,
+     40.59649999944253
+    ]
+   },
+   "properties": {
+    "objectid": 2689,
+    "gaugelid": "CRTN1",
+    "status": "action",
+    "location": "Crete",
+    "latitude": 40.5965,
+    "longitude": -96.96072000000001,
+    "waterbody": "Big Blue River",
+    "state": "NE",
+    "fcsttime": "2026-11-06 00:00:00",
+    "fcstissunc": "2026-11-04 14:46:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "oax",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/crtn1",
+    "action": "19",
+    "forecast": "19.4",
+    "lowthresh": "",
+    "secvalue": "3.32",
+    "flood": "21",
+    "moderate": "25",
+    "major": "31",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 2694,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -86.57083333349135,
+     30.697222221698908
+    ]
+   },
+   "properties": {
+    "objectid": 2694,
+    "gaugelid": "CRVF1",
+    "status": "action",
+    "location": "Crestview",
+    "latitude": 30.697222,
+    "longitude": -86.57083300000001,
+    "waterbody": "Shoal River",
+    "state": "FL",
+    "fcsttime": "2026-11-05 06:00:00",
+    "fcstissunc": "2026-11-04 13:39:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "mob",
+    "hdatum": "none",
+    "pedts": "HGIFF",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/crvf1",
+    "action": "6",
+    "forecast": "6.1",
+    "lowthresh": "",
+    "secvalue": "1.02",
+    "flood": "8",
+    "moderate": "12",
+    "major": "15",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 2847,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.11777777752218,
+     30.2969444435084
+    ]
+   },
+   "properties": {
+    "objectid": 2847,
+    "gaugelid": "CWOL1",
+    "status": "minor",
+    "location": "White Oak Park",
+    "latitude": 30.296944,
+    "longitude": -93.117778,
+    "waterbody": "Calcasieu River",
+    "state": "LA",
+    "fcsttime": "2026-11-05 00:00:00",
+    "fcstissunc": "2026-11-04 14:31:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "lch",
+    "hdatum": "none",
+    "pedts": "HGIFF",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/cwol1",
+    "action": "1.5",
+    "forecast": "2.3",
+    "lowthresh": "",
+    "secvalue": "5.76",
+    "flood": "2",
+    "moderate": "4",
+    "major": "6",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 3027,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.6426667003077,
+     41.581499999088415
+    ]
+   },
+   "properties": {
+    "objectid": 3027,
+    "gaugelid": "DEMI4",
+    "status": "action",
+    "location": "Des Moines Fleur Dr",
+    "latitude": 41.5815,
+    "longitude": -93.642667,
+    "waterbody": "Raccoon River",
+    "state": "IA",
+    "fcsttime": "2026-11-06 12:00:00",
+    "fcstissunc": "2026-11-04 17:58:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "dmx",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/demi4",
+    "action": "8",
+    "forecast": "11.9",
+    "lowthresh": "",
+    "secvalue": "14.4",
+    "flood": "12",
+    "moderate": "16",
+    "major": "25",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 3041,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.60561110037179,
+     41.57858329894284
+    ]
+   },
+   "properties": {
+    "objectid": 3041,
+    "gaugelid": "DESI4",
+    "status": "action",
+    "location": "Des Moines SE 6th St",
+    "latitude": 41.578582999999995,
+    "longitude": -93.605611,
+    "waterbody": "Des Moines River",
+    "state": "IA",
+    "fcsttime": "2026-11-07 00:00:00",
+    "fcstissunc": "2026-11-04 17:58:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "dmx",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/desi4",
+    "action": "20",
+    "forecast": "23.8",
+    "lowthresh": "",
+    "secvalue": "29.3",
+    "flood": "24",
+    "moderate": "26",
+    "major": "30",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 3050,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.53472222235246,
+     41.76694444349327
+    ]
+   },
+   "properties": {
+    "objectid": 3050,
+    "gaugelid": "DEWI4",
+    "status": "action",
+    "location": "DeWitt",
+    "latitude": 41.766944,
+    "longitude": -90.534722,
+    "waterbody": "Wapsipinicon River",
+    "state": "IA",
+    "fcsttime": "2026-11-08 06:00:00",
+    "fcstissunc": "2026-11-04 17:16:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "dvn",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/dewi4",
+    "action": "10",
+    "forecast": "10",
+    "lowthresh": "",
+    "secvalue": "4.52",
+    "flood": "11",
+    "moderate": "11.5",
+    "major": "12.5",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 3109,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -81.38277777777205,
+     29.00805555471884
+    ]
+   },
+   "properties": {
+    "objectid": 3109,
+    "gaugelid": "DLAF1",
+    "status": "minor",
+    "location": "Deland",
+    "latitude": 29.008056,
+    "longitude": -81.382778,
+    "waterbody": "St. Johns River",
+    "state": "FL",
+    "fcsttime": "2026-11-09 00:00:00",
+    "fcstissunc": "2026-11-04 14:22:00",
+    "units": "ft",
+    "lowthreshu": "ft",
+    "wfo": "mlb",
+    "hdatum": "none",
+    "pedts": "HGIFF",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/dlaf1",
+    "action": "3.5",
+    "forecast": "4.7",
+    "lowthresh": "0.00",
+    "secvalue": "-999",
+    "flood": "4",
+    "moderate": "4.8",
+    "major": "5.3",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 3149,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.61972219981942,
+     41.61194443894733
+    ]
+   },
+   "properties": {
+    "objectid": 3149,
+    "gaugelid": "DMOI4",
+    "status": "action",
+    "location": "Des Moines 2nd Ave",
+    "latitude": 41.611944,
+    "longitude": -93.619722,
+    "waterbody": "Des Moines River",
+    "state": "IA",
+    "fcsttime": "2026-11-07 00:00:00",
+    "fcstissunc": "2026-11-04 17:58:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "dmx",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/dmoi4",
+    "action": "19",
+    "forecast": "19.5",
+    "lowthresh": "",
+    "secvalue": "15.3",
+    "flood": "23",
+    "moderate": "26",
+    "major": "30",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 3192,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -109.19511420025992,
+     38.79720804919004
+    ]
+   },
+   "properties": {
+    "objectid": 3192,
+    "gaugelid": "DOLU1",
+    "status": "action",
+    "location": "Cisco",
+    "latitude": 38.797208,
+    "longitude": -109.19511399999999,
+    "waterbody": "Dolores River",
+    "state": "UT",
+    "fcsttime": "2026-11-04 22:00:00",
+    "fcstissunc": "2026-11-04 16:01:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "gjt",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/dolu1",
+    "action": "13",
+    "forecast": "13.51",
+    "lowthresh": "",
+    "secvalue": "5.49",
+    "flood": "14",
+    "moderate": "14.5",
+    "major": "16",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 3251,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -97.17792199980022,
+     40.73079999908709
+    ]
+   },
+   "properties": {
+    "objectid": 3251,
+    "gaugelid": "DRGN1",
+    "status": "action",
+    "location": "Dorchester",
+    "latitude": 40.7308,
+    "longitude": -97.177922,
+    "waterbody": "West Fork Big Blue River",
+    "state": "NE",
+    "fcsttime": "2026-11-06 06:00:00",
+    "fcstissunc": "2026-11-04 14:46:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "oax",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/drgn1",
+    "action": "13",
+    "forecast": "14.6",
+    "lowthresh": "",
+    "secvalue": "2.46",
+    "flood": "15",
+    "moderate": "22",
+    "major": "24.4",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 3335,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.80805560028546,
+     40.64027777896321
+    ]
+   },
+   "properties": {
+    "objectid": 3335,
+    "gaugelid": "DVSI4",
+    "status": "action",
+    "location": "Davis City",
+    "latitude": 40.640278,
+    "longitude": -93.80805600000001,
+    "waterbody": "Thompson River",
+    "state": "IA",
+    "fcsttime": "2026-11-05 00:00:00",
+    "fcstissunc": "2026-11-04 15:39:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "dmx",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/dvsi4",
+    "action": "8",
+    "forecast": "9.8",
+    "lowthresh": "",
+    "secvalue": "9.44",
+    "flood": "12",
+    "moderate": "20",
+    "major": "24",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 4207,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.30472222205265,
+     29.554999999040138
+    ]
+   },
+   "properties": {
+    "objectid": 4207,
+    "gaugelid": "FRWL1",
+    "status": "action",
+    "location": "Fresh Water Canal Locks",
+    "latitude": 29.555,
+    "longitude": -92.304722,
+    "waterbody": "Tide Station (LCH)",
+    "state": "LA",
+    "fcsttime": "2026-11-07 21:00:00",
+    "fcstissunc": "2026-11-04 16:51:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "lch",
+    "hdatum": "none",
+    "pedts": "HMIFV",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/frwl1",
+    "action": "3.21",
+    "forecast": "3.57",
+    "lowthresh": "",
+    "secvalue": "-999",
+    "flood": "4",
+    "moderate": "5",
+    "major": "6",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 4336,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.94249999957515,
+     39.92694399913695
+    ]
+   },
+   "properties": {
+    "objectid": 4336,
+    "gaugelid": "GAZM7",
+    "status": "minor",
+    "location": "Gallatin",
+    "latitude": 39.926944000000006,
+    "longitude": -93.9425,
+    "waterbody": "Grand River",
+    "state": "MO",
+    "fcsttime": "2026-11-05 00:00:00",
+    "fcstissunc": "2026-11-04 14:26:00",
+    "units": "ft",
+    "lowthreshu": "ft",
+    "wfo": "eax",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/gazm7",
+    "action": "21",
+    "forecast": "26.2",
+    "lowthresh": "2.00",
+    "secvalue": "20.8",
+    "flood": "26",
+    "moderate": "33",
+    "major": "39",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 4435,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -81.03555555584398,
+     28.71388888816562
+    ]
+   },
+   "properties": {
+    "objectid": 4435,
+    "gaugelid": "GENF1",
+    "status": "moderate",
+    "location": "Lake Harney",
+    "latitude": 28.713888999999998,
+    "longitude": -81.035556,
+    "waterbody": "St. Johns River",
+    "state": "FL",
+    "fcsttime": "2026-11-09 12:00:00",
+    "fcstissunc": "2026-11-04 14:22:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "mlb",
+    "hdatum": "none",
+    "pedts": "HGIFF",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/genf1",
+    "action": "6",
+    "forecast": "9.8",
+    "lowthresh": "",
+    "secvalue": "-999",
+    "flood": "8",
+    "moderate": "9",
+    "major": "10",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 4507,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -110.22009029962737,
+     33.18561277934103
+    ]
+   },
+   "properties": {
+    "objectid": 4507,
+    "gaugelid": "GLCA3",
+    "status": "action",
+    "location": "Calva",
+    "latitude": 33.185613000000004,
+    "longitude": -110.22009,
+    "waterbody": "Gila River",
+    "state": "AZ",
+    "fcsttime": "2026-11-04 22:00:00",
+    "fcstissunc": "2026-11-04 17:20:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "twc",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/glca3",
+    "action": "15",
+    "forecast": "16.81",
+    "lowthresh": "",
+    "secvalue": "11.7",
+    "flood": "20",
+    "moderate": "24",
+    "major": "27",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 5241,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -70.81861111141347,
+     42.900277776956436
+    ]
+   },
+   "properties": {
+    "objectid": 5241,
+    "gaugelid": "HPMN3",
+    "status": "action",
+    "location": "Hampton (IN MLLW)",
+    "latitude": 42.900278,
+    "longitude": -70.818611,
+    "waterbody": "Atlantic Coast",
+    "state": "NH",
+    "fcsttime": "2026-11-07 15:00:00",
+    "fcstissunc": "2026-11-04 21:11:00",
+    "units": "ft",
+    "lowthreshu": "ft",
+    "wfo": "gyx",
+    "hdatum": "none",
+    "pedts": "HMIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/hpmn3",
+    "action": "10",
+    "forecast": "10",
+    "lowthresh": "-3.00",
+    "secvalue": "-999",
+    "flood": "11",
+    "moderate": "12",
+    "major": "13",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 5418,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -70.27739999980986,
+     41.649799999332934
+    ]
+   },
+   "properties": {
+    "objectid": 5418,
+    "gaugelid": "HYPM3",
+    "status": "action",
+    "location": "Hyannisport (IN MLLW)",
+    "latitude": 41.6498,
+    "longitude": -70.2774,
+    "waterbody": "Atlantic Coast",
+    "state": "MA",
+    "fcsttime": "2026-11-06 14:00:00",
+    "fcstissunc": "2026-11-04 09:05:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "box",
+    "hdatum": "none",
+    "pedts": "HMIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/hypm3",
+    "action": "4",
+    "forecast": "4.3",
+    "lowthresh": "",
+    "secvalue": "-999",
+    "flood": "5",
+    "moderate": "6.5",
+    "major": "8.5",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 5693,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -77.78668800035075,
+     34.21340399951677
+    ]
+   },
+   "properties": {
+    "objectid": 5693,
+    "gaugelid": "JMPN7",
+    "status": "action",
+    "location": "Johnnie Mercers Pier at Wrightsville Beach (MLLW)",
+    "latitude": 34.213404,
+    "longitude": -77.78668800000001,
+    "waterbody": "Atlantic Coast",
+    "state": "NC",
+    "fcsttime": "2026-11-07 10:00:00",
+    "fcstissunc": "2026-11-04 19:01:00",
+    "units": "ft",
+    "lowthreshu": "ft",
+    "wfo": "ilm",
+    "hdatum": "none",
+    "pedts": "HMIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/jmpn7",
+    "action": "5.5",
+    "forecast": "5.6",
+    "lowthresh": "-2.00",
+    "secvalue": "-999",
+    "flood": "6",
+    "moderate": "8",
+    "major": "10",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 5792,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.71461289966533,
+     41.46973869884504
+    ]
+   },
+   "properties": {
+    "objectid": 5792,
+    "gaugelid": "KALI4",
+    "status": "action",
+    "location": "Kalona",
+    "latitude": 41.469739000000004,
+    "longitude": -91.714613,
+    "waterbody": "English River",
+    "state": "IA",
+    "fcsttime": "2026-11-05 12:00:00",
+    "fcstissunc": "2026-11-04 16:06:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "dvn",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/kali4",
+    "action": "13",
+    "forecast": "13.2",
+    "lowthresh": "",
+    "secvalue": "3.8",
+    "flood": "14",
+    "moderate": "16",
+    "major": "18",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 6100,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.95809999971505,
+     43.74639999931754
+    ]
+   },
+   "properties": {
+    "objectid": 6100,
+    "gaugelid": "LANM5",
+    "status": "action",
+    "location": "Lansing",
+    "latitude": 43.7464,
+    "longitude": -92.9581,
+    "waterbody": "Cedar River",
+    "state": "MN",
+    "fcsttime": "2026-11-05 18:00:00",
+    "fcstissunc": "2026-11-04 16:23:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "arx",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/lanm5",
+    "action": "14",
+    "forecast": "14.2",
+    "lowthresh": "",
+    "secvalue": "0.809",
+    "flood": "18",
+    "moderate": "20",
+    "major": "22",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 6197,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.21805555541937,
+     30.253611109842705
+    ]
+   },
+   "properties": {
+    "objectid": 6197,
+    "gaugelid": "LCHL1",
+    "status": "minor",
+    "location": "Saltwater Barrier",
+    "latitude": 30.253611,
+    "longitude": -93.218056,
+    "waterbody": "Calcasieu River",
+    "state": "LA",
+    "fcsttime": "2026-11-05 12:00:00",
+    "fcstissunc": "2026-11-04 14:31:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "lch",
+    "hdatum": "none",
+    "pedts": "HPIFF",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/lchl1",
+    "action": "4",
+    "forecast": "4.1",
+    "lowthresh": "",
+    "secvalue": "15.6",
+    "flood": "4",
+    "moderate": "6",
+    "major": "8",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 6211,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.22166666708279,
+     30.223611110442686
+    ]
+   },
+   "properties": {
+    "objectid": 6211,
+    "gaugelid": "LCLL1",
+    "status": "action",
+    "location": "Lake Charles",
+    "latitude": 30.223611000000002,
+    "longitude": -93.221667,
+    "waterbody": "Tide Station (LCH)",
+    "state": "LA",
+    "fcsttime": "2026-11-08 02:00:00",
+    "fcstissunc": "2026-11-04 16:51:00",
+    "units": "ft",
+    "lowthreshu": "ft",
+    "wfo": "lch",
+    "hdatum": "none",
+    "pedts": "HMIFV",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/lcll1",
+    "action": "2.34",
+    "forecast": "2.66",
+    "lowthresh": "-1.00",
+    "secvalue": "-999",
+    "flood": "3",
+    "moderate": "4",
+    "major": "6",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 6249,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -110.65055555529443,
+     35.011666665996344
+    ]
+   },
+   "properties": {
+    "objectid": 6249,
+    "gaugelid": "LCWA3",
+    "status": "minor",
+    "location": "Winslow",
+    "latitude": 35.011667,
+    "longitude": -110.650556,
+    "waterbody": "Little Colorado River",
+    "state": "AZ",
+    "fcsttime": "2026-11-04 22:00:00",
+    "fcstissunc": "2026-11-04 17:20:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "fgz",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/lcwa3",
+    "action": "17",
+    "forecast": "20.41",
+    "lowthresh": "",
+    "secvalue": "9.21",
+    "flood": "19",
+    "moderate": "22",
+    "major": "25",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 6405,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -82.21138888868609,
+     27.871944443900183
+    ]
+   },
+   "properties": {
+    "objectid": 6405,
+    "gaugelid": "LITF1",
+    "status": "minor",
+    "location": "Lithia Pinecrest Road at Lithia",
+    "latitude": 27.871944,
+    "longitude": -82.211389,
+    "waterbody": "Alafia River",
+    "state": "FL",
+    "fcsttime": "2026-11-05 00:00:00",
+    "fcstissunc": "2026-11-04 12:33:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "tbw",
+    "hdatum": "none",
+    "pedts": "HGIFF",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/litf1",
+    "action": "11",
+    "forecast": "13.3",
+    "lowthresh": "",
+    "secvalue": "1.74",
+    "flood": "13",
+    "moderate": "16",
+    "major": "19",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 6552,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.47852779991786,
+     41.42377777908457
+    ]
+   },
+   "properties": {
+    "objectid": 6552,
+    "gaugelid": "LNTI4",
+    "status": "action",
+    "location": "Lone Tree (Tri-County Bridge)",
+    "latitude": 41.423778,
+    "longitude": -91.478528,
+    "waterbody": "Iowa River",
+    "state": "IA",
+    "fcsttime": "2026-11-06 12:00:00",
+    "fcstissunc": "2026-11-04 16:06:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "dvn",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/lnti4",
+    "action": "14",
+    "forecast": "14.1",
+    "lowthresh": "",
+    "secvalue": "13.2",
+    "flood": "16",
+    "moderate": "18.5",
+    "major": "22",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 6835,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -76.46500000014964,
+     37.9949999993344
+    ]
+   },
+   "properties": {
+    "objectid": 6835,
+    "gaugelid": "LWTV2",
+    "status": "action",
+    "location": "Lewisetta (IN MLLW)",
+    "latitude": 37.995,
+    "longitude": -76.465,
+    "waterbody": "Potomac River",
+    "state": "VA",
+    "fcsttime": "2026-11-06 16:00:00",
+    "fcstissunc": "2026-11-04 17:43:00",
+    "units": "ft",
+    "lowthreshu": "ft",
+    "wfo": "akq",
+    "hdatum": "none",
+    "pedts": "HMIFM",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/lwtv2",
+    "action": "2.5",
+    "forecast": "2.5",
+    "lowthresh": "-1.00",
+    "secvalue": "-999",
+    "flood": "3",
+    "moderate": "3.5",
+    "major": "4",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 7311,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.90769969988105,
+     42.06582095943074
+    ]
+   },
+   "properties": {
+    "objectid": 7311,
+    "gaugelid": "MIWI4",
+    "status": "action",
+    "location": "Marshalltown",
+    "latitude": 42.065821,
+    "longitude": -92.9077,
+    "waterbody": "Iowa River",
+    "state": "IA",
+    "fcsttime": "2026-11-05 06:00:00",
+    "fcstissunc": "2026-11-04 16:20:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "dmx",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/miwi4",
+    "action": "14",
+    "forecast": "16.9",
+    "lowthresh": "",
+    "secvalue": "7.32",
+    "flood": "19",
+    "moderate": "23",
+    "major": "26",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 7329,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -82.21138888868609,
+     27.473333332493954
+    ]
+   },
+   "properties": {
+    "objectid": 7329,
+    "gaugelid": "MKHF1",
+    "status": "action",
+    "location": "Myakka Head at SR 64",
+    "latitude": 27.473332999999997,
+    "longitude": -82.211389,
+    "waterbody": "Manatee River",
+    "state": "FL",
+    "fcsttime": "2026-11-05 00:00:00",
+    "fcstissunc": "2026-11-04 12:33:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "tbw",
+    "hdatum": "none",
+    "pedts": "HGIFF",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/mkhf1",
+    "action": "9.5",
+    "forecast": "10",
+    "lowthresh": "",
+    "secvalue": "0.394",
+    "flood": "11",
+    "moderate": "15",
+    "major": "17",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 7495,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -111.20111111128858,
+     36.104999999351364
+    ]
+   },
+   "properties": {
+    "objectid": 7495,
+    "gaugelid": "MOEA3",
+    "status": "moderate",
+    "location": "Tuba city",
+    "latitude": 36.105,
+    "longitude": -111.201111,
+    "waterbody": "Moenkopi Wash",
+    "state": "AZ",
+    "fcsttime": "2026-11-04 22:00:00",
+    "fcstissunc": "2026-11-04 17:20:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "fgz",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/moea3",
+    "action": "26",
+    "forecast": "28.05",
+    "lowthresh": "",
+    "secvalue": "0.235",
+    "flood": "27",
+    "moderate": "28",
+    "major": "29",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 7627,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.06479199985074,
+     41.81272565892391
+    ]
+   },
+   "properties": {
+    "objectid": 7627,
+    "gaugelid": "MROI4",
+    "status": "minor",
+    "location": "Marengo",
+    "latitude": 41.812726,
+    "longitude": -92.064792,
+    "waterbody": "Iowa River",
+    "state": "IA",
+    "fcsttime": "2026-11-07 00:00:00",
+    "fcstissunc": "2026-11-04 16:06:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "dvn",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/mroi4",
+    "action": "13",
+    "forecast": "16.5",
+    "lowthresh": "",
+    "secvalue": "9.86",
+    "flood": "15",
+    "moderate": "17",
+    "major": "19",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 7869,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -94.83219400005282,
+     40.34549999879428
+    ]
+   },
+   "properties": {
+    "objectid": 7869,
+    "gaugelid": "MYVM7",
+    "status": "action",
+    "location": "Maryville",
+    "latitude": 40.3455,
+    "longitude": -94.832194,
+    "waterbody": "102 River",
+    "state": "MO",
+    "fcsttime": "2026-11-05 00:00:00",
+    "fcstissunc": "2026-11-04 19:33:00",
+    "units": "ft",
+    "lowthreshu": "ft",
+    "wfo": "eax",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/myvm7",
+    "action": "13",
+    "forecast": "14.5",
+    "lowthresh": "6.00",
+    "secvalue": "5.19",
+    "flood": "18",
+    "moderate": "23",
+    "major": "28",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 7969,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -77.0366666663333,
+     38.319722221484724
+    ]
+   },
+   "properties": {
+    "objectid": 7969,
+    "gaugelid": "NCDV2",
+    "status": "action",
+    "location": "Dahlgren (IN MLLW)",
+    "latitude": 38.319722,
+    "longitude": -77.03666700000001,
+    "waterbody": "Upper Machodoc Creek",
+    "state": "VA",
+    "fcsttime": "2026-11-06 18:00:00",
+    "fcstissunc": "2026-11-04 18:56:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "lwx",
+    "hdatum": "none",
+    "pedts": "HMIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/ncdv2",
+    "action": "3",
+    "forecast": "3",
+    "lowthresh": "",
+    "secvalue": "-999",
+    "flood": "3.5",
+    "moderate": "5",
+    "major": "7",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 8284,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.65497220030659,
+     41.45811109881137
+    ]
+   },
+   "properties": {
+    "objectid": 8284,
+    "gaugelid": "NRWI4",
+    "status": "action",
+    "location": "Norwalk",
+    "latitude": 41.458111,
+    "longitude": -93.654972,
+    "waterbody": "North River",
+    "state": "IA",
+    "fcsttime": "2026-11-05 06:00:00",
+    "fcstissunc": "2026-11-04 17:33:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "dmx",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/nrwi4",
+    "action": "17",
+    "forecast": "17.2",
+    "lowthresh": "",
+    "secvalue": "2.45",
+    "flood": "22",
+    "moderate": "25",
+    "major": "26",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 8289,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -94.11416666655816,
+     30.15666666551359
+    ]
+   },
+   "properties": {
+    "objectid": 8289,
+    "gaugelid": "NSBT2",
+    "status": "action",
+    "location": "Saltwater Barrier",
+    "latitude": 30.156667000000002,
+    "longitude": -94.114167,
+    "waterbody": "Neches River",
+    "state": "TX",
+    "fcsttime": "2026-11-06 06:00:00",
+    "fcstissunc": "2026-11-04 19:50:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "lch",
+    "hdatum": "none",
+    "pedts": "HGIFF",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/nsbt2",
+    "action": "3.4",
+    "forecast": "3.7",
+    "lowthresh": "",
+    "secvalue": "21.7",
+    "flood": "4",
+    "moderate": "6",
+    "major": "8",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 8315,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -75.93527777804684,
+     37.476388887625234
+    ]
+   },
+   "properties": {
+    "objectid": 8315,
+    "gaugelid": "NSWV2",
+    "status": "action",
+    "location": "Bayford (IN MLLW)",
+    "latitude": 37.476389000000005,
+    "longitude": -75.935278,
+    "waterbody": "Nassawadox Creek",
+    "state": "VA",
+    "fcsttime": "2026-11-07 14:00:00",
+    "fcstissunc": "2026-11-04 17:43:00",
+    "units": "ft",
+    "lowthreshu": "ft",
+    "wfo": "akq",
+    "hdatum": "none",
+    "pedts": "HMIFM",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/nswv2",
+    "action": "2.5",
+    "forecast": "2.7",
+    "lowthresh": "-1.00",
+    "secvalue": "-999",
+    "flood": "3",
+    "moderate": "3.5",
+    "major": "4.5",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 8518,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.06352779966801,
+     41.10319443933662
+    ]
+   },
+   "properties": {
+    "objectid": 8518,
+    "gaugelid": "OKVI4",
+    "status": "action",
+    "location": "Oakville",
+    "latitude": 41.103193999999995,
+    "longitude": -91.063528,
+    "waterbody": "Iowa River",
+    "state": "IA",
+    "fcsttime": "2026-11-08 00:00:00",
+    "fcstissunc": "2026-11-04 16:06:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "dvn",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/okvi4",
+    "action": "8",
+    "forecast": "9.8",
+    "lowthresh": "",
+    "secvalue": "31.1",
+    "flood": "11",
+    "moderate": "15",
+    "major": "20",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 8569,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.65735559998075,
+     41.355702779323444
+    ]
+   },
+   "properties": {
+    "objectid": 8569,
+    "gaugelid": "OOAI4",
+    "status": "action",
+    "location": "Oskaloosa",
+    "latitude": 41.355703,
+    "longitude": -92.65735600000001,
+    "waterbody": "South Skunk River",
+    "state": "IA",
+    "fcsttime": "2026-11-05 00:00:00",
+    "fcstissunc": "2026-11-04 17:33:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "dmx",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/ooai4",
+    "action": "18",
+    "forecast": "20.3",
+    "lowthresh": "",
+    "secvalue": "8.85",
+    "flood": "24.5",
+    "moderate": "28.5",
+    "major": "30",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 8767,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -94.12722199969528,
+     40.026110999193364
+    ]
+   },
+   "properties": {
+    "objectid": 8767,
+    "gaugelid": "PATM7",
+    "status": "minor",
+    "location": "Pattonsburg",
+    "latitude": 40.026111,
+    "longitude": -94.127222,
+    "waterbody": "Grand River",
+    "state": "MO",
+    "fcsttime": "2026-11-05 00:00:00",
+    "fcstissunc": "2026-11-04 14:26:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "eax",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/patm7",
+    "action": "20",
+    "forecast": "25.7",
+    "lowthresh": "",
+    "secvalue": "18.5",
+    "flood": "25",
+    "moderate": "30",
+    "major": "32",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 9071,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -94.78638900025192,
+     39.368888999301966
+    ]
+   },
+   "properties": {
+    "objectid": 9071,
+    "gaugelid": "PLCM7",
+    "status": "minor",
+    "location": "Platte City",
+    "latitude": 39.368889,
+    "longitude": -94.786389,
+    "waterbody": "Platte River",
+    "state": "MO",
+    "fcsttime": "2026-11-07 12:00:00",
+    "fcstissunc": "2026-11-04 16:30:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "eax",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/plcm7",
+    "action": "17",
+    "forecast": "23.1",
+    "lowthresh": "",
+    "secvalue": "15.1",
+    "flood": "20",
+    "moderate": "25",
+    "major": "29",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 9096,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -81.31500000034953,
+     26.932222221015728
+    ]
+   },
+   "properties": {
+    "objectid": 9096,
+    "gaugelid": "PLMF1",
+    "status": "minor",
+    "location": "Palmdale",
+    "latitude": 26.932222000000003,
+    "longitude": -81.315,
+    "waterbody": "Fisheating Creek",
+    "state": "FL",
+    "fcsttime": "2026-11-07 12:00:00",
+    "fcstissunc": "2026-11-04 13:23:00",
+    "units": "ft",
+    "lowthreshu": "ft",
+    "wfo": "mfl",
+    "hdatum": "none",
+    "pedts": "HGIFF",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/plmf1",
+    "action": "5",
+    "forecast": "7",
+    "lowthresh": "1.00",
+    "secvalue": "2.19",
+    "flood": "7",
+    "moderate": "8",
+    "major": "9",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 9559,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.88169999985485,
+     29.979999999082974
+    ]
+   },
+   "properties": {
+    "objectid": 9559,
+    "gaugelid": "RBBT2",
+    "status": "action",
+    "location": "Rainbow Bridge",
+    "latitude": 29.98,
+    "longitude": -93.8817,
+    "waterbody": "Tide Station (LCH)",
+    "state": "TX",
+    "fcsttime": "2026-11-08 02:00:00",
+    "fcstissunc": "2026-11-04 16:51:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "lch",
+    "hdatum": "none",
+    "pedts": "HMIFV",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/rbbt2",
+    "action": "2",
+    "forecast": "2.42",
+    "lowthresh": "",
+    "secvalue": "-999",
+    "flood": "3",
+    "moderate": "4",
+    "major": "5",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 9587,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -106.59944444470514,
+     36.31888888761084
+    ]
+   },
+   "properties": {
+    "objectid": 9587,
+    "gaugelid": "RCAN5",
+    "status": "action",
+    "location": "Abiquiu",
+    "latitude": 36.318889000000006,
+    "longitude": -106.599444,
+    "waterbody": "Rio Chama",
+    "state": "NM",
+    "fcsttime": "2026-11-05 00:00:00",
+    "fcstissunc": "2026-11-04 18:39:00",
+    "units": "ft",
+    "lowthreshu": "ft",
+    "wfo": "abq",
+    "hdatum": "none",
+    "pedts": "HGIFF",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/rcan5",
+    "action": "10.2",
+    "forecast": "10.6",
+    "lowthresh": "0.00",
+    "secvalue": "4.28",
+    "flood": "11",
+    "moderate": "12",
+    "major": "13.5",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 10010,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -94.82861111091381,
+     40.045277776917914
+    ]
+   },
+   "properties": {
+    "objectid": 10010,
+    "gaugelid": "RSDM7",
+    "status": "moderate",
+    "location": "Rosendale",
+    "latitude": 40.045278,
+    "longitude": -94.828611,
+    "waterbody": "102 River",
+    "state": "MO",
+    "fcsttime": "2026-11-05 00:00:00",
+    "fcstissunc": "2026-11-04 14:36:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "eax",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/rsdm7",
+    "action": "13",
+    "forecast": "19.8",
+    "lowthresh": "",
+    "secvalue": "14.4",
+    "flood": "18",
+    "moderate": "18.11",
+    "major": "23",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 10194,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.32940000010967,
+     44.78799999925677
+    ]
+   },
+   "properties": {
+    "objectid": 10194,
+    "gaugelid": "SAVM5",
+    "status": "action",
+    "location": "Savage",
+    "latitude": 44.788,
+    "longitude": -93.3294,
+    "waterbody": "Minnesota River",
+    "state": "MN",
+    "fcsttime": "2026-11-10 06:00:00",
+    "fcstissunc": "2026-11-04 15:51:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "mpx",
+    "hdatum": "none",
+    "pedts": "HGIFF",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/savm5",
+    "action": "697",
+    "forecast": "698.4",
+    "lowthresh": "",
+    "secvalue": "10.7",
+    "flood": "702",
+    "moderate": "710",
+    "major": "712",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 10550,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -76.49999999989984,
+     38.138333332799846
+    ]
+   },
+   "properties": {
+    "objectid": 10550,
+    "gaugelid": "SGSM2",
+    "status": "action",
+    "location": "Straits Point (IN MLLW)",
+    "latitude": 38.138333,
+    "longitude": -76.5,
+    "waterbody": "St. George Creek",
+    "state": "MD",
+    "fcsttime": "2026-11-05 16:00:00",
+    "fcstissunc": "2026-11-04 18:56:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "lwx",
+    "hdatum": "none",
+    "pedts": "HMIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/sgsm2",
+    "action": "2.5",
+    "forecast": "2.5",
+    "lowthresh": "",
+    "secvalue": "-999",
+    "flood": "3.5",
+    "moderate": "4",
+    "major": "5",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 10613,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.58296670025277,
+     42.71192499879874
+    ]
+   },
+   "properties": {
+    "objectid": 10613,
+    "gaugelid": "SHRI4",
+    "status": "action",
+    "location": "Shell Rock",
+    "latitude": 42.711925,
+    "longitude": -92.582967,
+    "waterbody": "Shell Rock River",
+    "state": "IA",
+    "fcsttime": "2026-11-06 00:00:00",
+    "fcstissunc": "2026-11-04 16:20:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "dmx",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/shri4",
+    "action": "10",
+    "forecast": "10",
+    "lowthresh": "",
+    "secvalue": "3.59",
+    "flood": "12",
+    "moderate": "16",
+    "major": "18",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 10615,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -108.68305555526945,
+     36.77666666532871
+    ]
+   },
+   "properties": {
+    "objectid": 10615,
+    "gaugelid": "SHRN5",
+    "status": "action",
+    "location": "Shiprock",
+    "latitude": 36.776667,
+    "longitude": -108.68305600000001,
+    "waterbody": "San Juan River",
+    "state": "NM",
+    "fcsttime": "2026-11-05 00:00:00",
+    "fcstissunc": "2026-11-04 17:20:00",
+    "units": "ft",
+    "lowthreshu": "ft",
+    "wfo": "abq",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/shrn5",
+    "action": "13.5",
+    "forecast": "13.78",
+    "lowthresh": "0.00",
+    "secvalue": "9.64",
+    "flood": "15.5",
+    "moderate": "18",
+    "major": "20.5",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 10640,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.20462550016646,
+     41.30084519931034
+    ]
+   },
+   "properties": {
+    "objectid": 10640,
+    "gaugelid": "SIGI4",
+    "status": "minor",
+    "location": "Sigourney",
+    "latitude": 41.300845,
+    "longitude": -92.204626,
+    "waterbody": "North Skunk River",
+    "state": "IA",
+    "fcsttime": "2026-11-05 18:00:00",
+    "fcstissunc": "2026-11-04 17:16:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "dvn",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/sigi4",
+    "action": "14.5",
+    "forecast": "16.5",
+    "lowthresh": "",
+    "secvalue": "4.45",
+    "flood": "16",
+    "moderate": "18",
+    "major": "21",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 10764,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -111.96097809985915,
+     33.4394892687462
+    ]
+   },
+   "properties": {
+    "objectid": 10764,
+    "gaugelid": "SLPA3",
+    "status": "action",
+    "location": "Priest Road-Tempe",
+    "latitude": 33.439489,
+    "longitude": -111.960978,
+    "waterbody": "Salt River",
+    "state": "AZ",
+    "fcsttime": "2026-11-04 22:00:00",
+    "fcstissunc": "2026-11-04 16:47:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "psr",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/slpa3",
+    "action": "7",
+    "forecast": "7.19",
+    "lowthresh": "",
+    "secvalue": "11.5",
+    "flood": "16",
+    "moderate": "18",
+    "major": "20",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 10865,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -81.32444444485498,
+     28.83777777732435
+    ]
+   },
+   "properties": {
+    "objectid": 10865,
+    "gaugelid": "SNFF1",
+    "status": "minor",
+    "location": "Sanford",
+    "latitude": 28.837778,
+    "longitude": -81.324444,
+    "waterbody": "St. Johns River",
+    "state": "FL",
+    "fcsttime": "2026-11-09 12:00:00",
+    "fcstissunc": "2026-11-04 14:22:00",
+    "units": "ft",
+    "lowthreshu": "ft",
+    "wfo": "mlb",
+    "hdatum": "none",
+    "pedts": "HGIFF",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/snff1",
+    "action": "4.2",
+    "forecast": "6.4",
+    "lowthresh": "0.00",
+    "secvalue": "-999",
+    "flood": "5.5",
+    "moderate": "7",
+    "major": "8",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 10898,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.27369399967813,
+     39.640027998765504
+    ]
+   },
+   "properties": {
+    "objectid": 10898,
+    "gaugelid": "SNZM7",
+    "status": "moderate",
+    "location": "Sumner",
+    "latitude": 39.640028,
+    "longitude": -93.273694,
+    "waterbody": "Grand River",
+    "state": "MO",
+    "fcsttime": "2026-11-06 06:00:00",
+    "fcstissunc": "2026-11-04 14:26:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "eax",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/snzm7",
+    "action": "21",
+    "forecast": "30.7",
+    "lowthresh": "",
+    "secvalue": "34.2",
+    "flood": "26",
+    "moderate": "28",
+    "major": "40",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 11097,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -123.17583333354128,
+     47.30999999886028
+    ]
+   },
+   "properties": {
+    "objectid": 11097,
+    "gaugelid": "SRPW1",
+    "status": "action",
+    "location": "Potlatch",
+    "latitude": 47.31,
+    "longitude": -123.175833,
+    "waterbody": "Skokomish River",
+    "state": "WA",
+    "fcsttime": "2026-11-14 12:00:00",
+    "fcstissunc": "2026-11-04 18:04:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "sew",
+    "hdatum": "none",
+    "pedts": "HGIFZ",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/srpw1",
+    "action": "15",
+    "forecast": "15.31",
+    "lowthresh": "",
+    "secvalue": "1.97",
+    "flood": "16.5",
+    "moderate": "17.5",
+    "major": "18",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 11154,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -94.72683300034248,
+     39.4009719994321
+    ]
+   },
+   "properties": {
+    "objectid": 11154,
+    "gaugelid": "SSTM7",
+    "status": "minor",
+    "location": "Sharps Station",
+    "latitude": 39.400972,
+    "longitude": -94.726833,
+    "waterbody": "Platte River",
+    "state": "MO",
+    "fcsttime": "2026-11-07 06:00:00",
+    "fcstissunc": "2026-11-04 15:57:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "eax",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/sstm7",
+    "action": "21",
+    "forecast": "28.9",
+    "lowthresh": "",
+    "secvalue": "15.2",
+    "flood": "26",
+    "moderate": "29",
+    "major": "33",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 11214,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.8040999999148,
+     45.05609999887204
+    ]
+   },
+   "properties": {
+    "objectid": 11214,
+    "gaugelid": "STLM5",
+    "status": "action",
+    "location": "Stillwater",
+    "latitude": 45.0561,
+    "longitude": -92.8041,
+    "waterbody": "St. Croix River",
+    "state": "MN",
+    "fcsttime": "2026-11-11 06:00:00",
+    "fcstissunc": "2026-11-04 15:51:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "mpx",
+    "hdatum": "none",
+    "pedts": "HGIFF",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/stlm5",
+    "action": "80",
+    "forecast": "80.5",
+    "lowthresh": "",
+    "secvalue": "-999",
+    "flood": "87",
+    "moderate": "88",
+    "major": "89",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 11655,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.63655000028211,
+     41.964255559208
+    ]
+   },
+   "properties": {
+    "objectid": 11655,
+    "gaugelid": "TMAI4",
+    "status": "action",
+    "location": "Tama Hwy E49",
+    "latitude": 41.964256,
+    "longitude": -92.63655,
+    "waterbody": "Iowa River",
+    "state": "IA",
+    "fcsttime": "2026-11-06 06:00:00",
+    "fcstissunc": "2026-11-04 16:20:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "dmx",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/tmai4",
+    "action": "11",
+    "forecast": "12",
+    "lowthresh": "",
+    "secvalue": "8.15",
+    "flood": "12.5",
+    "moderate": "13",
+    "major": "14",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 11907,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.84179999986986,
+     29.68919999946754
+    ]
+   },
+   "properties": {
+    "objectid": 11907,
+    "gaugelid": "TXPT2",
+    "status": "action",
+    "location": "Texas Point",
+    "latitude": 29.6892,
+    "longitude": -93.8418,
+    "waterbody": "Tide Station (LCH)",
+    "state": "TX",
+    "fcsttime": "2026-11-07 21:00:00",
+    "fcstissunc": "2026-11-04 16:51:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "lch",
+    "hdatum": "none",
+    "pedts": "HMIFV",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/txpt2",
+    "action": "2.6",
+    "forecast": "3.46",
+    "lowthresh": "",
+    "secvalue": "-999",
+    "flood": "4",
+    "moderate": "4.5",
+    "major": "5",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 12219,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.18209390021309,
+     41.178086098758804
+    ]
+   },
+   "properties": {
+    "objectid": 12219,
+    "gaugelid": "WAPI4",
+    "status": "action",
+    "location": "Wapello",
+    "latitude": 41.178086,
+    "longitude": -91.182094,
+    "waterbody": "Iowa River",
+    "state": "IA",
+    "fcsttime": "2026-11-07 18:00:00",
+    "fcstissunc": "2026-11-04 16:06:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "dvn",
+    "hdatum": "none",
+    "pedts": "HGIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/wapi4",
+    "action": "18.5",
+    "forecast": "20",
+    "lowthresh": "",
+    "secvalue": "31",
+    "flood": "21",
+    "moderate": "25",
+    "major": "27.5",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 12558,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -82.35277777817168,
+     27.67083333281498
+    ]
+   },
+   "properties": {
+    "objectid": 12558,
+    "gaugelid": "WIMF1",
+    "status": "action",
+    "location": "Wimauma at US 301",
+    "latitude": 27.670833,
+    "longitude": -82.352778,
+    "waterbody": "Little Manatee River",
+    "state": "FL",
+    "fcsttime": "2026-11-05 12:00:00",
+    "fcstissunc": "2026-11-04 12:33:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "tbw",
+    "hdatum": "none",
+    "pedts": "HGIFF",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/wimf1",
+    "action": "9.5",
+    "forecast": "9.6",
+    "lowthresh": "",
+    "secvalue": "0.581",
+    "flood": "11",
+    "moderate": "14.5",
+    "major": "17",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 12645,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -77.95333333326653,
+     34.2266666659555
+    ]
+   },
+   "properties": {
+    "objectid": 12645,
+    "gaugelid": "WLON7",
+    "status": "action",
+    "location": "Wilmington (IN MLLW)",
+    "latitude": 34.226667,
+    "longitude": -77.953333,
+    "waterbody": "Cape Fear River",
+    "state": "NC",
+    "fcsttime": "2026-11-06 12:00:00",
+    "fcstissunc": "2026-11-04 19:01:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "ilm",
+    "hdatum": "none",
+    "pedts": "HMIFE",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/wlon7",
+    "action": "5",
+    "forecast": "5.4",
+    "lowthresh": "",
+    "secvalue": "-999",
+    "flood": "5.5",
+    "moderate": "6.75",
+    "major": "10",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 13100,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -81.80111111068902,
+     27.5041666661848
+    ]
+   },
+   "properties": {
+    "objectid": 13100,
+    "gaugelid": "ZFSF1",
+    "status": "minor",
+    "location": "Zolfo Springs",
+    "latitude": 27.504167000000002,
+    "longitude": -81.801111,
+    "waterbody": "Peace River",
+    "state": "FL",
+    "fcsttime": "2026-11-05 00:00:00",
+    "fcstissunc": "2026-11-04 12:33:00",
+    "units": "ft",
+    "lowthreshu": "",
+    "wfo": "tbw",
+    "hdatum": "none",
+    "pedts": "HGIFF",
+    "secunit": "kcfs",
+    "url": "https://water.noaa.gov/gauges/zfsf1",
+    "action": "14",
+    "forecast": "16.4",
+    "lowthresh": "",
+    "secvalue": "2.85",
+    "flood": "16",
+    "moderate": "20",
+    "major": "22",
+    "idp_filedate": 1793829508000,
+    "idp_ingestdate": 1793829628000
+   }
+  }
+ ]
+}

@@ -104,3 +104,66 @@ def test_constants_and_paths() -> None:
     for k in ("SSL_CERT_FILE", "REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE"):
         assert Path(os.environ[k]).is_file()
     assert isinstance(config.LIVE_ENABLED, bool) and isinstance(config.AUTO_BUILD_LIVE, bool)
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# Brief 5 (CONTRACT 16.1): the second secret, bearer text and pre-signed S3 values are masked; flood paths and flags
+# ------------------------------------------------------------------------------------------------------------------
+FAKE_TOKEN = "eyJ0eXAiOiJKV1QiLCJmYWtlIjoidG9rZW4ifQ.ZmFrZS1wYXlsb2Fk.ZmFrZS1zaWduYXR1cmU"   # not a real token
+
+
+def test_mask_secrets_masks_the_earthdata_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(config, "EARTHDATA_TOKEN", FAKE_TOKEN)
+    monkeypatch.setattr(config, "FIRMS_MAP_KEY", FAKE_KEY)
+    for text in (f"token {FAKE_TOKEN} here", f"https://example.test/?t={FAKE_TOKEN}", f"{FAKE_KEY} and {FAKE_TOKEN}"):
+        masked = config.mask_secrets(text)
+        assert masked.count(FAKE_TOKEN) == 0 and masked.count(FAKE_KEY) == 0
+    assert config.mask_secrets(f"x {FAKE_TOKEN} y") == "x *** y"
+
+
+def test_mask_secrets_masks_bearer_text_without_a_known_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(config, "EARTHDATA_TOKEN", None)
+    other = "abc.DEF-123_xyz"
+    for text in (f"Authorization: Bearer {other}", f"{{'Authorization': 'Bearer {other}'}}", f"authorization: bearer {other}",
+                 f'{{"Authorization": "Bearer {other}"}}', f"Authorization=Bearer%20{other}"):
+        masked = config.mask_secrets(text)
+        assert masked.count(other) == 0, masked
+        assert "***" in masked
+    assert config.mask_secrets("Authorization: Bearer abc") == "Authorization: Bearer ***"
+
+
+def test_mask_secrets_masks_presigned_s3_values() -> None:
+    sig, cred, tok = "a1b2c3d4e5f60718", "ASIAEXAMPLE%2F20261104%2Fus-west-2%2Fs3%2Faws4_request", "IQoJb3JpZ2luX2VjEXAMPLE%2B%2Fx"
+    url = (f"https://podaac-ops-cumulus-protected.s3.us-west-2.amazonaws.com/OPERA/x.tif?X-Amz-Algorithm=AWS4-HMAC-SHA256"
+           f"&X-Amz-Credential={cred}&X-Amz-Date=20261104T200000Z&X-Amz-Expires=3600&X-Amz-Security-Token={tok}"
+           f"&X-Amz-SignedHeaders=host&X-Amz-Signature={sig}")
+    masked = config.mask_secrets(url)
+    assert masked.count(sig) == 0 and masked.count(cred) == 0 and masked.count(tok) == 0
+    assert "X-Amz-Algorithm=AWS4-HMAC-SHA256" in masked and "X-Amz-Date=20261104T200000Z" in masked
+    assert "X-Amz-Signature=***" in masked and "X-Amz-Credential=***" in masked and "X-Amz-Security-Token=***" in masked
+    assert config.mask_secrets("x-amz-signature: deadbeef").count("deadbeef") == 0
+    assert config.mask_secrets("nothing secret here") == "nothing secret here"
+
+
+def test_flood_paths_and_flags() -> None:
+    assert config.FLOODS_DIR == config.DATA_DIR / "floods"
+    assert config.EARTHDATA_AUTH_HOSTS == ("archive.podaac.earthdata.nasa.gov",)
+    assert isinstance(config.FLOODS_ENABLED, bool) and isinstance(config.AUTO_BUILD_FLOODS, bool)
+    assert config.EARTHDATA_TOKEN is None or isinstance(config.EARTHDATA_TOKEN, str)
+
+
+def test_flood_flags_follow_the_environment(tmp_path: Path) -> None:
+    """FIRE3D_FLOODS defaults to on; FIRE3D_AUTO_BUILD_FLOODS defaults to FIRE3D_AUTO_BUILD_LIVE (PLAN-5 D4). Checked
+    in a fresh interpreter per case, so this process's config is never reloaded."""
+    import subprocess
+    import sys
+
+    code = "import fire3d.config as c; print(int(c.FLOODS_ENABLED), int(c.AUTO_BUILD_FLOODS))"
+    base = {k: v for k, v in os.environ.items()
+            if k not in ("FIRE3D_FLOODS", "FIRE3D_AUTO_BUILD_LIVE", "FIRE3D_AUTO_BUILD_FLOODS", "EARTHDATA_TOKEN")}
+    for env, want in (({}, "1 1"), ({"FIRE3D_FLOODS": "0"}, "0 1"), ({"FIRE3D_AUTO_BUILD_LIVE": "0"}, "1 0"),
+                      ({"FIRE3D_AUTO_BUILD_LIVE": "0", "FIRE3D_AUTO_BUILD_FLOODS": "1"}, "1 1")):
+        out = subprocess.run([sys.executable, "-c", code], env={**base, **env}, cwd=str(config.BACKEND_DIR),
+                             capture_output=True, text=True, timeout=60)
+        assert out.returncode == 0, out.stderr[-500:]
+        assert out.stdout.strip().splitlines()[-1] == want, env

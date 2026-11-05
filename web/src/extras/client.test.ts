@@ -13,6 +13,9 @@ describe('extras query parameters', () => {
       'incident=2026-cooley-fire-0c342f&families=sentinel-2%2Cgoes',
     )
     expect(extrasUrl('evacuations', { incident: 'x', atMs: null })).toBe('/api/extras/evacuations?incident=x')
+    // brief 5: hazard=flood only for a flood (the fire query is byte-for-byte as before)
+    expect(extrasUrl('evacuations', { incident: 'x', atMs: null, hazard: 'fire' })).toBe('/api/extras/evacuations?incident=x')
+    expect(extrasUrl('evacuations', { bbox: [-108.2, 36.7, -107.9, 36.9], hazard: 'flood' })).toBe('/api/extras/evacuations?bbox=-108.2%2C36.7%2C-107.9%2C36.9&hazard=flood')
   })
 
   it('evacuations and cameras: current near now and in the forecast future, past otherwise (hour-quantised)', () => {

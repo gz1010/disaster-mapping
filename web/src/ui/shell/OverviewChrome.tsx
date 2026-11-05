@@ -13,6 +13,10 @@
 // "© Credits". The map, the credits component, status overlays, banners, toasts and tooltips stay in App.tsx's
 // MapWorkspace; every floating region keeps [data-chrome] and --chrome-side (CONTRACT §3.1). Layout:
 // styles/view-public.css (.mw[data-view='overview']). Leader-line labels for the largest named fires: map/LeaderLabels.
+// Brief 5 (PLAN-5 §4.2-4.3): the title slot holds the Fires | Floods switch ("United States · ( Fires | Floods )"). With
+// Floods picked the same layout lists floods: the bar status (ui/public/FloodStatus.tsx), the flood list panel, its
+// "Show details" pill and outage banner (ui/shell/FloodListPanel.tsx), the flood legend (map/FloodLegend.tsx), the
+// flood list-absence line in the disclaimer; the fire card is not shown. Everything else is the same chrome.
 import { useEffect, type ReactNode } from 'react'
 import { LocateButton } from '../../location/LocateButton'
 import { CoordinateStrip } from '../../location/CoordinateStrip'
@@ -22,6 +26,7 @@ import { DeviceMarker } from '../../map/DeviceMarker'
 import { LeaderLabels } from '../../map/LeaderLabels'
 import { ScaleBar } from '../../map/MapAttribution'
 import { MapControls } from '../../map/MapControls'
+import { FloodLegend } from '../../map/FloodLegend'
 import { MapLegend } from '../../map/MapLegend'
 import { LIST_ABSENCE_SHORT } from '../../state/overview'
 import { useStore } from '../../state/store'
@@ -29,9 +34,13 @@ import { useWorkspace } from '../../state/workspace'
 import { OVERVIEW_LEGEND_IN_PANEL_QUERY } from '../public/overviewLayout'
 import { ListNoticeBanner } from '../public/ListNoticeBanner'
 import { OverviewStatus } from '../public/OverviewStatus'
+import { HazardSwitch } from '../public/HazardSwitch'
 import { ShowDetailsPill } from '../public/ShowDetailsPill'
+import { FloodStatus } from '../public/FloodStatus'
 import { CoordsSlot } from './CoordsSlot'
 import { FireCard } from './FireCard'
+import { FLOOD_LIST_ABSENCE, FLOOD_LIST_ABSENCE_SHORT, FLOOD_OVERVIEW } from './floodCopy'
+import { FloodListNoticeBanner, FloodListPanel, FloodShowDetailsPill } from './FloodListPanel'
 import { FixedCopy } from './FixedCopy'
 import { NARROW_QUERY, useMediaQuery } from './hooks'
 import { LayersPanel } from './LayersPanel'
@@ -53,6 +62,7 @@ function useListOpensDetails(enabled: boolean) {
 
 export function OverviewChrome({ credits }: { credits: ReactNode }) {
   const preset = useWorkspace((s) => s.preset)
+  const floods = useWorkspace((s) => s.hazard === 'flood')
   const detailsAsked = useWorkspace((s) => s.overviewDetails)
   const collapsed = useStore((s) => s.panelsCollapsed)
   const narrow = useMediaQuery(NARROW_QUERY)
@@ -79,15 +89,24 @@ export function OverviewChrome({ credits }: { credits: ReactNode }) {
           <>
             <TopBarBrand />
             <span className="tb-sep" aria-hidden="true" />
-            <h1 className="mw-hdr-title" data-tip={LOWER48_TIP}>
-              United States <span className="mw-hdr-title-sub">· all fires</span>
-            </h1>
+            {/* brief 5: "United States · ( Fires | Floods )" (the switch replaces "all fires"; phones: the switch alone) */}
+            <span className="hz-title">
+              {/* the h1 says what is listed for screen readers ("United States, floods"); the dot is decoration
+                  (review WFO-R11) */}
+              <h1 className="mw-hdr-title hz-title-place" data-tip={LOWER48_TIP}>
+                United States<span className="mw-sr-only">, {floods ? FLOOD_OVERVIEW.titleFloods : FLOOD_OVERVIEW.titleFires}</span>{' '}
+                <span className="mw-hdr-title-sub" aria-hidden="true">
+                  ·
+                </span>
+              </h1>
+              <HazardSwitch />
+            </span>
           </>
         }
         centre={<ViewPill className="mw-wide-only" />}
         right={
           <>
-            {!narrow && <OverviewStatus />}
+            {!narrow && (floods ? <FloodStatus /> : <OverviewStatus />)}
             <ShowPanelsPill />
             <CompactMenu />
           </>
@@ -97,7 +116,7 @@ export function OverviewChrome({ credits }: { credits: ReactNode }) {
           the chrome */}
       <LeaderLabels />
       <DeviceMarker />
-      {!listOpenFull && <ListNoticeBanner />}
+      {!listOpenFull && (floods ? <FloodListNoticeBanner /> : <ListNoticeBanner />)}
       <div className="mw-layers-slot" data-chrome="layers">
         <LayersPanel />
       </div>
@@ -112,9 +131,11 @@ export function OverviewChrome({ credits }: { credits: ReactNode }) {
               <MapControls variant="bar" layers />
             </div>
           )}
-          <div className="mw-firecard" data-chrome="firecard">
-            <FireCard />
-          </div>
+          {!floods && (
+            <div className="mw-firecard" data-chrome="firecard">
+              <FireCard />
+            </div>
+          )}
           <div className="mw-card" data-chrome="card">
             <LocationCard />
           </div>
@@ -130,8 +151,8 @@ export function OverviewChrome({ credits }: { credits: ReactNode }) {
             </div>
           ))}
         {listShown && (
-          <aside className="mw-updates ovw-list" id="mw-updates" data-chrome="updates" aria-label="Fires in the lower 48">
-            <OverviewPanel closeHidesDetails={!command && !narrow} sheetPeek={command} />
+          <aside className="mw-updates ovw-list" id="mw-updates" data-chrome="updates" aria-label={floods ? FLOOD_OVERVIEW.listTitle : 'Fires in the lower 48'}>
+            {floods ? <FloodListPanel closeHidesDetails={!command && !narrow} sheetPeek={command} /> : <OverviewPanel closeHidesDetails={!command && !narrow} sheetPeek={command} />}
           </aside>
         )}
       </div>
@@ -150,15 +171,19 @@ export function OverviewChrome({ credits }: { credits: ReactNode }) {
         )}
         {details && !legendInPanel && (
           <div className="mw-legend-slot ovw-legend" data-chrome="legend">
-            <MapLegend />
+            {floods ? <FloodLegend /> : <MapLegend />}
           </div>
         )}
         <div className="mw-note ovw-note" data-chrome="note">
-          <FixedCopy variant="line" extra={narrow ? `${LIST_ABSENCE_SHORT}. Follow local officials.` : undefined} />
+          {floods ? (
+            <FixedCopy variant="line" extra={narrow ? `${FLOOD_LIST_ABSENCE_SHORT}. Follow local officials.` : FLOOD_LIST_ABSENCE} />
+          ) : (
+            <FixedCopy variant="line" extra={narrow ? `${LIST_ABSENCE_SHORT}. Follow local officials.` : undefined} />
+          )}
         </div>
         {!command && (
           <div className="ovw-pill-slot" id={listShown ? undefined : 'mw-updates'} data-chrome="details">
-            <ShowDetailsPill sheet={narrow} />
+            {floods ? <FloodShowDetailsPill sheet={narrow} /> : <ShowDetailsPill sheet={narrow} />}
           </div>
         )}
         {credits}

@@ -13,10 +13,16 @@
 // its own labels of every candidate (useMapRuntime.leaderIds → overviewLayers.labelFilters): of the ones named here,
 // and of the ones not named (past the 12th, or with no free spot), whose MapLibre labels ran across the leaders and the
 // names (MapLibre cannot keep clear of this overlay); the fire list names them all.
+// Brief 5 (PLAN-5 §4.3): in Floods the same overlay names the large floods (moderate or major, a Flash Flood Warning or
+// Emergency): "Animas River flood" and, in mono and the category colour, "MAJOR · 24.1 FT" (else the NWS product,
+// "FLASH FLOOD WARNING"), from the features' own `meta` / `meta_color` / `rank` (fires: their acres). A click opens the
+// flood's view (state/flood.ts pickFlood).
 import type { MapGeoJSONFeature, Map as MapLibreMap } from 'maplibre-gl'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { pickFire } from '../state/fireCard'
+import { pickFlood } from '../state/flood'
 import { useWorkspace } from '../state/workspace'
+import { FLOOD_OVR } from './floodLayers'
 import { LEADER_MAX, LEADER_MAX_LEN, LEADER_MAX_LEN_NARROW, layoutLeaders, leaderAcres, placeLabelLayers, type Circle, type LeaderItem, type LeaderSpot, type Rect } from './leaderLayout'
 import { useMapRuntime } from './mapStore'
 import { GROUP_LABEL_PX, groupRadius, LABEL_MIN_ACRES, OVR, SMALL_MAP_SCALE, SMALL_MAP_ZOOM, FULL_SIZE_ZOOM, ZOOM_GROWTH } from './overviewLayers'
@@ -33,6 +39,8 @@ const LABEL_H = 28
 interface Spot extends LeaderSpot {
   name: string
   meta: string
+  /** Brief 5: the second line's colour (a flood's category), else the stylesheet's. */
+  metaColor?: string
   lngLat: [number, number]
 }
 
@@ -54,6 +62,9 @@ function markerScale(zoom: number): number {
 
 const SINGLE_LAYERS = [OVR.pinnedLive, OVR.pinnedPast, OVR.activePoint, OVR.otherPoint]
 const GROUP_LAYERS = [OVR.activeCluster, OVR.otherCluster]
+/** Brief 5: the flood markers' layers (map/floodLayers.ts). */
+const FLOOD_SINGLE_LAYERS = [FLOOD_OVR.pinnedLive, FLOOD_OVR.pinnedPast, FLOOD_OVR.activePoint, FLOOD_OVR.otherPoint]
+const FLOOD_GROUP_LAYERS = [FLOOD_OVR.activeCluster, FLOOD_OVR.otherCluster]
 
 const isCountryLayer = (id: string) => /country/.test(id)
 
@@ -79,18 +90,18 @@ interface Layout {
 
 const NONE: Layout = { spots: [], quiet: [] }
 
-function computeSpots(map: MapLibreMap, insets: { top: number; right: number; bottom: number; left: number }, units: 'us' | 'metric'): Layout {
+function computeSpots(map: MapLibreMap, insets: { top: number; right: number; bottom: number; left: number }, units: 'us' | 'metric', floods = false): Layout {
   const zoom = map.getZoom()
   if (zoom >= LEADER_MAX_ZOOM) return NONE
   const present = (ids: readonly string[]) => ids.filter((id) => map.getLayer(id))
-  const singles = present(SINGLE_LAYERS)
+  const singles = present(floods ? FLOOD_SINGLE_LAYERS : SINGLE_LAYERS)
   if (!singles.length) return NONE
   const c = map.getContainer()
   const host = c.getBoundingClientRect()
   const free: Rect = { left: insets.left, top: insets.top, right: c.clientWidth - insets.right, bottom: c.clientHeight - insets.bottom }
   const scale = markerScale(zoom)
   const seen = new Set<string>()
-  const candidates: (LeaderItem & { acres: number; name: string; lngLat: [number, number] })[] = []
+  const candidates: (LeaderItem & { acres: number; name: string; meta?: string; metaColor?: string; lngLat: [number, number] })[] = []
   const circles: Circle[] = []
   for (const f of map.queryRenderedFeatures({ layers: singles })) {
     const p = f.properties ?? {}
@@ -101,21 +112,22 @@ function computeSpots(map: MapLibreMap, insets: { top: number; right: number; bo
     const at = map.project(ll)
     const r = (Number(p.r) || 6) * scale
     circles.push({ x: at.x, y: at.y, r, id })
-    const acres = Number(p.acres) || 0
-    const name = String(p.name ?? '').replace(/\s+fire$/i, '').trim()
-    if (!name || !(p.kind === 'large' || acres >= LABEL_MIN_ACRES)) continue
-    const meta = leaderAcres(acres, units)
+    // floods: ranked by their official rank, named with their own second line; fires: by acres
+    const acres = floods ? Number(p.rank) || 0 : Number(p.acres) || 0
+    const name = floods ? String(p.label ?? p.name ?? '').trim() : String(p.name ?? '').replace(/\s+fire$/i, '').trim()
+    if (!name || !(p.kind === 'large' || (!floods && acres >= LABEL_MIN_ACRES))) continue
+    const meta = floods ? String(p.meta ?? '') : leaderAcres(acres, units)
     const w = Math.ceil(Math.max(textWidth(name, NAME_FONT), textWidth(meta, META_FONT, 0.4))) + 2
-    candidates.push({ id, at: { x: at.x, y: at.y }, r, w, h: LABEL_H, acres, name, lngLat: ll })
+    candidates.push({ id, at: { x: at.x, y: at.y }, r, w, h: LABEL_H, acres, name, lngLat: ll, ...(floods ? { meta, metaColor: String(p.meta_color ?? '') || undefined } : {}) })
   }
   // groups: their circle and their "N FIRES" label at the upper right
   const obstacles = chromeRects(host)
   // a leader line may cross a place name, never the chrome or a group's count
   const lineObstacles = [...obstacles]
-  const groups = present(GROUP_LAYERS)
+  const groups = present(floods ? FLOOD_GROUP_LAYERS : GROUP_LAYERS)
   // the counts MapLibre placed (a count with no room is left out since DF-H34-1: its spot is free)
   const counted = new Set<string>()
-  const countLayers = present([OVR.activeCount, OVR.otherCount])
+  const countLayers = present(floods ? [FLOOD_OVR.activeCount, FLOOD_OVR.otherCount] : [OVR.activeCount, OVR.otherCount])
   if (countLayers.length) for (const f of map.queryRenderedFeatures({ layers: countLayers })) counted.add(`${f.source}:${f.properties?.cluster_id}`)
   if (groups.length)
     for (const f of map.queryRenderedFeatures({ layers: groups })) {
@@ -155,7 +167,7 @@ function computeSpots(map: MapLibreMap, insets: { top: number; right: number; bo
   const placed = layoutLeaders(candidates, { free, obstacles, lineObstacles, circles, max, maxLen: narrow ? LEADER_MAX_LEN_NARROW : LEADER_MAX_LEN })
   const spots = placed.map((s) => {
     const x = byId.get(s.id)!
-    return { ...s, name: x.name, meta: leaderAcres(x.acres, units), lngLat: x.lngLat }
+    return { ...s, name: x.name, meta: x.meta ?? leaderAcres(x.acres, units), metaColor: x.metaColor, lngLat: x.lngLat }
   })
   // every other candidate keeps quiet at this zoom: the map's own label could not keep clear of the named ones (it
   // knows nothing of this overlay), and from z5 on the map's labels take over
@@ -171,6 +183,7 @@ export function LeaderLabels() {
   const map = useMapRuntime((s) => s.map)
   const insets = useWorkspace((s) => s.safeInsets)
   const units = useWorkspace((s) => s.units)
+  const floods = useWorkspace((s) => s.hazard === 'flood')
   const [spots, setSpots] = useState<Spot[]>([])
   const [quiet, setQuiet] = useState<readonly string[]>([])
   const [hidden, setHidden] = useState(false)
@@ -192,7 +205,7 @@ export function LeaderLabels() {
     const compute = () => {
       raf = 0
       if (zooming || map.isMoving()) return
-      const next = computeSpots(map, useWorkspace.getState().safeInsets, units)
+      const next = computeSpots(map, useWorkspace.getState().safeInsets, units, floods)
       setSpots((prev) => (sameSpots(prev, next.spots) ? prev : next.spots))
       setQuiet((prev) => (prev.length === next.quiet.length && prev.every((id, i) => id === next.quiet[i]) ? prev : next.quiet))
       setHidden(false)
@@ -215,7 +228,7 @@ export function LeaderLabels() {
     // go with the fires' own labels) and the layout would never settle.
     let afterData = true
     const onData = (e: { sourceId?: string; isSourceLoaded?: boolean }) => {
-      if (e.sourceId?.startsWith('fx-overview-') && e.isSourceLoaded) afterData = true
+      if ((e.sourceId?.startsWith('fx-overview-') || e.sourceId?.startsWith('fx-flood-overview-')) && e.isSourceLoaded) afterData = true
     }
     const onIdle = () => {
       if (!afterData) return
@@ -236,7 +249,7 @@ export function LeaderLabels() {
       window.removeEventListener('resize', schedule)
       if (raf) cancelAnimationFrame(raf)
     }
-  }, [map, insets, units])
+  }, [map, insets, units, floods])
 
   // a pan or a turn: every label follows its marker (one projection per label and frame), no React render
   useLayoutEffect(() => {
@@ -278,10 +291,12 @@ export function LeaderLabels() {
           data-ldr={s.id}
           className={`ldr is-${s.side}`}
           style={{ left: s.box.left, top: s.box.top, width: s.box.right - s.box.left }}
-          onClick={() => pickFire(s.id)}
+          onClick={() => (floods ? pickFlood(s.id, 'marker') : pickFire(s.id))}
         >
           <span className="ldr-name">{s.name}</span>
-          <span className="ldr-meta">{s.meta}</span>
+          <span className="ldr-meta" style={s.metaColor ? { color: s.metaColor } : undefined}>
+            {s.meta}
+          </span>
         </div>
       ))}
     </div>
