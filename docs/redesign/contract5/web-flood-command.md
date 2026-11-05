@@ -181,12 +181,19 @@ All additive; no store shape changed (`state/flood.ts` untouched by the fixes).
   units; `.cfv-gauge-main` shortens, `.cfv-gauge-age` never does. The Official now column gets `has-more` (Command fire's
   fade) from a local `useMoreBelow`. `FloodEvacRows` says the not-an-all-clear caveat once.
 - **Map labels (R13).** `floodCommandLayers.ts`: sources `fx-flood-catfim-pts`, `fx-flood-model-pts`, layers
-  `fx-flood-catfim-pt-label`, `fx-flood-model-pt-label` (from z8, one line, `symbol-sort-key` rank), `labelPoints(fc,
-  max = 3, minKm = 3)`, `pointInside(rings)`; placed above the basemap's place names, under the gauges.
+  `fx-flood-model-pt-label`, then `fx-flood-catfim-pt-label` above it (the category map's few labels win a collision
+  with the model's many), from z8, one line, `symbol-sort-key` rank, `text-padding` 28 (zoomed out a few remain, zoomed
+  in each part of the flood in view keeps its own); `labelPoints(fc, max = 12, minKm = 5)` spreads the points along the
+  whole flood; `pointInside(rings)`; placed above the basemap's place names, under the gauges.
+- **Forecast below the reading (R14, nearby gauges).** `floodCheck.ts forecastBelowReading(g)`: NWS's highest forecast
+  value below the gauge's latest reading (same units, not `crest_at_end`) decided from the answer alone (a bbox answer
+  has no series); `forecastRow` then says `FLOOD_COMMAND.highestForecastLabel` with the new
+  `FLOOD_COMMAND.highestBelowSub` (no "first step" claim), and Official now's river forecast row
+  `FLOOD_COMMAND.highestBelowVerdict` until the chart's series arrives.
 
 ### For the next roles (review fixes)
 
-- **web-flood-forensic:** switch `scene/flood/floodGeo.ts warningsAt` (after its version step) to
+- **web-flood-forensic (done by its fixer, in the tree since 8e756a7):** switch `scene/flood/floodGeo.ts warningsAt` (after its version step) to
   `productsShown(latest, cursorMs, nowMs)` from `ui/timeline/hydrographModel.ts` (one call for every handle position),
   and `ui/forensic-flood/FloodDock.tsx` ProductsColumn's note to `futureProductsNote(shown)`, so the drapes and the
   column follow the map and the readout (R1). The dock hydrograph's handle words and future note now sit in the flow;
@@ -194,3 +201,8 @@ All additive; no store shape changed (`state/flood.ts` untouched by the fixes).
 - **integration:** CONTRACT §16.12 deviation above (`productsShown`); §16.14/§5 new web strings (listed above);
   credits may move into `lib/dataCredits.ts`; `official/floodModel.ts productsDrawn` is now used only by
   `official/floodHooks.ts` (zone outlines to ask).
+- **integration (new web strings of this step, for §16.14 / §5):** `FLOOD_COMMAND.highestBelowSub`,
+  `FLOOD_COMMAND.highestBelowVerdict` (with `highestForecastLabel`, `highestForecastSub`, `highestForecastVerdict`,
+  `HYDRO.highestFalling`, `HYDRO.highestFallingTip`, `HYDRO.flowStageOnly`, `INSIDE_WARNING_UPCOMING`,
+  `CURSOR_FUTURE_ISSUED`, `NOTHING_COVERS_OFFICIAL` and the `FLOOD_COMMAND` chip and CatFIM state strings above). A plan
+  gap next to C7: a forecast whose highest value is below the latest reading is not a crest still to come.

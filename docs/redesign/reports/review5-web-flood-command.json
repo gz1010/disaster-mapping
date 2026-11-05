@@ -2,56 +2,56 @@
   "role": "web-flood-command (review fixes)",
   "brief": 5,
   "reviewed_role": "web-flood-command",
-  "summary": "All 15 review findings for web-flood-command are handled: 15 fixed (WFC-R1 to WFC-R15; R14 and R15 were nits, both cheap and clear), none skipped. The blocker (R1) is fixed with one rule, productsShown (ui/timeline/hydrographModel.ts), used by the map's warning areas, the point check (Command's readout and Public's point card) and the chart's note: at now the products in effect and the ones NWS issued that are still to start ('Inside the NWS Flood Warning area (starting {start}, until {time})'), before now the ones in effect then, after now the ones in effect now plus every issued product whose own period covers the handle, and the note says CURSOR_FUTURE_ISSUED instead of 'NWS has issued none' whenever one does. Forensic's drapes and dock column (scene/flood/floodGeo.ts warningsAt, ui/forensic-flood/FloodDock.tsx) are web-flood-forensic's files; its fixer is adopting productsShown / futureProductsNote. Each fix was checked in the running app on port 8755/5215 (real Platte River, Devils Lake and Salem floods, fixture-flood; Forensic's dock) and is covered by tests.",
+  "summary": "All 15 review findings for web-flood-command are handled: 15 fixed (WFC-R1 to WFC-R15; R14 and R15 were nits, both cheap and clear), none skipped. The blocker (R1) is fixed with one rule, productsShown (ui/timeline/hydrographModel.ts), used by the map's warning areas, the point check (Command's readout and Public's point card), the chart's note and, through web-flood-forensic's fixer, Forensic's drapes and dock column: at now the products in effect and the ones NWS issued that are still to start ('Inside the NWS Flood Warning area (starting {start}, until {time})'), before now the ones in effect then, after now the ones in effect now plus every issued product whose own period covers the handle, and the note says CURSOR_FUTURE_ISSUED instead of 'NWS has issued none' whenever one does. This step continued an earlier attempt stopped by a usage-limit pause and a container restart (its code was in the snapshots 7e6b0e9 and 8e756a7): every fix was re-checked in the running app (ports 8755/5215; real Platte River, Devils Lake and Salem floods, fixture-flood, the past demo flood, Forensic's dock), the fix screenshots were retaken with the final code and viewed, and two fixes were finished: R13 (labels spread along the whole flood, the category map's above the model's) and R14 (a nearby gauge's forecast below its reading, without a series).",
   "findings": [
     {
       "id": "WFC-R1",
       "severity": "blocker",
       "outcome": "fixed",
       "what": "New pure productsShown(alerts, cursorMs, nowMs) -> { alerts, future, issuedForCursor } and futureProductsNote() in ui/timeline/hydrographModel.ts (with productStart, productEnd, isUpcoming). map/floodController.ts draws the warning areas with it (was productsDrawn), location/floodCheck.ts checkPoint checks the same products (was productsAt) and words an issued product still to start with the new INSIDE_WARNING_UPCOMING 'Inside the NWS {event} area (starting {start}, until {time}).'; after now its note is CURSOR_FUTURE_ISSUED ('NWS products in effect now and those NWS has issued for this time. An NWS end time is not a forecast of when flooding stops.') when an issued product's own [onset/effective, end) covers the handle, else CURSOR_FUTURE_PRODUCTS; the chart's note, its slider text and FloodPointCheck.issuedForCursor follow. official/floodModel.ts (web-flood-public) is unchanged: productsAt is still its function and is still re-exported.",
-      "verified": "Platte River flood (live), sel 39.33,-94.798: at now the readout says 'Inside the NWS Flood Warning area (starting Nov 5, 03:00 CST, until Nov 8, 19:32 CST).' and NOTHING_COVERS is gone (brief5-web-flood-command-fix-upcoming.png); handle 8 h ahead: both starting-soon warnings stay drawn, the readout and the chart say CURSOR_FUTURE_ISSUED (brief5-web-flood-command-fix-upcoming-future.png). Fixture handle 30 h ahead still keeps the Flood Warning outline with CURSOR_FUTURE_PRODUCTS (brief5-web-flood-command-forecast-cursor.png). Tests: floodCheck.test.ts 'products still to start (review WFC-R1)' (before onset, inside its period, after its end, a product in effect now covering the handle, the map's list), hydrographModel.test.ts 'productsShown (review WFC-R1)', Hydrograph.test.ts CURSOR_FUTURE_ISSUED at +4 h."
+      "verified": "Re-checked 2026-11-05 ~09:00 UTC on the live Platte River flood (flood-20261103-platte-river-flood-e045bf), after a container restart: sel 39.38,-94.75 lies inside the Flood Warning NWS issued until Nov 8, 12:37 CST, still to start (onset 04:48 CST). At now the readout says 'Inside the NWS Flood Warning area (starting Nov 5, 04:48 CST, until Nov 8, 12:37 CST).' and no NOTHING_COVERS (brief5-web-flood-command-fix-upcoming.png); with the handle 8 h ahead all three warnings stay drawn and the readout and the chart say CURSOR_FUTURE_ISSUED in full (brief5-web-flood-command-fix-upcoming-future.png). Fixture handle 30 h ahead keeps the Flood Warning outline with CURSOR_FUTURE_PRODUCTS (brief5-web-flood-command-forecast-cursor.png). Forensic's fixer has switched scene/flood/floodGeo.ts warningsAt and FloodDock.tsx to productsShown / futureProductsNote, so the 3D drapes follow the same rule. Tests: floodCheck.test.ts 'products still to start (review WFC-R1)' (before onset, inside its period, after its end, a product in effect now covering the handle, the map's list), hydrographModel.test.ts 'productsShown (review WFC-R1)', Hydrograph.test.ts CURSOR_FUTURE_ISSUED at +4 h."
     },
     {
       "id": "WFC-R2",
       "severity": "major",
       "outcome": "fixed",
       "what": "location/floodCheck.ts: pointGaugeBox (point +- 25 km), pointGaugesUrl, floodAnswerCovers (the flood answer's area_bbox holds the whole box) and chooseNearGauge: the flood's gauges plus, when they do not cover the point's 25 km, the point's own /api/official/river-gauges?bbox= answer (usePointGauges in ui/timeline/hydrographData.ts, per-URL cache, at_ms for a past flood); the flood's rivers first, then action stage or above; NO_GAUGE_NEAR only when the covering answer is available, 'Checking river gauges…' while it loads, its reason or GAUGES_UNAVAILABLE when it failed. A member gauge met in the point's answer keeps member true. A simulated flood never asks the real world (its own answer is the demo's world).",
-      "verified": "Platte River flood, sel 39.95,-94.80: the readout names RSDM7 Rosendale on the 102 River, 'nearby, not part of this flood', 6.7 mi north, action stage (brief5-web-flood-command-fix-far-gauge.png). Tests: floodCheck.test.ts 'chooseNearGauge (review WFC-R2)'; FloodReadout.test.ts far point (real flood) says checking, then NO_GAUGE_NEAR once its own answer is available, names a gauge from it, and says the outage text when it failed; the old test that asserted NO_GAUGE_NEAR from the flood's answer for a far point now needs a covering answer."
+      "verified": "Platte River flood, sel 39.95,-94.80 (re-checked ~09:05 UTC): the readout names RSDM7 Rosendale on the 102 River, 'nearby, not part of this flood', 6.7 mi north, action stage, with its own reading time and the NWS gauge link (brief5-web-flood-command-fix-far-gauge.png). Tests: floodCheck.test.ts 'chooseNearGauge (review WFC-R2)'; FloodReadout.test.ts far point (real flood) says checking, then NO_GAUGE_NEAR once its own answer is available, names a gauge from it, and says the outage text when it failed; the old test that asserted NO_GAUGE_NEAR from the flood's answer for a far point now needs a covering answer."
     },
     {
       "id": "WFC-R3",
       "severity": "major",
       "outcome": "fixed",
       "what": "ui/timeline/Hydrograph.tsx and hydrograph.css: the handle row is as tall as the label lines it shows (handleRowHeight: 16 px a line in the slim chart, 14 in the dock; one line, two in flow mode with the model), the future note is its own wrapped <p class=\"hg-future-note\"> between the handle row and the plot (never cut, no ellipsis, full sentence in both variants), and the dock's handle row is in the flow under the key (no longer absolute over the plot; .hg.is-dock min-height 112 px instead of a fixed height, inside Forensic's 276-300 px dock). The crest label can no longer be covered: nothing of the handle prints over the plot.",
-      "verified": "Fixture in flow mode with the handle 30 h ahead: value, model line and the note above the plot, 'CREST 7,570 FT³/S FRI 04:00' readable (brief5-web-flood-command-fix-three-line-handle.png). Forensic fixture dock, flow, handle 30 h ahead: key, handle lines, note and plot each on their own rows, nothing over the key (brief5-web-flood-command-fix-dock.png). Tests: Hydrograph.test.ts 'three-line handle (WFC-R3)' for slim and dock (row height 32 / 28 px, note outside the label and before the plot)."
+      "verified": "Fixture in flow mode with the handle 30 h ahead: value, model line and the full CURSOR_FUTURE_PRODUCTS sentence above the plot, 'CREST 7,570 FT³/S FRI 04:00' readable (brief5-web-flood-command-fix-three-line-handle.png, retaken 09:0x UTC). Forensic fixture dock, flow, handle 30 h ahead: key, handle lines, note and plot each on their own rows, nothing over the key (brief5-web-flood-command-fix-dock.png). Tests: Hydrograph.test.ts 'three-line handle (WFC-R3)' for slim and dock (row height 32 / 28 px, note outside the label and before the plot)."
     },
     {
       "id": "WFC-R4",
       "severity": "major",
       "outcome": "fixed",
       "what": "New map/floodLayerCredits.ts (pure): the CONTRACT 16.15 lines (NOAA/NWS National Water Center (experimental); NOAA/NWS National Water Center, National Water Model (experimental model output); Flood zones: FEMA National Flood Hazard Layer (effective); the NASA JPL OPERA line with its route; Gauge readings: U.S. Geological Survey (provisional data)), each added while its layer is drawn (toggle on, the view's profile, an answer with features), the answer's own source.credit first (a synthetic fixture says so). CommandFloodChrome portals them as a second line into the foot's #mw-credits (folded behind '© Credits' with the map's credits on narrow screens). lib/dataCredits.ts and map/MapAttribution.tsx (web-flood-overview's) are unchanged.",
-      "verified": "Platte with model, CatFIM and FEMA on: the foot adds 'NOAA/NWS National Water Center (experimental) · Flood zones: FEMA National Flood Hazard Layer (effective) · NOAA/NWS National Water Center, National Water Model (experimental model output) · Gauge readings: U.S. Geological Survey (provisional data)' (brief5-web-flood-command-fix-layer-credits.png); the Salem flood credits the OPERA line via NASA Earthdata GIS. Tests: map/floodLayerCredits.test.ts (exact lines, each layer adds its own, none when off, unavailable or empty, never the model in Public)."
+      "verified": "Platte with model, CatFIM and FEMA on (re-checked ~09:10 UTC): the foot adds 'NOAA/NWS National Water Center (experimental) · Flood zones: FEMA National Flood Hazard Layer (effective) · NOAA/NWS National Water Center, National Water Model (experimental model output) · Gauge readings: U.S. Geological Survey (provisional data)' (brief5-web-flood-command-fix-layer-credits.png); Devils Lake and Salem, which draw a measured satellite image, credit the OPERA line via NASA Earthdata GIS (brief5-web-flood-command-fix-stage-only-flow.png, -fix-no-member-gauge.png). Tests: map/floodLayerCredits.test.ts (exact lines, each layer adds its own, none when off, unavailable or empty, never the model in Public)."
     },
     {
       "id": "WFC-R5",
       "severity": "minor",
       "outcome": "fixed",
       "what": "hydrographModel.ts: on the flow axis, when the gauge has stage readings and no flow values, the model says stageOnly and the chart's note is HYDRO.flowStageOnly 'This gauge reports river stage only; no flow readings (see the stage view)'; the OBSERVED key item is left out. 'NWS: Data Not Current' stays for an empty stage record.",
-      "verified": "Devils Lake (DCBN8), FLOW: 'This gauge reports river stage only; no flow readings (see the stage view)', no OBSERVED key (brief5-web-flood-command-fix-stage-only-flow.png). Test: hydrographModel.test.ts R5."
+      "verified": "Devils Lake (DCBN8), FLOW (re-checked ~09:15 UTC): 'This gauge reports river stage only; no flow readings (see the stage view)', no OBSERVED key item (brief5-web-flood-command-fix-stage-only-flow.png). Test: hydrographModel.test.ts R5."
     },
     {
       "id": "WFC-R6",
       "severity": "minor",
       "outcome": "fixed",
       "what": "The bar's gauge line is built by gaugeLineParts(lid, reading, units, nowMs) (ui/timeline/hydrographData.ts) with fmtStage in the workspace's units, as the readout, map and chart.",
-      "verified": "Platte, metric: 'AGYM7 · 8.1 M · … · 40 MIN AGO' (brief5-web-flood-command-fix-1024-metric.png). Test: hydrographData.test.ts."
+      "verified": "Platte at 1024x768, units=metric: 'AGYM7 · 8.1 M ·… · 37 MIN AGO', the readout 8.1 m, the map label 8.1 M, the chart 8.14 M (brief5-web-flood-command-fix-1024-metric.png). Test: hydrographData.test.ts."
     },
     {
       "id": "WFC-R7",
       "severity": "minor",
       "outcome": "fixed",
       "what": "FloodReadout without a point: when the gauges answer is available and the flood has no primary or member gauge, the section is titled 'River gauge' and shows NO_MEMBER_GAUGE · NO_MEMBER_GAUGE_SUB (never an empty 'Primary gauge of this flood' heading); loading says 'Checking river gauges…', a failed answer its own text.",
-      "verified": "Salem flood (areal advisory, no gauge): 'RIVER GAUGE — No river gauge in this flood · Small streams and streets are not measured. Not an all-clear.' (brief5-web-flood-command-fix-no-member-gauge.png). Test: FloodReadout.test.ts (WFC-R7)."
+      "verified": "Salem flood (areal advisory, no gauge; re-checked ~09:15 UTC): 'RIVER GAUGE — No river gauge in this flood · Small streams and streets are not measured. Not an all-clear.' (brief5-web-flood-command-fix-no-member-gauge.png). Test: FloodReadout.test.ts (WFC-R7)."
     },
     {
       "id": "WFC-R8",
@@ -72,7 +72,7 @@
       "severity": "minor",
       "outcome": "fixed",
       "what": "GaugeList (Hydrograph.tsx): opening moves the focus to the current gauge (else the first) once the popover is placed (a short timer, not an animation frame, so a busy map cannot delay it); Arrow Up/Down, Home and End move between options (listKeyTarget), Enter picks, Escape closes; a pick or Escape returns the focus to the opener (the chart's 40 px button and the bar's gauge line). Options sit in role=group sections labelled by their titles, with one tab stop.",
-      "verified": "Playwright on the Platte flood, both openers, two runs: Enter opens with the focus on 'AGYM7 · Platte River near Agency', ArrowDown -> SSTM7, End -> PKVM7, Home -> AGYM7, Escape -> focus back on the opener, ArrowDown + Enter picks SSTM7 and returns the focus. Tests: hydrographModel.test.ts listKeyTarget, Hydrograph.test.ts 'GaugeList (WFC-R10)'."
+      "verified": "Playwright, fixture flood on the fixture server (re-run ~09:25 UTC) and earlier on the Platte flood, both openers: Enter opens with the focus on the current gauge ('ZZRF1 · Ridge Fork River at Example Crossing'), ArrowDown -> ZZRF2, End -> ZZRF4, Home -> ZZRF1, Escape -> focus back on the opener (.hg-pick, .cfv-gauge-status) with the list closed, ArrowDown + Enter picks ZZRF2 and returns the focus. Tests: hydrographModel.test.ts listKeyTarget, Hydrograph.test.ts 'GaugeList (WFC-R10)'."
     },
     {
       "id": "WFC-R11",
@@ -86,28 +86,28 @@
       "severity": "minor",
       "outcome": "fixed",
       "what": "CommandFloodChrome's Official now column sets has-more while its .on-rows scroller has more below (a small useMoreBelow, as UpdatesPanel's for fires), so Command fire's mask fades its bottom edge; the flood column adds 20 px of room above the fade.",
-      "verified": "1024x768 Platte: the third Flood Warning row fades out at the column's foot, showing more is below (brief5-web-flood-command-fix-1024-metric.png); 1440x1000 fixture: the last row fades."
+      "verified": "1024x768 Platte: the third Flood Warning row fades out at the column's foot, showing more is below (brief5-web-flood-command-fix-1024-metric.png); 1440x1000: the last row fades (brief5-web-flood-command-real.png, -fix-upcoming.png)."
     },
     {
       "id": "WFC-R13",
       "severity": "minor",
       "outcome": "fixed",
-      "what": "map/floodCommandLayers.ts: point labels 'MODEL · EXPERIMENTAL' and 'NWS CATEGORY MAP · EXPERIMENTAL' at a point inside each of the largest polygons (labelPoints / pointInside: at most 3, 3 km apart, largest first by symbol-sort-key), from z8, one line; the line labels are kept. floodController places the point labels above the basemap's place names (under the gauges), so they win label collisions.",
-      "verified": "Platte with model and CatFIM on: both labels on the map at z11.5 and the model label at the framing zoom (brief5-web-flood-command-fix-model-labels.png); fixture model-on (brief5-web-flood-command-model-on.png). Tests: floodCommandLayers.test.ts point labels (minzoom <= 8, inside an L-shaped polygon, at most 3, largest first)."
+      "what": "map/floodCommandLayers.ts: point labels 'MODEL · EXPERIMENTAL' and 'NWS CATEGORY MAP · EXPERIMENTAL' at a point inside each of the largest polygons (labelPoints / pointInside, from z8, one line, largest first by symbol-sort-key); the line labels are kept. Finished in this step after a re-check showed that 3 points per flood left a zoomed-in part of the river unlabelled and that the model's labels hid the category map's: labelPoints now spreads up to 12 points at least 5 km apart along the whole flood, the point labels carry a 28 px collision padding (zoomed out a few remain, zoomed in each part in view keeps its own), and the category map's point labels sit above the model's so they win a collision. floodController places the point labels above the basemap's place names (under the gauges).",
+      "verified": "Platte with model and CatFIM on at the framing zoom (~09:20 UTC): two 'NWS CATEGORY MAP · EXPERIMENTAL' and two 'MODEL · EXPERIMENTAL' labels (brief5-web-flood-command-fix-model-labels.png); before this step's change the category map had none there and a z11.5 view of the southern reach had no model label; with the spread points that view showed its own model label (z11.5, taken before the label order change, which affects only where the category map has polygons). Fixture model-on: 'MODEL · EXPERIMENTAL' on the model area (brief5-web-flood-command-model-on.png). Tests: floodCommandLayers.test.ts point labels (minzoom <= 8, collision padding >= 20, inside an L-shaped polygon, one per fragment 8.6 km apart, at most max, none within minKm, largest first, the category map's labels above the model's)."
     },
     {
       "id": "WFC-R14",
       "severity": "nit",
       "outcome": "fixed",
-      "what": "A falling NWS forecast (its highest stage is its first step, below the latest reading): the chart's mark is 'HIGHEST NWS FORECAST {value} {UNIT} {DAY HH:MM}' with a hollow caret and its own tooltip (crest.falling); the readout's row is 'Highest NWS forecast' with FLOOD_COMMAND.highestForecastSub, and Official now's river forecast row says 'highest 26.4 ft at its first step (…), below the latest reading' (forecastFalling from the chart's ?lid= series). Plan gap next to C7, recorded in the as-built note.",
-      "verified": "Platte (AGYM7 falls from 26.4 ft below the 26.6 ft reading): Official now 'River forecast — highest 26.4 ft at its first step (Thu Nov 5, 00:00 CST), below the latest reading' (brief5-web-flood-command-real.png). Tests: hydrographModel.test.ts R14, FloodReadout.test.ts forecastRow falling."
+      "what": "A falling NWS forecast (its highest stage is its first step, below the latest reading): the chart's mark is 'HIGHEST NWS FORECAST {value} {UNIT} {DAY HH:MM}' with a hollow caret and its own tooltip (crest.falling); the readout's row is 'Highest NWS forecast' with FLOOD_COMMAND.highestForecastSub, and Official now's river forecast row says 'highest 26.4 ft at its first step (…), below the latest reading' (forecastFalling from the chart's ?lid= series). Plan gap next to C7, recorded in the as-built note. Extended in this step: a nearby gauge's answer has no series to show the first step, so location/floodCheck.ts forecastBelowReading(g) (NWS's highest forecast value below the gauge's latest reading, same units, not crest_at_end) also gives 'Highest NWS forecast' with the new FLOOD_COMMAND.highestBelowSub (no 'first step' claim), and Official now's row FLOOD_COMMAND.highestBelowVerdict before the chart's series has arrived.",
+      "verified": "Platte (AGYM7 falls from 26.4 ft below the 26.7 ft reading): Official now 'River forecast — highest 26.4 ft at its first step (Thu Nov 5, 00:00 CST), below the latest reading' and the readout's 'HIGHEST NWS FORECAST' (brief5-web-flood-command-fix-layer-credits.png); the far point's nearby RSDM7 (forecast 14.8 ft, reading 16.0 ft) reads 'Highest NWS forecast value 14.8 ft (Thu Nov 5, 06:00 CST), below the latest reading: not a crest still to come' (brief5-web-flood-command-fix-far-gauge.png). Tests: hydrographModel.test.ts R14, FloodReadout.test.ts forecastRow falling and forecastBelowReading (no series)."
     },
     {
       "id": "WFC-R15",
       "severity": "nit",
       "outcome": "fixed",
       "what": "FloodEvacRows adds 'Not an all-clear. Follow local officials.' only when the row's own words do not already say 'not an all-clear'. The bar's gauge line keeps its age: the reading shortens with an ellipsis (.cfv-gauge-main) and the age (.cfv-gauge-age, amber when stale) never shrinks.",
-      "verified": "Platte evacuation row says the caveat once; 1024x768 bar 'AGYM7 · 8.1 M ·… · 40 MIN AGO' (brief5-web-flood-command-fix-1024-metric.png). Tests: FloodEvacRows.test.ts (the caveat at most once per answer; a loading row still ends with it)."
+      "verified": "Evacuation rows say the caveat once (brief5-web-flood-command-past.png, retaken on the fixture server; brief5-web-flood-command-real.png); 1024x768 bar 'AGYM7 · 8.1 M ·… · 37 MIN AGO' (brief5-web-flood-command-fix-1024-metric.png). Tests: FloodEvacRows.test.ts (the caveat at most once per answer; a loading row still ends with it)."
     }
   ],
   "files": [
@@ -159,13 +159,15 @@
     "docs/screenshots/brief5-web-flood-command-phone.png",
     "docs/screenshots/brief5-web-flood-command-fire-regression.png"
   ],
-  "gates": "GATES_PLACEHOLDER",
+  "gates": "backend: uv run pytest -q 1383 passed, 0 skipped; web: typecheck clean, lint 55 warnings all in src/scene, npm test 135 files 1780 passed / 2 skipped (pre-existing fire tests that need real fire runs; no flood test skipped), build ok (2026-11-05 ~09:00-09:35 UTC)",
   "known_issues": [
-    "Forensic's drapes and dock products column are web-flood-forensic's files: its fixer is switching scene/flood/floodGeo.ts warningsAt and FloodDock.tsx to productsShown / futureProductsNote (seen in its uncommitted working-tree edits at the time of this commit); until that lands the 3D view keeps the old after-now rule.",
     "official/floodModel.ts productsDrawn (web-flood-public's) is no longer used by the map; official/floodHooks.ts still uses it to choose which zone-based products to ask outlines for (same products at now, so no visible difference).",
     "The readout's point gauges answer is asked for most points of a small flood (the fixture's 12 km area never holds a point's 25 km box): one extra cached request per selected point of a real flood; a simulated flood never asks it.",
-    "On a narrow bar (1024 px) the gauge line drops its category word before its age ('AGYM7 · 8.1 M ·… · 40 MIN AGO'); the category is in the readout and the chart.",
-    "The full web suite once timed out in FloodListPanel.test.ts (web-flood-overview's, imports the whole App) while the machine was loaded by other roles (load average 7 on 4 CPUs); it passes alone and in a quieter rerun."
+    "On a narrow bar (1024 px) the gauge line drops its category word before its age ('AGYM7 · 8.1 M ·… · 37 MIN AGO'); the category is in the readout and the chart.",
+    "On the flow axis of a stage-only gauge the handle still reads 'NO READING AT THIS TIME' (true for flow); the chart's note says why.",
+    "In the Forensic SwiftShader screenshot the dock's STAGE / FLOW switch is caught mid-transition (both segments tinted): the software renderer barely repaints while the 3D scene draws; a GPU browser shows FLOW selected.",
+    "The chart's in-plot notes (for example 'NWS flood levels for this gauge are river stages; see the stage view' in flow mode) sit over the lower left of the plot and can cross the observed line.",
+    "Fixture-flood was generated at 05:07 UTC, so its screenshots show its readings 2-4 h old (amber, STALE) and its Flood Warning ending sooner than 8 h; regenerate with make_fixture.py --only flood for fresh times."
   ],
   "commits": []
 }

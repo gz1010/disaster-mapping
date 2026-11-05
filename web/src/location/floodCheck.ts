@@ -486,6 +486,18 @@ export function categoryWords(g: Pick<RiverGauge, 'observed'>, tf: TimeFmt, nowM
 /** The forecast row of a gauge: the crest (CREST_LINE) or the forecast high still rising at its end (C7); none when
  *  the gauge is not a forecast point (NO_RFC_FORECAST); a forecast point without its forecast here says where to see
  *  it (never NO_RFC_FORECAST then; bundle-api deviation 4). */
+/** NWS's highest forecast value is below the gauge's latest reading, so it is not a crest still to come (review
+ *  WFC-R14). Decided from the answer alone (a nearby gauge's bbox answer has no series to show the first step); false
+ *  when the forecast is still rising at its end (C7) or the units differ. */
+export function forecastBelowReading(g: Pick<RiverGauge, 'forecast' | 'observed' | 'thresholds'>): boolean {
+  const f = g.forecast
+  const v = g.observed?.value
+  if (!f || f.crest_at_end || f.max_value == null || v == null || !Number.isFinite(f.max_value) || !Number.isFinite(v)) return false
+  const fu = g.thresholds?.unit ?? g.observed.unit
+  if (g.observed.unit && fu && g.observed.unit.toLowerCase() !== fu.toLowerCase()) return false
+  return f.max_value < v
+}
+
 export function forecastRow(g: RiverGauge, tf: TimeFmt, units: Units, nowMs: number, past = false, falling = false): { label: string; value: string; sub: string } {
   // river forecasts are not kept for past dates (a past flood)
   if (past) return { label: FLOOD_COMMAND.crestLabel, value: FLOOD_PUBLIC.pastDates, sub: PAST_NO_FORECAST }
@@ -500,6 +512,8 @@ export function forecastRow(g: RiverGauge, tf: TimeFmt, units: Units, nowMs: num
     if (f.crest_at_end) return { label: FORECAST_HIGH_LABEL, value, sub: fillCopy(FORECAST_HIGH_LINE, slots) }
     // a falling forecast: its highest value is its first step, below the latest reading (review WFC-R14)
     if (falling) return { label: FLOOD_COMMAND.highestForecastLabel, value: `${value} · ${when}`, sub: fillCopy(FLOOD_COMMAND.highestForecastSub, slots) }
+    // without the series (a nearby gauge's answer): NWS's highest value below the latest reading is no crest to come
+    if (forecastBelowReading(g)) return { label: FLOOD_COMMAND.highestForecastLabel, value: `${value} · ${when}`, sub: fillCopy(FLOOD_COMMAND.highestBelowSub, slots) }
     return { label: FLOOD_COMMAND.crestLabel, value: `${value} · ${when}`, sub: fillCopy(CREST_LINE, slots) }
   }
   if (g.is_forecast_point) return { label: FLOOD_COMMAND.crestLabel, value: '—', sub: FLOOD_COMMAND.forecastInChart }

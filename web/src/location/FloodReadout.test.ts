@@ -29,7 +29,7 @@ import {
 } from '../ui/shell/floodCopy'
 import catfimMap from '../api/__fixtures__/floods/maps-catfim.json'
 import nfhlMap from '../api/__fixtures__/floods/maps-nfhl.json'
-import { areaFigures, catfimLine, categoryWords, fmtArea, forecastRow, lineTag, nearestFloodGauge, onFloodRiver, pointGaugesUrl, utmZoneOf } from './floodCheck'
+import { areaFigures, catfimLine, categoryWords, fmtArea, forecastBelowReading, forecastRow, lineTag, nearestFloodGauge, onFloodRiver, pointGaugesUrl, utmZoneOf } from './floodCheck'
 import { FloodReadout } from './FloodReadout'
 import { pointGaugeCache } from '../ui/timeline/hydrographData'
 
@@ -143,6 +143,16 @@ describe('gauge words', () => {
     expect(falling.label).toBe(FLOOD_COMMAND.highestForecastLabel)
     expect(falling.sub).toMatch(/^Highest NWS forecast value 18\.0 ft at its first step \(Thu Nov 5, 17:00 MST\), below the latest reading: not a crest still to come/)
     expect(floodWordingProblems(falling.sub)).toEqual([])
+    // without a series (a nearby gauge's bbox answer): NWS's highest value below the latest reading is no crest either
+    const g0 = gaugesOf()[0]
+    const below = { ...g0, series: null, observed: { ...g0.observed, value: (g0.forecast?.max_value ?? 0) + 1 } }
+    expect(forecastBelowReading(below)).toBe(true)
+    const belowRow = forecastRow(below, TF, 'us', FIXTURE_NOW_MS)
+    expect(belowRow.label).toBe(FLOOD_COMMAND.highestForecastLabel)
+    expect(belowRow.sub).toMatch(/^Highest NWS forecast value 18\.0 ft \(Thu Nov 5, 17:00 MST\), below the latest reading: not a crest still to come/)
+    expect(floodWordingProblems(belowRow.sub)).toEqual([])
+    expect(forecastBelowReading(g0)).toBe(false)
+    expect(forecastBelowReading(GAUGE_RISING_AT_END())).toBe(false)
     const none = forecastRow(gaugesOf()[2], TF, 'us', FIXTURE_NOW_MS)
     expect(none.value).toBe(NO_RFC_FORECAST)
     // a forecast point whose forecast is not in this answer: never "No NWS river forecast" (bundle-api deviation 4)

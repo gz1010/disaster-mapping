@@ -122,8 +122,10 @@ export function pointInside(rings: Ring[]): [number, number] | null {
 }
 
 /** Label points for a layer's polygons: a point inside each of the largest polygons (at most `max`, never two within
- *  `minKm` of each other), largest first (`rank` 0 = largest, so MapLibre keeps it when labels collide). */
-export function labelPoints(fc: FeatureCollection, max = 3, minKm = 3): FeatureCollection {
+ *  `minKm` of each other, so they spread along the whole flood), largest first (`rank` 0 = largest, so MapLibre keeps
+ *  it when labels collide). Zoomed out, the collision padding keeps a few; zoomed in, each part of the flood in view
+ *  keeps its own (review WFC-R13). */
+export function labelPoints(fc: FeatureCollection, max = 12, minKm = 5): FeatureCollection {
   const polys: { rings: Ring[]; area: number }[] = []
   for (const f of fc.features) {
     const g = f.geometry as { type?: string; coordinates?: unknown } | null
@@ -162,7 +164,8 @@ export function floodCommandLayers(): LayerSpecification[] {
     },
     paint: { 'text-color': color, 'text-halo-color': 'rgba(10,10,10,0.9)', 'text-halo-width': 1.4 },
   })
-  // a label at a point inside the largest polygons (review WFC-R13): from z8, the largest kept when labels collide
+  // a label at a point inside the largest polygons (review WFC-R13): from z8, the largest kept when labels collide;
+  // the wide collision padding leaves a few per view
   const pointLabel = (id: string, source: string, text: string, color: string) => ({
     id,
     type: 'symbol',
@@ -174,7 +177,7 @@ export function floodCommandLayers(): LayerSpecification[] {
       'text-size': 10,
       'text-letter-spacing': 0.08,
       'symbol-sort-key': ['get', 'rank'],
-      'text-padding': 4,
+      'text-padding': 28,
       'text-max-width': 30,
     },
     paint: { 'text-color': color, 'text-halo-color': 'rgba(10,10,10,0.92)', 'text-halo-width': 1.6 },
@@ -205,8 +208,9 @@ export function floodCommandLayers(): LayerSpecification[] {
       paint: { 'line-color': FLOOD_MODEL, 'line-opacity': 0.9, 'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1.6, 14, 3.2], 'line-dasharray': [0.1, 2] },
     },
     label(FLOOD_CMD_LAYERS.highFlowLabel, FLOOD_CMD_SOURCES.highFlow, MODEL_MAP_LABEL, FLOOD_MODEL),
-    pointLabel(FLOOD_CMD_LAYERS.catfimPointLabel, FLOOD_CMD_SOURCES.catfimPoints, CATFIM_MAP_LABEL, FLOOD_TOKENS['m-flood-edge']),
+    // the category map's few labels above the model's many, so they win a collision (it covers a small area)
     pointLabel(FLOOD_CMD_LAYERS.modelPointLabel, FLOOD_CMD_SOURCES.modelPoints, MODEL_MAP_LABEL, FLOOD_MODEL),
+    pointLabel(FLOOD_CMD_LAYERS.catfimPointLabel, FLOOD_CMD_SOURCES.catfimPoints, CATFIM_MAP_LABEL, FLOOD_TOKENS['m-flood-edge']),
   ] as unknown as LayerSpecification[]
 }
 

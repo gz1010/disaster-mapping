@@ -24,7 +24,7 @@ import '../../styles/view-flood-public.css'
 import { ALERTS_UNAVAILABLE, fillCopy, FLOOD_COMMAND, FLOOD_PUBLIC, MODEL_SEPARATE, NO_PRODUCT, NO_RFC_FORECAST, PAST_NO_FORECAST } from '../shell/floodCopy'
 import { fmtStage } from '../public/floodOverviewText'
 import { polygonsOf } from '../public/floodView'
-import { forecastRow } from '../../location/floodCheck'
+import { forecastBelowReading, forecastRow } from '../../location/floodCheck'
 import { useChartGauge } from '../timeline/hydrographData'
 import { forecastFalling } from '../timeline/hydrographModel'
 import { FloodEvacRows } from './FloodEvacRows'
@@ -115,7 +115,13 @@ export function FloodOfficialNow({ variant = 'command' }: { variant?: 'command' 
     // the whole sentence (CREST_LINE, or FORECAST_HIGH_LINE when the highest value is the last step; C7)
     const row = forecastRow(g, gtf, 'us', nowMs, false, falling)
     forecast = {
-      verdict: f.crest_at_end ? `high ${v} at the end of the forecast (${when}); still forecast to rise` : falling ? fillCopy(FLOOD_COMMAND.highestForecastVerdict, { value: v, when }) : `crest ${v} ${when}`,
+      verdict: f.crest_at_end
+        ? `high ${v} at the end of the forecast (${when}); still forecast to rise`
+        : falling
+          ? fillCopy(FLOOD_COMMAND.highestForecastVerdict, { value: v, when })
+          : forecastBelowReading(g)
+            ? fillCopy(FLOOD_COMMAND.highestBelowVerdict, { value: v, when })
+            : `crest ${v} ${when}`,
       meta: `NWS ${rfcName(f)}${issued ? `, issued ${issued}` : ''}`,
       line: row.sub || null,
     }

@@ -50,22 +50,33 @@ describe('Command flood layers', () => {
     expect(CATFIM_MAP_LABEL).toMatch(/EXPERIMENTAL/)
   })
 
-  it('point labels (WFC-R13): from z8, at a point inside each of the largest polygons, a few per flood, largest first', () => {
+  it('point labels (WFC-R13): from z8, at a point inside each of the largest polygons, spread along the flood, largest first', () => {
     for (const id of [FLOOD_CMD_LAYERS.modelPointLabel, FLOOD_CMD_LAYERS.catfimPointLabel]) {
       const l = floodCommandLayers().find((x) => x.id === id) as { minzoom: number; layout: Record<string, unknown> }
       expect(l.minzoom).toBeLessThanOrEqual(8)
       expect(l.layout['symbol-placement']).toBeUndefined()
       expect(l.layout['symbol-sort-key']).toEqual(['get', 'rank'])
+      // a wide collision padding: zoomed out only a few of the points keep a label
+      expect(l.layout['text-padding']).toBeGreaterThanOrEqual(20)
     }
-    // many small fragments (a real flood's model reaches): at most 3 labels, each inside its polygon, largest first
+    // many small fragments (a real flood's model reaches), about 8.6 km apart: one label in each, largest first, so a
+    // part of the flood zoomed into keeps its own label
     const sq = (x: number, y: number, d: number) => ({ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [[[x, y], [x + d, y], [x + d, y + d], [x, y + d], [x, y]]] } })
     const fc = { type: 'FeatureCollection', features: [sq(-95, 39, 0.01), sq(-94.9, 39, 0.05), sq(-94.8, 39, 0.02), sq(-94.7, 39, 0.03), sq(-94.6, 39, 0.04), sq(-94.5, 39, 0.005)] } as never
     const pts = labelPoints(fc)
-    expect(pts.features).toHaveLength(3)
+    expect(pts.features).toHaveLength(6)
     const first = (pts.features[0].geometry as unknown as { coordinates: [number, number] }).coordinates
     expect(first[0]).toBeGreaterThan(-94.9)
     expect(first[0]).toBeLessThan(-94.85)
-    expect(pts.features.map((f) => (f.properties as { rank: number }).rank)).toEqual([0, 1, 2])
+    expect(pts.features.map((f) => (f.properties as { rank: number }).rank)).toEqual([0, 1, 2, 3, 4, 5])
+    // at most `max`, the largest kept
+    expect(labelPoints(fc, 3).features).toHaveLength(3)
+    // never two within minKm: fragments 1.7 km apart get one label
+    const near = { type: 'FeatureCollection', features: [sq(-95, 39, 0.01), sq(-94.98, 39, 0.012), sq(-94.96, 39, 0.008)] } as never
+    expect(labelPoints(near).features).toHaveLength(1)
+    // the category map's few labels sit above the model's many (later = drawn and placed first), so they win a collision
+    const ids = floodCommandLayers().map((x) => x.id)
+    expect(ids.indexOf(FLOOD_CMD_LAYERS.catfimPointLabel)).toBeGreaterThan(ids.indexOf(FLOOD_CMD_LAYERS.modelPointLabel))
     // an L-shaped polygon: the point is inside it (not at its bounding box's centre)
     const l = [[0, 0], [10, 0], [10, 1], [1, 1], [1, 10], [0, 10], [0, 0]] as [number, number][]
     const p = pointInside([l])!

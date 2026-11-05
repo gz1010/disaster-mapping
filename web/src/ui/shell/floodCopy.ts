@@ -338,6 +338,10 @@ export const FLOOD_COMMAND = {
   highestForecastSub:
     'Highest NWS forecast value {value} {unit} at its first step ({day time zone}), below the latest reading: not a crest still to come (NWS {RFC name}, issued {time}). Forecasts change; check NWS for the newest.',
   highestForecastVerdict: 'highest {value} at its first step ({when}), below the latest reading',
+  // the same without the series (a nearby gauge's answer): NWS's highest value is below the latest reading (WFC-R14)
+  highestBelowSub:
+    'Highest NWS forecast value {value} {unit} ({day time zone}), below the latest reading: not a crest still to come (NWS {RFC name}, issued {time}). Forecasts change; check NWS for the newest.',
+  highestBelowVerdict: 'highest {value} ({when}), below the latest reading',
   forecastInChart: 'NWS forecasts this gauge: choose it in the river-level chart below for its forecast.',
   gaugesChecking: 'Checking river gauges…',
   // event rows
