@@ -211,7 +211,11 @@ links without `ws` open the Public map.
   opens it. Public and wider screens are never clamped.
 - Phones: updates closed by default, one bottom sheet at a time (updates / layers / analysis), the card hides while a
   sheet is open, the legend moves into the Layers sheet; the header gets icon toggles and a menu (workspace, preset,
-  panels). 761-1279 px: icon-only Analysis / Layers, no Command ID chip (the strip shows the identifier).
+  panels). 761-1279 px: icon-only Analysis / Layers, no Command ID chip (the strip shows the identifier). Brief 6
+  (review RD-R1): in the overview bar (`.mw-header`, Public and Command, fires and floods) the name word "Disaster
+  Mapping" hides visually at 1024-1279 px, where the centre view pill is on screen (it covered the Fires | Floods
+  switch); the logo stays and the words stay for screen readers. 761-1023 px (pill in the menu) and from 1280 px the
+  name shows. `web/scripts/check-topbar.mjs <url>` measures the bar's items for overlap and covered buttons.
 - Drawers are non-modal: opening one focuses its heading, Escape closes the newest one and focus returns to its toggle;
   skip links (search, timeline, map); the map comes after the chrome in tab order. Layers opens below the top row so
   the map controls stay usable.
@@ -3182,7 +3186,9 @@ Everything marked *frozen* is owned by H2 and changes after H2 only through the 
   `--chart-observed #ff8a3c`, `--chart-forecast #f5c060`, `--chart-cursor #e6e6e6`.
 - Runtime CSS variables on `.mw-atmo` (H2, `map/MapAtmosphere.tsx`): `--mw-vignette` (0-1, from the map zoom:
   `clamp((zoom − 3) / 7, .25, 1)`), `--mw-vig-x`, `--mw-vig-y`, `--mw-vig-r` (centre and half the shorter side of the
-  safe area, px). Attribute `data-edges="overview" | "fire" | "command"` selects the static edge gradients.
+  safe area, px). Attribute `data-edges="overview" | "fire" | "command"` selects the static edge gradients. Brief 6
+  (decision 4): attribute `data-vignette="on" | "off"` (the "Zoom dimming" switch, **off by default**); the three
+  `--mw-vig*` variables and `--mw-vignette` are written only while it is on.
 - `web/index.html` (H2, frozen): Inter weights 400-800, `theme-color #0c0c0c`.
 
 ### 15.2 Shared components (H2, frozen)
@@ -3359,6 +3365,24 @@ tint?)`, `deriveBasemap(…, tint?)`, `fallbackStyle(basemap, tint?)`, `loadBase
 switches; `useMapRuntime.tint` (in effect) and `tintRequest`. `MapAtmosphere` applies `tintRequest ?? defaultTint(edges)`
 (overview → 'overview', fire and Command → 'fire'), so no chrome needs a call; one that wants another uses
 `map/useMapTint.ts useMapTint(level | null)` while mounted.
+
+**Brief 6 (decision 4; review RD-R4): the vignette is off by default.** The zoom-following vignette (`::before`) shows
+only after the person turns on **"Zoom dimming"**; the static edge stops (`::after`, per `data-edges`) are unchanged and
+stay either way, so the panels' text stays readable (hide the panels, "H", to remove them). Interfaces:
+`map/zoomDimming.ts` `ZOOM_DIMMING_KEY = 'fire3d.zoomDimming'` (localStorage, "1" on / "0" off; the old internal
+prefix is kept), `ZOOM_DIMMING_DEFAULT = false`, `readZoomDimming(storage?)` (true only for "1"; missing, refusing or
+throwing storage → false), `writeZoomDimming(on, storage?)` (never throws), strings `DISPLAY_SECTION_TITLE` "Display",
+`ZOOM_DIMMING_LABEL` "Zoom dimming", `ZOOM_DIMMING_DESC` "Darkens the map's edges more as you zoom in, like the rim of a
+globe. Off by default; remembered in this browser. The soft shading behind the panels' text stays either way.";
+`state/workspace.ts` `WorkspaceState.zoomDimming: boolean` (initial `readZoomDimming()`, not in the URL) and
+`setZoomDimming(on)` (writes storage, then state); `MapAtmosphere` sets `.mw-atmo[data-vignette="on" | "off"]` and
+follows the zoom only while on; `styles/atmosphere.css` `.mw-atmo:not([data-vignette='on'])::before { opacity: 0 }`
+(also before the script marks the layer; the 160 ms fade, none under reduced motion). The switch:
+`ui/shell/ZoomDimmingSwitch.tsx` `ZoomDimmingSwitch()` (a native `<input type="checkbox" role="switch"
+class="mw-switch">` in a `.mw-check-row`, drawn as the small pill switch of "Show watches", no `aria-checked` on top of
+the native state) and `DisplaySection()` (`<section class="mw-set">` with `<h3>Display</h3>`), mounted after Units in
+`LayersPanel` (overview, Public and Command fire) and `FloodLayersPanel` (Public and Command flood). Screenshots turn it
+on with `window.__workspace.getState().setZoomDimming(true)`.
 
 **Command in a fire** (`ui/shell/CommandFireChrome.tsx`, layout `styles/view-command.css`, every rule scoped to
 `.mw[data-view='command-fire']`; `--cmd-x` 40 / `--cmd-top` chrome-top + 16 / `--cmd-left-w` 420 / `--cmd-right-w` 380;

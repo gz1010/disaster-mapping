@@ -955,6 +955,50 @@
   box-shadow: var(--m-focus-ring);
   border-radius: 3px;
 }
+/* brief 6 (review RD-R6): a native checkbox with role="switch" drawn as the app's small pill switch (the "Show
+   watches" look in styles/flood-overview.css): 26 x 14 px track, 10 px knob, accent when on. Used by "Zoom dimming". */
+.mw-check-row input.mw-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  width: 26px;
+  height: 14px;
+  margin: 3px 0 0;
+  border-radius: 999px;
+  background: rgba(200, 200, 200, 0.22);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.mw-check-row input.mw-switch::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #e6e6e6;
+  transition: transform 0.15s ease;
+}
+.mw-check-row input.mw-switch:checked {
+  background: var(--m-accent);
+}
+.mw-check-row input.mw-switch:checked::before {
+  transform: translateX(12px);
+  background: var(--m-accent-ink);
+}
+.mw-check-row input.mw-switch:focus-visible {
+  outline: 2px solid var(--m-accent);
+  outline-offset: 2px;
+  box-shadow: none;
+  border-radius: 999px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mw-check-row input.mw-switch,
+  .mw-check-row input.mw-switch::before {
+    transition: none;
+  }
+}
 .mw-check-text {
   display: flex;
   flex-direction: column;
@@ -1108,6 +1152,20 @@
   /* the incident name keeps the room; Command still shows the identifier in the coordinate strip */
   .mw-id-chip {
     display: none;
+  }
+}
+/* brief 6 (review RD-R1): the overview bar's name word ("Disaster Mapping", about 150 px) pushed the Fires | Floods
+   switch under the centre view pill at 1024-1279 px. With the centre pill on screen it hides here as on phones: the
+   logo mark stays and the words stay in the accessibility tree. Below 1024 px the pill moves into the menu and the
+   name fits again. Check: node scripts/check-topbar.mjs <url> */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .mw-header .tb-brand-name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 }
 

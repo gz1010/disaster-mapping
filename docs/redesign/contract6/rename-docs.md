@@ -1,7 +1,8 @@
 # Brief 6 rename-docs: as built
 
 Role: rename-docs (builder). Milestones: M1 17f0d6b (rename), M2 in 126ba1d (wave-1 snapshot: code) + 302bfe5
-(screenshots, progress), M3 (README, CLAUDE.md name, current docs, this note, report).
+(screenshots, progress), M3 92b2835 (README, CLAUDE.md name, current docs, this note, report). Review fixes RD-R1..R7:
+section 5 (commit "brief 6 rename-docs: review fixes").
 
 ## 1. The rename (decision 1)
 
@@ -49,7 +50,18 @@ Role: rename-docs (builder). Milestones: M1 17f0d6b (rename), M2 in 126ba1d (wav
   the Forensic bar now says the brand word hides at ≤ 1720 px.
 - **Forensic top bar (rename follow-up):** `styles/header.css` hides `.fx-bar .tb-brand-name` at
   `max-width: 1720px` (was 1400 px): the longer name cut the flood's place and date lines at 1440-1600 px. The logo
-  mark stays. Overview and Command bars are unchanged (the name fits at 1440).
+  mark stays.
+- **Overview top bar (review RD-R1):** `styles/map-layout.css` `@media (min-width: 1024px) and (max-width: 1279px)`
+  hides `.mw-header .tb-brand-name` visually (the phone rule's clip: `position: absolute; width/height 1px; overflow:
+  hidden; clip: rect(0 0 0 0)`), so the words stay for screen readers and the logo mark stays. Without it the name
+  (about 150 px) pushed the Fires | Floods switch under the centre view pill: Floods could not be clicked up to about
+  1150 px. 761-1023 px (pill in the menu) and from 1280 px the name shows. Only the overview bar has the brand inside
+  `.mw-header` (fire and flood views do not show it). `web/scripts/check-topbar.mjs <base-url> [--widths …]
+  [--backend swiftshader]` loads `/?preset=public|command[&hazard=flood]` at each width and fails when a left item,
+  the centre pill or a right item overlap, or when `elementFromPoint` at the middle of a Fires / Floods / view button
+  hits something else (measured: all 36 pages pass at 768, 900, 1023, 1024, 1100, 1180, 1279, 1280 and 1440 px).
+  Test `ui/shell/overviewBrand.test.ts` (the rule, its 1024 lower bound matching the pill's 1023 px menu rule, the
+  name still in the markup). CONTRACT §15 breakpoint line updated.
 
 ## 2. Zoom dimming (decision 4)
 
@@ -68,12 +80,18 @@ Role: rename-docs (builder). Milestones: M1 17f0d6b (rename), M2 in 126ba1d (wav
   marks the layer); the existing 160 ms opacity transition fades it in and out (none under reduced motion). The static
   edge gradients (`::after`, per `data-edges`) are unchanged.
 - `ui/shell/ZoomDimmingSwitch.tsx`: `ZoomDimmingSwitch` (a `.mw-check-list` row: `<input type="checkbox"
-  role="switch" aria-checked>` with label and description) and `DisplaySection` (`<section class="mw-set">` with
-  `<h3>Display</h3>`). Mounted after Units in `LayersPanel` (overview, Public fire, Command fire) and
-  `FloodLayersPanel` (Public and Command flood).
+  role="switch" class="mw-switch">` with label and description; the native checked state is its state, no
+  `aria-checked` on top (review RD-R6)) and `DisplaySection` (`<section class="mw-set">` with `<h3>Display</h3>`).
+  `.mw-check-row input.mw-switch` (`styles/map-layout.css`) draws it as the small pill switch of "Show watches"
+  (26 x 14 px track `rgba(200,200,200,.22)`, 10 px knob `#e6e6e6`; on: track `--m-accent`, knob `--m-accent-ink`,
+  moved 12 px; focus ring 2 px accent; no transition under reduced motion). Mounted after Units in `LayersPanel`
+  (overview, Public fire, Command fire) and `FloodLayersPanel` (Public and Command flood).
 - Tests: `map/zoomDimming.test.ts` (default off with empty, missing or refusing storage; "1"/"0"; never throws; the
   workspace switch turns on and off and remembers; the stylesheet gates only `::before`), `ui/shell/
-  ZoomDimmingSwitch.test.ts` (off by default, on from state, Display section, wording guard, present in both drawers).
+  ZoomDimmingSwitch.test.ts` (off by default, on from state, no `aria-checked`, the pill switch rules, Display
+  section, wording guard, present in both drawers).
+- CONTRACT §15.1 (runtime variables: `data-vignette`) and the §15 "Globe-like dimming and tint" paragraph now say the
+  vignette is off by default and list these interfaces (review RD-R4).
 
 ## 3. Docs
 
@@ -83,21 +101,55 @@ Role: rename-docs (builder). Milestones: M1 17f0d6b (rename), M2 in 126ba1d (wav
   optional `.env` with `FIRMS_MAP_KEY` and `EARTHDATA_TOKEN`, `./dev.sh --no-live`, first run, demo data), how it works
   (data flow, command line, scripts, HTTP API and architecture folded), the fire forecast and its scores, known limits
   (everywhere, wildfires, floods), troubleshooting, every data source credit of the old README (fires and floods), the
-  docs map and "About the name". Screenshots reused: brief4-final-* and brief5-final-* (they show the old name; the
-  README says so).
+  docs map and "About the name". Review fixes (RD-R2, R3, R5): the eight README screenshots re-shot with the new name
+  (`docs/screenshots/brief6-rename-docs-readme-*.png`, Nov 5 2026; the "still reads Fire-3d" line is gone); "How it
+  works" step 3 describes the flood's time history (`timeline.json`) and the three 3D terrain products; the scripts
+  table has `scripts/flood_3d.py`; the HTTP API table has `/api/floods/{id}/timeline?wait=0..30` and
+  `/api/floods/{id}/passes/{key}.png?area=<8 hex>`; the flood credits say the NWM river lines feed the height above the
+  river and the IEM archive feeds earlier product versions; Known limits → Floods gives the exact re-prepare commands
+  (`uv run python -m fire3d.cli build-flood <flood id> --force`, `uv run python scripts/make_fixture.py --only flood`);
+  the troubleshooting row says "Zoom dimming" darkens the edges more as you zoom in and that the fixed shading behind
+  the side panels stays (hide the panels with `H`).
 - `CLAUDE.md`: the name only (title, first line, the ports line); rules unchanged. `docs/validation.md` title,
   `docs/cloud/SETUP.md` (name, repository `gz1010/disaster-mapping`), `docs/cloud/environment-setup.sh` and `dev.sh`
   header comments.
 
 ## 4. For other roles
 
-- **backend-flood-time-3d / final-check:** flood bundles prepared before the rename keep "Fire-3d" in stored notes
-  (the satellite login note in `data/floods/*/manifest.json` and `satellite.json`; 27 files in this container) until
-  they are prepared again; the canned answers of `make_fixture.py --only flood` in `data/floods/*/api/` too. Re-running
-  `make_fixture.py --only flood` and re-preparing the real floods clears it. Optionally `api/floods.py` could replace
-  the old name in stored notes when serving them.
-- **final-check:** the README's flood Command and Forensic paragraphs describe brief 5 behaviour; add the playback
-  controls and the 3D flood view (height boost, depth tint, low-ground shading, framing) once built, with their exact
-  labels, and re-shoot the README screenshots with the new name if wanted.
-- **final-check:** on a 390 px phone the Public flood title's date line "SEEN BY DISASTER MAPPING SINCE NOV 4 2026"
-  wraps to three lines (it fits on one line at 1440 px); it does not overlap the water circle.
+- **backend-flood-time-3d (their review R11) / final-check:** flood bundles prepared before the rename keep "Fire-3d"
+  in stored app notes (the satellite login note and the "could not load a measured satellite water image" reason in
+  `manifest.json` `layer_status.water_satellite.reason` / `warnings` and `satellite.json` `login_note` / `reason`) until
+  prepared again. In this container (review RD-R2): `fixture-flood` re-made (`make_fixture.py --only flood`), Grand
+  River re-prepared with `build-flood … --force` (its satellite layer is now "unavailable": no measured image in the
+  last 10 days), and the other seven real floods' stored notes rewritten in place offline (only `reason`,
+  `login_note`, `warnings` strings of `manifest.json` / `satellite.json`, the same text a re-prepare writes; their data
+  untouched, so the wave-2 roles' St Johns and Calcasieu 3D bundles stay as they are). `data/` now holds no "Fire-3d"
+  (count-only scan, 0 files). A user's own older bundles still need a re-prepare (README command) unless the server
+  replaces the old notes when serving: `api/floods.py` `_json()` is the one place every flood answer passes; a
+  replace of the old SAT_NOT_SET_UP / SAT_LOGIN_REFUSED / no-image texts by the current `fcopy` ones there (or in
+  `floods/store.py load_flood_manifest` plus the `_load` of `satellite.json`) heals them; that file is
+  backend-flood-time-3d's. If they add it, final-check should shorten the README's Known limits → Floods line.
+- **final-check:** the README's flood Command and Forensic paragraphs and the Keyboard line (`Space` plays a fire's
+  timeline) describe brief 5 behaviour; add the playback controls and the 3D flood view (the "Height ×5" boost and its
+  control, "Estimated depth (from the terrain at the water's edge), experimental", "Height above the river (from
+  terrain). Not a flood map" off by default, the closer framing, the "No satellite image between …" wording) with the
+  labels as built by web-flood-playback and web-forensic-flood-3d, and replace the README's Command flood and Forensic
+  flood pictures with brief-6 final shots.
+- **final-check:** run `node web/scripts/check-topbar.mjs http://localhost:<vite-port> --backend swiftshader` (exit 0 =
+  no overlap in the overview bar at 1024-1440 px).
+
+## 5. Review fixes (reports/review6-rename-docs.json)
+
+- **RD-R1 (major, fixed):** overview bar name word hidden at 1024-1279 px (section 1), check script, test, CONTRACT.
+- **RD-R2 (minor, fixed here; serving-time heal proposed):** see section 4; README re-prepare commands.
+- **RD-R3 (minor, fixed in part):** README pictures re-shot, timeline and pass routes, flood products, scripts row;
+  the brief-6 playback and 3D view wording waits for those roles (section 4, final-check).
+- **RD-R4 (nit, fixed):** CONTRACT §15 says the vignette is off by default, with every brief-6 interface.
+- **RD-R5 (nit, fixed):** README troubleshooting row reworded (fixed side shading stays; `H` hides the panels).
+- **RD-R6 (nit, fixed):** the switch keeps its native checkbox with `role="switch"`, drops `aria-checked`, and is
+  drawn as the app's pill switch.
+- **RD-R7 (nit, fixed):** `styles/view-flood-public.css`, phones (≤ 760 px), only when the bar holds the DEMO badge
+  (`.pfv-bar .tb-left:has(> .ffv-demo)`): the left side is a grid (X | place | DEMO on the first row; the date line
+  spans the place and the badge columns on the second; the X centred on both; the title block `display: contents`).
+  "SEEN BY DISASTER MAPPING SINCE NOV 4 2026" now takes two lines (was three) and the place sits 7 px from the screen's
+  top (was about 2 px). Real floods (no badge) and wider screens are unchanged.

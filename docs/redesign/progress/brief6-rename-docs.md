@@ -44,3 +44,17 @@ Role: rename-docs (builder). Ports: API 8761, Vite 5221. Owned files: see BRIEF-
 - contract6/rename-docs.md (as built) and reports/brief6-rename-docs.json written.
 - Gates (final): web typecheck, lint (55 warnings, all src/scene), 139 test files / 1809 tests, build: all pass;
   backend 1441 passed.
+
+## Review fixes (RD-R1..R7; commit "brief 6 rename-docs: review fixes")
+Ports: API 8773, Vite 5233 (fixture server 8774, Vite 5234).
+- [x] RD-R1 verified (Floods covered by the centre pill at 1024-1180 px, Fires too at 1024), fixed: map-layout.css hides
+  the overview name word at 1024-1279 px; web/scripts/check-topbar.mjs; ui/shell/overviewBrand.test.ts; CONTRACT §15.
+- [x] RD-R2 verified (old notes in 14 bundle files + fixture), fixed here: fixture re-made, Grand River re-prepared,
+  7 floods' stored notes rewritten offline; README re-prepare commands; serving-time heal described for
+  backend-flood-time-3d (their R11).
+- [x] RD-R3 in part: README pictures re-shot (brief6-rename-docs-readme-*), timeline / passes routes, flood products,
+  flood_3d.py row, credits; brief-6 playback / 3D wording left for final-check (those roles not built yet).
+- [x] RD-R4 CONTRACT §15.1 and §15 dimming paragraph: off by default + interfaces.
+- [x] RD-R5 README troubleshooting row reworded.
+- [x] RD-R6 switch: no aria-checked, `.mw-switch` pill style, tests.
+- [x] RD-R7 demo flood phone title: grid with the badge, date on two lines; screenshot retaken.

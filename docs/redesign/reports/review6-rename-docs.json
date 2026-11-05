@@ -1,0 +1,105 @@
+{
+  "role": "rename-docs (review fixes)",
+  "brief": "BRIEF-6",
+  "commit_subject": "brief 6 rename-docs: review fixes",
+  "summary": "All seven findings verified as real. RD-R1 (major) fixed: the overview bar hides the name word 'Disaster Mapping' visually at 1024-1279 px (logo and accessible name stay), so the centre view pill no longer covers the Fires | Floods switch; a Playwright check script measures the bar at any widths (36 pages, all pass) and a unit test guards the rule. RD-R2 fixed in this container (fixture re-made, Grand River re-prepared, the other seven floods' stored app notes rewritten offline; data/ holds no 'Fire-3d') and the README gives the exact re-prepare commands; the automatic serving-time heal lives in api/floods.py (backend-flood-time-3d, their R11) and is described for them. RD-R3 fixed in part: README pictures re-shot with the new name, the timeline and pass routes, the flood time history and 3D products, the flood_3d.py script and credits added; the brief-6 playback and 3D-view wording waits for web-flood-playback and web-forensic-flood-3d, which are not built yet (left to final-check with the exact labels to add). RD-R4, R5, R6, R7 fixed: CONTRACT dimming paragraph, README troubleshooting row, the switch drawn as the app's pill switch without aria-checked, and the demo-flood phone title on two lines.",
+  "findings": [
+    {
+      "id": "RD-R1",
+      "severity": "major",
+      "outcome": "fixed",
+      "verified": "scripts/check-topbar.mjs on the live app before the fix: 12 of 24 pages failed at 1024, 1100 and 1180 px (Public and Command, fires and floods): 'Floods' covered by the centre pill (tb-view-btn) at 1024-1180, 'Fires' too at 1024; switch x 348-491, centre from 381 (1024), 419 (1100), 459 (1180).",
+      "fix": "web/src/styles/map-layout.css: @media (min-width: 1024px) and (max-width: 1279px) clips .mw-header .tb-brand-name (position absolute, 1 px, overflow hidden, clip rect(0 0 0 0)), as the phone rule; the logo stays and the words stay in the accessibility tree. 761-1023 px (pill in the menu) and from 1280 px the name shows (checked: no overlap). New web/scripts/check-topbar.mjs <base-url> [--widths] [--backend swiftshader] (exit 1 on overlap or a covered Fires / Floods / view button); after the fix 36 pages pass (768, 900, 1023, 1024, 1100, 1180, 1279, 1280, 1440 px x Public / Command x fires / floods). Test web/src/ui/shell/overviewBrand.test.ts. CONTRACT.md §15 breakpoint line updated.",
+      "screenshots": [
+        "docs/screenshots/brief6-rename-docs-command-overview-floods-1100.png",
+        "docs/screenshots/brief6-rename-docs-public-overview-1180.png"
+      ]
+    },
+    {
+      "id": "RD-R2",
+      "severity": "minor",
+      "outcome": "fixed",
+      "verified": "Count-only scan: 14 files (manifest.json and satellite.json of 7 real floods) plus fixture-flood (11 files) and Grand River held 'Fire-3d' in app notes (SAT_NOT_SET_UP login note, SAT_LOGIN_REFUSED, the no-image reason, the fixture's synthetic product text and evacuation note); GET /api/floods/<id> served it in manifest.layer_status.water_satellite.reason; /api/floods/fixture-flood/timeline served '[SYNTHETIC] ... Fire-3d' 4 times.",
+      "fix": "This container: make_fixture.py --only flood (fixture-flood: 0 files, /timeline now 'test data for Disaster Mapping' x4); build-flood flood-20261104-grand-river-flood-1b2d20 --force (ready in 22 s; 0 files; its satellite layer is now 'unavailable', no measured image in the last 10 days); the other 7 floods' stored reason / login_note / warnings strings rewritten offline with the current wording (no data changed, so the St Johns and Calcasieu 3D bundles the wave-2 roles use stay as they are). data/ (cache, floods, incidents, official): 0 files with the old name. README Known limits -> Floods now gives the exact commands (cd backend; uv run python -m fire3d.cli build-flood <flood id> --force; uv run python scripts/make_fixture.py --only flood) and says ./dev.sh's live loop re-prepares current floods. Not done here (other role's file): a serving-time replacement of the old note texts in api/floods.py _json() so a user's own older bundles heal without re-preparing; described in contract6/rename-docs.md section 4 for backend-flood-time-3d (their review lists an old-name item, R11)."
+    },
+    {
+      "id": "RD-R3",
+      "severity": "minor",
+      "outcome": "fixed in part",
+      "verified": "README embedded brief4-final-* and brief5-final-* pictures with 'Fire-3d' (top bars, Command flood's model note) and the line 'still reads Fire-3d'; no /timeline or /passes routes in the HTTP API table.",
+      "fix": "Eight README pictures re-shot on Nov 5 2026 with the new name (docs/screenshots/brief6-rename-docs-readme-{public-overview-fires,public-overview-floods,public-fire-lower-sugarloaf,public-flood-fixture,command-flood-real,command-fire-fixture-live,forensic-fixture-live,forensic-flood-fixture}.png, all viewed) and the old-name line dropped; alt text updated to what they show. 'How it works' step 3: the flood's time history (timeline.json: passes oldest first with their own dates and 'no view', every NWS product version with its own times, live + IEM archive, nothing filled in between passes) and the three 3D terrain products (relief and height boost, height above the river from NWM river lines, FwDET depth inside mapped water only, experimental). Scripts table: scripts/flood_3d.py. HTTP API: GET /api/floods/{id}/timeline?wait=0..30 and GET /api/floods/{id}/passes/{key}.png?area=<8 hex>. Credits: NWM river lines feed the height above the river; IEM archive feeds earlier product versions.",
+      "skipped_part": "The Command / Forensic flood paragraphs and the Keyboard line for the brief-6 Play and step controls and the 3D flood view: web-flood-playback and web-forensic-flood-3d have not built them yet, so their labels as built do not exist; describing them now would document unbuilt behaviour. Left to final-check with the list of labels to add (contract6/rename-docs.md section 4)."
+    },
+    {
+      "id": "RD-R4",
+      "severity": "nit",
+      "outcome": "fixed",
+      "verified": "CONTRACT §15.1 runtime-variable line and the §15 'Globe-like dimming and tint' paragraph did not mention the brief-6 switch.",
+      "fix": "CONTRACT.md §15.1: data-vignette='on' | 'off', off by default, variables written only while on. New paragraph after 'Globe-like dimming and tint': 'Brief 6 (decision 4; review RD-R4): the vignette is off by default' with map/zoomDimming.ts (key fire3d.zoomDimming, default false, read/write rules, the three strings), WorkspaceState.zoomDimming / setZoomDimming, MapAtmosphere data-vignette, the atmosphere.css rule, ZoomDimmingSwitch / DisplaySection and where they are mounted."
+    },
+    {
+      "id": "RD-R5",
+      "severity": "nit",
+      "outcome": "fixed",
+      "verified": "README troubleshooting row attributed all dark edges to Zoom dimming; Command's fixed ::after edge stops stay when it is off.",
+      "fix": "Row now: 'The map's edges darken more as you zoom in, or you want them to | That is \"Zoom dimming\" (Layers & settings -> Display; off by default, remembered in this browser). A soft fixed shading behind the side panels stays either way so their text is readable; hide the panels (H) to remove it.'"
+    },
+    {
+      "id": "RD-R6",
+      "severity": "nit",
+      "outcome": "fixed",
+      "verified": "<input type=\"checkbox\" role=\"switch\" aria-checked={on}> drawn as a square checkbox.",
+      "fix": "ZoomDimmingSwitch.tsx: aria-checked removed (the native checked state is exposed), class 'mw-switch'; map-layout.css .mw-check-row input.mw-switch draws the app's small pill switch (the 'Show watches' look: 26 x 14 track, 10 px knob, accent when on, focus ring, no transition under reduced motion); keyboard Space and a click on the words still toggle it. Tests updated deliberately (no aria-checked; the CSS rules).",
+      "screenshots": [
+        "docs/screenshots/brief6-rename-docs-public-fire-dimming-off.png",
+        "docs/screenshots/brief6-rename-docs-public-fire-dimming-on.png"
+      ]
+    },
+    {
+      "id": "RD-R7",
+      "severity": "nit",
+      "outcome": "fixed",
+      "verified": "Fixture server, demo flood fixture-flood-minor at 390 px: date on three lines beside the DEMO badge, place about 2 px from the top.",
+      "fix": "view-flood-public.css, phones only, only when the bar holds the DEMO badge (.pfv-bar .tb-left:has(> .ffv-demo)): grid X | place | DEMO with the date line spanning the place and badge columns; the title block display: contents. Measured: place top 7 px, date 'SEEN BY DISASTER MAPPING SINCE NOV 4 2026' on two lines (y 30-56), the circle strip from 64 px. Real floods and wider screens unchanged.",
+      "screenshots": [
+        "docs/screenshots/brief6-rename-docs-phone-public-flood-seen-since.png"
+      ]
+    }
+  ],
+  "files": [
+    "web/src/styles/map-layout.css",
+    "web/scripts/check-topbar.mjs",
+    "web/src/ui/shell/overviewBrand.test.ts",
+    "web/src/ui/shell/ZoomDimmingSwitch.tsx",
+    "web/src/ui/shell/ZoomDimmingSwitch.test.ts",
+    "web/src/styles/view-flood-public.css",
+    "README.md",
+    "docs/redesign/CONTRACT.md",
+    "docs/redesign/contract6/rename-docs.md",
+    "docs/redesign/progress/brief6-rename-docs.md",
+    "docs/redesign/reports/brief6-rename-docs.json",
+    "docs/redesign/reports/review6-rename-docs.json",
+    "docs/screenshots/brief6-rename-docs-*.png"
+  ],
+  "gates": "backend uv run pytest -q: 1466 passed (no network; the tree held backend-flood-time-3d's in-progress review edits); web npm run typecheck: pass; npm run lint: 0 errors, 55 warnings, all in src/scene; npm test: 140 files, 1813 passed, 2 skipped; npm run build: pass. node web/scripts/check-topbar.mjs: 36 of 36 pages without overlap (768-1440 px). Count-only secret scan of the changed files: FIRMS_MAP_KEY 0, EARTHDATA_TOKEN not set here. data/: 0 files with 'Fire-3d'.",
+  "known_issues": [
+    "README flood Command / Forensic paragraphs and the Keyboard line still describe brief 5; the brief-6 playback and 3D view lines (and fresh Command / Forensic flood pictures) are for final-check once web-flood-playback and web-forensic-flood-3d are built.",
+    "A user's own flood bundles prepared before the rename keep 'Fire-3d' in stored notes until re-prepared (README gives the commands), unless backend-flood-time-3d adds a serving-time replacement in api/floods.py.",
+    "Grand River (this container) was re-prepared: its satellite layer is now 'unavailable' (no measured image in the last 10 days), where it had a mostly no-data pass before."
+  ],
+  "screenshots": [
+    "docs/screenshots/brief6-rename-docs-command-overview-floods-1100.png",
+    "docs/screenshots/brief6-rename-docs-public-overview-1180.png",
+    "docs/screenshots/brief6-rename-docs-public-fire-dimming-off.png",
+    "docs/screenshots/brief6-rename-docs-public-fire-dimming-on.png",
+    "docs/screenshots/brief6-rename-docs-phone-public-flood-seen-since.png",
+    "docs/screenshots/brief6-rename-docs-readme-public-overview-fires.png",
+    "docs/screenshots/brief6-rename-docs-readme-public-overview-floods.png",
+    "docs/screenshots/brief6-rename-docs-readme-public-fire-lower-sugarloaf.png",
+    "docs/screenshots/brief6-rename-docs-readme-public-flood-fixture.png",
+    "docs/screenshots/brief6-rename-docs-readme-command-flood-real.png",
+    "docs/screenshots/brief6-rename-docs-readme-command-fire-fixture-live.png",
+    "docs/screenshots/brief6-rename-docs-readme-forensic-fixture-live.png",
+    "docs/screenshots/brief6-rename-docs-readme-forensic-flood-fixture.png"
+  ]
+}

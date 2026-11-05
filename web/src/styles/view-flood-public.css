@@ -199,6 +199,39 @@
   .mw[data-view='public-flood'] .ffv-demo {
     flex: none;
   }
+  /* brief 6 (review RD-R7): a demo flood's DEMO badge sits beside the title, so "SEEN BY DISASTER MAPPING SINCE NOV 4
+     2026" wrapped to three lines in what was left, and the centred title block pushed the place to the screen's top
+     edge. With the badge, the bar's left side is a grid: X | place | DEMO on the first row, the date line under the
+     place and the badge (it gets the badge's width too), the X centred on both rows. Real floods are unchanged. */
+  .mw[data-view='public-flood'] .pfv-bar .tb-left:has(> .ffv-demo) {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    column-gap: 8px;
+    row-gap: 2px;
+    align-items: center;
+  }
+  .mw[data-view='public-flood'] .pfv-bar .tb-left:has(> .ffv-demo) > .pfv-close {
+    grid-column: 1;
+    grid-row: 1 / 3;
+  }
+  .mw[data-view='public-flood'] .pfv-bar .tb-left:has(> .ffv-demo) > .pfv-title {
+    display: contents;
+  }
+  .mw[data-view='public-flood'] .pfv-bar .tb-left:has(> .ffv-demo) .pfv-place {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+  }
+  .mw[data-view='public-flood'] .pfv-bar .tb-left:has(> .ffv-demo) .pfv-date {
+    grid-column: 2 / 4;
+    grid-row: 2;
+    min-width: 0;
+  }
+  .mw[data-view='public-flood'] .pfv-bar .tb-left:has(> .ffv-demo) > .ffv-demo {
+    grid-column: 3;
+    grid-row: 1;
+  }
 }
 
 /* ------------------------------------------------------------------------------------------------ reduced motion */

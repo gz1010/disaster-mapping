@@ -5,7 +5,8 @@
   "milestones": [
     "M1 rename in every user-facing string, guards, fixtures, CONTRACT strings (17f0d6b)",
     "M2 zoom dimming off by default with a 'Zoom dimming' switch (code in the wave-1 snapshot 126ba1d; screenshots and progress 302bfe5)",
-    "M3 new README, CLAUDE.md name, current docs, as-built note, report (92b2835)"
+    "M3 new README, CLAUDE.md name, current docs, as-built note, report (92b2835)",
+    "Review fixes RD-R1..R7 (reports/review6-rename-docs.json; commit 'brief 6 rename-docs: review fixes')"
   ],
   "files": [
     "web/index.html",
@@ -41,7 +42,12 @@
     "dev.sh",
     "docs/redesign/contract6/rename-docs.md",
     "docs/redesign/progress/brief6-rename-docs.md",
-    "docs/redesign/reports/brief6-rename-docs.json"
+    "docs/redesign/reports/brief6-rename-docs.json",
+    "web/scripts/check-topbar.mjs",
+    "web/src/ui/shell/overviewBrand.test.ts",
+    "web/src/styles/map-layout.css (overview name word 1024-1279 px, .mw-switch)",
+    "web/src/styles/view-flood-public.css (demo flood phone title)",
+    "docs/redesign/reports/review6-rename-docs.json"
   ],
   "screenshots": [
     "docs/screenshots/brief6-rename-docs-public-fire-dimming-off.png",
@@ -51,19 +57,27 @@
     "docs/screenshots/brief6-rename-docs-forensic-flood-header.png",
     "docs/screenshots/brief6-rename-docs-forensic-flood-header-1760.png",
     "docs/screenshots/brief6-rename-docs-public-flood-seen-since.png",
-    "docs/screenshots/brief6-rename-docs-phone-public-flood-seen-since.png"
+    "docs/screenshots/brief6-rename-docs-phone-public-flood-seen-since.png",
+    "docs/screenshots/brief6-rename-docs-command-overview-floods-1100.png",
+    "docs/screenshots/brief6-rename-docs-public-overview-1180.png",
+    "docs/screenshots/brief6-rename-docs-readme-public-overview-fires.png",
+    "docs/screenshots/brief6-rename-docs-readme-public-overview-floods.png",
+    "docs/screenshots/brief6-rename-docs-readme-public-fire-lower-sugarloaf.png",
+    "docs/screenshots/brief6-rename-docs-readme-public-flood-fixture.png",
+    "docs/screenshots/brief6-rename-docs-readme-command-flood-real.png",
+    "docs/screenshots/brief6-rename-docs-readme-command-fire-fixture-live.png",
+    "docs/screenshots/brief6-rename-docs-readme-forensic-fixture-live.png",
+    "docs/screenshots/brief6-rename-docs-readme-forensic-flood-fixture.png"
   ],
   "gates": "Final run before the M3 commit (working tree with backend-flood-time-3d's in-progress build.py/terrain3d.py present): backend uv run pytest -q: 1441 passed (no network); web npm run typecheck: pass; npm run lint: 0 errors, 55 warnings, all in src/scene; npm test: 139 files, 1809 passed, 2 skipped; npm run build: pass. Count-only secret scan of the M1 staged diff: FIRMS_MAP_KEY 0, EARTHDATA_TOKEN not set here.",
   "known_issues": [
-    "Flood bundles prepared before the rename keep 'Fire-3d' in stored notes (the satellite login note in data/floods/*/manifest.json and satellite.json; 27 files here, and the fixture server's canned answers in data/floods/*/api/) until prepared again (make_fixture.py --only flood; re-prepare real floods). The Forensic flood screenshot shows it. Optionally api/floods.py (backend-flood-time-3d) could replace the old name in stored notes when serving.",
-    "README screenshots (brief4-final-*, brief5-final-*) still show 'Fire-3d' in the top bar; the README says so. Re-shoot in the final check if wanted.",
-    "README's flood Command and Forensic paragraphs describe brief-5 behaviour; the playback controls and the 3D flood view of brief 6 should be added once built (final check or those roles).",
-    "On a 390 px phone the Public flood title's date line 'SEEN BY DISASTER MAPPING SINCE NOV 4 2026' wraps to three lines (no overlap with the water circle).",
-    "The Forensic bar hides the brand word up to 1720 px (was 1400); the logo mark stays.",
+    "Review RD-R2: flood bundles prepared before the rename keep 'Fire-3d' in stored app notes until prepared again; in this container they are healed (fixture re-made, Grand River re-prepared, 7 floods' notes rewritten offline; data/ has 0 files with the old name) and the README gives the re-prepare commands. A user's own older bundles heal automatically only if backend-flood-time-3d adds a serving-time replacement in api/floods.py (described in contract6/rename-docs.md section 4).",
+    "README's flood Command and Forensic paragraphs and the Keyboard line still describe brief 5; the brief-6 playback and 3D view lines and fresh Command / Forensic flood pictures are for final-check once web-flood-playback and web-forensic-flood-3d are built (review RD-R3, left in part).",
+    "The Forensic bar hides the brand word up to 1720 px (was 1400); the overview bar hides it at 1024-1279 px (review RD-R1); the logo mark and the accessible name stay.",
     "backend/fire3d/data/gazetteer_us.json keeps 'Fire-3d' in its (unserved) note until rebuilt with scripts/build_gazetteer.py; .claude/hooks/cloud_install.sh (configuration) keeps the old name in a comment and an echo.",
     "M1's commit 17f0d6b had one wrong regex in web/src/location/FloodReadout.test.ts (the User-Agent substitution hit a regex ending in 'Fire-3d/'); fixed in the wave-1 snapshot 126ba1d."
   ],
-  "notes_for_others": "backend-flood-time-3d / final-check: stored flood notes keep the old name until re-prepared (see known issues). final-check: README flood sections need the brief-6 playback and 3D view lines; the dimming switch is window.__workspace.getState().setZoomDimming(true) for screenshots; test guards web/src/lib/productName.test.ts and backend/tests/test_product_name.py fail on 'Fire-3d' in any new string.",
+  "notes_for_others": "backend-flood-time-3d: an optional serving-time replacement of the old SAT_NOT_SET_UP / SAT_LOGIN_REFUSED / no-image note texts in api/floods.py _json() would heal users' older bundles (contract6/rename-docs.md section 4); if added, shorten README Known limits -> Floods. final-check: README flood Command / Forensic paragraphs and the Keyboard line need the brief-6 playback and 3D view labels as built, and fresh Command / Forensic flood pictures; run node web/scripts/check-topbar.mjs <url> --backend swiftshader (overview bar overlap check); the dimming switch is window.__workspace.getState().setZoomDimming(true) for screenshots; test guards web/src/lib/productName.test.ts and backend/tests/test_product_name.py fail on 'Fire-3d' in any new string.",
   "commits": [
     "17f0d6b",
     "126ba1d (wave-1 snapshot holding the M2 code)",
