@@ -295,8 +295,11 @@ def get_flood_model(request: Request, flood_id: str,
 
 @router.get("/api/floods/{flood_id}/satellite")
 def get_flood_satellite(request: Request, flood_id: str, at_ms: int | None = Query(None, ge=0)) -> Response:
-    """``SatelliteWaterResponse`` (water seen by satellite, NASA OPERA; ``login`` never carries the token). When NASA
-    cannot be reached, a ready bundle's frozen answer (absolute times) is served."""
+    """``SatelliteWaterResponse`` (water seen by satellite, NASA OPERA; ``login`` never carries the token). Only when
+    NASA cannot be reached (the answer is ``unavailable``, or the picture fallback because Earthdata GIS is down:
+    ``reason_code`` ``upstream_error``), a ready bundle's frozen measured answer (absolute times) is served, with
+    ``SAT_SAVED_COPY``. When NASA answered that it has no usable image of the last 10 days (``no_image``), that
+    answer is served as is: an older saved image never replaces it."""
     def run() -> Response:
         bdir = _synthetic(flood_id)
         if bdir is not None:
@@ -304,13 +307,18 @@ def get_flood_satellite(request: Request, flood_id: str, at_ms: int | None = Que
         s = _summary(flood_id)
         res = flood_satellite.cached_answer(s["id"], _area(s), now=_now(), time_zone=s.get("time_zone") or "UTC",
                                             at_ms=at_ms)
-        if res.answer["status"] != "available" or not res.answer["measured"]:
+        a = res.answer
+        outage = a["status"] == "unavailable" or (not a["measured"] and a.get("reason_code") == "upstream_error")
+        if outage and at_ms is None:
             m = store.load_flood_manifest(s["id"])
             frozen = _load(store.flood_dir(s["id"]) / "satellite.json") if (m or {}).get("status") == "ready" else None
-            if frozen is not None and frozen.get("measured") and at_ms is None:
-                return _json({**frozen, "login": res.answer["login"], "login_note": res.answer["login_note"],
-                              "now_ms": _now()}, request)
-        return _json(res.answer, request)
+            if frozen is not None and frozen.get("measured"):
+                caveats = list(frozen.get("caveats") or [])
+                if fcopy.SAT_SAVED_COPY not in caveats:
+                    caveats.append(fcopy.SAT_SAVED_COPY)
+                return _json({**frozen, "login": a["login"], "login_note": a["login_note"], "now_ms": _now(),
+                              "caveats": caveats}, request)
+        return _json(a, request)
     return _answer(run)
 
 

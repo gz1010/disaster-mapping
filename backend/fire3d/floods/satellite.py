@@ -9,7 +9,9 @@ shared by ``GET /api/floods/{id}/satellite`` (+ ``satellite.png``) and the bundl
 2. **With ``EARTHDATA_TOKEN``:** also the newest DSWx-S1 (radar) and DSWx-HLS passes from PO.DAAC; a newer one replaces
    the Earthdata GIS pass. A refused login says ``SAT_LOGIN_REFUSED`` and the default route is kept.
 3. **Picture only:** no usable measured pass, or Earthdata GIS down -> the GIBS daily picture (``measured: false``,
-   no stats, no area). Both down -> ``SAT_UNAVAILABLE``.
+   no stats, no area, ``SAT_PICTURE_REASON``) of the newest day **whose passes touch the area**: passes from the
+   Earthdata GIS catalog (never one a probe found with no view of the area) or NASA's catalogue (CMR, no login). No
+   such day -> no picture (``tiles`` null, ``SAT_NO_IMAGE``); nothing could be read -> ``SAT_UNAVAILABLE``.
 
 The PNG (:func:`palette_rgba`): water ``#2a8ce6`` alpha .55, partial water ``#7fd4ff`` .35, snow / ice white .3, **cloud
 (253) and no data (255) the same grey ``#9a9a9a`` .45 with a darker hatch ("no view"), never transparent**; not water
@@ -177,9 +179,10 @@ def _probe(p: opera.Pass, bbox: BBox) -> Chosen:
     return Chosen(p, float(np.isin(arr, CLEAR_CLASSES).mean()), float((arr != opera.NO_DATA).mean()))
 
 
-def choose_egis(passes: list[opera.Pass], bbox: BBox) -> Chosen | None:
+def choose_egis(passes: list[opera.Pass], bbox: BBox, rejected: set[str] | None = None) -> Chosen | None:
     """The newest of the first :data:`PROBES` passes that saw at least half of the area clearly, else the one that saw
-    the most of it clearly; None when none saw :data:`SEEN_MIN` of it. Probe failures skip the pass."""
+    the most of it clearly; None when none saw :data:`SEEN_MIN` of it. Probe failures skip the pass. The keys of
+    passes a probe found with (almost) no view of the area are added to ``rejected`` (never a picture date)."""
     seen: list[Chosen] = []
     for p in passes[:PROBES]:
         try:
@@ -190,6 +193,8 @@ def choose_egis(passes: list[opera.Pass], bbox: BBox) -> Chosen | None:
             log.info("satellite probe %s: %s", p.key, e)
             continue
         if c.seen < SEEN_MIN:
+            if rejected is not None:
+                rejected.add(p.key)
             continue
         if c.clear >= CLEAR_ENOUGH:
             return c
@@ -224,12 +229,11 @@ class SatResult:
 
 
 def _source(product: str, route: str) -> dict:
+    """The OPERA source with its exact credit line (route before the Copernicus clause, PLAN-5 2)."""
     base = dict(fcopy.SOURCE_OPERA_HLS)
     if product == "DSWx-S1":
-        base.update(name="NASA JPL OPERA DSWx-S1 (water seen by radar satellite)", credit=fcopy.CREDIT_OPERA_S1,
-                    url="https://podaac.jpl.nasa.gov/OPERA")
-    via = {"earthdata_gis": " via NASA Earthdata GIS", "gibs": " via NASA GIBS", "podaac": ""}[route]
-    base["credit"] = base["credit"] + via
+        base.update(name="NASA JPL OPERA DSWx-S1 (water seen by radar satellite)", url="https://podaac.jpl.nasa.gov/OPERA")
+    base["credit"] = fcopy.opera_credit(product, route)
     return base
 
 
@@ -266,10 +270,13 @@ def flood_satellite(flood_id: str | None, bbox: BBox, *, now: int, time_zone: st
     chosen: opera.Pass | None = None
     clear: float | None = None
     egis_ok = True
+    egis_passes: list[opera.Pass] = []
+    rejected: set[str] = set()
     try:
         grans, fetched = opera.egis_granules(bbox, ref, now_ms=now)
         out["retrieved_ms"] = fetched
-        c = choose_egis(opera.group_passes(grans), bbox)
+        egis_passes = opera.group_passes(grans)
+        c = choose_egis(egis_passes, bbox, rejected)
         if c is not None:
             chosen, clear = c.p, c.clear
     except SourceBusy:
@@ -309,7 +316,8 @@ def flood_satellite(flood_id: str | None, bbox: BBox, *, now: int, time_zone: st
             egis_ok = False
     if login == "refused":
         out.update(login="refused", login_note=fcopy.SAT_LOGIN_REFUSED)
-    return _picture(out, ref, no_image=egis_ok)
+    return _picture(out, ref, bbox, egis_ok=egis_ok, passes=([chosen] if chosen else []) + egis_passes,
+                    rejected=rejected)
 
 
 def _measured(out: dict, p: opera.Pass, bbox: BBox, *, now: int, time_zone: str, grid: Grid | None,
@@ -338,24 +346,56 @@ def _measured(out: dict, p: opera.Pass, bbox: BBox, *, now: int, time_zone: str,
     out.update(status="available", reason_code=None, reason=None, measured=True,
                granules=[_granule_out(g, cloud) for g in p.granules], image=image, tiles=None, stats=stats,
                source=_source(p.product, p.route), retrieved_ms=out.get("retrieved_ms") or now,
-               caveats=[fcopy.sat_caveat(date_time_text(p.acquired_ms, time_zone), cloud if p.product == "DSWx-HLS" else None)])
+               caveats=[fcopy.sat_caveat(date_time_text(p.acquired_ms, time_zone),
+                                         cloud if p.product == "DSWx-HLS" else None, radar=p.product == "DSWx-S1")])
     return SatResult(out, png, grid_cls, p.key)
 
 
-def _picture(out: dict, ref: int, *, no_image: bool) -> SatResult:
+def picture_days(bbox: BBox, ref: int, passes: list[opera.Pass], rejected: set[str]) -> tuple[list[str], bool]:
+    """(UTC days of DSWx-HLS passes that touch ``bbox``, newest first; whether NASA's catalogue answered). From
+    ``passes`` (the Earthdata GIS catalog, whose rows intersect the area) and NASA's catalogue (CMR, no login; it often
+    lists passes Earthdata GIS has not loaded yet), never a pass in ``rejected`` (a probe saw no view of the area)."""
+    stamps = [p.acquired_ms for p in passes if p.product == "DSWx-HLS" and p.key not in rejected]
+    cmr_ok = False
     try:
-        date, fetched = opera.gibs_latest(ref)
+        grans, _ = opera.cmr_granules(opera.HLS_SHORT_NAME, bbox, ref)
+        cmr_ok = True
+        stamps += [p.acquired_ms for p in opera.group_passes(grans) if p.key not in rejected]
+    except SourceError as e:                         # SourceBusy included: the picture is a fallback
+        log.info("CMR (picture date): %s", e)
+    days = sorted({opera.utc_day(t) for t in stamps if t <= ref}, reverse=True)
+    return days, cmr_ok
+
+
+def _picture(out: dict, ref: int, bbox: BBox, *, egis_ok: bool, passes: list[opera.Pass],
+             rejected: set[str]) -> SatResult:
+    """NASA's GIBS picture of the newest day whose passes touch the area (never NASA's newest day for the whole
+    world: that picture may show nothing here). No such day -> ``tiles`` null and ``SAT_NO_IMAGE`` when a catalogue
+    answered; ``SAT_UNAVAILABLE`` when nothing could be read."""
+    days, cmr_ok = picture_days(bbox, ref, passes, rejected)
+    answered = egis_ok or cmr_ok
+
+    def none(status: str, code: str, reason: str) -> SatResult:
+        out.update(status=status, reason_code=code, reason=reason, measured=False, tiles=None, caveats=[])
+        return SatResult(out, None, None, None)
+
+    if not days:
+        return none("available", "no_image", fcopy.SAT_NO_IMAGE) if answered else \
+            none("unavailable", "upstream_error", fcopy.SAT_UNAVAILABLE)
+    try:
+        dates, fetched = opera.gibs_dates(ref)
     except SourceBusy:
         raise
     except SourceError as e:
         log.info("GIBS: %s", e)
-        out.update(status="unavailable", reason_code="upstream_error", reason=fcopy.SAT_UNAVAILABLE, measured=False)
-        return SatResult(out, None, None, None)
-    if date is None:
-        out.update(status="unavailable", reason_code="no_image", reason=fcopy.SAT_NO_IMAGE, measured=False)
-        return SatResult(out, None, None, None)
-    out.update(status="available", measured=False, reason_code="no_image" if no_image else "upstream_error",
-               reason=fcopy.SAT_NO_IMAGE if no_image else None, retrieved_ms=fetched,
+        return none("unavailable", "upstream_error", fcopy.SAT_UNAVAILABLE)
+    have = set(dates)
+    date = next((d for d in days if d in have), None)
+    if date is None:                                  # NASA's pictures of those days are not out yet
+        return none("available", "no_image", fcopy.SAT_NO_IMAGE) if egis_ok else \
+            none("unavailable", "upstream_error", fcopy.SAT_UNAVAILABLE)
+    out.update(status="available", measured=False, reason_code="no_image" if egis_ok else "upstream_error",
+               reason=fcopy.sat_picture_reason(_date_text(date)), retrieved_ms=fetched,
                tiles={"url_template": opera.gibs_template(opera.GIBS_HLS_LAYER, date), "date": date,
                       "max_zoom": opera.GIBS_MAX_ZOOM},
                source=_source("DSWx-HLS", "gibs"),

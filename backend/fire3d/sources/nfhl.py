@@ -99,8 +99,10 @@ def zones(bbox: BBox) -> tuple[list[dict], int]:
     return feats, fetched
 
 
-def availability(bbox: BBox) -> tuple[str, int]:
-    """(``mapped`` | ``no_digital_map`` | ``unknown``, fetched_ms) from layer 0 over ``bbox``."""
+def coverage(bbox: BBox) -> tuple[str, int]:
+    """(``mapped`` | ``partial`` | ``none`` | ``unknown``, fetched_ms) from layer 0 over ``bbox``: ``partial`` when
+    FEMA's availability polygons cover less than :data:`MAPPED_MIN_SHARE` of the area (measured), ``none`` when there
+    is no polygon, ``unknown`` when the polygons could not be joined."""
     params = {**envelope(bbox), "where": "1=1", "outFields": "STUDY_ID", "returnGeometry": "true", "outSR": "4326",
               "f": "geojson", "geometryPrecision": "4", "maxAllowableOffset": "0.002"}
     raw, fetched = _q(AVAILABILITY_LAYER, params)
@@ -113,13 +115,23 @@ def availability(bbox: BBox) -> tuple[str, int]:
         except (ValueError, TypeError, AttributeError):
             continue
     if not geoms:
-        return "no_digital_map", fetched
+        return "none", fetched
     u = safe_union(geoms)
     if u is None:
         return "unknown", fetched
     covered = u.intersection(area)
     share = _km_area(covered) / max(_km_area(area), 1e-9)
-    return ("mapped" if share >= MAPPED_MIN_SHARE else "unknown"), fetched
+    return ("mapped" if share >= MAPPED_MIN_SHARE else "partial"), fetched
+
+
+_AVAILABILITY = {"mapped": "mapped", "partial": "unknown", "none": "no_digital_map", "unknown": "unknown"}
+
+
+def availability(bbox: BBox) -> tuple[str, int]:
+    """(``mapped`` | ``no_digital_map`` | ``unknown``, fetched_ms) from layer 0 over ``bbox`` (CONTRACT 16.4 values;
+    a partly mapped area is ``unknown``)."""
+    cov, fetched = coverage(bbox)
+    return _AVAILABILITY[cov], fetched
 
 
 def effective_dates(bbox: BBox) -> tuple[int | None, int | None, int]:
@@ -150,14 +162,20 @@ class NfhlResult:
 
 def nfhl(bbox: BBox) -> NfhlResult:
     """Zones, availability and effective dates for ``bbox``. The zones are required (SourceError when they cannot be
-    read); availability and dates fall back to ``unknown`` / None with a note."""
+    read); availability and dates fall back to ``unknown`` / None with a note. ``notes``: "partly mapped" (measured:
+    FEMA's digital map covers only part of the area), "availability unknown" (layer 0 could not be read or joined, or
+    it has no polygon where FEMA has zones), "effective dates unknown", "truncated"."""
     feats, fetched = zones(bbox)
     notes: list[str] = []
     try:
-        avail, _ = availability(bbox)
+        cov, _ = coverage(bbox)
     except SourceError as e:
         log.info("NFHL availability: %s", e)
-        avail = "unknown"
+        cov = "unknown"
+    avail = _AVAILABILITY[cov]
+    if cov == "partial":
+        notes.append("partly mapped")
+    elif cov == "unknown":
         notes.append("availability unknown")
     try:
         eff_min, eff_max, _ = effective_dates(bbox)
@@ -167,6 +185,7 @@ def nfhl(bbox: BBox) -> NfhlResult:
         notes.append("effective dates unknown")
     if feats and avail == "no_digital_map":
         avail = "unknown"             # zones but no availability polygon: do not claim either way
+        notes.append("availability unknown")
     if getattr(feats, "truncated", False):
         notes.append("truncated")
     return NfhlResult(feats, avail, eff_min, eff_max, fetched, notes)

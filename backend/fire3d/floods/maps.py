@@ -139,23 +139,27 @@ def rfc_fim_answer(summary: dict, *, now: int, at_ms: int | None = None, area: B
 def catfim_answer(summary: dict, *, now: int, lid: str | None = None, category: str | None = None,
                   at_ms: int | None = None) -> dict:
     """NWS category flood maps (experimental static library) for one gauge and category: by default the primary
-    gauge's forecast category, else its observed one. Past times answer today's library with ``CATFIM_TODAY``."""
+    gauge's forecast category, else its observed one. Past times answer today's library with ``CATFIM_TODAY``.
+    Nothing to map (no gauge with a flood category, or not a usable gauge id / category): ``not_covered`` with
+    ``CATFIM_NOT_COVERED`` (not an outage); ``CATFIM_UNAVAILABLE`` only when NOAA could not be read."""
     fid = summary["id"]
     d_lid, d_cat = default_catfim(summary)
     lid = (lid or d_lid or "").upper() or None
     cat = (category or d_cat or "").lower() or None
-    base = {"map": "catfim", "coverage_note": fcopy.catfim_note(cat or "flood"), "outside_note": None,
+    base = {"map": "catfim",
+            "coverage_note": fcopy.catfim_note(cat) if cat in CATFIM_CATEGORIES else fcopy.CATFIM_NOTE_ANY,
+            "outside_note": None,
             "experimental": True, "category": cat if cat in ("action", "minor", "moderate", "major") else None,
             "min_zoom": None, "reference_ms": None, "updated_ms": None, "stats": None, "features": _empty_fc()}
     caveats = [fcopy.CATFIM_TODAY] if _is_past(at_ms, now) else []
+    not_covered = {**_envelope(fid, now, fcopy.SOURCE_CATFIM, at_ms=at_ms, status="unavailable",
+                               reason=fcopy.CATFIM_NOT_COVERED, reason_code="not_covered", caveats=caveats), **base}
     if lid is None or cat not in CATFIM_CATEGORIES:
-        return {**_envelope(fid, now, fcopy.SOURCE_CATFIM, at_ms=at_ms, status="unavailable",
-                            reason=fcopy.CATFIM_UNAVAILABLE, reason_code="not_covered", caveats=caveats), **base}
+        return not_covered
     try:
         lay = wm.catfim(lid, cat)
     except ValueError:
-        return {**_envelope(fid, now, fcopy.SOURCE_CATFIM, at_ms=at_ms, status="unavailable",
-                            reason=fcopy.CATFIM_UNAVAILABLE, reason_code="not_covered", caveats=caveats), **base}
+        return not_covered
     except SourceBusy:
         raise
     except SourceError as e:
@@ -186,7 +190,9 @@ def nfhl_answer(summary: dict, *, now: int, at_ms: int | None = None, area: BBox
     if res.availability == "no_digital_map":
         caveats.append(fcopy.NFHL_NO_MAP)
     elif res.availability == "unknown":
-        caveats.append(fcopy.NFHL_PARTLY_MAPPED)
+        # measured partial coverage says so; anything else (FEMA's availability layer could not be read or did not
+        # agree with its zones) is "could not be checked", never a claim of partial coverage
+        caveats.append(fcopy.NFHL_PARTLY_MAPPED if "partly mapped" in res.notes else fcopy.NFHL_AVAILABILITY_UNKNOWN)
     if "truncated" in res.notes:
         caveats.append(fcopy.NFHL_TRUNCATED)
     return {**_envelope(fid, now, fcopy.SOURCE_NFHL, at_ms=at_ms, retrieved=res.fetched_ms, updated=res.effective_max_ms,
@@ -246,8 +252,8 @@ def model_answer(kind: str, summary: dict, *, now: int, lid: str | None = None, 
 
 
 def _series_answer(fid: str | None, now: int, lid: str | None) -> dict:
-    if not lid:
-        return _model("nwm_series", fid, now, status="unavailable", reason=fcopy.MODEL_NO_REACH)
+    if not lid:                                       # no gauge asked and the flood has no primary gauge
+        return _model("nwm_series", fid, now, status="unavailable", reason=fcopy.MODEL_NO_GAUGE)
     lid = lid.upper()
     try:
         detail, _ = nwps.gauge(lid)

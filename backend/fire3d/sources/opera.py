@@ -19,7 +19,7 @@ Three routes, in this order:
    works. Files are cached under ``CACHE_DIR/opera/`` by granule id. The GeoTIFF reader is injectable
    (:data:`READER`) for tests; no GDAL ``/vsicurl/`` auth (it would bypass the masking).
 3. **Picture fallback: NASA GIBS** WMTS ``OPERA_L3_Dynamic_Surface_Water_Extent-HLS`` (daily, z <= 12): a picture, not
-   a measurement (:func:`gibs_latest`).
+   a measurement (:func:`gibs_dates`; a flood's picture date is one whose passes touch the flood's area).
 
 Every request goes through :mod:`fire3d.http` with its own limiter; errors raise ``nws.SourceError`` (``SourceBusy`` for
 Fire-3d's own limit) with secret-free text; :class:`LoginRefused` for a refused token.
@@ -551,15 +551,28 @@ def _domain_dates(xml: str) -> list[str]:
     return sorted(set(out))
 
 
-def gibs_latest(end_ms: int, layer: str = GIBS_HLS_LAYER, days: int = SEARCH_DAYS) -> tuple[str | None, int]:
-    """(the newest GIBS picture date at or before ``end_ms`` within ``days``, fetched_ms)."""
+def utc_day(ms: int) -> str:
+    """"YYYY-MM-DD" (UTC) of an image time: the day of NASA's daily GIBS picture that holds it."""
+    return datetime.fromtimestamp(int(ms) / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+
+
+def gibs_dates(end_ms: int, layer: str = GIBS_HLS_LAYER, days: int = SEARCH_DAYS) -> tuple[list[str], int]:
+    """(every GIBS picture date of ``layer`` at or before ``end_ms`` within ``days``, oldest first; fetched_ms). These
+    are the layer's dates anywhere in the world: a date says nothing about one area (pair it with the passes over the
+    area, :func:`fire3d.floods.satellite`)."""
     start, end = search_window(end_ms, days)
     iso = lambda t: datetime.fromtimestamp(t / 1000, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")  # noqa: E731
     url = f"{GIBS_ROOT}/1.0.0/{layer}/default/{GIBS_MATRIX}/all/{iso(start)}--{iso(end)}.xml"
     resp = _request(url, None, ttl_s=GIBS_TTL_S, limiter=GIBS_LIMITER, name=_GIBS_NAME, expect_json=False)
-    end_day = datetime.fromtimestamp(end_ms / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
-    dates = [d for d in _domain_dates(resp.text) if d <= end_day]
-    return (dates[-1] if dates else None), int(resp.fetched_ms)
+    end_day = utc_day(end_ms)
+    return [d for d in _domain_dates(resp.text) if d <= end_day], int(resp.fetched_ms)
+
+
+def gibs_latest(end_ms: int, layer: str = GIBS_HLS_LAYER, days: int = SEARCH_DAYS) -> tuple[str | None, int]:
+    """(the newest GIBS picture date of the whole layer at or before ``end_ms`` within ``days``, fetched_ms). Not
+    tied to an area: the flood answers use :func:`gibs_dates` with the passes over the flood."""
+    dates, fetched = gibs_dates(end_ms, layer, days)
+    return (dates[-1] if dates else None), fetched
 
 
 def px_size(bbox: BBox, target_m: float = 30.0, max_px: int = 1600) -> tuple[int, int]:
