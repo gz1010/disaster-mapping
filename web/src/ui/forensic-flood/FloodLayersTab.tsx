@@ -11,7 +11,8 @@
 // default; its bands and HAND_LABEL "Not a flood map").
 import { Eye, EyeOff, RotateCcw } from 'lucide-react'
 import { fmtDayDate } from '../../lib/time'
-import { useDepthShown } from '../../scene/flood/flood3dHooks'
+import { shownGranule } from '../../official/floodModel'
+import { useDepthShown, useSatelliteOnScreen } from '../../scene/flood/flood3dHooks'
 import { FLOOD_3D, HAND_LABEL_FALLBACK } from '../../scene/flood/flood3dCopy'
 import { floodAssetStore } from '../../scene/flood/floodAssets'
 import { catfimCategoryLabel } from '../../scene/flood/floodProbe'
@@ -79,9 +80,15 @@ const GROUPS: { id: string; label: string; rows: Row[] }[] = [
 function useMeta(): (k: FloodForensicLayer) => string | null {
   const tf = useTimeFormat()
   const flood = floodAssetStore((s) => s.assets?.flood ?? null)
+  // brief 6 (playback): the satellite pass on screen at the chart's handle
+  const onScreen = useSatelliteOnScreen(flood)
   return (k) => {
     if (!flood) return null
     const st = flood.manifest.layer_status
+    if (k === 'satellite' && onScreen) {
+      const g = onScreen.has ? shownGranule(onScreen.sat) : null
+      return g ? fmtDayDate(g.acquired_ms, tf.tz, { year: 'always' }) : null
+    }
     if (k === 'floodplain') {
       const date = floodplainEffective(flood)
       return date ? fillCopy(FLOOD_FORENSIC.layerFloodplainEffective, { date }) : null

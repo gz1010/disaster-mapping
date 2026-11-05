@@ -15,7 +15,7 @@ import { BarChart3, Crosshair, Map as MapIcon, PanelBottomClose, PanelBottomOpen
 import { lazy, Suspense, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { fmtAt } from '../../lib/time'
-import { useDepthShown, useHeightInUse } from '../../scene/flood/flood3dHooks'
+import { useDepthShown, useHeightInUse, useSatelliteOnScreen } from '../../scene/flood/flood3dHooks'
 import { FLOOD_3D } from '../../scene/flood/flood3dCopy'
 import { floodAssetStore, useFloodAssetsError } from '../../scene/flood/floodAssets'
 import { setFloodOverlayRect } from '../../scene/flood/floodOverlayRects'
@@ -85,9 +85,12 @@ function SceneKey({ narrow }: { narrow: boolean }) {
   const nowMs = useNow(60_000)
   const height = useHeightInUse(flood)
   const depth = useDepthShown(flood)
+  // brief 6 (playback): the satellite pass at the chart's handle, its own time, and the gap words
+  const onScreen = useSatelliteOnScreen(flood)
   if (!flood) return null
   const items = sceneKeyItems({
-    flood,
+    flood: onScreen ? { ...flood, satellite: onScreen.sat, has: { ...flood.has, satellite: onScreen.has, noView: onScreen.noView } } : flood,
+    satNote: onScreen?.note ?? null,
     layers,
     tf,
     nowMs,

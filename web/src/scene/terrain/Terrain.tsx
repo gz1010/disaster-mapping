@@ -6,7 +6,8 @@
 // Brief 5 (PLAN-5 §4.7): for an open flood (assets.flood) the terrain also drapes the flood layers (terrainMaterial.ts
 // "flood drapes"), and its terrain, aerial photo and contour switches are Forensic's own flood toggles
 // (ui/forensic-flood/forensicFloodState.ts), never the fire store's layers.
-// Brief 6 (web-forensic-flood-3d): the height above the river (HAND) drape for a flood, off by default.
+// Brief 6 (web-forensic-flood-3d): the height above the river (HAND) drape for a flood, off by default; the satellite
+// drape follows the playback pass at the river-level chart's handle (scene/flood/floodPassDrape.ts passDrapeGpu).
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
@@ -14,6 +15,7 @@ import { FUEL_DATAVIZ_LUT, FUEL_REALISTIC_LUT } from '../../lib/fuels'
 import { lutAtlasTexture } from '../../lib/raster'
 import { useStore } from '../../state/store'
 import { shownOpacity, useForensicFlood } from '../../ui/forensic-flood/forensicFloodState'
+import { passDrapeGpu } from '../flood/floodPassDrape'
 import type { IncidentAssets } from '../assets'
 import { atmosphereFrame, updateAtmosphereUniforms } from '../atmosphere/atmosphere'
 import { camState } from '../camera/cameraState'
@@ -153,7 +155,7 @@ export function Terrain({ assets }: { assets: IncidentAssets }) {
     u.uHand.value = fl?.textures.hand ?? null
     u.uHasHand.value = fl?.textures.hand ? 1 : 0
     // any sampler that stays null still needs a valid texture object
-    for (const k of ['uNaip', 'uFuel', 'uCanopy', 'uSkyView', 'uWater', 'uObserved', 'uForecast', 'uSeverity', 'uFloodPack', 'uSatWater', 'uSatLut', 'uHand']) {
+    for (const k of ['uNaip', 'uFuel', 'uCanopy', 'uSkyView', 'uWater', 'uObserved', 'uForecast', 'uSeverity', 'uFloodPack', 'uSatWater', 'uSatLut', 'uHand', 'uSatImg']) {
       if (!u[k].value) u[k].value = blankTexture()
     }
   }, [assets, material])
@@ -245,7 +247,20 @@ export function Terrain({ assets }: { assets: IncidentAssets }) {
       u.uTerrainOpacity.value = shownOpacity(F.terrain)
       u.uImagery.value = t.naip ? shownOpacity(F.naip) : 0
       u.uContourOpacity.value = shownOpacity(F.contours)
-      u.uSatOpacity.value = fl.has.satellite ? shownOpacity(F.satellite) : 0
+      // the satellite pass at the handle (brief 6): the 3D data's own layer, a kept pass's classes, its 2D picture, or
+      // nothing (no image at or before the handle)
+      const pd = passDrapeGpu
+      const satTex = pd.mode === 'bundle' ? fl.textures.satWater : pd.mode === 'raster' ? pd.sat : null
+      const img = pd.mode === 'image' ? pd.img : null
+      u.uSatWater.value = satTex ?? blankTexture()
+      u.uHasSat.value = satTex ? 1 : 0
+      u.uSatImg.value = img ?? blankTexture()
+      u.uHasSatImg.value = img ? 1 : 0
+      if (img) {
+        ;(u.uSatImgU.value as THREE.Vector3).copy(pd.imgU)
+        ;(u.uSatImgV.value as THREE.Vector3).copy(pd.imgV)
+      }
+      u.uSatOpacity.value = (pd.mode === 'bundle' ? fl.has.satellite : satTex != null || img != null) ? shownOpacity(F.satellite) : 0
       u.uFimOpacity.value = fl.has.forecast ? shownOpacity(F.forecastArea) : 0
       u.uPlainOpacity.value = fl.has.floodplain ? shownOpacity(F.floodplain) : 0
       u.uModelOpacity.value = fl.has.model ? shownOpacity(F.model) : 0
@@ -258,6 +273,7 @@ export function Terrain({ assets }: { assets: IncidentAssets }) {
       u.uModelOpacity.value = 0
       u.uCatfimOpacity.value = 0
       u.uHandOpacity.value = 0
+      u.uHasSatImg.value = 0
     }
 
     // isochrone step by fire duration and zoom

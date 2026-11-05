@@ -19,6 +19,8 @@ export interface PassOnScreen {
   noView: boolean
   /** The pass is the one the bundle's water_satellite / depth_satellite belong to. */
   isShown: boolean
+  /** No satellite image at or before the handle (nothing of the satellite is drawn). */
+  before?: boolean
 }
 
 export interface DepthShown {
@@ -60,6 +62,7 @@ export function depthShown(i: {
   const satellite = (): DepthShown => {
     const p = i.pass
     if (p && !p.isShown) {
+      if (p.before) return { from: null, product: sat, layer: null, note: FLOOD_3D.depthNoImageYet, passKey: p.key || null }
       if (p.noView) return { from: null, product: sat, layer: null, note: FLOOD_3D.depthNoView, passKey: p.key }
       if (p.depthLayer && (!i.layers || p.depthLayer in i.layers)) return { from: 'satellite', product: sat, layer: p.depthLayer, note: null, passKey: p.key, timeMs: p.acquiredMs }
       return { from: null, product: sat, layer: null, note: FLOOD_3D.depthNoPass, passKey: p.key }

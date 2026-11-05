@@ -19,6 +19,8 @@
 //   height above river brief 6 (web-forensic-flood-3d), a flood only, off by default (uHandOpacity 0): the ground's
 //                      height above the nearest river channel (HAND, uint8 0.1 m, 255 = no value) as violet bands
 //                      0-1 / 1-2 / 2-5 m (lowest strongest), under the water drapes. "Not a flood map"
+//   playback pass      brief 6: the satellite drape follows the river-level chart's handle (scene/flood/floodPassDrape.ts:
+//                      Terrain.tsx swaps uSatWater for a kept pass's classes, or drapes a pass's 2D picture, uSatImg)
 // Every overlay has an opacity uniform; emissive values > 1 are left in HDR so bloom picks them up.
 import * as THREE from 'three'
 import { ATMOSPHERE_GLSL, atmosphereUniforms } from '../atmosphere/atmosphere'
@@ -153,6 +155,12 @@ const fragmentShader = /* glsl */ `
   uniform sampler2D uHand;
   uniform float uHasHand;
   uniform float uHandOpacity;
+  // brief 6: a playback pass without a bundle raster: its 2D picture (sRGB, alpha; image row 0 north) draped through an
+  // affine map local (x, z) -> picture (u, v)
+  uniform sampler2D uSatImg;
+  uniform float uHasSatImg;
+  uniform vec3 uSatImgU;
+  uniform vec3 uSatImgV;
 
   varying vec3 vWorld;
   varying vec2 vUv;
@@ -592,6 +600,13 @@ const fragmentShader = /* glsl */ `
         col = mix(col, ncol, ncov * xh * 0.45 * uSatOpacity);
       }
     }
+    // brief 6: a playback pass shown from its 2D picture only (no bundle raster): the picture's own colours
+    if (uHasFlood > 0.5 && uHasSatImg > 0.5 && uSatOpacity > 0.0) {
+      vec2 iuv = vec2(dot(uSatImgU, vec3(P.x, P.z, 1.0)), dot(uSatImgV, vec3(P.x, P.z, 1.0)));
+      float inside = step(0.0, iuv.x) * step(iuv.x, 1.0) * step(0.0, iuv.y) * step(iuv.y, 1.0);
+      vec4 im = texture2D(uSatImg, clamp(iuv, 0.0, 1.0));
+      col = mix(col, srgb2lin(im.rgb), im.a * inside * min(1.0, uSatOpacity * 1.1));
+    }
     // National Water Model flooded area (experimental model output, off by default): an amber dotted edge, faint fill
     if (uHasFlood > 0.5 && uModelOpacity > 0.0) {
       float mb = texture2D(uFloodPack, uv).b;
@@ -789,6 +804,10 @@ export function terrainUniforms(): Record<string, THREE.IUniform> {
     uHand: { value: null },
     uHasHand: { value: 0 },
     uHandOpacity: { value: 0 },
+    uSatImg: { value: null },
+    uHasSatImg: { value: 0 },
+    uSatImgU: { value: new THREE.Vector3() },
+    uSatImgV: { value: new THREE.Vector3() },
   }
 }
 

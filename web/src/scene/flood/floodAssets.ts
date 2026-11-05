@@ -13,7 +13,7 @@ import * as THREE from 'three'
 import { create } from 'zustand'
 import { fetchArrayBuffer, fetchJson } from '../../api/client'
 import { floodFileUrl } from '../../api/floods'
-import type { FeatureCollectionJson, FloodAlertsResponse, FloodManifest, FloodSummary, FloodTerrain3d, FloodTerrainProduct, LayerInfo, RiverGaugesResponse, SatelliteWaterResponse } from '../../api/types'
+import type { FeatureCollectionJson, FloodAlertsResponse, FloodManifest, FloodSummary, FloodTerrain3d, FloodTerrainProduct, FloodTimelineResponse, LayerInfo, RiverGaugesResponse, SatelliteWaterResponse } from '../../api/types'
 import { sampleBilinear } from '../../lib/geo'
 import { dataTexture, flipRows, imageTexture, type LoadedLayer } from '../../lib/raster'
 import { useFlood } from '../../state/flood'
@@ -67,6 +67,8 @@ export interface FloodSceneAssets {
   boost: AutoBoost
   /** Brief 6: the main river's reach the river view frames (null: no river line to follow; the flood's box instead). */
   river: RiverReach | null
+  /** Brief 6: the bundle's frozen time history (timeline.json): its passes' rasters (layer, depth_layer) by key. */
+  bundleTimeline: FloodTimelineResponse | null
 }
 
 /** The scene's flood assets: the fire shape with fire parts null, plus `flood`. */
@@ -168,7 +170,7 @@ async function loadFloodAssets(m: FloodManifest, summary: FloodSummary, key: str
   const catfimPrimary = summary.primary_gauge
   const catfim = chooseCatfim(m.files.maps, catfimPrimary ? { lid: catfimPrimary.lid, forecast_category: catfimPrimary.forecast_category, observed_category: catfimPrimary.observed_category } : null)
   const naipInfo = m.layers.naip
-  const [[elev, sky, forecast, floodplain, model, satellite, naip, warnings, gauges, satJson, catfimFc], [hand, depthSat, depthFc, flowlines]] = await Promise.all([
+  const [[elev, sky, forecast, floodplain, model, satellite, naip, warnings, gauges, satJson, catfimFc], [hand, depthSat, depthFc, flowlines, bundleTl]] = await Promise.all([
     Promise.all([
       loadRaster(m, 'elevation'),
       m.layers.sky_view ? optional('sky_view', loadRaster(m, 'sky_view')) : Promise.resolve(null),
@@ -182,7 +184,7 @@ async function loadFloodAssets(m: FloodManifest, summary: FloodSummary, key: str
       json<SatelliteWaterResponse>(m, m.files.satellite),
       catfim ? json<FeatureCollectionJson>(m, m.files.maps[catfim.key]) : Promise.resolve(null),
     ] as const),
-    Promise.all([productLayer(m, t3?.hand), productLayer(m, depthOf('depth_satellite')), productLayer(m, depthOf('depth_forecast')), json<FeatureCollectionJson>(m, m.files.maps.flowlines)] as const),
+    Promise.all([productLayer(m, t3?.hand), productLayer(m, depthOf('depth_satellite')), productLayer(m, depthOf('depth_forecast')), json<FeatureCollectionJson>(m, m.files.maps.flowlines), json<FloodTimelineResponse>(m, m.files.timeline)] as const),
   ])
   const ed = elev.data as Float32Array
   let min = Infinity
@@ -271,6 +273,7 @@ async function loadFloodAssets(m: FloodManifest, summary: FloodSummary, key: str
       terrain3d: t3,
       boost: autoBoost(m, ed),
       river: mainRiverReach({ flowlines, summary, grid: m.grid }),
+      bundleTimeline: bundleTl?.kind === 'flood_timeline' ? bundleTl : null,
     },
   }
 }

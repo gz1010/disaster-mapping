@@ -8,7 +8,7 @@ playback pass. Ports API 8764, Vite 5224.
 - [x] M1 height boost (auto from manifest.terrain3d.relief or the same rule on the grid, "Height ×N · auto" in the view dock, kept on phones; key line; per-flood user choice; fire value restored)
 - [x] M2 depth surface (FwDET mesh, depth tint) + height above the river (HAND drape, off by default) + key / Layers tab / hover rows
 - [x] M3 river view (lower, closer, along the main river; 'River view' entry control; hand-off keeps it when the map was wider)
-- [ ] M4 drapes follow passAt(handle) (waits for "brief 6 web-flood-playback: M1 floodTimeline")
+- [x] M4 drapes follow passAt(handle): kept pass classes + own depth from the bundle, else the route's picture (no depth, said so), else nothing before the first pass; key, Layers tab date, hover readout and the image edge follow
 - [ ] Final: screenshots, gates, report, contract6 note
 
 Notes:

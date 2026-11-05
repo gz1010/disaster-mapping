@@ -12,12 +12,18 @@
 //                  the automatic value from the bundle's relief, or the user's choice for this flood); the fire view's
 //                  own value comes back when it unmounts. A layout effect, so the camera frames the flood at its height
 //   DepthSurface   the estimated water surface (FwDET) with its depth tint, inside the mapped water only (DepthSurface.tsx)
+//   PassDrapeDriver the satellite drape at the river-level chart's handle (floodPassDrape.ts): a kept pass's classes
+//                  from the bundle (loaded on demand), else its 2D picture, else nothing; SatelliteEdge follows the
+//                  pass on screen
 // Nothing here animates: lines, bars and labels are static (prefers-reduced-motion has nothing to stop).
 import { useFrame } from '@react-three/fiber'
-import { useEffect, useLayoutEffect, useMemo } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
+import { apiPathUrl } from '../../api/floods'
+import { dataTexture } from '../../lib/raster'
 import { lonLatToLocal } from '../../lib/reproject'
 import { useFlood } from '../../state/flood'
+import { useFloodTimelineSync } from '../../state/floodTimelineData'
 import { useStore } from '../../state/store'
 import { shownOpacity, useForensicFlood } from '../../ui/forensic-flood/forensicFloodState'
 import { FLOOD_FORENSIC } from '../../ui/forensic-flood/floodForensicCopy'
@@ -28,7 +34,9 @@ import { GLSL_RIBBON_FRAG, GLSL_RIBBON_VERT, drape, ribbonGeometry, type RibbonL
 import { InOverlay, Overlay, ScreenLabel } from '../fx/text'
 import { useSceneStore } from '../sceneStore'
 import type { FloodSceneAssets } from './floodAssets'
+import { useBundleRaster } from './bundleRaster'
 import { DepthSurface } from './DepthSurface'
+import { imageAffine, passDrapeGpu, usePassDrape } from './floodPassDrape'
 import { clipRingToBox, polygonsLocal, warningsAt } from './floodGeo'
 import { GaugeBars } from './GaugeBars'
 import { boostInUse } from './heightBoost'
@@ -165,12 +173,80 @@ function WarningLines({ assets, flood }: { assets: IncidentAssets; flood: FloodS
   return <mesh geometry={geometry} material={material} frustumCulled={false} renderOrder={ORDER.perimeters} name="flood-warning-lines" />
 }
 
+/** Brief 6: the satellite drape at the chart's handle (floodPassDrape.ts): the textures the terrain swaps in. */
+function PassDrapeDriver({ flood }: { flood: FloodSceneAssets }) {
+  useFloodTimelineSync(flood.manifest.id)
+  const d = usePassDrape(flood)
+  const layerName = d?.mode === 'raster' ? d.waterLayer : null
+  const raster = useBundleRaster(flood.manifest, layerName)
+  const w = flood.arrays.width
+  const h = flood.arrays.height
+  const layers = flood.manifest.layers
+  const satTex = useMemo(() => {
+    if (!raster || !layerName || raster.length !== w * h) return null
+    const info = layers[layerName]
+    return info ? dataTexture({ name: layerName, url: '', info, data: raster, width: w, height: h }, { filter: 'nearest' }) : null
+  }, [raster, layerName, layers, w, h])
+  useEffect(() => () => satTex?.dispose(), [satTex])
+  const imgUrl = d?.mode === 'image' && d.image ? apiPathUrl(d.image.url) : null
+  const [img, setImg] = useState<{ url: string; tex: THREE.Texture } | null>(null)
+  useEffect(() => {
+    if (!imgUrl) return
+    let live = true
+    let made: THREE.Texture | null = null
+    new THREE.TextureLoader().load(
+      imgUrl,
+      (tex) => {
+        tex.colorSpace = THREE.NoColorSpace // the shader converts the picture's sRGB itself
+        tex.minFilter = THREE.LinearFilter
+        tex.generateMipmaps = false
+        made = tex
+        if (live) setImg({ url: imgUrl, tex })
+        else tex.dispose()
+      },
+      undefined,
+      () => {
+        if (live) setImg(null)
+      },
+    )
+    return () => {
+      live = false
+      made?.dispose()
+    }
+  }, [imgUrl])
+  const imgTex = img && img.url === imgUrl ? img.tex : null
+  const affine = useMemo(() => (d?.mode === 'image' && d.image ? imageAffine(d.image.bounds_lonlat, flood.manifest.grid) : null), [d, flood.manifest.grid])
+  useEffect(() => {
+    const g = passDrapeGpu
+    g.mode = d ? d.mode : 'bundle'
+    g.sat = d?.mode === 'raster' ? satTex : null
+    g.img = d?.mode === 'image' && affine ? imgTex : null
+    if (affine) {
+      g.imgU.set(affine.u[0], affine.u[1], affine.u[2])
+      g.imgV.set(affine.v[0], affine.v[1], affine.v[2])
+    }
+  }, [d, satTex, imgTex, affine])
+  useEffect(
+    () => () => {
+      passDrapeGpu.mode = 'bundle'
+      passDrapeGpu.sat = null
+      passDrapeGpu.img = null
+    },
+    [],
+  )
+  return null
+}
+
 function SatelliteEdge({ assets, flood }: { assets: IncidentAssets; flood: FloodSceneAssets }) {
   const visible = useForensicFlood((s) => s.layers.satellite.visible)
   const sat = flood.satellite
-  const bounds = sat?.measured && sat.image ? sat.image.bounds_lonlat : null
+  // brief 6: the edge of the pass on screen (the chart's handle), else the 3D data's own image
+  const d = usePassDrape(flood)
+  const passBounds = d ? (d.mode === 'none' ? null : (d.pass?.image?.bounds_lonlat ?? (d.mode === 'bundle' && sat?.image ? sat.image.bounds_lonlat : null))) : undefined
+  const ownBounds = sat?.measured && sat.image ? sat.image.bounds_lonlat : null
+  const bounds = passBounds === undefined ? (flood.has.satellite ? ownBounds : null) : passBounds
   const geometry = useMemo(() => {
-    if (!bounds || !flood.has.satellite) return null
+    if (!bounds) return null
     const [w, s, e, n] = bounds
     const grid = flood.manifest.grid
     const steps = 32
@@ -195,7 +271,7 @@ function SatelliteEdge({ assets, flood }: { assets: IncidentAssets; flood: Flood
     const lines: RibbonLine[] = []
     drapedOutline([ring], assets.extent / 2, assets.heightAt, Math.max(24, (assets.extent / assets.elevation.width) * 2), [0.85, 0.6, 1, 0], lines)
     return lines.length ? ribbonGeometry(lines) : null
-  }, [bounds, flood.has.satellite, flood.manifest.grid, assets.extent, assets.heightAt, assets.elevation.width])
+  }, [bounds, flood.manifest.grid, assets.extent, assets.heightAt, assets.elevation.width])
   useEffect(() => () => geometry?.dispose(), [geometry])
   const material = useMemo(() => lineMaterial(SAT_NO_VIEW, 1.6, edgeOpacity, 0.006), [])
   useEffect(() => () => material.dispose(), [material])
@@ -251,6 +327,7 @@ export function FloodFx({ assets, flood }: { assets: IncidentAssets; flood: Floo
   return (
     <Overlay>
       <HeightBoost floodId={flood.manifest.id} auto={flood.boost.factor} />
+      <PassDrapeDriver flood={flood} />
       <FloodFxDriver extent={assets.extent} />
       <DepthSurface assets={assets} flood={flood} />
       <WarningLines assets={assets} flood={flood} />

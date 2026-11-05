@@ -32,6 +32,7 @@ function flood(over: Partial<FloodSceneAssets> = {}): FloodSceneAssets {
     terrain3d: null,
     boost: { factor: 3, basis: 'grid', rangeM: 90, widthM: 12000, reached: true, relief: null },
     river: null,
+    bundleTimeline: null,
     ...over,
   }
 }

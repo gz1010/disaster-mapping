@@ -29,7 +29,7 @@ import { useCompassDrag } from '../../ui/useCompassDrag'
 import { useAssetsError, useAssetsLoading } from '../assets'
 import { fillCopy } from '../../ui/shell/floodCopy'
 import { FLOOD_3D } from '../flood/flood3dCopy'
-import { depthOnScreen } from '../flood/flood3dHooks'
+import { depthOnScreen, useSatelliteOnScreen } from '../flood/flood3dHooks'
 import { floodAssetStore, useFloodAssetsError, useFloodAssetsLoading } from '../flood/floodAssets'
 import { floodProbeRows } from '../flood/floodProbe'
 import { boostOptions, fmtFactor } from '../flood/heightBoost'
@@ -370,9 +370,11 @@ function FloodProbeReadout({ area }: { area: { w: number; h: number } }) {
     if (el) setBox((b) => (b.w === el.offsetWidth && b.h === el.offsetHeight ? b : { w: el.offsetWidth, h: el.offsetHeight }))
   }, [key])
   const fl = assets?.flood
+  // brief 6 (playback): the satellite pass on screen at the chart's handle
+  const satOnScreen = useSatelliteOnScreen(fl ?? null)
   if (!probe || interacting || style === 'realistic' || !assets || !fl || probe.screenX == null || probe.screenY == null) return null
   const slopeDeg = (Math.atan(probe.slope) * 180) / Math.PI
-  const { rows, note } = floodProbeRows({ flood: fl, layers: L, extent: assets.extent, point: { x: probe.x, z: probe.z, lon: probe.lon, lat: probe.lat }, cursorMs, nowMs, tf, depth: depthOnScreen.getState().data })
+  const { rows, note } = floodProbeRows({ flood: fl, layers: L, extent: assets.extent, point: { x: probe.x, z: probe.z, lon: probe.lon, lat: probe.lat }, cursorMs, nowMs, tf, depth: depthOnScreen.getState().data, satOnScreen })
   const pw = area.w || 4000
   const ph = area.h || 4000
   let x = probe.screenX + 18

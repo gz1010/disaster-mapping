@@ -16,7 +16,7 @@
 //     water only (nothing outside it: no "0 m"); ABOVE RIVER (while the height above the river is on) the ground's
 //     height above the nearest channel, "Not a flood map"
 // Pure and tested (floodProbe.test.ts); rendered by scene/overlays/SceneOverlays.tsx.
-import type { FloodAlert, FloodAlertsResponse } from '../../api/types'
+import type { FloodAlert, FloodAlertsResponse, SatelliteWaterResponse } from '../../api/types'
 import { pointInRings, type Ring } from '../../location/geometry'
 import { fmtAt, fmtDayDate, type TimeFmt } from '../../lib/time'
 import { shownGranule } from '../../official/floodModel'
@@ -109,6 +109,9 @@ export function floodProbeRows(i: {
   tf: TimeFmt
   /** Brief 6: the depth raster on screen (null: no depth surface is drawn). */
   depth?: Uint8Array | null
+  /** Brief 6 (playback): the satellite pass on screen at the chart's handle (scene/flood/flood3dHooks.ts
+   *  useSatelliteOnScreen); absent: the 3D data's own satellite layer. */
+  satOnScreen?: { sat: SatelliteWaterResponse | null; has: boolean; arr: Uint8Array | null; imageOnly: boolean; note: string | null } | null
 }): FloodProbe {
   const { flood: fl, layers: L, extent, point: p, tf, nowMs } = i
   const on = (k: FloodForensicLayer) => shownOpacity(L[k]) > 0
@@ -136,13 +139,16 @@ export function floodProbeRows(i: {
   } else if (on('warnings')) rows.push({ key: 'nws', label: FLOOD_FORENSIC.probeNws, text: resp?.reason ?? ALERTS_UNAVAILABLE, tone: 'warn' })
 
   // water seen by satellite: the pass's own sentences (C2), never "dry" for a spot it did not see
-  const sat = fl.satellite
+  const so = i.satOnScreen ?? null
+  const sat = so ? so.sat : fl.satellite
+  const satHas = so ? so.has && so.arr != null : fl.has.satellite
   const g = shownGranule(sat)
-  const satCls = fl.has.satellite ? at(fl.arrays.satellite) : null
-  const satInside = fl.has.satellite && !!sat?.image && inBounds(sat.image.bounds_lonlat, p.lon, p.lat)
+  const satCls = satHas ? at(so ? so.arr : fl.arrays.satellite) : null
+  const satInside = satHas && !!sat?.image && inBounds(sat.image.bounds_lonlat, p.lon, p.lat)
   if (satInside && (satCls === 1 || satCls === 2)) covered = true
   if (on('satellite')) {
-    if (!fl.has.satellite || !g) rows.push({ key: 'sat', label: FLOOD_FORENSIC.probeWater, text: st.water_satellite?.reason ?? FLOOD_FORENSIC.keySatNone, tone: 'quiet' })
+    if (so?.imageOnly && g) rows.push({ key: 'sat', label: FLOOD_FORENSIC.probeWater, text: fillCopy(FLOOD_3D.probeSatImageOnly, { date: fmtDayDate(g.acquired_ms, tf.tz, { year: 'auto', refMs: nowMs }) }), tone: 'quiet' })
+    else if (!satHas || !g) rows.push({ key: 'sat', label: FLOOD_FORENSIC.probeWater, text: (so ? (so.note ?? sat?.reason) : null) ?? st.water_satellite?.reason ?? FLOOD_FORENSIC.keySatNone, tone: 'quiet' })
     else {
       const date = fmtDayDate(g.acquired_ms, tf.tz, { year: 'auto', refMs: nowMs })
       let text: string

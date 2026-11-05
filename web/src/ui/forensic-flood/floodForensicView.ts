@@ -140,6 +140,8 @@ export function sceneKeyItems(i: {
   height?: { factor: number; user: boolean } | null
   /** Brief 6: the depth surface on screen (scene/flood/depthChoice.ts), or why there is none. */
   depth?: DepthShown | null
+  /** Brief 6 (playback): the satellite words at the chart's handle (which image, the gap; or why none is drawn). */
+  satNote?: string | null
 }): SceneKeyItem[] {
   const { flood, layers: L, tf, nowMs } = i
   const out: SceneKeyItem[] = []
@@ -167,14 +169,17 @@ export function sceneKeyItems(i: {
     const login = sat?.login_note ?? null
     // the login note in short under the line (the full text in the fold-out); any other backend reason in full
     const loginShort = sat?.login === 'not_configured' ? SAT_NOT_SET_UP_SHORT : login
-    const notes = uniq([loginShort, reason && reason !== login ? reason : null])
+    const notes = uniq([i.satNote, loginShort, reason && reason !== login ? reason : null])
     const more = { title: FLOOD_FORENSIC.keyMoreSatellite, texts: uniq([...(sat?.caveats ?? []), login]) }
     if (flood.has.satellite && g) {
       const time = fmtAt(g.acquired_ms, tf, { zone: true, year: 'auto', refMs: nowMs })
       out.push({ key: 'satellite', swatch: 'satellite', text: fillCopy(FLOOD_FORENSIC.keySatellite, { time, age: fmtRelative(g.acquired_ms, nowMs) }), stale: nowMs - g.acquired_ms > SAT_STALE_MS, notes, more })
       if (flood.has.noView) out.push({ key: 'noview', swatch: 'noview', text: FLOOD_FORENSIC.keySatNoView })
       if (sat?.image) out.push({ key: 'edge', swatch: 'edge', text: FLOOD_FORENSIC.keySatEdge })
-    } else out.push({ key: 'satnone', swatch: 'noview', text: reason ?? FLOOD_FORENSIC.keySatNone, notes: uniq([loginShort]).filter((n) => n !== reason), more: more.texts.length ? more : undefined })
+    } else {
+      const text = i.satNote ?? reason ?? FLOOD_FORENSIC.keySatNone
+      out.push({ key: 'satnone', swatch: 'noview', text, notes: uniq([loginShort]).filter((n) => n !== text), more: more.texts.length ? more : undefined })
+    }
   }
   if (on('forecastArea') && flood.has.forecast) {
     const t = st.water_forecast?.time_ms
