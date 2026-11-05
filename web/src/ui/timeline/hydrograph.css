@@ -344,16 +344,16 @@
 }
 .hg-nowbtn {
   position: absolute;
-  top: -1px;
+  top: 1px;
   z-index: 1;
-  padding: 0 4px;
+  margin-left: 3px;
+  padding: 0 3px;
   border: 0;
   border-radius: 3px;
   background: none;
   font: 400 9.5px / 13px var(--m-font-mono);
   letter-spacing: 0.1em;
   color: var(--m-text-3);
-  transform: translateX(-50%) translateY(-100%);
   cursor: pointer;
 }
 .hg-nowbtn:hover,
@@ -364,22 +364,14 @@
 .hg-nowbtn.is-current {
   color: var(--m-text-2);
 }
-.hg.is-dock .hg-nowbtn {
-  transform: translateX(-50%);
-  top: 0;
-}
 .hg-crest-label {
   position: absolute;
   font: 400 9.5px / 12px var(--m-font-mono);
   letter-spacing: 0.06em;
   color: var(--m-flood-forecast);
   white-space: nowrap;
-  transform: translateX(-50%);
   pointer-events: auto;
   cursor: help;
-}
-.hg-crest-label.is-right {
-  transform: translateX(-100%);
 }
 .hg-notes,
 .hg-empty {

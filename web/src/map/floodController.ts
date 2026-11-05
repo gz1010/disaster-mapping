@@ -7,6 +7,8 @@
 // ?scope=national&min=action (cached 5 min; on failure, the listed floods' own member gauges). Sources and layers are
 // fx-flood-* only. The flood views' own layers (satellite water, NWS forecast flooded area, warning areas, channel,
 // floodplain, model) are web-flood-public's and web-flood-command's (map/floodProfile.ts says which view draws what).
+// Brief 5 web-flood-command: Command's own layers (NWS category flood map, the National Water Model's flooded area
+// and high-flow reaches; map/floodCommandLayers.ts) come from state/floodLayerData.ts, each behind its own toggle.
 import type { FilterSpecification, GeoJSONSource, Map as MapLibreMap, PointLike } from 'maplibre-gl'
 import { apiPathUrl, getRiverGauges } from '../api/floods'
 import type { FloodSummary, RiverGauge } from '../api/types'
@@ -41,6 +43,20 @@ import {
   warningFeatures,
 } from './floodAreaLayers'
 import { useNationalGauges } from './floodGaugeStatus'
+import {
+  CATFIM_HATCH_IMAGE,
+  catfimFeatures,
+  catfimHatchImage,
+  CMD_LAYER_KEY,
+  FLOOD_CMD_GEOJSON,
+  FLOOD_CMD_LAYERS,
+  FLOOD_CMD_SOURCES,
+  floodCommandLayers,
+  highFlowFeatures,
+  modelFeatures,
+} from './floodCommandLayers'
+import { useFloodLayerData } from '../state/floodLayerData'
+import { gaugeKey as hydroGaugeKey, gaugeOf, useHydroData, withChartReading } from '../ui/timeline/hydrographData'
 import { floodLayerShown } from './floodProfile'
 import { VECTOR_SOURCE } from './basemapStyle'
 import {
@@ -131,9 +147,11 @@ export function floodViewGauges(): GaugePoint[] {
   const ans = useFloodOfficial.getState()
   const resp = ans.floodId === s.id ? ans.gauges.data : null
   if (resp && resp.status === 'available') {
-    // the primary gauge with the newer of its two readings, as the stage row and the leader (review WFP-R2)
-    const members = memberGaugesOf(resp, s).map(riverToPoint)
-    const nearby = resp.gauges.filter((g) => !g.member && gaugeCategoryRank(g.observed.category) >= 1).map(riverToPoint)
+    // the primary gauge with the newer of its two readings, as the stage row and the leader (review WFP-R2); in Command
+    // also the river-level chart's own reading when it is newer (one reading per gauge, web-flood-command)
+    const chart = (g: RiverGauge) => withChartReading(g, gaugeOf(useHydroData.getState().gauges[hydroGaugeKey(g.lid, null)]?.data, g.lid))
+    const members = memberGaugesOf(resp, s).map(chart).map(riverToPoint)
+    const nearby = resp.gauges.filter((g) => !g.member && gaugeCategoryRank(g.observed.category) >= 1).map(chart).map(riverToPoint)
     return [...members, ...nearby]
   }
   return memberGauges([s])
@@ -293,6 +311,8 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
     const off = useFloodOfficial.getState()
     const s = openFloodSummary(fl)
     const mine = s != null && off.floodId === s.id
+    const extra = useFloodLayerData.getState()
+    const mineExtra = s != null && extra.floodId === s.id
     const nowMs = Date.now()
     const cursorBucket = fl.cursorMs == null ? 'now' : String(Math.round(fl.cursorMs / 600_000))
     const key = mine
@@ -305,6 +325,10 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
           // the satellite image's edge follows its answer (review WFP-R3: the image often arrives last)
           off.satellite.data?.retrieved_ms,
           off.satellite.data?.image?.url,
+          extra.model.data?.retrieved_ms,
+          extra.highFlow.data?.retrieved_ms,
+          extra.catfim.data?.retrieved_ms,
+          extra.catfimFor,
           cursorBucket,
           Math.round(nowMs / 60_000),
         ].join('|')
@@ -316,6 +340,10 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
       setData(FLOOD_AREA_SOURCES.forecast, mine ? mapFeatures(off.fim.data) : EMPTY_FC)
       setData(FLOOD_AREA_SOURCES.floodplain, mine ? nfhlFeatures(off.nfhl.data) : EMPTY_FC)
       setData(FLOOD_AREA_SOURCES.satelliteEdge, mine ? satelliteEdge(off.satellite.data) : EMPTY_FC)
+      // Command's own layers, each from its own answer (never merged)
+      setData(FLOOD_CMD_SOURCES.catfim, mineExtra ? catfimFeatures(extra.catfim.data) : EMPTY_FC)
+      setData(FLOOD_CMD_SOURCES.model, mineExtra ? modelFeatures(extra.model.data) : EMPTY_FC)
+      setData(FLOOD_CMD_SOURCES.highFlow, mineExtra ? highFlowFeatures(extra.highFlow.data) : EMPTY_FC)
     }
     syncImage(mine ? satelliteImage(off.satellite.data) : null)
     syncTiles(mine && DRAW_SAT_PICTURE ? satelliteTiles(off.satellite.data) : null)
@@ -327,6 +355,11 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
     for (const [id, k] of Object.entries(AREA_LAYER_KEY)) {
       if (!has(id)) continue
       const on = mine && floodLayerShown(chrome, k, fl.layers[k])
+      map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none')
+    }
+    for (const [id, k] of Object.entries(CMD_LAYER_KEY)) {
+      if (!has(id)) continue
+      const on = s != null && floodLayerShown(chrome, k, fl.layers[k])
       map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none')
     }
   }
@@ -376,6 +409,19 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
       if (layer.id === FLOOD_AREA_LAYERS.satellite || layer.id === FLOOD_AREA_LAYERS.satelliteTiles || has(layer.id)) continue
       if ((layer as { source?: string }).source === VECTOR_SOURCE && !vector) continue
       map.addLayer({ ...layer, layout: { ...(layer.layout ?? {}), visibility: 'none' } } as typeof layer, label)
+    }
+    // Command's own layers: above the water layers, below the NWS warning areas (their pink stays on top)
+    if (!map.hasImage(CATFIM_HATCH_IMAGE)) {
+      const h = catfimHatchImage()
+      map.addImage(CATFIM_HATCH_IMAGE, h.image, h.options)
+    }
+    for (const id of FLOOD_CMD_GEOJSON) if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: EMPTY_FC as never, tolerance: 0.3 })
+    const underWarnings = has(FLOOD_AREA_LAYERS.warningsFill) ? FLOOD_AREA_LAYERS.warningsFill : label
+    for (const layer of floodCommandLayers()) {
+      if (has(layer.id)) continue
+      // the fills and lines under the warning areas; the map labels just under the basemap's own labels
+      const at = layer.type === 'symbol' ? label : underWarnings
+      map.addLayer({ ...layer, layout: { ...(layer.layout ?? {}), visibility: 'none' } } as typeof layer, at)
     }
     imageKey = ''
     tilesKey = ''
@@ -505,6 +551,15 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
     useWorkspace.subscribe((s, p) => {
       if (s.hazard !== p.hazard || s.units !== p.units || s.preset !== p.preset) sync()
     }),
+    useHydroData.subscribe((s, p) => {
+      if (s.gauges !== p.gauges && useFlood.getState().floodId != null) {
+        gaugeKey = ''
+        sync()
+      }
+    }),
+    useFloodLayerData.subscribe((s, p) => {
+      if (s.floodId !== p.floodId || s.model.data !== p.model.data || s.highFlow.data !== p.highFlow.data || s.catfim.data !== p.catfim.data) sync()
+    }),
     useMapRuntime.subscribe((s, p) => {
       if (s.leaderIds !== p.leaderIds) applyLabelFilters()
     }),
@@ -522,14 +577,14 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
       for (const u of unsubs) u()
       if (!styled) return
       try {
-        for (const id of [...markerIds(), ...gaugeIds, ...Object.values(FLOOD_AREA_LAYERS)]) if (has(id)) map.removeLayer(id)
+        for (const id of [...markerIds(), ...gaugeIds, ...Object.values(FLOOD_AREA_LAYERS), ...Object.values(FLOOD_CMD_LAYERS)]) if (has(id)) map.removeLayer(id)
         for (const g of FLOOD_GROUPS) if (map.getSource(FLOOD_SOURCES[g])) map.removeSource(FLOOD_SOURCES[g])
         if (map.getSource(FLOOD_GAUGE_SOURCE)) map.removeSource(FLOOD_GAUGE_SOURCE)
-        for (const id of [...FLOOD_AREA_GEOJSON, FLOOD_AREA_SOURCES.satellite, FLOOD_AREA_SOURCES.satelliteTiles]) if (map.getSource(id)) map.removeSource(id)
+        for (const id of [...FLOOD_AREA_GEOJSON, ...FLOOD_CMD_GEOJSON, FLOOD_AREA_SOURCES.satellite, FLOOD_AREA_SOURCES.satelliteTiles]) if (map.getSource(id)) map.removeSource(id)
       } catch {
         // the map is being removed with its style
       }
     },
-    layerIds: () => [...Object.values(FLOOD_AREA_LAYERS), ...gaugeIds, ...markerIds()].filter(has),
+    layerIds: () => [...Object.values(FLOOD_AREA_LAYERS), ...Object.values(FLOOD_CMD_LAYERS), ...gaugeIds, ...markerIds()].filter(has),
   }
 }

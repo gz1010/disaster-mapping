@@ -25,7 +25,9 @@ import {
   floodWordingProblems,
   stripVerbatim,
 } from '../ui/shell/floodCopy'
-import { areaFigures, categoryWords, fmtArea, forecastRow, lineTag, nearestFloodGauge, onFloodRiver, utmZoneOf } from './floodCheck'
+import catfimMap from '../api/__fixtures__/floods/maps-catfim.json'
+import nfhlMap from '../api/__fixtures__/floods/maps-nfhl.json'
+import { areaFigures, catfimLine, categoryWords, fmtArea, forecastRow, lineTag, nearestFloodGauge, onFloodRiver, utmZoneOf } from './floodCheck'
 import { FloodReadout } from './FloodReadout'
 
 const ans = <T,>(data: T | null): Answer<T> => ({ data, loading: false, error: null })
@@ -68,6 +70,18 @@ describe('readout tags (each layer with its kind and own time)', () => {
     expect(lineTag({ kind: 'background' }, ctx)!.text).toBe('FEMA')
     expect(lineTag({ kind: 'model' }, ctx)!.text).toBe('Model')
     expect(lineTag({ kind: 'note' }, ctx)).toBeNull()
+    // FEMA with its own effective date when its map answered (C19)
+    expect(lineTag({ kind: 'background' }, { ...ctx, nfhl: nfhlMap as unknown as FloodMapResponse })!.text).toMatch(/^FEMA · effective [A-Z][a-z]{2} \d{1,2}, \d{4}/)
+  })
+
+  it('the NWS category flood map line (D22): inside or outside, its category and gauge, experimental, never an all-clear', () => {
+    const m = catfimMap as unknown as FloodMapResponse
+    const ring = (m.features.features[0].geometry as { coordinates: number[][][] }).coordinates[0]
+    const inside = catfimLine(m, [ring[0][0] + 1e-6, ring[0][1]])
+    expect(catfimLine(m, [-100, 40])!.text).toBe(FLOOD_COMMAND.catfimOutside.replace('{category}', 'moderate').replace('{lid}', 'ZZRF1'))
+    expect(inside === null || inside.text.includes('ZZRF1')).toBe(true)
+    expect(catfimLine({ ...m, status: 'unavailable' }, [-100, 40])).toBeNull()
+    expect(catfimLine(RFC_FIM(), [-100, 40])).toBeNull()
   })
 })
 

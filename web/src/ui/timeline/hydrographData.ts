@@ -8,7 +8,8 @@ import { useEffect } from 'react'
 import { create } from 'zustand'
 import { ApiError, describeError } from '../../api/client'
 import { getFloodModel, getRiverGauges } from '../../api/floods'
-import type { ModelOutputResponse, RiverGauge, RiverGaugesResponse } from '../../api/types'
+import type { GaugeReading, ModelOutputResponse, RiverGauge, RiverGaugesResponse } from '../../api/types'
+import { categoryOf } from './hydrographModel'
 import { NO_ANSWER, type Answer } from '../../official/floodModel'
 
 /** How often a shown chart asks again (the server caches series 10 min). */
@@ -93,4 +94,35 @@ export function useHydrographData(
     return () => window.clearInterval(timer)
   }, [floodId, lid, atMs, o.wantModel])
   return { gauge, model: mKey ? (model ?? { data: null, loading: true, error: null }) : null }
+}
+
+/** A gauge's newest reading: its status reading, or the last row of its observed series when that is newer (NWPS's
+ *  status can lag its own series by hours). A series reading's category is NWS's levels compared with the stage
+ *  (the chart's rule), else the status category. */
+export function newestReading(g: RiverGauge): GaugeReading {
+  const rows = g.series?.observed ?? []
+  const last = rows.length ? rows[rows.length - 1] : null
+  const t = g.observed.valid_ms
+  if (!last || last[1] == null || !Number.isFinite(last[0]) || (t != null && Number.isFinite(t) && t >= last[0])) return g.observed
+  const unit = g.series?.stage_unit ?? g.observed.unit
+  const th = g.thresholds
+  const same = th && (th.unit ?? 'ft').toLowerCase() === (unit ?? 'ft').toLowerCase()
+  const category = same ? (categoryOf(last[1], { action: th.action ?? undefined, minor: th.minor ?? undefined, moderate: th.moderate ?? undefined, major: th.major ?? undefined }) ?? g.observed.category) : g.observed.category
+  return { value: last[1], unit, flow: last[2], flow_unit: g.series?.flow_unit ?? g.observed.flow_unit, category, valid_ms: last[0] }
+}
+
+/** The chart's own reading of a gauge (its `?lid=` answer with the series) when it is newer than `g`'s: one reading
+ *  per gauge everywhere (the per-flood gauges answer can lag the per-gauge one; review WFP-R2's rule). */
+export function withChartReading(g: RiverGauge, chart: RiverGauge | null | undefined): RiverGauge {
+  if (!chart || chart.lid !== g.lid) return g
+  const own = newestReading(chart)
+  const a = g.observed.valid_ms
+  const b = own.valid_ms
+  if (b == null || !Number.isFinite(b) || (a != null && Number.isFinite(a) && a >= b)) return g
+  return { ...g, observed: own }
+}
+
+/** The newest cached chart answer's gauge for a lid (now, not a past time), else null. */
+export function useChartGauge(lid: string | null | undefined): RiverGauge | null {
+  return useHydroData((s) => (lid ? gaugeOf(s.gauges[gaugeKey(lid, null)]?.data, lid) : null))
 }

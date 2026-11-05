@@ -108,11 +108,15 @@ export function Hydrograph({ variant, floodId, lid, products, gauges, atMs = nul
             units,
             zone: tf.tz,
             clock: tf.clock,
+            past: atMs != null,
           })
         : null,
-    [gauge, axis, data.model, prods, nowMs, plotW, units, tf],
+    [gauge, axis, data.model, prods, nowMs, plotW, units, tf, atMs],
   )
   const cls = `hg is-${variant}${className ? ` ${className}` : ''}`
+  // a `?lid=` answer does not know the flood: membership comes from the flood's own lists
+  const isMember = resolved != null && (summary?.primary_gauge?.lid === resolved || (summary?.gauges ?? []).some((g) => g.lid === resolved) || listed?.member === true)
+  const isNearby = resolved != null && !isMember && listed != null
   const name = gauge ? `${gauge.lid} · ${gauge.name}` : (listed ? `${listed.lid} · ${listed.name}` : resolved) ?? ''
   const picker = variant === 'slim' ? <GaugePicker gauges={pickerGauges} lid={resolved} floodId={floodId} /> : null
 
@@ -134,7 +138,7 @@ export function Hydrograph({ variant, floodId, lid, products, gauges, atMs = nul
     <section className={cls} aria-label={`${HYDRO.title}: ${name}`}>
       {picker}
       <div className="hg-body">
-        <HydroTop variant={variant} name={name} model={model} axis={axis} setAxis={setAxis} units={units} gauge={gauge ?? listed} />
+        <HydroTop variant={variant} name={name} model={model} axis={axis} setAxis={setAxis} units={units} nearby={isNearby} />
         {problem ? (
           <div className="hg-plot is-empty" ref={plotRef} style={{ height: PLOT_H[variant] }}>
             <p className="hg-empty" title={data.gauge.error ?? undefined}>
@@ -142,7 +146,7 @@ export function Hydrograph({ variant, floodId, lid, products, gauges, atMs = nul
             </p>
           </div>
         ) : (
-          <HydroChart variant={variant} model={model} tf={tf} plotRef={plotRef} plotW={plotW} />
+          <HydroChart variant={variant} model={model} tf={tf} plotRef={plotRef} plotW={plotW} past={atMs != null} />
         )}
       </div>
     </section>
@@ -164,7 +168,7 @@ function HydroTop({
   axis,
   setAxis,
   units,
-  gauge,
+  nearby,
 }: {
   variant: HydrographVariant
   name: string
@@ -172,7 +176,7 @@ function HydroTop({
   axis: HydroAxis
   setAxis: (a: HydroAxis) => void
   units: 'us' | 'metric'
-  gauge: RiverGauge | null
+  nearby: boolean
 }) {
   const stageUnit = unitLabels('stage', units).unit
   const flowUnit = unitLabels('flow', units).unit
@@ -180,7 +184,7 @@ function HydroTop({
     <div className="hg-top">
       <span className="hg-name" title={name}>
         {name}
-        {gauge && !gauge.member && <span className="hg-tag">{HYDRO.pickerNearbyTag}</span>}
+        {nearby && <span className="hg-tag">{HYDRO.pickerNearbyTag}</span>}
       </span>
       {model && (
         <span className="hg-key" aria-label="Chart lines">
@@ -226,7 +230,7 @@ function LineGlyph({ kind }: { kind: 'observed' | 'forecast' | 'model' }) {
 }
 
 // ------------------------------------------------------------------------------------------------ the chart
-function HydroChart({ variant, model, tf, plotRef, plotW }: { variant: HydrographVariant; model: HydrographModel | null; tf: TimeFmt; plotRef: (el: HTMLDivElement | null) => void; plotW: number }) {
+function HydroChart({ variant, model, tf, plotRef, plotW, past }: { variant: HydrographVariant; model: HydrographModel | null; tf: TimeFmt; plotRef: (el: HTMLDivElement | null) => void; plotW: number; past: boolean }) {
   const cursorMs = useFlood((s) => s.cursorMs)
   const helpId = useId()
   const H = PLOT_H[variant]
@@ -239,7 +243,7 @@ function HydroChart({ variant, model, tf, plotRef, plotW }: { variant: Hydrograp
         {model && readout && (
           <>
             <Plot model={model} readout={readout} width={plotW} height={H} />
-            <PlotOverlays model={model} plotW={plotW} height={H} />
+            <PlotOverlays model={model} plotW={plotW} height={H} past={past} />
             <Slider model={model} readout={readout} plotW={plotW} height={H} helpId={helpId} />
           </>
         )}
@@ -319,7 +323,12 @@ function Plot({ model: m, readout, width, height }: { model: HydrographModel; re
   const x = (t: number) => xFrac(m, t) * width
   const nowX = x(m.nowMs)
   const hx = clampX(x(readout.t), width)
-  const pinned = { above: 0, below: 0 }
+  // pinned levels stack from the edge outwards: the highest at the top, the lowest at the bottom
+  const pinnedRank: Record<string, number> = {}
+  for (const dir of ['above', 'below'] as const) {
+    const list = m.thresholds.filter((t) => t.pinned === dir).sort((a, b) => (dir === 'above' ? b.value - a.value : a.value - b.value))
+    list.forEach((t, i) => (pinnedRank[t.level] = i))
+  }
   const labels = spreadLevelLabels(
     m.thresholds.filter((t) => !t.pinned).map((t) => ({ key: t.level, y: y(t.value) })),
     height,
@@ -342,7 +351,7 @@ function Plot({ model: m, readout, width, height }: { model: HydrographModel; re
         const color = CATEGORY_COLORS[t.level]
         const tip = fillCopy(HYDRO.stageLineTip, { category: t.level, value: t.label.split(' ')[1] ?? '', unit: m.unitWord })
         if (t.pinned) {
-          const i = pinned[t.pinned]++
+          const i = pinnedRank[t.level] ?? 0
           const ly = t.pinned === 'above' ? 9 + i * 10 : height - 3 - i * 10
           return (
             <text key={t.level} x={width + 6} y={ly} className="hg-level is-pinned" fill={color}>
@@ -429,11 +438,12 @@ function plotLabel(m: HydrographModel): string {
 }
 
 /** Words over the plot: NOW (back to now), the crest or "high at the end", the empty-state notes. */
-function PlotOverlays({ model: m, plotW, height }: { model: HydrographModel; plotW: number; height: number }) {
+function PlotOverlays({ model: m, plotW, height, past }: { model: HydrographModel; plotW: number; height: number; past: boolean }) {
   const cursor = useFlood((s) => s.cursorMs)
   const nowX = xFrac(m, m.nowMs) * plotW
   const crestX = m.crest ? xFrac(m, m.crest.t) * plotW : null
   const crestY = m.crest ? PAD_Y + yFrac(m, m.crest.v) * (height - 2 * PAD_Y) : 0
+  const crestAt = m.crest && crestX != null ? crestLeft(m.crest.label, crestX, nowX, plotW) : null
   return (
     <>
       <button
@@ -441,15 +451,15 @@ function PlotOverlays({ model: m, plotW, height }: { model: HydrographModel; plo
         className={`hg-nowbtn${cursor == null ? ' is-current' : ''}`}
         style={{ left: nowX }}
         onClick={() => useFlood.getState().setCursor(null)}
-        aria-label={HYDRO.backToNow}
-        data-tip={HYDRO.backToNow}
+        aria-label={past ? HYDRO.backToPastRef : HYDRO.backToNow}
+        data-tip={past ? HYDRO.backToPastRef : HYDRO.backToNow}
       >
-        {HYDRO.now.toUpperCase()}
+        {(past ? HYDRO.pastRef : HYDRO.now).toUpperCase()}
       </button>
-      {m.crest && crestX != null && (
+      {m.crest && crestX != null && crestAt != null && (
         <span
-          className={`hg-crest-label${m.crest.atEnd ? ' is-end' : ''}${crestX > plotW - 160 ? ' is-right' : ''}`}
-          style={{ left: crestX, top: Math.max(0, crestY - 22) }}
+          className={`hg-crest-label${m.crest.atEnd ? ' is-end' : ''}`}
+          style={{ left: crestAt, top: Math.max(0, crestY - 22) }}
           title={m.crest.atEnd ? HYDRO.highAtEndTip : HYDRO.crestTip}
         >
           {m.crest.label}
@@ -462,6 +472,16 @@ function PlotOverlays({ model: m, plotW, height }: { model: HydrographModel; plo
       )}
     </>
   )
+}
+
+/** Where the crest label starts: centred on the crest, kept after the NOW label and inside the plot. */
+function crestLeft(label: string, crestX: number, nowX: number, plotW: number): number | null {
+  const w = label.length * 6.2 + 4
+  let left = crestX - w / 2
+  if (left < nowX + 40 && crestX >= nowX) left = nowX + 40
+  left = Math.max(0, Math.min(left, plotW - w))
+  // no room beside the NOW label (a narrow chart): the caret keeps its tooltip, the words are left out
+  return left < nowX + 36 && left + w > nowX ? null : left
 }
 
 /** The handle as a slider over the plot: drag or keys; aria-valuetext is the handle's words. */

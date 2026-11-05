@@ -14,7 +14,13 @@ Role `web-flood-command` (PLAN-5 §4.5-4.6, plan5-roles.json). Ports: API 8755, 
   `FloodLegend` flood-view chips, `FloodOfficialNow` river forecast sentence (CREST_LINE / FORECAST_HIGH_LINE),
   `styles/view-command.css` scoped to both Command chromes with `:is()`, `styles/view-flood-command.css`,
   `state/floodLayerData.ts` (model / high-flow / CatFIM answers), additive layer key `modelHighFlow`.
-- M3: in progress.
+- M3: done. `map/floodCommandLayers.ts` (+ test; CatFIM hatch, NWM flooded area and high-flow reaches, amber dotted
+  with MODEL · EXPERIMENTAL), wired in `map/floodController.ts`; FloodLayersPanel high-flow toggle and CatFIM target;
+  CatFIM readout line and FEMA effective-date tag; gauge list from the bar; one reading per gauge (chart series);
+  past floods (chart at the last NWS product, PAST_NO_FORECAST); phone title and Official sheet; screenshots (7).
+- Gates (2026-11-05 ~06:30 UTC): backend 1340 passed / 0 skipped; web typecheck clean, lint 55 (all src/scene),
+  tests 1706 passed / 2 skipped (pre-existing fire skips), build ok.
+- Report: `docs/redesign/reports/brief5-web-flood-command.json`; as-built: `docs/redesign/contract5/web-flood-command.md`.
 
 ## Decisions so far
 

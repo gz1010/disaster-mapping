@@ -23,7 +23,7 @@ import { ScaleBar } from '../../map/MapAttribution'
 import { MapControls } from '../../map/MapControls'
 import { FloodLegend } from '../../map/FloodLegend'
 import { CATEGORY_COLORS, gaugeTone } from '../../map/floodStyle'
-import { useFloodOfficial, useFloodOfficialSync } from '../../official/floodHooks'
+import { askedAt, useFloodOfficial, useFloodOfficialSync } from '../../official/floodHooks'
 import { primaryGaugeReading } from '../../official/floodModel'
 import { goToFloodOverview, openFloodSummary, useFlood } from '../../state/flood'
 import { useFloodLayerDataSync } from '../../state/floodLayerData'
@@ -35,6 +35,7 @@ import { FloodOfficialNow } from '../feed/FloodOfficialNow'
 import { useNow } from '../hooks'
 import { floodPlace } from '../public/floodView'
 import { Hydrograph, GaugeList } from '../timeline/Hydrograph'
+import { newestReading, useChartGauge } from '../timeline/hydrographData'
 import { categoryWord } from '../timeline/hydrographModel'
 import { DEMO_TAG, FLOOD_COMMAND, FLOOD_OVERVIEW } from './floodCopy'
 import { FixedCopy } from './FixedCopy'
@@ -72,8 +73,12 @@ function GaugeStatus() {
   const [open, setOpen] = useState(false)
   const anchor = useRef<HTMLButtonElement | null>(null)
   const pg = summary?.primary_gauge ?? null
+  const chart = useChartGauge(pg?.lid)
   if (!summary || !pg) return null
-  const r = primaryGaugeReading(summary, gauges)
+  // one reading per gauge: the newest of the list's, the flood's gauges answer and the chart's own answer
+  const listed = primaryGaugeReading(summary, gauges)
+  const own = chart && chart.lid === pg.lid ? newestReading(chart) : null
+  const r = own && own.valid_ms != null && (listed?.valid_ms == null || own.valid_ms > listed.valid_ms) ? own : listed
   const value = r?.value != null ? `${r.value.toFixed(1)} ${(r.unit ?? 'ft').toUpperCase()}` : null
   const stale = r?.valid_ms != null && nowMs - r.valid_ms > 3 * HOUR_MS
   const age = r?.valid_ms != null ? fmtRelative(r.valid_ms, nowMs).toUpperCase() : null
@@ -106,7 +111,7 @@ function GaugeStatus() {
 
 /** Phones: the labelled toggle of the Official now sheet (no badge: none is never an all-clear). */
 function OfficialToggle() {
-  return <PanelPill panel="updates" icon={<ListChecks size={15} />} label={FLOOD_COMMAND.officialShow} tip={FLOOD_COMMAND.updatesToggleTip} className="mw-narrow-only mw-updates-toggle has-label" />
+  return <PanelPill panel="updates" icon={<ListChecks size={15} />} label={FLOOD_COMMAND.officialToggle} tip={FLOOD_COMMAND.updatesToggleTip} className="mw-narrow-only mw-updates-toggle has-label" />
 }
 
 /** The right column (desktop: text on the map's right edge; phones: the Updates sheet). */
@@ -143,7 +148,7 @@ function OfficialColumn() {
       <span className="mw-sheet-handle" aria-hidden="true" />
       <header className="mw-panel-head">
         <h2 id="mw-updates-title" ref={heading} tabIndex={-1}>
-          {FLOOD_COMMAND.officialTitle}
+          {FLOOD_COMMAND.officialSheetTitle}
         </h2>
         <button type="button" className="mw-icon-btn" aria-label="Close Official now" aria-expanded={true} onClick={() => setPanel('updates', false)}>
           <X size={15} />
@@ -240,7 +245,9 @@ export function CommandFloodChrome({ credits }: { credits: ReactNode }) {
           </div>
         )}
         <div className="mw-timeline cmd-timeline cfv-chart" id="mw-timeline" data-chrome="timeline">
-          {floodId && <Hydrograph variant="slim" floodId={summary?.id ?? floodId} lid={gaugeLid} />}
+          {/* a past flood: the chart is asked at its last NWS product's time (the backend answers from the archive or
+              says it is not available for past dates) */}
+          {floodId && <Hydrograph variant="slim" floodId={summary?.id ?? floodId} lid={gaugeLid} atMs={summary ? askedAt(summary) : null} />}
         </div>
         <div className="cmd-foot">
           <div className="mw-note cmd-note" data-chrome="note">

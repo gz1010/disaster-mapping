@@ -18,7 +18,7 @@
 import type { FloodAlert, GaugeCategory, ModelOutputResponse, ModelSeries, RiverGauge } from '../../api/types'
 import { productsAt } from '../../official/floodModel'
 import { HOUR_MS, MINUTE_MS, fmtAt, fmtClock, fmtDayDate, fmtRelative, localDayTicks, type TimeFmt } from '../../lib/time'
-import { fillCopy, GAUGE_CATEGORY_DISPLAY, HYDRO, HYDROGRAPH_EMPTY, HYDROGRAPH_MARKS } from '../shell/floodCopy'
+import { fillCopy, GAUGE_CATEGORY_DISPLAY, HYDRO, HYDROGRAPH_EMPTY, HYDROGRAPH_MARKS, PAST_NO_FORECAST } from '../shell/floodCopy'
 
 export { productsAt }
 
@@ -142,6 +142,8 @@ export interface HydrographInput {
   /** The gauge's IANA zone (ticks and labels). */
   zone: string
   clock?: TimeFmt['clock']
+  /** A past flood: `nowMs` is its reference time (its last NWS product); forecasts are not kept for past dates. */
+  past?: boolean
 }
 
 // ------------------------------------------------------------------------------------------------ units
@@ -291,7 +293,8 @@ export function categoryWord(c: GaugeCategory): string {
 /** The chart's value range: the data with a margin, stretched to NWS levels close to it; other levels are pinned. */
 export function valueRange(values: readonly number[], levels: Partial<Record<HydroLevel, number>>, axis: HydroAxis, units: HydroUnits): { vMin: number; vMax: number } {
   const lv = HYDRO_LEVELS.map((k) => levels[k]).filter((x): x is number => x != null)
-  const data = values.length ? values : lv.length ? [lv[0]] : [0]
+  // no data: the NWS levels themselves set the range (none pinned)
+  const data = values.length ? values : lv.length ? lv : [0]
   let lo = Math.min(...data)
   let hi = Math.max(...data)
   const minSpan = axis === 'stage' ? (units === 'metric' ? 0.6 : 2) : Math.max(Math.abs(hi) * 0.2, units === 'metric' ? 3 : 100)
@@ -440,10 +443,10 @@ export function buildHydrograph(input: HydrographInput): HydrographModel {
   const dayTicks: HydroDayTick[] = localDayTicks(startMs, endMs, tf.tz).map((t) => ({ t, label: upper(fmtDayDate(t, tf.tz, { weekday: true })) }))
 
   const empty: string[] = []
-  if (!observedIn.length) empty.push(HYDROGRAPH_EMPTY.noReadings)
+  if (!observedIn.length) empty.push(input.past ? HYDRO.noReadingsPast : HYDROGRAPH_EMPTY.noReadings)
   if (!gauge.thresholds) empty.push(HYDROGRAPH_EMPTY.noStages)
   else if (!hasLevels && axis === 'flow') empty.push(HYDRO.flowNoStages)
-  if (!fcIn.length) empty.push(gauge.is_forecast_point ? HYDRO.noForecastNow : HYDROGRAPH_EMPTY.noForecast)
+  if (!fcIn.length) empty.push(input.past ? PAST_NO_FORECAST : gauge.is_forecast_point ? HYDRO.noForecastNow : HYDROGRAPH_EMPTY.noForecast)
   if (modelState === 'unavailable') empty.push(HYDROGRAPH_EMPTY.noModel)
 
   const issued = s?.forecast_issued_ms ?? gauge.forecast?.issued_ms ?? null
@@ -534,10 +537,13 @@ export interface CursorReadout {
   original: string | null
 }
 
-/** What the handle says at `cursorMs` (null = now). The observed record until the latest reading, then the NWS
- *  forecast; in flow mode the model on its own line (never combined with NWS's value, C28). */
+/** What the handle says at `cursorMs` (null = now: the newest reading, at its own time). The observed record until
+ *  the latest reading, then the NWS forecast; in flow mode the model on its own line (never combined with NWS's
+ *  value, C28). */
 export function cursorReadout(m: HydrographModel, cursorMs: number | null, tf: TimeFmt): CursorReadout {
-  const t = clampCursor(m, cursorMs)
+  // at now (no handle set) the chart says the newest reading at its own time (stale after 3 h), never a value between
+  // it and the forecast
+  const t = cursorMs == null && m.latest ? m.latest.t : clampCursor(m, cursorMs)
   const future = cursorMs != null && cursorMs > m.nowMs
   const latestT = m.latest?.t ?? Number.NEGATIVE_INFINITY
   const obs = t <= latestT + HYDRO_SNAP_MS ? valueAt(m.observed, t) : null

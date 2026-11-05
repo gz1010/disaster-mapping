@@ -32,9 +32,10 @@ import { fmtStage } from '../ui/public/floodOverviewText'
 import { fillCopy, FLOOD_COMMAND, FLOOD_LAST_KNOWN, GAUGE_NOT_DEFINED, GAUGE_OTHER_STREAM, GAUGES_UNAVAILABLE, NO_GAUGE_NEAR } from '../ui/shell/floodCopy'
 import { ReadoutRow } from '../ui/shell/Readout'
 import { CopyButton } from './CoordinateStrip'
-import { areaFigures, categoryWords, checkPoint, forecastRow, lineTag, nearestFloodGauge, utmZoneOf, type NearestGauge } from './floodCheck'
+import { areaFigures, catfimLine, categoryWords, checkPoint, forecastRow, lineTag, nearestFloodGauge, utmZoneOf, type NearestGauge } from './floodCheck'
 import { coordinateLine } from './readoutText'
 import { useNarrow } from './useNarrow'
+import { useChartGauge, withChartReading } from '../ui/timeline/hydrographData'
 import './location.css'
 import '../styles/view-flood-command.css'
 
@@ -104,9 +105,10 @@ function LineText({ text, event }: { text: string; event?: string }) {
 const asked = (st: AnswerState): AnswerState => (st === 'none' ? 'loading' : st)
 
 function PointLayers({ sel, summary }: { sel: SelectedLocation; summary: FloodSummary }) {
-  const fl = useFlood(useShallow((s) => ({ cursorMs: s.cursorMs, floodplain: s.layers.floodplain, model: s.layers.model })))
+  const fl = useFlood(useShallow((s) => ({ cursorMs: s.cursorMs, floodplain: s.layers.floodplain, model: s.layers.model, catfim: s.layers.catfim })))
   const off = useFloodOfficial(useShallow((s) => ({ alerts: s.alerts, fim: s.fim, satellite: s.satellite, nfhl: s.nfhl })))
   const model = useFloodLayerData((s) => (s.floodId === summary.id ? s.model.data : null))
+  const catfim = useFloodLayerData((s) => (s.floodId === summary.id ? s.catfim.data : null))
   const units = useWorkspace((s) => s.units)
   const tf = useTimeFormatFor(summary.time_zone)
   const nowMs = useNow(60_000)
@@ -133,11 +135,13 @@ function PointLayers({ sel, summary }: { sel: SelectedLocation; summary: FloodSu
     tf,
     units,
   })
+  // NWS's category flood map (Command, switched on; D22): its own line, after the checks
+  const cat = fl.catfim ? catfimLine(catfim, [sel.lon, sel.lat]) : null
   return (
     <section className="ffr-layers" aria-label={FLOOD_COMMAND.layersAtPoint}>
       <ul className="ffr-lines">
         {c.lines.map((l) => {
-          const tag = lineTag(l, { fim: off.fim.data, satellite: off.satellite.data, nowMs, tf })
+          const tag = lineTag(l, { fim: off.fim.data, satellite: off.satellite.data, nfhl: off.nfhl.data, nowMs, tf })
           return (
             <li key={l.key} className={`ffr-line is-${l.kind}${l.inside ? ' is-inside' : ''}${l.tone ? ` is-${l.tone}` : ''}`}>
               {tag && (
@@ -149,6 +153,14 @@ function PointLayers({ sel, summary }: { sel: SelectedLocation; summary: FloodSu
             </li>
           )
         })}
+        {cat && (
+          <li className={`ffr-line is-catfim${cat.inside ? ' is-inside' : ' is-quiet'}`}>
+            <span className="cro-tag ffr-tag is-catfim" data-tip={FLOOD_COMMAND.tagCatfimTip}>
+              {FLOOD_COMMAND.tagCatfim}
+            </span>{' '}
+            {cat.text}
+          </li>
+        )}
       </ul>
     </section>
   )
@@ -180,7 +192,7 @@ function GaugeRows({ sel, summary }: { sel: SelectedLocation | null; summary: Fl
     <section className="cro-rows ffr-gauge" aria-label={FLOOD_COMMAND.gaugeTitle}>
       <h3 className="cro-eyebrow ffr-eyebrow">{title}</h3>
       {pick ? (
-        <GaugeBlock n={pick} sel={sel} tf={timeFmt(pick.gauge.time_zone || summary.time_zone, clock)} units={units} nowMs={nowMs} />
+        <GaugeBlock n={pick} sel={sel} tf={timeFmt(pick.gauge.time_zone || summary.time_zone, clock)} units={units} nowMs={nowMs} past={summary.mode === 'historical'} />
       ) : st === 'loading' ? (
         <p className="ffr-note">{FLOOD_COMMAND.gaugesChecking}</p>
       ) : st === 'available' ? (
@@ -193,14 +205,16 @@ function GaugeRows({ sel, summary }: { sel: SelectedLocation | null; summary: Fl
   )
 }
 
-function GaugeBlock({ n, sel, tf, units, nowMs }: { n: NearestGauge; sel: SelectedLocation | null; tf: TimeFmt; units: Units; nowMs: number }) {
-  const g = n.gauge
+function GaugeBlock({ n, sel, tf, units, nowMs, past }: { n: NearestGauge; sel: SelectedLocation | null; tf: TimeFmt; units: Units; nowMs: number; past: boolean }) {
+  // one reading per gauge: the river-level chart's own answer for this gauge when it is newer
+  const chart = useChartGauge(n.gauge.lid)
+  const g = withChartReading(n.gauge, chart)
   const cat = categoryWords(g, tf, nowMs)
   const stage = fmtStage(g.observed.value, g.observed.unit ?? 'ft', units)
   const stale = g.observed.valid_ms != null && nowMs - g.observed.valid_ms > 3 * HOUR_MS
   const reading = g.observed.valid_ms != null ? `${fmtAt(g.observed.valid_ms, tf, { zone: true, year: 'auto', refMs: nowMs })} (${fmtRelative(g.observed.valid_ms, nowMs)})` : null
   const usgs = g.data_attribution.some((d) => /geological survey|usgs/i.test(d.text))
-  const fc = forecastRow(g, tf, units, nowMs)
+  const fc = forecastRow(g, tf, units, nowMs, past)
   const minor = g.thresholds?.minor ?? null
   const river = g.waterbody?.trim() || g.name
   return (

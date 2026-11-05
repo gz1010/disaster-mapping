@@ -266,6 +266,10 @@ export const HYDRO = {
   // a forecast point without a current NWS forecast (forecasts are issued as needed during high water)
   noForecastNow: 'No NWS river forecast for this gauge right now',
   noGauge: 'No river gauge for this flood',
+  // a past flood: the chart is centred on its last NWS product
+  pastRef: 'Last NWS product',
+  backToPastRef: "Back to the flood's last NWS product",
+  noReadingsPast: 'No readings from this gauge in the 72 h before this time',
   loading: 'Loading the river gauge…',
   unavailable: 'River gauge readings could not be loaded right now. That is not an all-clear.',
   sliderName: 'Time on the river-level chart',
@@ -332,9 +336,11 @@ export const FLOOD_COMMAND = {
   gaugeListTitle: "This flood's river gauges",
   // Official now on phones and the column
   officialTitle: 'Official now',
+  officialSheetTitle: 'Official flood information',
   officialHide: 'Hide',
   officialHideTip: 'Hide this column (the Official now button brings it back)',
   officialShow: 'Official now',
+  officialToggle: 'Official',
   officialShowTip: 'NWS flood products, the river forecast, evacuations and local officials’ messages for this flood',
   updatesToggleTip: 'Official flood information: NWS products, river forecast, evacuations',
   // legend chips
@@ -351,8 +357,16 @@ export const FLOOD_COMMAND = {
   // model and CatFIM in the legend details and the readout
   catfimFor: 'NWS category flood map: {category} flooding at {lid} (experimental map library)',
   catfimNone: 'No NWS category flood map for this flood',
+  catfimInside: 'Inside what NWS maps for {category} flooding at {lid} (experimental map library; not a forecast).',
+  catfimOutside: 'Outside what NWS maps for {category} flooding at {lid} (experimental map library); not an all-clear.',
+  tagCatfim: 'NWS category map · experimental',
+  tagCatfimTip: "NWS's category flood map library (experimental): what NWS maps for a flood category at a gauge; not a forecast",
+  tagFemaEffective: 'FEMA · effective {date}',
   modelChecking: 'Model output: checking…',
   highFlowTitle: 'Model high-flow reaches (NOAA National Water Model)',
+  layerHighFlow: 'National Water Model high-flow reaches (experimental)',
+  layerHighFlowDesc: 'Model output: river reaches above their high-water level, never an NWS forecast',
+  layerCatfimFor: "What NWS maps for {category} flooding at {lid} (the primary gauge's forecast, else observed category); not a forecast",
   highFlowBody: 'River reaches where the model analysis flow is above its high-water level, with how rare that flow is (NWM). Experimental model output, never an NWS forecast.',
 } as const
 

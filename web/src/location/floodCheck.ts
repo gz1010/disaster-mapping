@@ -30,6 +30,7 @@ import {
   GAUGE_BELOW_STAGE_SUB,
   GAUGE_CATEGORY_DISPLAY,
   NO_RFC_FORECAST,
+  PAST_NO_FORECAST,
   RFC_FIM_AREA_COMMAND,
   SAT_AREA_COMMAND,
   type GaugeCategoryKey,
@@ -49,7 +50,7 @@ import {
   SAT_UNAVAILABLE,
 } from '../ui/shell/floodCopy'
 import { fmtStage } from '../ui/public/floodOverviewText'
-import { polygonsOf } from '../ui/public/floodView'
+import { nfhlEffective, polygonsOf } from '../ui/public/floodView'
 
 /** A DSWx class at the spot: 0 not water, 1 open water, 2 partial water, 252 snow/ice, 253 cloud, 254 ocean, 255 no
  *  data; `'noview'` when only the picture says "no view" (clouds and no data share its grey hatch, D25); `'clear'` when
@@ -300,7 +301,7 @@ export interface LineTag {
 }
 
 /** The outlined tag of a check line: what the layer is and how old (PLAN-5 §4.5). */
-export function lineTag(l: Pick<FloodCheckLine, 'kind'>, ctx: { fim: FloodMapResponse | null; satellite: SatelliteWaterResponse | null; nowMs: number; tf: TimeFmt }): LineTag | null {
+export function lineTag(l: Pick<FloodCheckLine, 'kind'>, ctx: { fim: FloodMapResponse | null; satellite: SatelliteWaterResponse | null; nfhl?: FloodMapResponse | null; nowMs: number; tf: TimeFmt }): LineTag | null {
   switch (l.kind) {
     case 'official':
       return { text: FLOOD_COMMAND.tagOfficial, cls: 'is-official', tip: FLOOD_COMMAND.tagOfficialTip }
@@ -313,13 +314,31 @@ export function lineTag(l: Pick<FloodCheckLine, 'kind'>, ctx: { fim: FloodMapRes
       // the age at render time from the image's own time (C16)
       return { text: g ? fillCopy(FLOOD_COMMAND.tagSatelliteAge, { age: fmtRelative(g.acquired_ms, ctx.nowMs) }) : FLOOD_COMMAND.tagSatellite, cls: 'is-satellite', tip: FLOOD_COMMAND.tagSatelliteTip }
     }
-    case 'background':
-      return { text: FLOOD_COMMAND.tagFema, cls: 'is-fema', tip: FLOOD_COMMAND.tagFemaTip }
+    case 'background': {
+      // FEMA's own effective date (C19)
+      const eff = ctx.nfhl?.status === 'available' ? nfhlEffective(ctx.nfhl, ctx.tf.tz) : null
+      return { text: eff ? fillCopy(FLOOD_COMMAND.tagFemaEffective, { date: eff }) : FLOOD_COMMAND.tagFema, cls: 'is-fema', tip: FLOOD_COMMAND.tagFemaTip }
+    }
     case 'model':
       return { text: FLOOD_COMMAND.tagModel, cls: 'is-model', tip: FLOOD_COMMAND.tagModelTip }
     default:
       return null
   }
+}
+
+/** The NWS category flood map at the spot (Command, switched on; D22): inside or outside its polygons, with the
+ *  category and gauge it is for; null without an available map. Its own line, never merged with the forecast area. */
+export function catfimLine(resp: FloodMapResponse | null | undefined, point: [number, number]): { text: string; inside: boolean } | null {
+  if (!resp || resp.status !== 'available' || resp.map !== 'catfim' || !resp.features.features.length) return null
+  const first = (resp.features.features[0].properties ?? {}) as Record<string, unknown>
+  const lid = String(first.ahps_lid ?? '').toUpperCase() || 'the gauge'
+  const category = resp.category ?? String(first.magnitude ?? '')
+  const d = distanceToAreas(
+    resp.features.features.flatMap((f) => polygonsOf(f.geometry)),
+    point,
+  )
+  const inside = d?.inside === true
+  return { text: fillCopy(inside ? FLOOD_COMMAND.catfimInside : FLOOD_COMMAND.catfimOutside, { category, lid }), inside }
 }
 
 /** "4.2 km²" / "1.6 mi²". */
@@ -354,7 +373,9 @@ export function categoryWords(g: Pick<RiverGauge, 'observed'>, tf: TimeFmt, nowM
 /** The forecast row of a gauge: the crest (CREST_LINE) or the forecast high still rising at its end (C7); none when
  *  the gauge is not a forecast point (NO_RFC_FORECAST); a forecast point without its forecast here says where to see
  *  it (never NO_RFC_FORECAST then; bundle-api deviation 4). */
-export function forecastRow(g: RiverGauge, tf: TimeFmt, units: Units, nowMs: number): { label: string; value: string; sub: string } {
+export function forecastRow(g: RiverGauge, tf: TimeFmt, units: Units, nowMs: number, past = false): { label: string; value: string; sub: string } {
+  // river forecasts are not kept for past dates (a past flood)
+  if (past) return { label: FLOOD_COMMAND.crestLabel, value: FLOOD_PUBLIC.pastDates, sub: PAST_NO_FORECAST }
   const f = g.forecast
   if (f && f.max_value != null) {
     const unit = g.thresholds?.unit ?? g.observed.unit ?? 'ft'

@@ -7,8 +7,11 @@
 
 /* ------------------------------------------------------------------------------------------------ top bar */
 .mw[data-view='command-flood'] .cfv-title {
+  flex: 0 1 auto;
   min-width: 0;
+  max-width: 320px;
   margin: 0;
+  padding: 0 4px;
   overflow: hidden;
   font: 600 18px / 1.2 var(--m-font-ui);
   letter-spacing: -0.01em;
@@ -197,4 +200,17 @@
 /* Official now's evacuation row: the row's own label says "Evacuations"; the inner block keeps its value and lines */
 .mw[data-view='command-flood'] .ffo .ffe-command .ffe-label {
   display: none;
+}
+.cro-tag.ffr-tag.is-catfim {
+  border-style: dashed;
+  border-color: var(--m-flood-edge);
+  color: var(--m-flood-edge);
+}
+
+@media (max-width: 760px) {
+  /* phones: the name gives way to the bar's buttons (ellipsis), as the fire title does */
+  .mw[data-view='command-flood'] .cfv-title {
+    max-width: calc(100vw - 250px);
+    font-size: 16px;
+  }
 }

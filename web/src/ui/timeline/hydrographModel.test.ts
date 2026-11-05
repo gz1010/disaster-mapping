@@ -7,7 +7,7 @@ import { ALERTS, FIXTURE_NOW_MS, GAUGE_NO_FORECAST, GAUGE_NOT_CURRENT, GAUGE_NOT
 import zzrf1 from '../../api/__fixtures__/floods/river-gauges-ZZRF1.json'
 import type { ModelOutputResponse, RiverGauge, RiverGaugesResponse } from '../../api/types'
 import { HOUR_MS, type TimeFmt } from '../../lib/time'
-import { CURSOR_FUTURE_PRODUCTS, floodWordingProblems, HYDRO, HYDROGRAPH_EMPTY } from '../shell/floodCopy'
+import { CURSOR_FUTURE_PRODUCTS, floodWordingProblems, HYDRO, HYDROGRAPH_EMPTY, PAST_NO_FORECAST } from '../shell/floodCopy'
 import {
   buildHydrograph,
   categoryOf,
@@ -238,9 +238,10 @@ describe('hydrographModel: the model (D20, C28)', () => {
 })
 
 describe('hydrographModel: the handle', () => {
-  it('at now: the latest reading, observed, with its category', () => {
-    const m = build()
-    const r = cursorReadout(m, null, TF)
+  it('at now: the latest reading at its own time, observed, with its category (never a value between it and the forecast)', () => {
+    const m = build({ nowMs: NOW + 25 * 60_000 })
+    expect(cursorReadout(m, null, TF).line1).toBe('17.6 FT OBSERVED · MODERATE')
+    const r = cursorReadout(build(), null, TF)
     expect(cursorLabel(r)).toBe('NOV 4 11:00 MST · 17.6 FT OBSERVED · MODERATE')
     expect(r.kind).toBe('observed')
     expect(r.future).toBe(false)
@@ -271,9 +272,15 @@ describe('hydrographModel: the handle', () => {
     const m = build({ gauge: GAUGE_NOT_CURRENT() })
     const atLatest = cursorReadout(m, m.latest!.t, TF)
     expect(atLatest.stale).toBe(true)
+    // at now (no handle set): the newest reading at its own time, flagged stale
     const now = cursorReadout(m, null, TF)
-    expect(now.kind).toBe('none')
-    expect(now.line1).toBe('NO READING AT THIS TIME')
+    expect(now.kind).toBe('observed')
+    expect(now.t).toBe(m.latest!.t)
+    expect(now.stale).toBe(true)
+    // a handle set at now: no reading at that time
+    const set = cursorReadout(m, NOW, TF)
+    expect(set.kind).toBe('none')
+    expect(set.line1).toBe('NO READING AT THIS TIME')
   })
 
   it('keyboard: arrows one hour, Shift six, Home and End; kept inside the chart', () => {
@@ -342,6 +349,17 @@ describe('hydrographModel: empty states (PLAN-5 §5.5) and wording', () => {
     g.series!.forecast = []
     expect(build({ gauge: g }).empty).toContain(HYDRO.noForecastNow)
   })
+  it('a past flood: forecasts are not kept for past dates; readings around that time', () => {
+    const g = primary()
+    g.series!.observed = []
+    g.series!.forecast = []
+    const m = build({ gauge: g, past: true })
+    expect(m.empty).toContain(PAST_NO_FORECAST)
+    expect(m.empty).toContain(HYDRO.noReadingsPast)
+    // no data: the NWS levels set the range, none pinned
+    expect(m.thresholds.every((t) => t.pinned === null)).toBe(true)
+  })
+
   it("no banned word in the chart's own words", () => {
     const m = build({ axis: 'flow', model: MODEL_SERIES() })
     const words = [m.observedLabel, m.forecastLabel ?? '', m.modelLabel, ...m.thresholds.map((t) => t.label), m.latest?.label ?? '', m.crest?.label ?? '', ...m.empty]
