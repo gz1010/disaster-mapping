@@ -2,7 +2,7 @@
 
 Role `web-flood-forensic` (wave 3), PLAN-5 §4.7, §4.8, §5.5; CONTRACT §16.12. Commits: `M1 flood branch, Prepare 3D data,
 SceneManifest assets, frame and overlays for floods, drapes, warning lines` (34dc4dd), `M2 gauge bars, header, entry
-controls, right panel and tabs (CatFIM toggle), evidence` (a1b7b07), `M3 dock hydrograph, hand-off, screenshots, report`.
+controls, right panel and tabs (CatFIM toggle), evidence` (a1b7b07), `M3 dock hydrograph, hand-off, screenshots, report` (d4c0cdf).
 Paths under `web/src/`. web-flood-command's `M1 hydrograph` (74258f8) was in `git log` before Forensic's M1, so the dock
 mounts the real `Hydrograph variant="dock"` (no placeholder).
 

@@ -5,7 +5,7 @@
   "milestones": [
     "M1 34dc4dd: branch, Prepare, forensicFloodState, SceneManifest assets, frame and overlays for floods, drapes, warning lines",
     "M2 a1b7b07: gauge bars, header, entry controls, right panel and tabs (CatFIM toggle), evidence, hand-off",
-    "M3: dock hydrograph (mounted; web-flood-command M1 was in git log), screenshots, report, as-built note"
+    "M3 d4c0cdf: dock hydrograph (mounted; web-flood-command M1 was in git log), screenshots, report, as-built note"
   ],
   "files": [
     "web/src/ui/shell/ForensicWorkspace.tsx",
