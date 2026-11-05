@@ -31,3 +31,9 @@ Notes:
   (`depthFrom` per flood, second press / Reset → automatic), R7 (hand-off: a turned map keeps its heading), R8 (key note
   at now when newer passes exist), R9 (hollow swatch, unread picture note, age at the handle, readout subscribes).
   Gates so far: typecheck, lint 55 (all src/scene), vitest 151 files 1917 passed 2 skipped.
+- 2026-11-05: verified live (API 8764, Vite 5224, SwiftShader): linked programs read by a probe wrapping linkProgram:
+  fire3d-terrain 13 sampler units with the shadow map, fire3d-terrain+FLOOD 14, no link failures (also fire → flood
+  in one session); hand-off from a Command map turned to 45° → Forensic compass "045° · 21°". Screenshots
+  `docs/screenshots/brief6-web-forensic-flood-3d-review-*.png` (fixture before the first pass, route down at Oct 31,
+  St Johns Oct 20 with the dock, St Johns at now, Layers "From the terrain", fire Forensic: 0.10 % pixels differ).
+  Review report `docs/redesign/reports/review6-web-forensic-flood-3d.json`; as-built note and CONTRACT §17 updated.

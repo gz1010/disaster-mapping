@@ -5134,6 +5134,12 @@ uses it, and keep `SPEC.md`, `backend/fire3d/contracts.py` and `web/src/api/floo
   inside the mapped water only), the height above the river (HAND drape, layer `hand`, off by default), the river view
   (`riverFrame.ts`, camera command `'frame-river'`), and the satellite drape, depth surface, warning lines and hover
   readout following the chart's handle (`floodPassDrape.ts`, `flood3dHooks.ts`). Strings: `scene/flood/flood3dCopy.ts`.
+  After its review (WFF3D-R1..R10): the terrain shader compiles a fire and a flood variant (`TERRAIN_FLOOD`), each
+  sampling at most 15 textures so a shadow map still fits WebGL2's guaranteed 16 units (`terrainMaterial.test.ts`);
+  the warning lines, the hover and the dock's NWS column read one answer (`scene/flood/productsOnScreen.ts`).
+  *Flood exception to decision k (§15, H2-B2):* on the map → Forensic hand-off of a flood whose map view was wider than
+  the river view, the camera takes the river view's place, distance and tilt; a map the user turned keeps its heading
+  there, a north-up map gets the heading along the main river. Forensic → map is unchanged (`ui/shell/handoff.ts`).
 - **SPEC:** §5.3 (bundle files: `timeline.json`, `layers/water_pass_<key>.bin`, `layers/depth_pass_<key>.bin`,
   `layers/hand.bin`, `layers/depth_satellite.bin`, `layers/depth_forecast.bin`, `maps/flowlines.geojson`), §5.4 (3D
   terrain products: relief and height boost, height above the river, FwDET depth), §6 (routes), §8.11 (time history).

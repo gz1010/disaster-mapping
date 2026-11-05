@@ -12,7 +12,9 @@
   "commits": [
     "425332f brief 6 web-forensic-flood-3d: M1-M3 height boost, depth surface, height above the river, river view (tests, progress)",
     "57c7cd8 brief 6 web-forensic-flood-3d: M4 drapes follow the playback pass",
-    "(this commit) brief 6 web-forensic-flood-3d: final"
+    "6a6f36f brief 6 web-forensic-flood-3d: final (warning lines and hover follow the time history, phone dock, screenshots, report, as-built note, CONTRACT 17 pointer)",
+    "e553bb0 brief 6 web-forensic-flood-3d: review fixes (R1 terrain shader fire/flood variants within 15 textures, R2-R9 code)",
+    "(next commit) brief 6 web-forensic-flood-3d: review fixes (screenshots, review report, as-built note, CONTRACT 17)"
   ],
   "note_on_snapshot": "Most of M1-M3's code landed in the orchestrator's wave-2 snapshot ee6ac13 before the M1-M3 commit.",
   "files": [
@@ -50,7 +52,13 @@
     "web/src/styles/forensic-flood.css",
     "docs/redesign/contract6/web-forensic-flood-3d.md",
     "docs/redesign/CONTRACT.md (section 17 pointer)",
-    "docs/redesign/progress/brief6-web-forensic-flood-3d.md"
+    "docs/redesign/progress/brief6-web-forensic-flood-3d.md",
+    "web/src/scene/terrain/terrainMaterial.test.ts",
+    "web/src/scene/flood/productsOnScreen.ts",
+    "web/src/scene/flood/productsOnScreen.test.ts",
+    "web/src/ui/forensic-flood/FloodDock.tsx",
+    "web/src/ui/forensic-flood/forensicFloodState.test.ts",
+    "docs/redesign/reports/review6-web-forensic-flood-3d.json"
   ],
   "screenshots": [
     "docs/screenshots/brief6-web-forensic-flood-3d-before-fixture.png",
@@ -64,11 +72,18 @@
     "docs/screenshots/brief6-web-forensic-flood-3d-stjohns-pass-depth.png",
     "docs/screenshots/brief6-web-forensic-flood-3d-stjohns-pass-picture.png",
     "docs/screenshots/brief6-web-forensic-flood-3d-phone.png",
-    "docs/screenshots/brief6-web-forensic-flood-3d-fire-regression.png"
+    "docs/screenshots/brief6-web-forensic-flood-3d-fire-regression.png",
+    "docs/screenshots/brief6-web-forensic-flood-3d-review-fixture-before-first.png",
+    "docs/screenshots/brief6-web-forensic-flood-3d-review-fixture-route-down.png",
+    "docs/screenshots/brief6-web-forensic-flood-3d-review-stjohns-oct20-dock.png",
+    "docs/screenshots/brief6-web-forensic-flood-3d-review-stjohns-now.png",
+    "docs/screenshots/brief6-web-forensic-flood-3d-review-layers-terrain.png",
+    "docs/screenshots/brief6-web-forensic-flood-3d-review-fire-forensic.png"
   ],
   "gates": {
     "backend": "uv run pytest -q: 1466 passed",
-    "web": "typecheck ok; lint 0 errors, 55 warnings all in src/scene (baseline); vitest 149 files, 1888 passed, 2 skipped; build ok"
+    "web": "typecheck ok; lint 0 errors, 55 warnings all in src/scene (baseline); vitest 149 files, 1888 passed, 2 skipped; build ok",
+    "web_note": "vitest counts depend on data/: three real-data tests skip without it (map/overlayModel.test.ts 'real Eaton forecast', lib/fireBounds.test.ts 'real 2025-eaton-fire-dbfa57' and 'real 2026-norte-fire-87ebb8'); this worktree has Eaton, so 2 skip here and 3 in a clean worktree"
   },
   "scans": {
     "FIRMS_MAP_KEY": "0 tracked files contain it (count only)",
@@ -80,10 +95,32 @@
     "Depth estimates are shallow and noisy on flat ground (St Johns satellite p90 0.46 m); the tint is mostly the light end of the ramp there. The backend's DEPTH_CAVEAT is in the key's fold-out.",
     "The height above the river tints almost the whole view on a flat floodplain (Calcasieu: most land is within 0-5 m of the river); the bands are lighter than first drafted but still a wash there. It stays off by default.",
     "A pass with no bundle raster (older than the 8 kept, or newer than the build) is draped from the route's 2D picture through an affine map of its lon/lat box (tens of metres of error across 60 km are possible); the hover readout says that spot is not read, and no depth surface is shown.",
-    "While stepping, the scene key keeps the 'NWS warning area' line when the bundle has products even at a handle time with none drawn (the lines and the hover follow productsAt).",
     "With the closer framing a gauge bar label can sit partly under the key column (brief 5's label placement hides most of it; seen once on Calcasieu: '22:20 CST' peeking out).",
-    "The map's hand-off now keeps the river view when the map was more than 1.25 x farther than the river view; a close map view keeps its place. A 'frame-river' command counts as a turn in ui/shell/handoff.ts (not in NON_TURNING), so the map takes the river view's heading back only after the user pressed 'River view'.",
-    "In one fixture screenshot the 'Height above the river' checkbox drew its check without the orange fill (the row note showed, so the layer was on); not reproduced in the Calcasieu shot."
+    "In one fixture screenshot the 'Height above the river' checkbox drew its check without the orange fill (the row note showed, so the layer was on); not reproduced in the Calcasieu shot.",
+    "Review fixes: the key's 'NWS warning area' line now shows only while a product is drawn at the handle (was: whenever the bundle had products).",
+    "The map's hand-off uses the river view when the map was more than 1.25 x farther than it; a turned map keeps its heading there (decision k), a north-up map gets the heading along the river (CONTRACT §17, flood exception). A 'frame-river' command counts as a turn in ui/shell/handoff.ts (not in NON_TURNING), so the map takes the river view's heading back only after the user pressed 'River view'.",
+    "The terrain shader texture-unit fix (review WFF3D-R1) is checked by unit test and by reading the linked programs in SwiftShader (fire 13, flood 14 units with the shadow map), not on a real Mac or Windows GPU (none in the cloud).",
+    "In SwiftShader captures, CSS transitions can stall (almost no frames), so a checkbox just switched on can look empty (review-layers-terrain.png, 'Height above the river'); the DOM is checked. A capture effect only."
   ],
-  "notes_for_others": "final-check: the README's Forensic flood paragraph can say: 'A flood opens in the river view: a lower, closer look along the main river, at an automatic height boost (\"Height x10 · auto\" in the view dock; change it there, up to x20). Inside the mapped water a semi-transparent surface shows the estimated depth (deeper = darker blue; \"Estimated depth (from the terrain at the water's edge), experimental\"). Layers > From the terrain > Height above the river tints land 0-1, 1-2 and 2-5 m above the nearest river channel (off by default; \"Not a flood map\"). Moving the river-level chart's handle (or Play) changes the satellite pass, its depth surface and the NWS warning lines in 3D too.' Use docs/screenshots/brief6-web-forensic-flood-3d-after-*.png and -stjohns-pass-depth.png for the README. Dev handles: window.__forensicFlood.getState().setBoost(id, 15), setLayerVisible('hand', true), setDepthFrom('forecast'); window.__flood.getState().setCursor(ms)."
+  "notes_for_others": "final-check: the README's Forensic flood paragraph can say: 'A flood opens in the river view: a lower, closer look along the main river, at an automatic height boost (\"Height x10 · auto\" in the view dock; change it there, up to x20). Inside the mapped water a semi-transparent surface shows the estimated depth (deeper = darker blue; \"Estimated depth (from the terrain at the water's edge), experimental\"). Layers > From the terrain > Height above the river tints land 0-1, 1-2 and 2-5 m above the nearest river channel (off by default; \"Not a flood map\"). Moving the river-level chart's handle (or Play) changes the satellite pass, its depth surface and the NWS warning lines in 3D too.' Use docs/screenshots/brief6-web-forensic-flood-3d-after-*.png and -stjohns-pass-depth.png for the README. Dev handles: window.__forensicFlood.getState().setBoost(id, 15), setLayerVisible('hand', true), setDepthFrom('forecast'); window.__flood.getState().setCursor(ms).",
+  "review": {
+    "report": "docs/redesign/reports/review6-web-forensic-flood-3d.json",
+    "outcomes": {
+      "WFF3D-R1": "fixed",
+      "WFF3D-R2": "fixed",
+      "WFF3D-R3": "fixed",
+      "WFF3D-R4": "fixed",
+      "WFF3D-R5": "fixed",
+      "WFF3D-R6": "fixed",
+      "WFF3D-R7": "fixed",
+      "WFF3D-R8": "fixed (key note at now)",
+      "WFF3D-R9": "fixed",
+      "WFF3D-R10": "fixed"
+    }
+  },
+  "review_gates": {
+    "backend": "uv run pytest -q: 1466 passed",
+    "web": "typecheck ok; lint 0 errors, 55 warnings all in src/scene (baseline); vitest 151 files, 1917 passed, 2 skipped (data-dependent, see gates.web_note); build ok",
+    "runtime": "SwiftShader probe of linked programs: fire3d-terrain 13 sampler units, fire3d-terrain+FLOOD 14 (shadow map included), no link failures"
+  }
 }
