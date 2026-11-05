@@ -11,14 +11,20 @@
 // Quality (SPEC 9.6): high = DPR <= 2, 4096 shadows, DOF; medium = DPR <= 1.5, 2048 shadows, DOF; low = DPR 1, no
 // shadows, no DOF. High / medium also respect a drawing-buffer pixel budget (4.6 / 3.2 MP), so a full-screen Retina
 // window renders at a slightly lower ratio. Named + default export (App lazy-loads the default).
+// Brief 5 (PLAN-5 §4.7): the same scene shows an open flood. Its assets come from useSceneAssets() (the fire's, or the
+// flood's from scene/flood/floodAssets.ts); for a flood SceneFx (fire effects) is not mounted and FloodFx draws the NWS
+// warning lines, the gauge bars and the drape labels instead. Terrain, camera, probe, lights, look and post-processing
+// are shared.
 import { Canvas } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import * as THREE from 'three'
+import { useFlood } from '../state/flood'
 import { useStore, type Quality } from '../state/store'
-import { useIncidentAssets } from './assets'
+import { useSceneAssets } from './assets'
 import { Sky } from './atmosphere/Sky'
 import { SunLights } from './atmosphere/SunLights'
 import { CameraRig } from './camera/CameraRig'
+import { FloodFx } from './flood/FloodFx'
 import { SceneFx } from './fx'
 import { LookDriver } from './LookDriver'
 import { SceneOverlays } from './overlays/SceneOverlays'
@@ -82,7 +88,8 @@ export function Scene() {
 export default Scene
 
 function SceneContent() {
-  const assets = useIncidentAssets()
+  const assets = useSceneAssets()
+  const flood = useFlood((s) => s.floodId != null)
   return (
     <>
       <LookDriver />
@@ -93,7 +100,7 @@ function SceneContent() {
       <ProbeDriver assets={assets} />
       {assets && <SelectionPin assets={assets} />}
       <PerfMonitor />
-      <SceneFx />
+      {flood ? assets?.flood && <FloodFx key={assets.manifest.id} assets={assets} flood={assets.flood} /> : <SceneFx />}
       <PostFX />
     </>
   )

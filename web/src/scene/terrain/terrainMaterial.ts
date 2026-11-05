@@ -10,6 +10,12 @@
 //                      (realistic), crisp 10/50/90 % burn-probability contours and a dashed p50 front at t
 //   burn scar, fuels   dNBR ramp and FBFM40 data-viz overlays
 //   atmosphere         aerial perspective (height fog) and an edge fade into the sky colour
+//   flood drapes       brief 5 (PLAN-5 §4.7, D25), for an open flood only (uHasFlood): the FEMA floodplain as a faint
+//                      stipple, the NWS forecast flooded area as a water-blue world-space hatch with its edge, the NWS
+//                      category flood map as a hatch at the other angle, water seen by satellite (#2a8ce6 fill with a
+//                      #7fd4ff edge, no glints) with clouds and no data as the same grey cross-hatch ("no view", never
+//                      transparent, never land: the classes' look comes from scene/flood/satClasses.ts through
+//                      uSatLut), and National Water Model output as an amber dotted edge
 // Every overlay has an opacity uniform; emissive values > 1 are left in HDR so bloom picks them up.
 import * as THREE from 'three'
 import { ATMOSPHERE_GLSL, atmosphereUniforms } from '../atmosphere/atmosphere'
@@ -127,6 +133,19 @@ const fragmentShader = /* glsl */ `
   uniform float uSweep;      // scan-sweep front radius (m); < 0 = idle
   uniform float uSweepWidth;
   uniform float uEdgeFade;
+
+  // flood drapes (brief 5): pack r NWS forecast area, g FEMA floodplain (0 / 96 / 200 / 255), b NWM, a CatFIM (linear);
+  // satellite DSWx classes (nearest) with their 256 x 2 lookup (row 0 colour + opacity, row 1 water / no view / drawn)
+  uniform sampler2D uFloodPack;
+  uniform float uHasFlood;
+  uniform sampler2D uSatWater;
+  uniform float uHasSat;
+  uniform sampler2D uSatLut;
+  uniform float uSatOpacity;
+  uniform float uFimOpacity;
+  uniform float uPlainOpacity;
+  uniform float uModelOpacity;
+  uniform float uCatfimOpacity;
 
   varying vec3 vWorld;
   varying vec2 vUv;
@@ -446,6 +465,102 @@ const fragmentShader = /* glsl */ `
     vec3 col = mix(lit, relief, uReliefMix);
     col = mix(bg, col, uTerrainOpacity);
 
+    // ---------------------------------------------------------------- flood drapes (surface colour, brief 5)
+    // world-space line spacing (at least ~10 px apart) snapped to powers of two of the pixel size, so patterns never
+    // swim or merge while zooming
+    float hatchL = 26.0 * exp2(ceil(log2(max(1.0, fp * 10.0 / 26.0))));
+    if (uHasFlood > 0.5) {
+      vec4 fl = texture2D(uFloodPack, uv);
+      // FEMA 1 % floodplain (and the 0.2 % band, sparser): a faint stipple and a hairline edge (background layer)
+      if (uPlainOpacity > 0.0) {
+        float band = smoothstep(0.2, 0.42, fl.g);
+        float sfha = smoothstep(0.6, 0.74, fl.g);
+        vec2 sc = P.xz / (hatchL * 0.55);
+        float dd = length(fract(sc) - 0.5);
+        float dotR = mix(0.1, 0.17, sfha);
+        float stip = (1.0 - smoothstep(dotR - 0.06, dotR + 0.06, dd)) * lineRoom(sc.x);
+        vec3 plainC = srgb2lin(vec3(150.0, 170.0, 200.0) / 255.0);
+        col = mix(col, plainC * 0.55, band * (0.08 + stip * mix(0.35, 0.6, sfha)) * uPlainOpacity);
+        col = mix(col, plainC, isoAA(fl.g, 0.3, 0.55) * 0.45 * uPlainOpacity);
+      }
+      // NWS forecast flooded area (next 5 days, experimental): faint water-blue fill, "/" hatch, edge
+      if (uFimOpacity > 0.0) {
+        float fim = smoothstep(0.35, 0.65, fl.r);
+        float hf = (P.x + P.z) / hatchL;
+        float h = lineAA(hf, 0.55) * lineRoom(hf);
+        vec3 edgeC = srgb2lin(vec3(127.0, 212.0, 255.0) / 255.0);
+        vec3 waterC = srgb2lin(vec3(42.0, 140.0, 230.0) / 255.0);
+        col = mix(col, waterC * 0.55, fim * 0.18 * uFimOpacity);
+        col = mix(col, edgeC, fim * h * 0.5 * uFimOpacity);
+        col = mix(col, edgeC, isoAA(fl.r, 0.5, 0.8) * 0.85 * uFimOpacity);
+      }
+      // NWS category flood map (experimental map library, off by default): the other hatch angle, paler
+      if (uCatfimOpacity > 0.0) {
+        float cf = smoothstep(0.35, 0.65, fl.a);
+        float hc = (P.x - P.z) / hatchL;
+        float h2 = lineAA(hc, 0.5) * lineRoom(hc);
+        vec3 catC = srgb2lin(vec3(207.0, 234.0, 255.0) / 255.0);
+        col = mix(col, catC, (cf * h2 * 0.45 + isoAA(fl.a, 0.5, 0.7) * 0.7) * uCatfimOpacity);
+      }
+    }
+    // water seen by satellite: the class lookup decides; bilinear masks over the 4 nearest cells give smooth edges
+    if (uHasFlood > 0.5 && uHasSat > 0.5 && uSatOpacity > 0.0) {
+      ivec2 ssz = textureSize(uSatWater, 0);
+      vec2 sp = uv * vec2(ssz) - 0.5;
+      ivec2 s0 = ivec2(floor(sp));
+      vec2 sf = sp - vec2(s0);
+      float wm = 0.0;
+      float nm = 0.0;
+      vec3 wc = vec3(0.0);
+      vec3 nc = vec3(0.0);
+      float wa = 0.0;
+      float na = 0.0;
+      for (int k = 0; k < 4; k++) {
+        ivec2 o = ivec2(k & 1, k >> 1);
+        ivec2 qq = clamp(s0 + o, ivec2(0), ssz - 1);
+        int cls = int(floor(texelFetch(uSatWater, qq, 0).r * 255.0 + 0.5));
+        vec4 lc = texelFetch(uSatLut, ivec2(cls, 0), 0);
+        vec4 lf = texelFetch(uSatLut, ivec2(cls, 1), 0);
+        float wk = (o.x == 1 ? sf.x : 1.0 - sf.x) * (o.y == 1 ? sf.y : 1.0 - sf.y);
+        vec3 lin = srgb2lin(lc.rgb);
+        wm += lf.r * wk;
+        nm += lf.g * wk;
+        wc += lin * lf.r * wk;
+        nc += lin * lf.g * wk;
+        wa += lc.a * lf.r * wk;
+        na += lc.a * lf.g * wk;
+      }
+      vec3 edgeC = srgb2lin(vec3(127.0, 212.0, 255.0) / 255.0);
+      if (wm > 0.001) {
+        vec3 wcol = wc / wm;
+        float walpha = wa / wm;
+        float wcov = smoothstep(0.3, 0.7, wm);
+        col = mix(col, wcol, wcov * min(1.0, walpha * 1.35) * uSatOpacity);
+        col = mix(col, edgeC, isoAA(wm, 0.5, 0.85) * 0.9 * uSatOpacity);
+      }
+      if (nm > 0.001) {
+        // "no view" (clouds, no data, snow / ice): grey wash + cross-hatch, never transparent and never the ground
+        vec3 ncol = nc / nm;
+        float nalpha = na / nm;
+        float ncov = smoothstep(0.3, 0.7, nm);
+        float c1 = (P.x + P.z) / (hatchL * 0.8);
+        float c2 = (P.x - P.z) / (hatchL * 0.8);
+        float xh = max(lineAA(c1, 0.5), lineAA(c2, 0.5)) * lineRoom(c1);
+        col = mix(col, ncol * 0.6, ncov * nalpha * 0.75 * uSatOpacity);
+        col = mix(col, ncol, ncov * xh * 0.55 * uSatOpacity);
+      }
+    }
+    // National Water Model flooded area (experimental model output, off by default): an amber dotted edge, faint fill
+    if (uHasFlood > 0.5 && uModelOpacity > 0.0) {
+      float mb = texture2D(uFloodPack, uv).b;
+      vec3 amberC = srgb2lin(vec3(245.0, 192.0, 96.0) / 255.0);
+      float dl = max(18.0, fp * 7.0);
+      float dots = 1.0 - smoothstep(0.28, 0.42, length(fract(P.xz / dl) - 0.5));
+      float medge = isoAA(mb, 0.5, 1.4);
+      col = mix(col, amberC * 0.6, smoothstep(0.35, 0.65, mb) * 0.07 * uModelOpacity);
+      col = mix(col, amberC, max(medge * dots, medge * 0.25) * uModelOpacity);
+    }
+
     // ---------------------------------------------------------------- emissive data layers
     vec3 emis = vec3(0.0);
     float reveal = 1.0;
@@ -619,6 +734,16 @@ export function terrainUniforms(): Record<string, THREE.IUniform> {
     uSweep: { value: -1 },
     uSweepWidth: { value: 600 },
     uEdgeFade: { value: 0.08 },
+    uFloodPack: { value: null },
+    uHasFlood: { value: 0 },
+    uSatWater: { value: null },
+    uHasSat: { value: 0 },
+    uSatLut: { value: null },
+    uSatOpacity: { value: 0 },
+    uFimOpacity: { value: 0 },
+    uPlainOpacity: { value: 0 },
+    uModelOpacity: { value: 0 },
+    uCatfimOpacity: { value: 0 },
   }
 }
 

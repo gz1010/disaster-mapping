@@ -49,3 +49,61 @@ describe('brief 5: Forensic entry page in Floods', () => {
     expect(text(foot)).toContain(`${PROTOTYPE_LINE} · ${NOT_ALL_CLEAR}`)
   })
 })
+
+describe('brief 5: the 3D flood branch (web-flood-forensic)', () => {
+  it('a listed flood without 3D data: "not prepared", Prepare 3D data, and the fixed copy', async () => {
+    const { useFlood } = await import('../../state/flood')
+    const { DETAIL_FLASH } = await import('../../api/__fixtures__/floods/edgeCases')
+    const d = DETAIL_FLASH()
+    ssrState(useStore, { incidentId: null, summary: null, panelsCollapsed: false })
+    ssrState(useWorkspace, { fireCardId: null, workspace: 'forensic', hazard: 'flood' })
+    ssrState(useFlood, { floodId: d.summary.id, summary: { ...d.summary, bundle_status: 'none' }, manifest: null, job: null, detailLoading: false, buildError: null })
+    const html = renderToStaticMarkup(createElement(ForensicWorkspace))
+    const t = text(html)
+    expect(t).toContain("Fire-3d has not prepared this flood's 3D terrain yet.")
+    expect(t).toContain('Prepare 3D data (about 1 min)')
+    expect(t).toContain(d.summary.name)
+    expect(html).toContain('aria-label="Back to all floods"')
+    expect(t).not.toContain('Pick a flood')
+    expect(text(html.slice(html.indexOf('<footer class="fx-empty-foot"')))).toContain(`${PROTOTYPE_LINE} · ${NOT_ALL_CLEAR}`)
+  })
+
+  it('a preparation running shows its progress', async () => {
+    const { useFlood } = await import('../../state/flood')
+    const { DETAIL_FLASH } = await import('../../api/__fixtures__/floods/edgeCases')
+    const d = DETAIL_FLASH()
+    ssrState(useStore, { incidentId: null, summary: null })
+    ssrState(useWorkspace, { workspace: 'forensic', hazard: 'flood' })
+    ssrState(useFlood, {
+      floodId: d.summary.id,
+      summary: { ...d.summary, bundle_status: 'none' },
+      manifest: null,
+      detailLoading: false,
+      buildError: null,
+      job: { id: 'j1', kind: 'build', incident_id: d.summary.id, status: 'running', progress: 0.4, step: 'terrain', message: '', created_ms: 0, started_ms: 0, finished_ms: null, error: null, result: null },
+    })
+    const html = renderToStaticMarkup(createElement(ForensicWorkspace))
+    expect(text(html)).toContain('Preparing 3D data… terrain 40%')
+    expect(html).toContain('role="progressbar"')
+  })
+
+  it('a flood with 3D data: the scene branch with its top bar, entry controls, demo badge and the fixed copy pill', async () => {
+    const { useFlood } = await import('../../state/flood')
+    const { DETAIL } = await import('../../api/__fixtures__/floods/edgeCases')
+    const d = DETAIL()
+    ssrState(useStore, { incidentId: null, summary: null, panelsCollapsed: false })
+    ssrState(useWorkspace, { workspace: 'forensic', hazard: 'flood' })
+    ssrState(useFlood, { floodId: d.summary.id, summary: d.summary, manifest: d.manifest, job: null, detailLoading: false })
+    const html = renderToStaticMarkup(createElement(ForensicWorkspace))
+    const t = text(html)
+    expect(t).toContain('Ridge Fork River flood')
+    expect(t).toContain('Frame flood')
+    expect(t).toContain('Charts & NWS products')
+    expect(t).toContain('Demo · simulated data')
+    expect(t).toContain('terrain, water layers and gauges are synthetic')
+    expect(t).toContain(`${PROTOTYPE_LINE} · ${NOT_ALL_CLEAR}`)
+    // the fire Forensic's own parts are not mounted for a flood
+    expect(t).not.toContain('Charts & key events')
+    expect(t).not.toContain('Frame fire')
+  })
+})

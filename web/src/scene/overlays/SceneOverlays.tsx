@@ -6,6 +6,9 @@
 // north needle and "000° · 29°" under it; drag it around its centre to turn the view (ui/useCompassDrag.ts; a click is
 // still north up, ← → on it turn 15°), with ⟲ ⟳ buttons beside it. The view dock: scale, 2D / 3D in the accent, the
 // exaggeration and quality as "1.5× ▾" / "High ▾" (the same selects), depth of field, frame fire, full screen.
+// Brief 5 (PLAN-5 §4.7): with a flood open the probe readout shows the flood layers at the cursor (satellite water
+// class, the NWS forecast flooded area, FEMA and the model when switched on) instead of fuel and arrival (a flood has
+// no ignition), the frame button frames the flood, and the loading veil follows the flood's own terrain.
 import { Aperture, Crosshair, Maximize2, Minimize2, RotateCcw, RotateCw, X } from 'lucide-react'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { headingLabel, isRotated } from '../../lib/compass'
@@ -13,10 +16,15 @@ import { fmtNumber } from '../../lib/format'
 import { fuelInfo } from '../../lib/fuels'
 import { fmtAt, fmtTPlus } from '../../lib/time'
 import { ROTATE_STEP_DEG } from '../../state/rotation'
+import { useFlood } from '../../state/flood'
 import { useStore, type Quality } from '../../state/store'
 import { useTimeFormat } from '../../state/timeZone'
+import { FLOOD_FORENSIC } from '../../ui/forensic-flood/floodForensicCopy'
+import { shownOpacity, useForensicFlood } from '../../ui/forensic-flood/forensicFloodState'
 import { useCompassDrag } from '../../ui/useCompassDrag'
 import { useAssetsError, useAssetsLoading } from '../assets'
+import { floodAssetStore, useFloodAssetsError, useFloodAssetsLoading } from '../flood/floodAssets'
+import { satDrapeOf } from '../flood/satClasses'
 import { camState } from '../camera/cameraState'
 import { headingOfAzimuth } from '../camera/heading'
 import { useSceneStore } from '../sceneStore'
@@ -166,6 +174,7 @@ function ViewDock() {
   const dof = useStore((s) => s.dof)
   const setDof = useStore((s) => s.setDof)
   const issue = useSceneStore((s) => s.issueCameraCommand)
+  const what = useFlood((s) => s.floodId != null) ? 'flood' : 'fire'
   const [fs, toggleFs] = useFullscreen()
   const exOptions = EXAGGERATIONS.includes(exaggeration) ? EXAGGERATIONS : [...EXAGGERATIONS, exaggeration].sort((a, b) => a - b)
   const dofAvailable = viewMode === '3d' && quality !== 'low'
@@ -214,7 +223,7 @@ function ViewDock() {
         >
           <Aperture />
         </button>
-        <button type="button" className="sc-icon-btn" onClick={() => issue('frame-fire')} title="Frame the fire" aria-label="Frame the fire">
+        <button type="button" className="sc-icon-btn" onClick={() => issue('frame-fire')} title={`Frame the ${what}`} aria-label={`Frame the ${what}`}>
           <Crosshair />
         </button>
         <button type="button" className="sc-icon-btn" aria-pressed={fs} onClick={toggleFs} title={fs ? 'Exit fullscreen' : 'Fullscreen'} aria-label="Toggle fullscreen">
@@ -323,6 +332,70 @@ function ProbeReadout({ area }: { area: { w: number; h: number } }) {
   )
 }
 
+/** A raster cell at the probe (row 0 = north), or null outside it. */
+function cellAt(a: Uint8Array | null, w: number, h: number, x: number, z: number, extent: number): number | null {
+  if (!a) return null
+  const c = Math.floor((x / extent + 0.5) * w)
+  const r = Math.floor((z / extent + 0.5) * h)
+  return c >= 0 && c < w && r >= 0 && r < h ? a[r * w + c] : null
+}
+
+/** The flood layers under the cursor (hybrid / parametric styles, as the fire probe): coordinates, elevation and slope,
+ *  the satellite class, the NWS forecast flooded area, and FEMA / the model only while they are switched on. */
+function FloodProbeReadout({ area }: { area: { w: number; h: number } }) {
+  const probe = useSceneStore((s) => s.probe)
+  const interacting = useSceneStore((s) => s.interacting)
+  const style = useStore((s) => s.visualStyle)
+  const assets = floodAssetStore((s) => s.assets)
+  const L = useForensicFlood((s) => s.layers)
+  const ref = useRef<HTMLDivElement>(null)
+  const [box, setBox] = useState({ w: 240, h: 110 })
+  const key = probe ? `${Math.round(probe.x / 50)}|${Math.round(probe.z / 50)}` : ''
+  useEffect(() => {
+    const el = ref.current
+    if (el) setBox((b) => (b.w === el.offsetWidth && b.h === el.offsetHeight ? b : { w: el.offsetWidth, h: el.offsetHeight }))
+  }, [key])
+  const fl = assets?.flood
+  if (!probe || interacting || style === 'realistic' || !assets || !fl || probe.screenX == null || probe.screenY == null) return null
+  const { width: w, height: h } = fl.arrays
+  const at = (a: Uint8Array | null) => cellAt(a, w, h, probe.x, probe.z, assets.extent)
+  const slopeDeg = (Math.atan(probe.slope) * 180) / Math.PI
+  const rows: [string, string][] = []
+  const sat = at(fl.arrays.satellite)
+  if (fl.has.satellite && sat != null && shownOpacity(L.satellite) > 0) rows.push([FLOOD_FORENSIC.probeWater, satDrapeOf(sat).label])
+  if (fl.has.forecast && shownOpacity(L.forecastArea) > 0) rows.push([FLOOD_FORENSIC.probeForecast, (at(fl.arrays.forecast) ?? 0) > 127 ? FLOOD_FORENSIC.probeInForecast : FLOOD_FORENSIC.probeOutForecast])
+  if (fl.has.floodplain && shownOpacity(L.floodplain) > 0) {
+    const z = at(fl.arrays.floodplain) ?? 0
+    rows.push([FLOOD_FORENSIC.probePlain, z === 3 ? FLOOD_FORENSIC.probeFloodway : z === 2 ? FLOOD_FORENSIC.probeInPlain : z === 1 ? FLOOD_FORENSIC.probeBand : FLOOD_FORENSIC.probeOutPlain])
+  }
+  if (fl.has.model && shownOpacity(L.model) > 0) rows.push([FLOOD_FORENSIC.probeModel, (at(fl.arrays.model) ?? 0) > 127 ? FLOOD_FORENSIC.probeModelIn : FLOOD_FORENSIC.probeModelOut])
+  const pw = area.w || 4000
+  const ph = area.h || 4000
+  let x = probe.screenX + 18
+  let y = probe.screenY + 18
+  if (x + box.w > pw - 8) x = probe.screenX - box.w - 18
+  if (y + box.h > ph - 8) y = probe.screenY - box.h - 18
+  return (
+    <div ref={ref} className="sc-glass sc-probe" style={{ transform: `translate(${Math.round(x)}px, ${Math.round(y)}px)` }}>
+      <div className="sc-probe-coord">
+        {Math.abs(probe.lat).toFixed(5)}°{probe.lat >= 0 ? 'N' : 'S'} {Math.abs(probe.lon).toFixed(5)}°{probe.lon >= 0 ? 'E' : 'W'}
+      </div>
+      <div className="sc-probe-row">
+        <span>ELEV</span>
+        <span>
+          {fmtNumber(probe.elev)} m <span className="sc-dim">·</span> {fmtNumber(slopeDeg)}° slope
+        </span>
+      </div>
+      {rows.map(([k, v]) => (
+        <div key={k} className="sc-probe-row">
+          <span>{k}</span>
+          <span>{v}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function QualityToast() {
   const suggestion = useSceneStore((s) => s.qualitySuggestion)
   const fps = useSceneStore((s) => s.fps)
@@ -345,10 +418,17 @@ function QualityToast() {
 }
 
 function LoadingVeil() {
-  const loading = useAssetsLoading()
-  const error = useAssetsError()
+  const flood = useFlood((s) => s.floodId != null)
+  const fireLoading = useAssetsLoading()
+  const fireError = useAssetsError()
+  const floodLoading = useFloodAssetsLoading()
+  const floodError = useFloodAssetsError()
+  const loading = flood ? floodLoading : fireLoading
+  const error = flood ? floodError : fireError
   const ready = useSceneStore((s) => s.terrainReady)
-  const hasManifest = useStore((s) => s.manifest?.status === 'ready')
+  const fireManifest = useStore((s) => s.manifest?.status === 'ready')
+  const floodManifest = useFlood((s) => s.manifest?.status === 'ready')
+  const hasManifest = flood ? floodManifest : fireManifest
   if (error && !ready) {
     return (
       <div className="sc-loading">
@@ -367,13 +447,14 @@ function LoadingVeil() {
 
 export function SceneOverlays({ rootRef }: { rootRef: RefObject<HTMLDivElement | null> }) {
   const ready = useSceneStore((s) => s.terrainReady)
+  const flood = useFlood((s) => s.floodId != null)
   const area = useElementSize(rootRef)
   return (
     <div className="sc-ui">
       <SafeAreaProbe rootRef={rootRef} />
       {ready && <Compass />}
       {ready && <ViewDock />}
-      <ProbeReadout area={area} />
+      {flood ? <FloodProbeReadout area={area} /> : <ProbeReadout area={area} />}
       <QualityToast />
       <LoadingVeil />
     </div>
