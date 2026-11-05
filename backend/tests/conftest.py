@@ -155,19 +155,59 @@ def recorded_flood_inputs():
     return inp, now
 
 
+def route_transport(routes: list[tuple[str, str, object]], calls: list[httpx.Request] | None = None) -> httpx.MockTransport:
+    """An ``httpx.MockTransport`` answering by (host, path regex): each route's answer is a ``Path`` (its bytes, 200),
+    bytes, a dict / list (JSON, 200), an ``httpx.Response``, or a callable ``request -> httpx.Response``. Requests
+    that match no route raise (as the offline guard does). ``calls`` (optional) collects every request."""
+    import re as _re
+
+    import orjson as _orjson
+
+    compiled = [(h, _re.compile(p), a) for h, p, a in routes]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if calls is not None:
+            calls.append(request)
+        for host, rx, answer in compiled:
+            if request.url.host == host and rx.search(request.url.path):
+                if callable(answer) and not isinstance(answer, (Path, bytes, dict, list)):
+                    return answer(request)
+                if isinstance(answer, httpx.Response):
+                    return answer
+                if isinstance(answer, Path):
+                    body = answer.read_bytes()
+                    ctype = ("image/tiff" if answer.suffix == ".tif" else "text/xml" if answer.suffix == ".xml"
+                             else "application/json")
+                    return httpx.Response(200, content=body, headers={"content-type": ctype})
+                if isinstance(answer, bytes):
+                    return httpx.Response(200, content=answer)
+                return httpx.Response(200, content=_orjson.dumps(answer), headers={"content-type": "application/json"})
+        raise RuntimeError(f"no test route for {f3config.mask_secrets(str(request.url))}")
+
+    return httpx.MockTransport(handler)
+
+
+@pytest.fixture
+def no_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``fire3d.http`` retries without waiting (tests of retry paths)."""
+    monkeypatch.setattr(fhttp, "_retry_delay", lambda attempt, retry_after: 0.0)
+
+
 @pytest.fixture
 def flood_iso(tmp_data_dir: Path):
     """PLAN-5 section 8 isolation for flood tests: temp DATA_DIR / FLOODS_DIR / CACHE_DIR (``tmp_data_dir``), and every
     in-memory cache cleared before and after (flood list, registries, NWS, extras, outage memories)."""
     from fire3d.api import extras
     from fire3d.floods import catalog as cat
-    from fire3d.sources import nws, nwps
+    from fire3d.sources import nfhl, nws, nwps, opera, usgs_water, water_maps
 
     def clear() -> None:
         cat.reset_state()
         nws.reset_state()
         extras.reset_state()
         nwps.NWPS_DOWN.reset()
+        for mod in (water_maps, nfhl, opera, usgs_water):
+            mod.reset_state()
         fhttp.reset_down_memos()
 
     clear()

@@ -1,0 +1,1654 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T00:00:00+00:00",
+        "value": "10200",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "5958e69c-d28b-42ea-9376-8ad3044652a6",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T00:15:00+00:00",
+        "value": "10400",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "7178a25e-43d3-44a2-b08d-95befc544c99",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T00:30:00+00:00",
+        "value": "10500",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "1f7a9f3b-4a54-4e11-9be5-cbd1b5401e34",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T00:45:00+00:00",
+        "value": "10800",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "e3119f91-1596-4c5d-b8c7-f3d7a7e87e79",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T01:00:00+00:00",
+        "value": "11000",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "b885e475-30af-4984-97b6-c6a7fc641817",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T01:15:00+00:00",
+        "value": "11200",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "7dbf5556-b979-4f53-a157-f96eac8d5bd7",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T01:30:00+00:00",
+        "value": "11400",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "6a93963f-21f3-4824-8aa8-15c1274ed409",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T01:45:00+00:00",
+        "value": "11600",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "e844ef6a-189b-4c04-859e-bce7d7a18406",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T02:00:00+00:00",
+        "value": "11900",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "b42f9f5e-1aca-4927-8ac2-b07340695299",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T02:15:00+00:00",
+        "value": "12100",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "d8340178-1067-46a8-8d18-eb0b6f0ef412",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T02:30:00+00:00",
+        "value": "12300",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "7d3c5b6b-57d6-426b-8a6e-5eff342b5f5e",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T02:45:00+00:00",
+        "value": "12400",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "9e879604-4c62-4f8b-adcf-3cc8bf020e6b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T03:00:00+00:00",
+        "value": "12600",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "9489d393-6b14-4078-9eee-b0044e56e11e",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T03:15:00+00:00",
+        "value": "12800",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "60a31393-2140-4cab-9b4c-c943edb18acf",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T03:30:00+00:00",
+        "value": "12900",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "2b0e13ec-0587-4553-9779-bdcdb79bd6e9",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T03:45:00+00:00",
+        "value": "13100",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "4fae0676-db33-484c-b17d-67c4b0578664",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T04:00:00+00:00",
+        "value": "13200",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "e68f4386-b3e2-4553-a8a1-426f4c3bce69",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T04:15:00+00:00",
+        "value": "13300",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "5b16cf45-c650-47a2-ae6c-4d7205b4d86b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T04:30:00+00:00",
+        "value": "13400",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "35d2ce7b-0bd2-4493-8255-aae2279348f6",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T04:45:00+00:00",
+        "value": "13600",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "f5a64f35-b544-47e7-b144-55852bd985bc",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T05:00:00+00:00",
+        "value": "13700",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "077ddff0-59a2-4508-bf13-367bad8b7bb7",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T05:15:00+00:00",
+        "value": "13800",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "7e277fb2-4b23-4ddf-8f65-a693172838ac",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T05:30:00+00:00",
+        "value": "13900",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "7a76e82c-e25f-4dc5-b434-244a611b1eb6",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T05:45:00+00:00",
+        "value": "14000",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "06c68faf-ada7-436a-b2dc-50b18745107c",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T06:00:00+00:00",
+        "value": "14100",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "fadb79e4-b760-4490-971f-77a283d502fa",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T06:15:00+00:00",
+        "value": "14200",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "cfc90112-3c8b-4918-862e-e91ed0f0cae4",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T06:30:00+00:00",
+        "value": "14300",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "ade8af9d-34da-4b19-a76b-2453ef40aad6",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T06:45:00+00:00",
+        "value": "14400",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "1fcddf92-1a36-41b2-a698-7fc8ed002b31",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T07:00:00+00:00",
+        "value": "14500",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "7cc4b0ca-a5ff-45af-bb2b-d5276b19fd4a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T07:15:00+00:00",
+        "value": "14600",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "1c00b42f-691a-45a7-8c78-6c7d6cc233a9",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T07:30:00+00:00",
+        "value": "14700",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "5184ace1-c375-4a15-8711-b1b41be3ed3c",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T07:45:00+00:00",
+        "value": "14800",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "342a5d00-24c3-4ef8-b547-8579c1aeb7b6",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T08:00:00+00:00",
+        "value": "14900",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "f41a9b25-6745-4496-956f-4b25624a6233",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T08:15:00+00:00",
+        "value": "15000",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "aacca718-9832-4e5c-96cb-233a34bfecd7",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T08:30:00+00:00",
+        "value": "15100",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "a3053b29-5cfc-461b-890c-c34454fa8bee",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T08:45:00+00:00",
+        "value": "15100",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "8592060d-a622-489a-b8bb-91e1d43ebadf",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T09:00:00+00:00",
+        "value": "15200",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "664b38bc-cbd6-4ea3-be46-1b37fd3f4555",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T09:15:00+00:00",
+        "value": "15300",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "27963658-600e-4dba-9c13-5074f3758478",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T09:30:00+00:00",
+        "value": "15300",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "d7aadeed-d738-4a1d-815d-c5a18f9fa7cc",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T09:45:00+00:00",
+        "value": "15400",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "c62ddbcc-7eed-4d03-8bdb-9bd84c5f484d",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T10:00:00+00:00",
+        "value": "15500",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "fee524a8-1b98-459f-acd8-d87a985b613b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T10:15:00+00:00",
+        "value": "15600",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "1f8efff9-871d-435c-a4a2-ce2ba3373c2c",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T10:30:00+00:00",
+        "value": "15600",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "f941a592-080f-4a8f-938a-fb861071af40",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T10:45:00+00:00",
+        "value": "15600",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "03de00a8-2f42-44f4-bbeb-52ef924d32b4",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T11:00:00+00:00",
+        "value": "15700",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "6f7d384a-60ba-40c2-84ce-62acba21c528",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T11:15:00+00:00",
+        "value": "15700",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "44975051-0cd6-4ba1-8aae-79651091785f",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T11:30:00+00:00",
+        "value": "15800",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "e06b917f-9488-4a62-b2dc-0bee11507481",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T11:45:00+00:00",
+        "value": "15800",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "53830b73-c2fb-40e9-b39b-9915c43a5523",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T12:00:00+00:00",
+        "value": "15900",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "cf2e7951-50dc-4625-87c7-9b7984352cb5",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T12:15:00+00:00",
+        "value": "15900",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "7c45e8fb-9e36-4dc7-85e7-3c70a42bf4c3",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T12:30:00+00:00",
+        "value": "15900",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "4f53c20a-0024-4323-a984-900c01aa6045",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T12:45:00+00:00",
+        "value": "16000",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "d9b62d69-f307-40b3-8e33-8ebcca9acb1f",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T13:00:00+00:00",
+        "value": "16000",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "f839cc0b-8a00-4fbc-81f9-35642ae6e2c9",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T13:15:00+00:00",
+        "value": "16100",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "5dd0f0be-581a-4273-9f55-74b0b4ff523d",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T13:30:00+00:00",
+        "value": "16100",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "d1137222-a294-41ed-8844-40110ba39b0e",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T13:45:00+00:00",
+        "value": "16200",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "e576b972-f8e9-44ce-a9bd-fb115561bc79",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T14:00:00+00:00",
+        "value": "16300",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "eacf775c-9cb1-49d8-91d0-893f939f53ec",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T14:15:00+00:00",
+        "value": "16300",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "200eded7-1a85-48b9-92c9-da7d90774b7a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T14:30:00+00:00",
+        "value": "16400",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "ebdfdbdb-7497-4723-b162-d07788564720",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T14:45:00+00:00",
+        "value": "16400",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "47f1527e-27e5-46d2-a418-142ca368edf7",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T15:00:00+00:00",
+        "value": "16500",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "78786cd8-80bf-4d02-ac7f-ae756d630e9a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T15:15:00+00:00",
+        "value": "16500",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "74e70b37-34ce-4b03-8e72-921a2dffb02e",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T15:30:00+00:00",
+        "value": "16500",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "8cf0bef3-b9d9-4aa3-bfb9-d6a96c311f32",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T15:45:00+00:00",
+        "value": "16600",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "4276f84d-e211-4cfc-aa17-1cb47a3d52df",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T16:00:00+00:00",
+        "value": "16700",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "8ce9e91e-dece-4504-9710-1fdb90932ca9",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T16:15:00+00:00",
+        "value": "16700",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "68e41be8-5e8e-43f9-898e-9b8e3a4dd0e2",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T16:30:00+00:00",
+        "value": "16800",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "67c57055-c611-4e2c-a033-4a9a233763f1",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T16:45:00+00:00",
+        "value": "16900",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "ab9a640b-af9e-4b36-8c94-5620b648c986",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T17:00:00+00:00",
+        "value": "16900",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "5f44350c-fe62-4269-8d2a-57d19e0cbb37",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T17:15:00+00:00",
+        "value": "17000",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "db8e8fdd-ba8d-403f-b6c9-4c896c20a507",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T17:30:00+00:00",
+        "value": "17100",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "9fa19f52-17de-4175-bf82-750966becdde",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T17:45:00+00:00",
+        "value": "17100",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "ec08d54a-79c7-475d-aff0-336be863e5e8",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T18:00:00+00:00",
+        "value": "17200",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "c11480d1-1d35-4925-b876-928d36f57028",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T18:15:00+00:00",
+        "value": "17200",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "75a2ab1d-a269-43ab-910c-caa15a55d5b0",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T18:30:00+00:00",
+        "value": "17300",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "647ce3c8-21bd-48f3-8894-03312a3b14a4",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T18:45:00+00:00",
+        "value": "17400",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "7b2e45c8-88c2-4616-8910-8036573c08e8",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T19:00:00+00:00",
+        "value": "17500",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "17ec2130-8545-4793-97c2-07d940a67076",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T19:15:00+00:00",
+        "value": "17600",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "cd19d220-dccf-4b48-9cd0-d1ddf3b884c1",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T19:30:00+00:00",
+        "value": "17600",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "ec90798b-447e-411c-976c-a786ef05c1ad",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T19:45:00+00:00",
+        "value": "17700",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "ee1fe6cd-5476-49ba-b057-bee3d917b40a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T20:00:00+00:00",
+        "value": "17700",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "80197bc2-46a6-445d-a45a-364d99c6733b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T20:15:00+00:00",
+        "value": "17800",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "705858a3-322f-42a1-bba6-d311caa1cfe1",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T20:30:00+00:00",
+        "value": "17800",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "633a7c53-6fd3-42cc-a235-4b91b561d6a4",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T20:45:00+00:00",
+        "value": "17900",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "93ac5af1-ad10-47a2-9d01-16ac547052ad",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T21:00:00+00:00",
+        "value": "17900",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "5863faec-7e09-40a7-a415-c086b9d9da7e",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T21:15:00+00:00",
+        "value": "18000",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "55312016-7108-471a-9703-96a638573b7d",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T21:30:00+00:00",
+        "value": "18000",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "b77cbe75-e019-4a19-9751-6df5e32f413b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T21:45:00+00:00",
+        "value": "18000",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "273c0917-1a5f-4cc3-9e29-21b7df2bed39",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T22:00:00+00:00",
+        "value": "18100",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "aea1d4d6-91ac-4455-8533-0fe7afbac4db",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T22:15:00+00:00",
+        "value": "18100",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "fa522929-5611-475e-bd47-50433fe0359e",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T22:30:00+00:00",
+        "value": "18100",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "aa8f49e1-c601-4751-b897-c4d30b2a9532",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T22:45:00+00:00",
+        "value": "18100",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "8fafe8ba-ec66-4198-8239-20e9f7af294e",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T23:00:00+00:00",
+        "value": "18200",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "ae3a65db-1529-4d37-8fd0-12f7a5c27b12",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T23:15:00+00:00",
+        "value": "18200",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "2b7e1953-d3f3-45fc-b868-8ddcfa39ebc7",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-11-04T23:30:00+00:00",
+        "value": "18300",
+        "unit_of_measure": "ft^3/s",
+        "approval_status": "Provisional"
+      },
+      "id": "d32a3253-66ed-46db-af64-70e9257bb1b7",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -94.7026111111111,
+          39.6880277777778
+        ]
+      }
+    }
+  ],
+  "numberReturned": 95,
+  "links": [
+    {
+      "type": "application/geo+json",
+      "rel": "self",
+      "title": "This document as GeoJSON",
+      "href": "https://api.waterdata.usgs.gov/ogcapi/v1/collections/continuous/items?f=json&monitoring_location_id=USGS-06820500&parameter_code=00060&time=2026-11-04T00%3A00%3A00Z%2F2026-11-05T00%3A00%3A00Z&limit=10000&properties=time,value,unit_of_measure,approval_status"
+    },
+    {
+      "rel": "alternate",
+      "type": "application/ld+json",
+      "title": "This document as RDF (JSON-LD)",
+      "href": "https://api.waterdata.usgs.gov/ogcapi/v1/collections/continuous/items?f=jsonld&monitoring_location_id=USGS-06820500&parameter_code=00060&time=2026-11-04T00%3A00%3A00Z%2F2026-11-05T00%3A00%3A00Z&limit=10000&properties=time,value,unit_of_measure,approval_status"
+    },
+    {
+      "type": "text/html",
+      "rel": "alternate",
+      "title": "This document as HTML",
+      "href": "https://api.waterdata.usgs.gov/ogcapi/v1/collections/continuous/items?f=html&monitoring_location_id=USGS-06820500&parameter_code=00060&time=2026-11-04T00%3A00%3A00Z%2F2026-11-05T00%3A00%3A00Z&limit=10000&properties=time,value,unit_of_measure,approval_status"
+    },
+    {
+      "type": "text/csv; charset=utf-8",
+      "rel": "alternate",
+      "title": "This document as CSV",
+      "href": "https://api.waterdata.usgs.gov/ogcapi/v1/collections/continuous/items?f=csv&monitoring_location_id=USGS-06820500&parameter_code=00060&time=2026-11-04T00%3A00%3A00Z%2F2026-11-05T00%3A00%3A00Z&limit=10000&properties=time,value,unit_of_measure,approval_status"
+    },
+    {
+      "type": "application/json",
+      "title": "Continuous values",
+      "rel": "collection",
+      "href": "https://api.waterdata.usgs.gov/ogcapi/v1/collections/continuous"
+    }
+  ],
+  "timeStamp": "2026-11-05T00:10:44.314765Z"
+}
