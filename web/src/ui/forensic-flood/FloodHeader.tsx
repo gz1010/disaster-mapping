@@ -50,10 +50,12 @@ function FloodMeta() {
   const tf = useTimeFormat()
   const s = useFlood(openFloodSummary)
   if (!s) return null
-  const place = floodPlace(s)
+  const full = floodPlace(s)
+  // the fire bar's way: the county alone ("San Juan County"), the full place and the point in the tooltip
+  const place = full?.split(',')[0]?.trim() || full
   const date = floodDateLine(s, s.time_zone || tf.tz)
   return (
-    <span className="tb-place fx-place" data-tip={`${place ?? s.name} · ${fmtLatLon(s.lat, s.lon, 3)}`}>
+    <span className="tb-place fx-place" data-tip={`${full ?? s.name} · ${fmtLatLon(s.lat, s.lon, 3)}`}>
       {place && <span className="fx-place-name">{place}</span>}
       {date && (
         <span className={`tb-date${place ? ' fx-place-date' : ''}`}>

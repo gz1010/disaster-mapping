@@ -193,17 +193,22 @@ function OverviewCard() {
   )
 }
 
+/** Nearby gauges listed before "Show all" (a 60 km area can hold dozens). */
+const NEARBY_SHOWN = 4
+
 function GaugesCard() {
   const tf = useTimeFormat()
   const units = useWorkspace((s) => s.units)
   const nowMs = useNow(60_000)
   const flood = floodAssetStore((s) => s.assets?.flood ?? null)
+  const [allNearby, setAllNearby] = useState(false)
   if (!flood) return null
   const rows = gaugeRows(flood.gauges, flood.summary, units, tf, nowMs)
   const members = rows.filter((r) => r.member)
-  const nearby = rows.filter((r) => !r.member)
+  const nearbyAll = rows.filter((r) => !r.member)
+  const nearby = allNearby ? nearbyAll : nearbyAll.slice(0, NEARBY_SHOWN)
   return (
-    <Card title={FLOOD_FORENSIC.gaugesCard} sub={members.length ? <span className="mono">{members.length}</span> : undefined} collapsible storageKey="flood-gauges" className="fxf-card">
+    <Card title={FLOOD_FORENSIC.gaugesCard} sub={members.length ? <span className="mono">{members.length}</span> : undefined} collapsible storageKey="flood-gauges" className="fxf-card fxf-gauges-card" bodyClassName="fxf-card-scroll">
       {flood.gauges && flood.gauges.status !== 'available' ? (
         <p className="fxf-none">{flood.gauges.reason ?? FLOOD_FORENSIC.gaugesUnavailable}</p>
       ) : (
@@ -228,6 +233,11 @@ function GaugesCard() {
                 ))}
               </div>
             ) : null,
+          )}
+          {nearbyAll.length > NEARBY_SHOWN && (
+            <button type="button" className="btn btn-sm btn-ghost fxf-more" aria-expanded={allNearby} onClick={() => setAllNearby((v) => !v)}>
+              {allNearby ? FLOOD_FORENSIC.gaugesFewer : fillCopy(FLOOD_FORENSIC.gaugesAll, { n: nearbyAll.length })}
+            </button>
           )}
           <p className="fxf-card-note">{FLOOD_FORENSIC.barHeight}</p>
         </>

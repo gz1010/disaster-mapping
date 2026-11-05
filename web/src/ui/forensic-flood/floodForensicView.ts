@@ -73,7 +73,7 @@ const SAT_STALE_MS = 3 * 24 * 3_600_000
 /** One key item per layer drawn, each with its own time (D8); the age is computed now, from the image's own time
  *  (C16). The gauge line always says what the bar height means. */
 export function sceneKeyItems(i: {
-  flood: Pick<FloodSceneAssets, 'has' | 'satellite' | 'manifest' | 'catfim' | 'arrays'>
+  flood: Pick<FloodSceneAssets, 'has' | 'satellite' | 'manifest' | 'catfim'>
   layers: Record<FloodForensicLayer, FloodLayerSetting>
   tf: TimeFmt
   nowMs: number
@@ -88,7 +88,7 @@ export function sceneKeyItems(i: {
     if (flood.has.satellite && g) {
       const time = fmtAt(g.acquired_ms, tf, { zone: true, year: 'auto', refMs: nowMs })
       out.push({ key: 'satellite', swatch: 'satellite', text: fillCopy(FLOOD_FORENSIC.keySatellite, { time, age: fmtRelative(g.acquired_ms, nowMs) }), stale: nowMs - g.acquired_ms > SAT_STALE_MS })
-      if (hasNoView(flood.arrays.satellite)) out.push({ key: 'noview', swatch: 'noview', text: FLOOD_FORENSIC.keySatNoView })
+      if (flood.has.noView) out.push({ key: 'noview', swatch: 'noview', text: FLOOD_FORENSIC.keySatNoView })
       if (flood.satellite?.image) out.push({ key: 'edge', swatch: 'edge', text: FLOOD_FORENSIC.keySatEdge })
     } else out.push({ key: 'satnone', swatch: 'noview', text: flood.manifest.layer_status.water_satellite?.reason ?? FLOOD_FORENSIC.keySatNone })
   }
@@ -102,15 +102,6 @@ export function sceneKeyItems(i: {
   if (on('model') && flood.has.model) out.push({ key: 'model', swatch: 'model', text: FLOOD_FORENSIC.keyModel })
   if (on('gauges') && i.hasGauges) out.push({ key: 'bar', swatch: 'bar', text: FLOOD_FORENSIC.barHeight })
   return out
-}
-
-function hasNoView(a: Uint8Array | null): boolean {
-  if (!a) return false
-  for (let k = 0; k < a.length; k += 7) {
-    const v = a[k]
-    if (v !== 0 && v !== 1 && v !== 2 && v !== 254) return true
-  }
-  return false
 }
 
 export interface EvidenceProduct {

@@ -185,9 +185,11 @@ export function GaugeBars({ assets, flood }: { assets: IncidentAssets; flood: Fl
       {markGeo && <mesh geometry={markGeo} material={markMat} frustumCulled={false} renderOrder={ORDER.profile + 1} name="flood-gauge-marks" />}
       {labelsOn && (
         <InOverlay>
-          {bars.map((b) => (
-            <BarLabel key={b.lid} assets={assets} bar={b} />
-          ))}
+          {bars
+            .filter((b) => b.labelled)
+            .map((b) => (
+              <BarLabel key={b.lid} assets={assets} bar={b} />
+            ))}
         </InOverlay>
       )}
     </>

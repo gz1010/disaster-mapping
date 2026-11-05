@@ -9,6 +9,7 @@ import { CATEGORY_COLORS, gaugeTone } from '../../map/floodStyle'
 import { memberGaugesOf, orderAlerts, senderName } from '../../official/floodModel'
 import { floodAssetStore } from '../../scene/flood/floodAssets'
 import { warningsAt } from '../../scene/flood/floodGeo'
+import { categoryCaps } from '../../scene/flood/gaugeBarMath'
 import { useFlood } from '../../state/flood'
 import { useTimeFormat } from '../../state/timeZone'
 import { useNow } from '../hooks'
@@ -16,29 +17,26 @@ import { CURSOR_FUTURE_PRODUCTS, fillCopy, FLOOD_PUBLIC, NO_PRODUCT } from '../s
 import { Hydrograph } from '../timeline/Hydrograph'
 import { FLOOD_FORENSIC } from './floodForensicCopy'
 
-function GaugeChips() {
+/** The chart's gauge: the flood's member gauges (primary first), a compact picker on the dock's left; its colour is
+ *  the gauge's NWS category, written in the list. */
+function GaugePick() {
   const flood = floodAssetStore((s) => s.assets?.flood ?? null)
   const lid = useFlood((s) => s.gaugeLid)
   const members = flood ? memberGaugesOf(flood.gauges, flood.summary) : []
   if (members.length < 2) return null
-  const shown = lid ?? flood?.summary.primary_gauge?.lid ?? members[0].lid
+  const shown = members.find((g) => g.lid === lid) ?? members.find((g) => g.lid === flood?.summary.primary_gauge?.lid) ?? members[0]
   return (
-    <div className="fxf-chips" role="radiogroup" aria-label="River gauge of the chart">
-      {members.map((g) => (
-        <button
-          key={g.lid}
-          type="button"
-          role="radio"
-          aria-checked={g.lid === shown}
-          className="fxf-chip mono"
-          data-tip={g.name}
-          onClick={() => useFlood.getState().setGauge(g.lid)}
-        >
-          <i style={{ background: CATEGORY_COLORS[gaugeTone(g.observed.category)] }} aria-hidden="true" />
-          {g.lid}
-        </button>
-      ))}
-    </div>
+    <label className="fxf-pick" data-tip={shown.name}>
+      <i style={{ background: CATEGORY_COLORS[gaugeTone(shown.observed.category)] }} aria-hidden="true" />
+      <span className="sr-only">{FLOOD_FORENSIC.gaugePick}</span>
+      <select className="mono" value={shown.lid} onChange={(e) => useFlood.getState().setGauge(e.target.value)}>
+        {members.map((g) => (
+          <option key={g.lid} value={g.lid}>
+            {g.lid} · {categoryCaps(g.observed.category)}
+          </option>
+        ))}
+      </select>
+    </label>
   )
 }
 
@@ -91,7 +89,7 @@ export function FloodDock({ dockRef }: { dockRef?: Ref<HTMLElement> }) {
   return (
     <section className="dock glass fxf-dock" ref={dockRef} aria-label={FLOOD_FORENSIC.dockTitle}>
       <div className="dock-main fxf-dock-main">
-        <GaugeChips />
+        <GaugePick />
         {floodId && <Hydrograph variant="dock" floodId={floodId} lid={lid} products={products} gauges={gauges} />}
       </div>
       <ProductsColumn />

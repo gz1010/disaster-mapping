@@ -482,7 +482,50 @@
   color: var(--text-3);
 }
 
+.fxf-card-scroll {
+  max-height: 260px;
+  overflow-y: auto;
+}
+.fxf-more {
+  margin: 2px 0 4px;
+}
+
 /* ------------------------------------------------------------------------------------------------ dock */
+.fxf-pick {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  height: 26px;
+  margin: 10px 0 0 12px;
+  padding: 0 4px 0 9px;
+  border-radius: 7px;
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.03);
+  flex: none;
+}
+.fxf-pick i {
+  width: 7px;
+  height: 7px;
+  transform: rotate(45deg);
+  flex: none;
+}
+.fxf-pick select {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 10.5px;
+  padding: 0 6px 0 0;
+  max-width: 150px;
+  cursor: pointer;
+}
+.fxf-pick select option {
+  background: #161616;
+  color: var(--text);
+}
 .fxf-dock-main {
   flex-direction: row;
   align-items: stretch;

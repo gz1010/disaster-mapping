@@ -163,22 +163,31 @@ export function floodFrameOf(summary: Pick<FloodSummary, 'bbox_lonlat' | 'lat' |
 }
 
 /** A point to hang a label on a mask (row 0 = north): the set cell nearest to the set cells' centroid (so it lies on
- *  the area, even for a bent river), in local metres; null when nothing is set. */
-export function maskAnchor(mask: Uint8Array | null | undefined, width: number, height: number, extent: number): [number, number] | null {
+ *  the area, even for a bent river), in local metres; null when nothing is set. `bias` moves the target by a share of
+ *  the mask's own box ([east, south]), so two labels on overlapping areas do not sit on each other. */
+export function maskAnchor(mask: Uint8Array | null | undefined, width: number, height: number, extent: number, bias: [number, number] = [0, 0]): [number, number] | null {
   if (!mask || mask.length !== width * height) return null
   let n = 0
   let sr = 0
   let sc = 0
+  let r0 = height
+  let r1 = -1
+  let c0 = width
+  let c1 = -1
   for (let r = 0; r < height; r++)
     for (let c = 0; c < width; c++)
       if (mask[r * width + c] > 127) {
         n++
         sr += r
         sc += c
+        if (r < r0) r0 = r
+        if (r > r1) r1 = r
+        if (c < c0) c0 = c
+        if (c > c1) c1 = c
       }
   if (!n) return null
-  const mr = sr / n
-  const mc = sc / n
+  const mr = sr / n + bias[1] * (r1 - r0)
+  const mc = sc / n + bias[0] * (c1 - c0)
   let best = -1
   let bestD = Infinity
   // a coarse search is enough for a label

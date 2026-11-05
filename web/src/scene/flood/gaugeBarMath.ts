@@ -53,7 +53,12 @@ export interface GaugeBarSpec {
   /** Top of everything drawn (m of bar), for the label. */
   topM: number
   label: string
+  /** The label is drawn: members, and nearby gauges at action stage or above (a gauge below flood stage or without
+   *  NWS flood stages keeps its bar, unlabelled, so a wide area does not fill with labels). */
+  labelled: boolean
 }
+
+const AT_ACTION_OR_ABOVE = new Set(['action', 'minor', 'moderate', 'major'])
 
 const TICKS: TickCategory[] = ['action', 'minor', 'moderate', 'major']
 
@@ -121,6 +126,7 @@ export function gaugeBars(
       ticks,
       topM,
       label: gaugeBarLabel(g, o.units, o.tf, o.nowMs),
+      labelled: g.member || AT_ACTION_OR_ABOVE.has(g.observed.category),
     })
   }
   return out.sort((a, b) => Number(b.member) - Number(a.member))

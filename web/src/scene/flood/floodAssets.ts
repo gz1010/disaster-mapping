@@ -16,7 +16,7 @@ import { dataTexture, flipRows, imageTexture, type LoadedLayer } from '../../lib
 import { useFlood } from '../../state/flood'
 import type { IncidentAssets, SceneManifest } from '../assets'
 import { anySet, chooseCatfim, featurePolygons, floodFrameOf, maskAnchor, packFloodLayers, rasterizePolygons, type CatfimChoice, type FloodFrame } from './floodGeo'
-import { satLutData } from './satClasses'
+import { satLutData, satShares } from './satClasses'
 
 export interface FloodSceneAssets {
   manifest: FloodManifest
@@ -29,8 +29,8 @@ export interface FloodSceneAssets {
     /** 256 x 2 class lookup (satClasses.satLutData). */
     satLut: THREE.DataTexture
   }
-  /** Which drapes have anything to draw. */
-  has: { forecast: boolean; floodplain: boolean; model: boolean; catfim: boolean; satellite: boolean }
+  /** Which drapes have anything to draw; noView: the satellite image has clouds, no data or snow cells (hatched). */
+  has: { forecast: boolean; floodplain: boolean; model: boolean; catfim: boolean; satellite: boolean; noView: boolean }
   /** Render-grid rasters as stored (row 0 = north), for the probe and the key. */
   arrays: {
     width: number
@@ -165,7 +165,14 @@ async function loadFloodAssets(m: FloodManifest, summary: FloodSummary, key: str
   const mArr = same(u8(model))
   const sArr = same(u8(satellite))
   const cArr = catfimFc ? rasterizePolygons(featurePolygons(catfimFc, m.grid), w, h, extent) : null
-  const has = { forecast: anySet(fArr), floodplain: Boolean(pArr && pArr.some((v) => v > 0)), model: anySet(mArr), catfim: anySet(cArr), satellite: sArr != null }
+  const has = {
+    forecast: anySet(fArr),
+    floodplain: Boolean(pArr && pArr.some((v) => v > 0)),
+    model: anySet(mArr),
+    catfim: anySet(cArr),
+    satellite: sArr != null,
+    noView: sArr != null && satShares(sArr).noView > 0,
+  }
   const pack = has.forecast || has.floodplain || has.model || has.catfim ? packTexture(packFloodLayers(w * h, { forecast: fArr, floodplain: pArr, model: mArr, catfim: cArr }), w, h) : null
   const satWater = sArr && satellite ? dataTexture({ name: 'water_satellite', url: satellite.url, info: satellite.info, data: sArr, width: w, height: h }, { filter: 'nearest' }) : null
   const scene = sceneManifestOf(m)
@@ -216,7 +223,8 @@ async function loadFloodAssets(m: FloodManifest, summary: FloodSummary, key: str
       gauges: gauges?.kind === 'river_gauges' ? gauges : null,
       satellite: satJson?.kind === 'satellite_water' ? satJson : null,
       frame: floodFrameOf(summary, m.grid),
-      anchors: { model: maskAnchor(mArr, w, h, extent), catfim: maskAnchor(cArr, w, h, extent) },
+      // the model's label east of the middle, the category map's west of it (the two areas overlap the river)
+      anchors: { model: maskAnchor(mArr, w, h, extent, [0.28, 0]), catfim: maskAnchor(cArr, w, h, extent, [-0.3, 0]) },
     },
   }
 }

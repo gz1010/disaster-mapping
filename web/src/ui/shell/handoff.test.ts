@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { makeManifest, ZONE11 } from '../../location/fixtures.testutil'
 import { useMapRuntime } from '../../map/mapStore'
 import { useSceneStore, type CameraInfo } from '../../scene/sceneStore'
@@ -68,5 +68,39 @@ describe('workspace hand-off heading (decision k)', () => {
       switchWorkspace('map')
       expect(useWorkspace.getState().view?.bearing).toBe(0)
     })
+  })
+})
+
+describe('brief 5: the hand-off of an open flood (its grid, the same heading rule)', () => {
+  it("map -> Forensic flies to the map's centre inside the flood's 3D area, with the map's heading; back keeps it", async () => {
+    const { useFlood } = await import('../../state/flood')
+    const { DETAIL } = await import('../../api/__fixtures__/floods/edgeCases')
+    const { openEventGrid } = await import('./handoff')
+    const d = DETAIL()
+    const m = d.manifest!
+    useStore.setState({ manifest: null, incidentId: null, flyTo: null })
+    useFlood.setState({ floodId: m.id, manifest: m, summary: d.summary })
+    useSceneStore.setState({ camera: null, interacting: false, cameraCommand: null })
+    const [w, s, e, n] = m.grid.bbox_lonlat
+    const centerLon = (w + e) / 2
+    const centerLat = (s + n) / 2
+    useWorkspace.setState({ workspace: 'map', perspective: '2d', view: { centerLon, centerLat, zoom: 12, bearing: 40, pitch: 0 } })
+    useMapRuntime.setState({ camera: null })
+    vi.stubGlobal('window', { innerHeight: 1000 })
+    expect(openEventGrid()).toMatchObject({ kind: 'flood', id: 'fixture-flood' })
+    switchWorkspace('forensic')
+    const fly = useStore.getState().flyTo
+    expect(fly).not.toBeNull()
+    expect(Math.abs(fly!.x)).toBeLessThan(m.grid.extent_m / 2)
+    expect(fly!.bearingDeg).toBe(40)
+    // back to the map: the Forensic camera's target in the flood's grid, the map's own heading (not turned)
+    useSceneStore.getState().setCamera({ bearingDeg: 337.5, polarDeg: 30, distance: 4000, metersPerPixel: 10, target: [0, 0, 0] })
+    switchWorkspace('map')
+    const v = useWorkspace.getState().view!
+    expect(v.bearing).toBe(40)
+    expect(Math.abs(v.centerLon - centerLon)).toBeLessThan(0.05)
+    useFlood.setState({ floodId: null, manifest: null, summary: null })
+    expect(openEventGrid()).toBeNull()
+    vi.unstubAllGlobals()
   })
 })

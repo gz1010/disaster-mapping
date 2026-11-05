@@ -7,11 +7,15 @@
 // heading is used only when the user turned the Forensic camera there (a drag that changed the heading, or a turn /
 // north-up command); otherwise the map gets back its own heading from before it left (review H2-B2: Forensic frames a
 // fire at its own default azimuth, which the user never chose).
+// Brief 5 (PLAN-5 §4.7): the open event's grid is used, a fire's or a flood's (their bundles have the same grid shape;
+// fire and flood are never open together); the flood's scene assets come from scene/flood/floodAssets.ts.
 // lib/reproject is the map-side home of the UTM helpers (map-core may make it three.js-free)
+import type { ManifestGrid } from '../../api/types'
 import { angleDelta } from '../../lib/compass'
 import { localToLonLat, lonLatToLocal } from '../../lib/reproject'
 import { useSceneStore } from '../../scene/sceneStore'
 import { useMapRuntime } from '../../map/mapStore'
+import { useFlood } from '../../state/flood'
 import { useStore } from '../../state/store'
 import { useWorkspace, type Workspace } from '../../state/workspace'
 
@@ -52,21 +56,43 @@ useSceneStore.subscribe((s, p) => {
   if ((s.interacting || p.interacting) && s.camera && p.camera && Math.abs(angleDelta(p.camera.bearingDeg, s.camera.bearingDeg)) > 0.1) turnedInForensic = true
 })
 
-/** store.flyTo for the Forensic camera. CameraRig applies it on mount when the incident's assets are cached; on a
- *  first visit it frames the fire once the assets arrive, so the request is repeated right after that. */
-function flyForensic(incidentId: string, x: number, z: number, distance: number, bearingDeg: number): void {
+/** The open event's ready bundle (a fire's, else a flood's): its id and grid; null without one. */
+export function openEventGrid(): { kind: 'fire' | 'flood'; id: string; grid: ManifestGrid } | null {
+  const s = useStore.getState()
+  if (s.manifest?.status === 'ready') return { kind: 'fire', id: s.manifest.id, grid: s.manifest.grid }
+  const f = useFlood.getState()
+  if (f.floodId != null && f.manifest?.status === 'ready' && f.manifest.id === f.floodId) return { kind: 'flood', id: f.manifest.id, grid: f.manifest.grid }
+  return null
+}
+
+/** store.flyTo for the Forensic camera. CameraRig applies it on mount when the event's assets are cached; on a
+ *  first visit it frames the fire (or flood) once the assets arrive, so the request is repeated right after that. */
+function flyForensic(kind: 'fire' | 'flood', eventId: string, x: number, z: number, distance: number, bearingDeg: number): void {
   useStore.getState().flyToLocal(x, z, distance, bearingDeg)
+  const stillOpen = () => (kind === 'fire' ? useStore.getState().incidentId === eventId : useFlood.getState().floodId === eventId)
+  const again = () =>
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        if (useWorkspace.getState().workspace === 'forensic' && stillOpen()) useStore.getState().flyToLocal(x, z, distance, bearingDeg)
+      }),
+    )
+  if (kind === 'flood') {
+    void import('../../scene/flood/floodAssets').then(({ floodAssetStore }) => {
+      if (floodAssetStore.getState().assets?.manifest.id === eventId) return
+      const unsub = floodAssetStore.subscribe((a) => {
+        if (a.assets?.manifest.id !== eventId) return
+        unsub()
+        again()
+      })
+    })
+    return
+  }
   void import('../../scene/assets').then(({ assetStore }) => {
-    if (assetStore.getState().assets?.manifest.id === incidentId) return
+    if (assetStore.getState().assets?.manifest.id === eventId) return
     const unsub = assetStore.subscribe((a) => {
-      if (a.assets?.manifest.id !== incidentId) return
+      if (a.assets?.manifest.id !== eventId) return
       unsub()
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => {
-          const s = useStore.getState()
-          if (useWorkspace.getState().workspace === 'forensic' && s.incidentId === incidentId) s.flyToLocal(x, z, distance, bearingDeg)
-        }),
-      )
+      again()
     })
   })
 }
@@ -75,7 +101,7 @@ export function switchWorkspace(target: Workspace): void {
   const ws = useWorkspace.getState()
   if (ws.workspace === target) return
   const s = useStore.getState()
-  const m = s.manifest?.status === 'ready' ? s.manifest : null
+  const m = openEventGrid()
   if (target === 'forensic') {
     const v = ws.view
     mapBearingAtLeave = useMapRuntime.getState().camera?.bearing ?? v?.bearing ?? null
@@ -85,7 +111,7 @@ export function switchWorkspace(target: Workspace): void {
     if (m && v && local && Math.abs(local[0]) <= half && Math.abs(local[1]) <= half) {
       // the live map heading (the stored view is written when the camera settles)
       const bearing = useMapRuntime.getState().camera?.bearing ?? v.bearing
-      flyForensic(m.id, local[0], local[1], forensicDistance(metersPerPixel(v.zoom, v.centerLat), window.innerHeight), bearing)
+      flyForensic(m.kind, m.id, local[0], local[1], forensicDistance(metersPerPixel(v.zoom, v.centerLat), window.innerHeight), bearing)
     } else {
       s.setFlyTo(null) // outside the analysis area: Forensic frames the fire
     }

@@ -74,3 +74,12 @@ export const useForensicFlood = create<ForensicFloodState>()((set) => ({
 export function shownOpacity(l: FloodLayerSetting): number {
   return l.visible ? l.opacity : 0
 }
+
+declare global {
+  interface Window {
+    /** Dev/test handle: window.__forensicFlood.getState() (scripts/shot.mjs --eval). */
+    __forensicFlood?: typeof useForensicFlood
+  }
+}
+
+if (typeof window !== 'undefined') window.__forensicFlood = useForensicFlood

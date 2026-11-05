@@ -546,8 +546,8 @@ const fragmentShader = /* glsl */ `
         float c1 = (P.x + P.z) / (hatchL * 0.8);
         float c2 = (P.x - P.z) / (hatchL * 0.8);
         float xh = max(lineAA(c1, 0.5), lineAA(c2, 0.5)) * lineRoom(c1);
-        col = mix(col, ncol * 0.6, ncov * nalpha * 0.75 * uSatOpacity);
-        col = mix(col, ncol, ncov * xh * 0.55 * uSatOpacity);
+        col = mix(col, ncol * 0.6, ncov * nalpha * 0.6 * uSatOpacity);
+        col = mix(col, ncol, ncov * xh * 0.45 * uSatOpacity);
       }
     }
     // National Water Model flooded area (experimental model output, off by default): an amber dotted edge, faint fill
