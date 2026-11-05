@@ -23,7 +23,7 @@ was restarted from it.
    Internal code names stay, so `.env`, `data/`, saved preferences and old links keep working: the `fire3d` Python
    package, the `FIRE3D_*` settings, URL parameters, storage keys and CSS classes. Historical documents keep their
    wording, because they record what was built and when: earlier BRIEF-*.md, PLAN-*.md, reports, audits and progress
-   notes. The GitHub repository keeps its name `fire-3d` for now. The rule "never use the name FireTrace" still applies.
+   notes. The GitHub repository is now `gz1010/disaster-mapping` (renamed by the user on Nov 5; the old URL redirects): docs that name the repository or its clone URL use the new name. The rule "never use the name FireTrace" still applies.
 2. **Flood animation: satellite passes and NWS warnings over time.** For an open flood, the time handle in Command (the
    river-level chart) and in Forensic (its dock) gains Play and step controls:
    - **Satellite passes:** they step one by one through the flood's usable passes. Each shows its own date and age, with
