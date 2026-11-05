@@ -41,3 +41,14 @@ Role `backend-flood-live` (PLAN-5 §3.5-3.6, §10.1; plan5-roles.json). Ports AP
 - 06:45 UTC: final. Live loop also warms the past years each cycle (`warm_year_lists`). Gates: backend 1383 passed,
   0 skipped; web typecheck, lint 55 (all src/scene), 1706 passed (2 pre-existing skips), build. Count-only secret scans:
   0. Report `docs/redesign/reports/brief5-backend-flood-live.json`, as-built `docs/redesign/contract5/backend-flood-live.md`.
+
+## Review fixes (BFL-R1..R10), 2026-11-05
+
+- ~09:40 UTC: read the review (10 findings), PLAN-5, CONTRACT 16, the part-1 results and the as-built notes. No earlier
+  attempt at the fix step (no `review fixes` commit, no uncommitted edits in this role's files).
+- Verified: R2 on the recorded CSV (LMK FL 50: 47 rows, every follow-up's `utc_prodissue` = the issuance; newest
+  product id 202504261610; also 31 of 125 events whose early rows keep a long provisional expiry), R3 on the cached
+  2026 list (built 06:22 UTC; 6 rows ending after the build, among them Chatsworth KFFC.FF.W.0081/0082; the alias
+  line blue-ridge -> toccoa was written after the build), R1/R4-R8 in the code paths the reviewer named.
+- Fixed in `floods/live.py`, `floods/history.py`, `api/floods.py`, `cli.py`, `scripts/check_bundle.py`, SPEC 6 /
+  8.9 / 8.10; tests in `test_floods_live.py` (+9) and `test_floods_history.py` (+7). Flood tests 379 passed.

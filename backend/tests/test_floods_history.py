@@ -188,6 +188,47 @@ def test_2026_ids_equal_live_ids(monkeypatch):
     assert {p["vtec_key"] for p in rows[0]["products"]} == {a.vtec_key, b.vtec_key}
 
 
+def test_last_product_is_each_events_newest_product():
+    """Review BFL-R2: IEM's ``utc_prodissue`` is the issuance product's time on every follow-up row; the newest
+    product is the row's own product (its id's time), and the event ends at that product's expiry."""
+    evs = history.events_from(_rows(), _feats())
+    lmk = evs[("LMK", "FL", "W", 50, 2025)]                    # 47 rows; product ids up to 202504261610-KLMK-...
+    assert lmk.last_ms == history._ms("2025-04-26 16:10")
+    assert lmk.expire_ms == history._ms("2025-04-27 10:14")
+    assert lmk.issue_ms == history._ms("2025-04-03 12:49")      # the issuance product (FLW of 12:49 UTC)
+    # the early rows of an "until further notice" warning keep IEM's long provisional expiry: the newest decides
+    ind21 = evs[("IND", "FL", "W", 21, 2025)]
+    assert ind21.expire_ms == history._ms("2025-04-15 12:45")
+    rows = history.build_rows(evs, 2025, gauges=_gauges(), reg=reg_mod.get_registry(), names={})
+    dunk = next(r for r in rows if (r["primary_gauge"] or {}).get("lid") == "DUNK2")
+    assert dunk["last_product_ms"] == dunk["updated_ms"] >= lmk.last_ms
+    assert dunk["last_product_ms"] - dunk["started_ms"] > 20 * DAY                      # weeks, not hours
+    for r in rows:                                       # never older than any of its products' issue times
+        assert r["last_product_ms"] >= max(p["sent_ms"] for p in r["products"])
+
+
+def test_year_rows_name_the_issuing_office():
+    """Review BFL-R10: archived product refs carry the issuing office (NWS's own sender name when this server knows
+    it, else "NWS <office id>")."""
+    evs = history.events_from(_rows(), _feats())
+    rows = history.build_rows(evs, 2025, gauges=_gauges(), reg=reg_mod.get_registry(),
+                              names={"KLMK": "NWS Louisville KY"})
+    senders = {p["sender_name"] for r in rows for p in r["products"]}
+    assert "NWS Louisville KY" in senders and "NWS IND" in senders and None not in senders
+    assert history.sender_of("ABQ", {}) == "NWS ABQ"
+
+
+def test_year_rows_leave_out_floods_still_in_effect():
+    """Review BFL-R3: a flood whose newest product had not expired when the year was built is current (the live
+    list serves it), never a past row with "ended" products."""
+    t0 = 1_743_638_400_000                               # 2025-04-03
+    a = _ev("FREI3", 30, t0)                             # expires t0 + 2 days
+    reg = reg_mod.get_registry()
+    assert history.build_rows({a.key: a}, 2025, gauges=_gauges(), reg=reg, now=t0 + DAY, names={}) == []
+    later = history.build_rows({a.key: a}, 2025, gauges=_gauges(), reg=reg, now=t0 + 3 * DAY, names={})
+    assert len(later) == 1 and later[0]["status"] == "inactive"
+
+
 # ---------------------------------------------------------------------------------------------------------------
 # Background build, disk copy, request rate, outages
 # ---------------------------------------------------------------------------------------------------------------
@@ -325,6 +366,92 @@ def test_detail_chain_order_live_year_alias(client, monkeypatch):
     # an alias of a year flood: catalog's alias step answers it only from a last-known summary; with none, the year
     # list does not hold the old id, so the chain ends (404) -- the year step never invents an alias
     assert d.get("resolved_from") in (None, "alias") or "detail" in d
+
+
+def test_year_ids_follow_aliases_written_after_the_build(client, monkeypatch):
+    """Review BFL-R3: the year list was built before Fire-3d merged a flood into another; its old id must open the
+    canonical flood (rule 13 alias), never a past row of its own."""
+    c, live = client
+    monkeypatch.setattr(fhttp, "_transport", _routes())
+    _one_month(monkeypatch)
+    history.year_list(2025, wait=True)
+    old = history.cached_rows(2025)[0]["id"]
+    new = "flood-20250403-merged-river-flood-bbbbbb"
+    reg_mod.get_registry().write(aliases=[(old, new)])
+    rows = history.cached_rows(2025)
+    ids = [r["id"] for r in rows]
+    assert old not in ids and ids.count(new) == 1 and old in next(r for r in rows if r["id"] == new)["aliases"]
+    assert history.find(old) is None and history.find(new)["id"] == new
+    body = c.get("/api/floods", params={"mode": "historical", "year": 2025}).json()
+    assert contract_problems(FloodListResponse, body) == [] and old not in {f["id"] for f in body["floods"]}
+    d = c.get(f"/api/floods/{old}").json()
+    assert d["resolved_from"] == "alias" and d["summary"]["id"] == new and contract_problems(FloodDetailResponse, d) == []
+    # the canonical flood is live: the alias answers the live flood (catalog's alias step)
+    live["floods"] = [{**history.find(new), "mode": "live", "status": "active"}]
+    d2 = c.get(f"/api/floods/{old}").json()
+    assert d2["resolved_from"] in ("live", "alias") and d2["summary"]["id"] == new and d2["summary"]["mode"] == "live"
+
+
+def test_a_year_row_whose_warning_is_live_is_served_as_the_live_flood(client, monkeypatch):
+    """Review BFL-R3: the live list holds the same VTEC event under another id: the year route serves the live row
+    (once), never a "past" copy of a warning still in effect."""
+    c, live = client
+    monkeypatch.setattr(fhttp, "_transport", _routes())
+    _one_month(monkeypatch)
+    history.year_list(2025, wait=True)
+    row = history.cached_rows(2025)[0]
+    other = "flood-20250403-other-name-flood-cccccc"
+    live["floods"] = [{**row, "id": other, "mode": "live", "status": "active",
+                       "products": [{**p, "phase": "in_effect"} for p in row["products"]]}]
+    body = c.get("/api/floods", params={"mode": "historical", "year": 2025}).json()
+    ids = [f["id"] for f in body["floods"]]
+    assert row["id"] not in ids and ids.count(other) == 1
+    served = next(f for f in body["floods"] if f["id"] == other)
+    assert served["mode"] == "live" and served["status"] == "active"
+    assert contract_problems(FloodListResponse, body) == []
+
+
+def test_a_past_flood_is_never_prepared_and_never_answers_todays_model(client, monkeypatch):
+    """Review BFL-R4 / R5: "Prepare 3D data" for a year-list flood is a 409 with an honest text (never "not
+    listed"); the model, NWS forecast-map and satellite routes answer a past flood at its own dates without an
+    ``at_ms`` (today's National Water Model never stands for a past flood)."""
+    from fire3d.api import jobs as jobs_mod
+    from fire3d.api.jobs import JobManager
+
+    c, _ = client
+    monkeypatch.setattr(fhttp, "_transport", _routes())
+    _one_month(monkeypatch)
+    history.year_list(2025, wait=True)
+    s = next(r for r in history.cached_rows(2025) if (r["primary_gauge"] or {}).get("lid") == "FREI3")
+    jm = JobManager()
+    jobs_mod.set_manager(jm)
+    try:
+        r = c.post(f"/api/floods/{s['id']}/build")
+        assert r.status_code == 409 and r.json()["detail"] == history.PAST_NO_BUNDLE
+        assert guard(history.PAST_NO_BUNDLE) == []
+    finally:
+        jm.shutdown()
+        jobs_mod.set_manager(None)
+    for kind in ("nwm_analysis", "nwm_series"):
+        mo = c.get(f"/api/floods/{s['id']}/model", params={"kind": kind}).json()
+        assert mo["status"] == "not_available_for_past_dates" and mo["model_output"] is True, kind
+    fim = c.get(f"/api/floods/{s['id']}/maps", params={"kind": "rfc_fim"}).json()
+    assert fim["status"] == "not_available_for_past_dates" and fim["requested_at_ms"] == s["last_product_ms"]
+    al = c.get("/api/official/flood-alerts", params={"flood": s["id"]}).json()
+    assert al["requested_at_ms"] == s["last_product_ms"] and al["alerts"] and al["alerts"][0]["archived"]
+
+
+def test_cli_refuses_to_prepare_a_past_flood(client, monkeypatch, capsys):
+    from fire3d import cli
+    from fire3d.floods import build
+
+    monkeypatch.setattr(fhttp, "_transport", _routes())
+    _one_month(monkeypatch)
+    history.year_list(2025, wait=True)
+    fid = history.cached_rows(2025)[0]["id"]
+    monkeypatch.setattr(build, "build_flood", lambda *a, **k: pytest.fail("a past flood was built"))
+    assert cli.main(["build-flood", fid]) == 1
+    assert history.PAST_NO_BUNDLE in capsys.readouterr().err
 
 
 # ---------------------------------------------------------------------------------------------------------------

@@ -215,6 +215,21 @@ def check_flood_bundle(bdir: Path) -> tuple[Report, dict]:
                   "gauges.json: a member gauge without its series")
         rep.check(not members or members[0]["lid"] == ((s.get("primary_gauge") or {}).get("lid") or members[0]["lid"]),
                   "gauges.json: the primary gauge is not first")
+        if gz.get("status") == "available":
+            from fire3d.floods import copy as fcopy
+
+            # notes, not problems: NWPS may not know a gauge, or could not be read at build time (review BFL-R1)
+            have = {x["lid"] for x in members}
+            missing = [g["lid"] for g in s.get("gauges") or [] if g.get("lid") not in have]
+            if missing:
+                rep.note(f"gauges.json: member gauge(s) of the summary not in it: {', '.join(missing)}")
+            if fcopy.GAUGE_DETAIL_DOWN in (gz.get("caveats") or []):
+                bare = [x["lid"] for x in members if not (x.get("data_attribution") or x.get("impacts") or x.get("reach_id"))]
+                rep.note("gauges.json: NWPS could not be read; member gauge(s) with the NWS gauge map's reading only: "
+                         + (", ".join(bare) or "none"))
+    for w in m.get("warnings") or []:
+        if w.startswith("The refresh of "):
+            rep.note(f"refresh kept earlier copies: {w}")
     if f.get("satellite_image"):
         p = bdir / f["satellite_image"]
         if rep.check(p.is_file(), f"{f['satellite_image']} missing"):

@@ -13,9 +13,11 @@ products (an archived copy, not an official NWS source; credited as such):
   fire archive), cached for good for a closed year and 30 days for the current year's closed months (6 h for the
   current month). So the year lists follow **PAST_RULE** (``past_rule: "moderate_or_worse"``), not the fallback:
 
-  - river **Flood Warnings** (FL.W) at an NWS gauge whose H-VTEC severity reached **2 (moderate) or 3 (major)** in any
+  - river **Flood Warnings** (FL.W) at an NWS gauge whose H-VTEC severity was **2 (moderate) or 3 (major)** in any
     of their products, one flood per **gauge episode** (warnings at one gauge less than :data:`EPISODE_GAP_H` apart;
-    the same gauge flooding again later is another flood, rule 10);
+    the same gauge flooding again later is another flood, rule 10). H-VTEC's severity is the flood severity NWS
+    **forecast or observed** for the event, so these are river floods that reached **or were forecast to reach**
+    moderate or major flood stage (review BFL-R9; ``max_category`` likewise, as for live floods);
   - **Flash Flood Warnings** (FF.W) whose damage threat reached **CONSIDERABLE or CATASTROPHIC**, or that IEM marks as
     an emergency; warnings whose polygons overlap (30 % of the smaller) within 12 h are one flood.
 
@@ -23,9 +25,14 @@ products (an archived copy, not an official NWS source; credited as such):
 * **Ids agree with live ids:** the registry is looked up by VTEC key first, so a 2026 flood Fire-3d saw live keeps its
   live id (and its live name); groups that map to one live id are merged. Other ids are deterministic
   (``naming.make_flood_id`` from the start, the name before duplicate suffixes, and the gauge or the oldest VTEC key).
-* Rows: ``mode: "historical"``, ``status: "inactive"`` (a 2026 flood still in the live list is served as its live
-  row), level ``warning``, ``max_category`` from the H-VTEC severity (NWS's own category for the event), products
-  ``archived`` with phase ``ended`` and IEM's event page, ``gauges_in_flood`` 0 (no reading is kept for a past list).
+* Rows: ``mode: "historical"``, ``status: "inactive"``, level ``warning``, ``max_category`` from the H-VTEC severity
+  (NWS's own forecast or observed category for the event), products ``archived`` with phase ``ended``, IEM's event
+  page and the issuing office (``sender_name``), ``gauges_in_flood`` 0 (no reading is kept for a past list),
+  ``last_product_ms`` / ``updated_ms`` the newest product's own time, ``ended_ms`` the newest product's expiry.
+* **Only floods that are over:** a group with an event still in effect when the year is built is left out (the live
+  list serves it; review BFL-R3). The year route also serves a row as the live flood that holds any of its VTEC keys,
+  and row ids follow registry aliases written after the build (:func:`canonical_rows`), so an old id never shows a
+  current flood as a past one.
 
 **Past answers per flood** (``at_ms`` before now - 6 h):
 
@@ -71,7 +78,9 @@ log = logging.getLogger(__name__)
 
 PAST_YEARS = (2026, 2025)                                    # CONTRACT 16.8
 PAST_RULE = "moderate_or_worse"                              # PLAN-5 3.6 target rule (a bulk severity route exists)
-SCHEMA = 1                                                   # bump when the year rows change shape or rule
+SCHEMA = 2                                                   # bump when the year rows change shape or rule
+# 2: last_product_ms / updated_ms from each row's own product, ended_ms from the newest product, events still in
+#    effect at build time left to the live list, product senders named (review BFL-R2, R3, R10)
 WATCHWARN_URL = f"{nws.IEM_ROOT}/cgi-bin/request/gis/watchwarn.py"
 SBW_URL = f"{nws.IEM_ROOT}/api/1/vtec/sbw_interval.geojson"
 IEM_EVENT_PAGE = nws.IEM_ROOT + "/vtec/?year={year}&phenomena={ph}&sig={sig}&eventid={etn}&wfo={wfo}"
@@ -115,7 +124,10 @@ NO_USGS_SITE = "NWS names no USGS site for this gauge, so its past readings are 
 PAST_GAUGE_NOT_KEPT = "Past readings are not kept for this gauge. That is not an all-clear."
 PAST_BEFORE_FLOOD = ("This flood's NWS products were sent after that time; Fire-3d shows a flood's products from its "
                      "start. That is not an all-clear.")
-PAST_STRINGS = {"ARCHIVE_DOWN": ARCHIVE_DOWN, "ARCHIVE_PARTIAL": ARCHIVE_PARTIAL, "YEAR_NOT_KEPT": YEAR_NOT_KEPT,
+PAST_NO_BUNDLE = ("Fire-3d prepares 3D data for current floods only: NWS's forecast maps, the model and river forecasts "
+                  "are not kept for a past flood's dates.")
+PAST_STRINGS = {"PAST_NO_BUNDLE": PAST_NO_BUNDLE, "ARCHIVE_DOWN": ARCHIVE_DOWN, "ARCHIVE_PARTIAL": ARCHIVE_PARTIAL,
+                "YEAR_NOT_KEPT": YEAR_NOT_KEPT,
                 "PAST_AREA_ALERTS": PAST_AREA_ALERTS, "PAST_AREA_GAUGES": PAST_AREA_GAUGES,
                 "PAST_ALERTS_DOWN": PAST_ALERTS_DOWN, "NO_USGS_SITE": NO_USGS_SITE,
                 "PAST_GAUGE_NOT_KEPT": PAST_GAUGE_NOT_KEPT, "PAST_BEFORE_FLOOD": PAST_BEFORE_FLOOD}
@@ -291,9 +303,18 @@ class Event:
         return DAMAGE.get((self.damage or "").upper(), 0)
 
 
+def row_product_ms(r: dict) -> int | None:
+    """The time of the product a CSV row comes from: its own product id's time, else its polygon's start, else the
+    issuance product's time (``utc_prodissue`` is the **issuance** product's time on every follow-up row, review
+    BFL-R2, so it is the last resort)."""
+    return _pid_ms(r.get("product_id")) or _ms(r.get("utc_polygon_begin")) or _ms(r.get("utc_prodissue"))
+
+
 def events_from(rows: Iterable[dict], features: Iterable[dict]) -> dict[tuple, Event]:
     """CSV rows (every polygon: issuance and follow-ups) + issuance polygons -> events by key, with the highest H-VTEC
-    severity, the highest damage tag and the emergency flag of any of their products."""
+    severity, the highest damage tag and the emergency flag of any of their products. ``last_ms`` is the newest
+    product's own time and ``expire_ms`` that product's expiry (IEM keeps a long provisional expiry on the early rows
+    of an "until further notice" warning; the newest product says when the event ended)."""
     out: dict[tuple, Event] = {}
     for r in rows:
         ph, sig, wfo = (r.get("phenomena") or "").upper(), (r.get("significance") or "").upper(), (r.get("wfo") or "").upper()
@@ -304,18 +325,20 @@ def events_from(rows: Iterable[dict], features: Iterable[dict]) -> dict[tuple, E
         except ValueError:
             continue
         issue, expire = _ms(r.get("utc_issue")), _ms(r.get("utc_expire"))
-        prod = _ms(r.get("utc_prodissue")) or _ms(r.get("utc_polygon_begin")) or issue
         if issue is None or expire is None:
             continue
+        own = row_product_ms(r) or issue
         if (r.get("status") or "").upper() == "NEW":       # the warning was issued before its VTEC begin (rule 7)
-            issue = min(issue, prod or issue, _pid_ms(r.get("product_id")) or issue)
+            issue = min(issue, _ms(r.get("utc_prodissue")) or issue, own)
         k = (wfo, ph, sig, etn, year)
         ev = out.get(k)
         if ev is None:
-            ev = out[k] = Event(wfo, ph, sig, etn, year, issue, expire, prod or issue)
+            ev = out[k] = Event(wfo, ph, sig, etn, year, issue, expire, own)
         ev.issue_ms = min(ev.issue_ms, issue)
-        ev.expire_ms = max(ev.expire_ms, expire)
-        ev.last_ms = max(ev.last_ms, prod or issue)
+        if own > ev.last_ms:                               # a newer product: its expiry is the event's
+            ev.last_ms, ev.expire_ms = own, expire
+        elif own == ev.last_ms:
+            ev.expire_ms = max(ev.expire_ms, expire)
         ev.severity = max(ev.severity, SEVERITY.get((r.get("hvtec_severity") or "").strip(), 0))
         nwsli = (r.get("hvtec_nwsli") or "").strip().upper()
         if re.fullmatch(r"[A-Z0-9]{5}", nwsli) and nwsli != "00000":
@@ -344,8 +367,9 @@ def events_from(rows: Iterable[dict], features: Iterable[dict]) -> dict[tuple, E
 
 
 def meets_rule(ev: Event) -> bool:
-    """PAST_RULE: a river Flood Warning at a gauge that reached moderate or major (H-VTEC severity 2 or 3), or a Flash
-    Flood Warning with a considerable or catastrophic damage threat, or an emergency."""
+    """PAST_RULE: a river Flood Warning at a gauge with H-VTEC severity 2 or 3 (moderate or major flooding, forecast or
+    observed: H-VTEC does not tell which), or a Flash Flood Warning with a considerable or catastrophic damage threat,
+    or an emergency."""
     if ev.ph == "FL":
         return ev.nwsli is not None and ev.severity >= 2
     return ev.damage_rank >= 2 or ev.emergency
@@ -424,14 +448,38 @@ def _gauge_ref(lid: str, row: dict | None, ev_geom: Any, severity: int) -> dict:
             "forecast_max_ms": None, "forecast_issued_ms": None, "url": nwps.gauge_page(lid)}
 
 
-def _product_ref(ev: Event, flood_gauge: str | None) -> dict:
-    return {"id": ev.product_id or ev.vtec_key, "event": EVENT[ev.ph], "vtec_key": ev.vtec_key, "sender_name": None,
+def office_names() -> dict[str, str]:
+    """NWS office id ("KLMK") -> its sender name ("NWS Louisville KY") as the NWS's own alerts in this server's cache
+    name it (cache only: no request). Offices with no product in effect now are not in it (:func:`sender_of`)."""
+    from . import catalog
+
+    try:
+        got = catalog._stale_alerts()
+    except Exception as e:  # noqa: BLE001 - names are a label; the office id stands in
+        log.info("past floods: office names: %s", e)
+        return {}
+    out: dict[str, str] = {}
+    for a in (got[0].alerts if got is not None else []):
+        office, name = (a.get("vtec") or {}).get("office"), a.get("sender_name")
+        if office and name and name.startswith("NWS "):
+            out.setdefault(str(office), str(name))
+    return out
+
+
+def sender_of(wfo: str, names: dict[str, str] | None = None) -> str:
+    """The issuing office of an archived product: NWS's own sender name when known, else "NWS <office id>"."""
+    return (names or {}).get(f"K{wfo}") or f"NWS {wfo}"
+
+
+def _product_ref(ev: Event, flood_gauge: str | None, names: dict[str, str] | None = None) -> dict:
+    return {"id": ev.product_id or ev.vtec_key, "event": EVENT[ev.ph], "vtec_key": ev.vtec_key,
+            "sender_name": sender_of(ev.wfo, names),
             "phase": "ended", "sent_ms": ev.issue_ms, "onset_ms": ev.issue_ms, "ends_ms": ev.expire_ms,
             "emergency": ev.emergency, "damage_threat": ev.damage, "gauge_lids": [flood_gauge] if flood_gauge else [],
             "url": IEM_EVENT_PAGE.format(year=ev.year, ph=ev.ph, sig=ev.sig, etn=ev.etn, wfo=ev.wfo), "archived": True}
 
 
-def summarize(group: list[Event], gauges: dict[str, dict]) -> dict:
+def summarize(group: list[Event], gauges: dict[str, dict], names: dict[str, str] | None = None) -> dict:
     """A historical ``FloodSummary`` (no id yet: ``_keys``, ``_anchor`` and ``_base_name`` for :func:`assign`)."""
     group = sorted(group, key=lambda e: e.issue_ms)
     river = group[0].ph == "FL"
@@ -472,7 +520,7 @@ def summarize(group: list[Event], gauges: dict[str, dict]) -> dict:
         "state": state, "states": states or ([state] if state else []), "county": county.name if county else None,
         "time_zone": tz, "rivers": rivers, "primary_gauge": ref, "gauges": [ref] if ref else [], "gauges_in_flood": 0,
         "max_category": SEVERITY_CATEGORY.get(sev) if river else None,
-        "products": [_product_ref(ev, lid) for ev in sorted(group, key=lambda e: (-e.last_ms, e.vtec_key))],
+        "products": [_product_ref(ev, lid, names) for ev in sorted(group, key=lambda e: (-e.last_ms, e.vtec_key))],
         "offices": sorted({f"K{ev.wfo}" for ev in group}), "bundle_status": "none", "bundle_built_ms": None,
         "aliases": [], "synthetic": False, "caveat": None,
         "_keys": [ev.vtec_key for ev in group], "_anchor": lid or min(ev.vtec_key for ev in group), "_base_name": base,
@@ -508,7 +556,7 @@ def assign(rows: list[dict], reg: reg_mod.Registry) -> list[dict]:
 
 
 def _merge(a: dict, b: dict) -> dict:
-    """Two year rows with one live id: one row (products and gauges of both, the wider box and times)."""
+    """Two year rows with one id: one row (products and gauges of both, the wider box and times)."""
     lo = min(a["started_ms"], b["started_ms"])
     first = a if a["started_ms"] <= b["started_ms"] else b
     gauges = {g["lid"]: g for g in (a["gauges"] + b["gauges"])}
@@ -516,26 +564,60 @@ def _merge(a: dict, b: dict) -> dict:
     bb = [min(a["bbox_lonlat"][0], b["bbox_lonlat"][0]), min(a["bbox_lonlat"][1], b["bbox_lonlat"][1]),
           max(a["bbox_lonlat"][2], b["bbox_lonlat"][2]), max(a["bbox_lonlat"][3], b["bbox_lonlat"][3])]
     prods = {p["vtec_key"]: p for p in a["products"] + b["products"]}
-    return {**first, "started_ms": lo, "year": time.gmtime(lo / 1000).tm_year, "bbox_lonlat": bb,
-            "updated_ms": max(a["updated_ms"], b["updated_ms"]), "last_product_ms": max(a["last_product_ms"], b["last_product_ms"]),
-            "ended_ms": max(a["ended_ms"], b["ended_ms"]), "emergency": a["emergency"] or b["emergency"],
-            "states": sorted(set(a["states"]) | set(b["states"])), "offices": sorted(set(a["offices"]) | set(b["offices"])),
-            "gauges": list(gauges.values()), "rivers": sorted(set(a["rivers"]) | set(b["rivers"])),
-            "max_category": max(cats, key=G.CATEGORY_ORDER.index) if cats else None,
-            "products": sorted(prods.values(), key=lambda p: -(p["sent_ms"] or 0)),
-            "_keys": a["_keys"] + b["_keys"]}
+    out = {**first, "started_ms": lo, "year": time.gmtime(lo / 1000).tm_year, "bbox_lonlat": bb,
+           "updated_ms": max(a["updated_ms"], b["updated_ms"]), "last_product_ms": max(a["last_product_ms"], b["last_product_ms"]),
+           "ended_ms": max(a["ended_ms"], b["ended_ms"]), "emergency": a["emergency"] or b["emergency"],
+           "states": sorted(set(a["states"]) | set(b["states"])), "offices": sorted(set(a["offices"]) | set(b["offices"])),
+           "gauges": list(gauges.values()), "rivers": sorted(set(a["rivers"]) | set(b["rivers"])),
+           "max_category": max(cats, key=G.CATEGORY_ORDER.index) if cats else None,
+           "products": sorted(prods.values(), key=lambda p: -(p["sent_ms"] or 0))}
+    if "_keys" in a or "_keys" in b:
+        out["_keys"] = list(a.get("_keys") or []) + list(b.get("_keys") or [])
+    return out
 
 
 def build_rows(events: dict[tuple, Event], year: int, *, reg: reg_mod.Registry | None = None,
-               gauges: dict[str, dict] | None = None) -> list[dict]:
-    """The year's floods (rule, lower 48, grouping, summaries, ids), in ``floodRank`` order, internal keys dropped."""
+               gauges: dict[str, dict] | None = None, now: int | None = None,
+               names: dict[str, str] | None = None) -> list[dict]:
+    """The year's floods (rule, lower 48, grouping, summaries, ids), in ``floodRank`` order, internal keys dropped.
+    With ``now``, a flood whose newest product had not expired by then is left out: it is current, and the live list
+    serves it (review BFL-R3: never a past row with "ended" products while NWS still has them in effect)."""
     picked = [ev for ev in events.values() if ev.year == year and meets_rule(ev) and ev.geom is not None and _in_l48(ev)]
     if gauges is None:
         gauges = gauge_rows(ev.nwsli for ev in picked if ev.nwsli)
-    rows = [summarize(g, gauges) for g in group_events(picked)]
+    if names is None:
+        names = office_names()
+    groups = [g for g in group_events(picked) if now is None or max(e.expire_ms for e in g) <= now]
+    rows = [summarize(g, gauges, names) for g in groups]
     rows = [r for r in rows if r["year"] == year]
     rows = assign(rows, reg or reg_mod.get_registry())
     return G.sort_floods([{k: v for k, v in r.items() if not k.startswith("_")} for r in rows])
+
+
+def canonical_rows(rows: list[dict], reg: reg_mod.Registry | None = None) -> list[dict]:
+    """Year rows with ids that follow the registry's aliases **now** (a merge Fire-3d recorded after the year was built
+    must not leave an old id in the list: it would open as a past row instead of the canonical flood; review BFL-R3).
+    Rows that land on one id are merged; ``aliases`` updated. No request."""
+    reg = reg or reg_mod.get_registry()
+    out: dict[str, dict] = {}
+    changed: set[str] = set()
+    for r in rows:
+        cid = reg.canonical(r["id"])
+        if cid != r["id"]:
+            r = {**r, "id": cid}
+            changed.add(cid)
+        if cid in out:
+            out[cid] = _merge(out[cid], r)
+            changed.add(cid)
+        else:
+            out[cid] = r
+    if not changed:
+        return rows
+    for cid in changed:
+        lk = reg_mod.read_last_known(cid)
+        name = lk[0].get("name") if lk is not None else None
+        out[cid] = {**out[cid], "aliases": reg.aliases_of(cid), **({"name": name} if name else {})}
+    return G.sort_floods(list(out.values()))
 
 
 # ----------------------------------------------------------------------------------------------------------------
@@ -600,23 +682,10 @@ def build_year(year: int, *, now: int | None = None) -> tuple[dict, bool]:
     events = events_from(all_rows, all_feats)
     if not fetched:
         return _answer(year, [], [_source("unavailable", None, ARCHIVE_DOWN)], now=now, preparing=False), True
-    floods = build_rows(events, year)
+    floods = build_rows(events, year, now=now)
     reason = ARCHIVE_PARTIAL.format(months=", ".join(failed)) if failed else None
     src = _source("available", min(fetched), reason, stale=bool(failed))
     return _answer(year, floods, [src], now=now, preparing=False), bool(failed)
-
-
-def _merge_event(a: Event, b: Event) -> Event:
-    """One event seen in two months' answers (a follow-up statement in the next month)."""
-    if b.damage_rank > a.damage_rank:
-        a.damage = b.damage
-    a.issue_ms, a.expire_ms, a.last_ms = min(a.issue_ms, b.issue_ms), max(a.expire_ms, b.expire_ms), max(a.last_ms, b.last_ms)
-    a.severity, a.emergency = max(a.severity, b.severity), a.emergency or b.emergency
-    a.nwsli = a.nwsli or b.nwsli
-    if a.geom is None:
-        a.geom, a.locations, a.ugcs = b.geom, b.locations, b.ugcs
-    a.product_id = a.product_id or b.product_id
-    return a
 
 
 def _load_disk(year: int) -> tuple[dict, float] | None:
@@ -693,23 +762,25 @@ def year_list(year: int, *, wait: bool = False) -> dict:
             answer = _years[year].answer
     if answer is None:
         return _answer(year, [], [_source("available", None, None)], now=now, preparing=True)
-    return answer
+    return {**answer, "floods": canonical_rows(answer["floods"])}
 
 
 def cached_rows(year: int) -> list[dict]:
-    """The year's rows from memory or disk, never a build or a request (the detail chain's year step)."""
+    """The year's rows from memory or disk (ids following the registry's aliases now), never a build or a request
+    (the detail chain's year step)."""
     with _lock:
         y = _years.get(year)
-        if y is not None and y.answer is not None:
-            return list(y.answer["floods"])
-    disk = _load_disk(year)
-    if disk is None:
-        return []
-    with _lock:                                    # keep the disk copy in memory (the next lookup reads no file)
-        y = _years.setdefault(year, _Year())
-        if y.answer is None:
-            y.answer, y.built_at = disk
-    return list(disk[0]["floods"])
+        rows = list(y.answer["floods"]) if (y is not None and y.answer is not None) else None
+    if rows is None:
+        disk = _load_disk(year)
+        if disk is None:
+            return []
+        with _lock:                                # keep the disk copy in memory (the next lookup reads no file)
+            y = _years.setdefault(year, _Year())
+            if y.answer is None:
+                y.answer, y.built_at = disk
+        rows = list(disk[0]["floods"])
+    return canonical_rows(rows)
 
 
 def find(flood_id: str) -> dict | None:

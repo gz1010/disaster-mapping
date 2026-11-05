@@ -181,9 +181,16 @@ def resolve_flood(ref: str) -> str:
 
 def _cmd_build_flood(args: argparse.Namespace) -> int:
     from .floods import build as flood_build
+    from .floods import catalog as flood_catalog
+    from .floods import history as flood_history
     from .floods import store
 
     flood_id = resolve_flood(args.flood)
+    live_ids = {s["id"] for s in flood_catalog.flood_list().get("floods") or []}
+    if flood_id not in live_ids and flood_history.find(flood_id) is not None:
+        # a past (year-list) flood: the API answers 409 with the same text (review BFL-R4)
+        print(f"refused (HTTP 409 in the API): {flood_history.PAST_NO_BUNDLE}", file=sys.stderr)
+        return 1
     print(f"building flood {flood_id}{' (force)' if args.force else ''} into {store.flood_dir(flood_id)}", flush=True)
     t0 = time.monotonic()
     try:

@@ -36,6 +36,7 @@ from ..floods import gauges as flood_gauges
 from ..floods import history as flood_history
 from ..floods import live as flood_live
 from ..floods import maps as flood_maps
+from ..floods import registry as flood_registry
 from ..floods import satellite as flood_satellite
 from ..floods import zones as flood_zones
 from ..sources.nws import SourceBusy
@@ -78,7 +79,7 @@ def list_floods(request: Request, mode: str = Query("live", pattern="^(live|hist
         y = year or flood_history.default_year()
         lst = flood_history.year_list(y)
         rows = [_bundle_now(r) for r in lst["floods"]]
-        if y == flood_history.default_year() and rows:
+        if rows:
             rows = _with_live_rows(rows)
         return _json({**lst, "floods": rows}, request)
     lst = catalog.public_list(catalog.flood_list(refresh=bool(refresh)))
@@ -86,28 +87,52 @@ def list_floods(request: Request, mode: str = Query("live", pattern="^(live|hist
 
 
 def _with_live_rows(rows: list[dict]) -> list[dict]:
-    """This year's past floods with the ones still in the live list served as their live rows (current state; the
-    web opens them as live floods). The cached live list only: a failure leaves the year rows as they are."""
+    """A year's past floods with every row that the live list still holds served as that live row (current state;
+    the web opens it as a live flood): matched by id **or by any shared VTEC key** (the live list may hold the same
+    warning under another id; review BFL-R3), each live row once. The cached live list only: a failure leaves the
+    year rows as they are."""
     try:
-        live = {s["id"]: s for s in catalog.flood_list().get("floods") or []}
+        live = catalog.flood_list().get("floods") or []
     except Exception as e:  # noqa: BLE001 - the year list never fails because of the live list
         log.info("year list: no live list to overlay (%s)", e)
         return rows
-    return [_bundle_now(catalog.public_list(live[r["id"]])) if r["id"] in live else r for r in rows]
+    by_id = {s["id"]: s for s in live}
+    by_key: dict[str, dict] = {}
+    for s in live:
+        for p in s.get("products") or []:
+            if p.get("vtec_key"):
+                by_key.setdefault(p["vtec_key"], s)
+    out: list[dict] = []
+    used: set[str] = set()
+    for r in rows:
+        hit = by_id.get(r["id"]) or next((by_key[p["vtec_key"]] for p in r.get("products") or []
+                                          if p.get("vtec_key") in by_key), None)
+        if hit is None:
+            out.append(r)
+        elif hit["id"] not in used:
+            used.add(hit["id"])
+            out.append(_bundle_now(catalog.public_list(hit)))
+    return out
 
 
 def _resolve(flood_id: str) -> tuple[dict, str]:
-    """PLAN-5 3.2 rule 13 with the year step: the live list -> the year lists (cached; never a build) -> a registry
-    alias -> the bundle's frozen summary -> the last-known summary (``catalog.resolve``). Raises as
-    ``catalog.resolve``."""
+    """PLAN-5 3.2 rule 13 with the year step: the live list -> the year lists (cached; never a build; row ids follow
+    the registry's aliases) -> a registry alias (of a live flood, or of a year row: ``alias``) -> the bundle's frozen
+    summary -> the last-known summary (``catalog.resolve``). Raises as ``catalog.resolve``."""
     if store.valid_id(flood_id) and not flood_id.startswith(store.FIXTURE_ID):
         lst = catalog.flood_list()
+        live = {s["id"] for s in lst.get("floods") or []}
         hit = next((s for s in lst.get("floods") or [] if s["id"] == flood_id), None)
         if hit is not None:
             return hit, "live"
-        past = flood_history.find(flood_id)
+        past = flood_history.find(flood_id)           # year rows follow the registry's aliases (BFL-R3)
         if past is not None:
             return past, "year"
+        canon = flood_registry.get_registry().canonical(flood_id)
+        if canon != flood_id and canon not in live:   # an old id of a past flood: its canonical year row
+            past = flood_history.find(canon)
+            if past is not None:
+                return past, "alias"
     return catalog.resolve(flood_id)
 
 
@@ -153,13 +178,22 @@ def _build_job_fn(flood_id: str, force: bool):
 @router.post("/api/floods/{flood_id}/build")
 def start_flood_build(flood_id: str, force: bool = False) -> Response:
     """``JobStatus`` of the flood bundle build (kind "build", ``incident_id`` = the flood id); the running build when
-    there is one. 404 not listed, 409 ``fixture-flood`` or outside the lower 48, 503 the lists could not decide."""
+    there is one. 404 not listed, 409 ``fixture-flood``, outside the lower 48 or a past (year-list) flood
+    (``PAST_NO_BUNDLE``), 503 the lists could not decide."""
     if not store.valid_id(flood_id):
         return _error(404, fcopy.FLOOD_ROUTE_NOT_LISTED)
     jm = jobs_mod.get_manager()
     active = jm.active_for(flood_id, "build")
     if active is not None:
         return _json(dump(active))
+    try:
+        _, resolved = _resolve(flood_id)
+    except (catalog.FloodNotFound, catalog.ListsUnavailable):
+        resolved = None                                   # the gate answers with its own 404 / 503 text
+    if resolved == "year":
+        # a past flood (year list): its NWS forecast maps, the model and its gauges' forecasts are not kept for its
+        # dates, so a bundle would show today's layers under a past flood (review BFL-R4)
+        return _error(409, flood_history.PAST_NO_BUNDLE)
     try:
         flood_build.gate(flood_id)
     except flood_build.BuildRefused as e:
@@ -265,6 +299,15 @@ def _summary(flood_id: str) -> dict:
         raise _Answer(503, fcopy.FLOOD_LISTS_503) from None
 
 
+def _past_at(summary: dict, at_ms: int | None) -> int | None:
+    """A past (year-list) flood's answers are about its own dates: without ``at_ms``, its last NWS product's time (as
+    the web's ``askedAt``), so the National Water Model, NWS's forecast maps and the satellite route never answer
+    today's output for it (review BFL-R5). A live flood's ``at_ms`` is left as asked."""
+    if at_ms is None and summary.get("mode") == "historical":
+        return summary.get("last_product_ms") or summary.get("ended_ms") or summary.get("updated_ms")
+    return at_ms
+
+
 def _area(summary: dict) -> tuple[float, float, float, float]:
     """The flood's map area: its bundle's grid when one is ready (the maps match the 3D view), else the same square."""
     m = store.load_flood_manifest(summary["id"])
@@ -296,7 +339,8 @@ def get_flood_map(request: Request, flood_id: str, kind: str = Query(..., patter
             names = [f"maps-catfim-{lid.upper()}-{category}.json"] if (kind == "catfim" and lid and category) else []
             return _json(_frozen(bdir, *names, f"maps-{kind}.json"), request)
         s = _summary(flood_id)
-        return _json(flood_maps.map_answer(kind, s, now=_now(), lid=lid, category=category, at_ms=at_ms,
+        at = at_ms if kind == "nfhl" else _past_at(s, at_ms)      # FEMA's map is today's background either way
+        return _json(flood_maps.map_answer(kind, s, now=_now(), lid=lid, category=category, at_ms=at,
                                            area=None if kind == "catfim" else _area(s)), request)
     return _answer(run)
 
@@ -316,7 +360,7 @@ def get_flood_model(request: Request, flood_id: str,
                 return _json(_frozen(bdir, f"model-nwm_series-{want}.json"), request)
             return _json(_frozen(bdir, f"model-{kind}.json"), request)
         s = _summary(flood_id)
-        return _json(flood_maps.model_answer(kind, s, now=_now(), lid=lid, at_ms=at_ms,
+        return _json(flood_maps.model_answer(kind, s, now=_now(), lid=lid, at_ms=_past_at(s, at_ms),
                                              area=None if kind == "nwm_series" else _area(s)), request)
     return _answer(run)
 
@@ -333,11 +377,12 @@ def get_flood_satellite(request: Request, flood_id: str, at_ms: int | None = Que
         if bdir is not None:
             return _json(_frozen(bdir, "satellite.json"), request)
         s = _summary(flood_id)
+        at = _past_at(s, at_ms)
         res = flood_satellite.cached_answer(s["id"], _area(s), now=_now(), time_zone=s.get("time_zone") or "UTC",
-                                            at_ms=at_ms)
+                                            at_ms=at)
         a = res.answer
         outage = a["status"] == "unavailable" or (not a["measured"] and a.get("reason_code") == "upstream_error")
-        if outage and at_ms is None:
+        if outage and at is None:
             m = store.load_flood_manifest(s["id"])
             frozen = _load(store.flood_dir(s["id"]) / "satellite.json") if (m or {}).get("status") == "ready" else None
             if frozen is not None and frozen.get("measured"):
@@ -404,9 +449,11 @@ def get_flood_alerts(request: Request, flood: str | None = Query(None, max_lengt
             bdir = _synthetic(flood)
             if bdir is not None:
                 return _json(_frozen(bdir, "flood-alerts.json", "warnings.json"), request)
-            if flood_history.is_past(at_ms, now):          # the IEM archive (backend-flood-live M2)
-                return _json(flood_history.past_flood_alerts(_summary(flood), now=now, at_ms=at_ms), request)
-            return _json(flood_zones.flood_alerts(_summary(flood), now=now, at_ms=at_ms), request)
+            s = _summary(flood)
+            at = _past_at(s, at_ms)
+            if flood_history.is_past(at, now):             # the IEM archive (backend-flood-live M2)
+                return _json(flood_history.past_flood_alerts(s, now=now, at_ms=at), request)
+            return _json(flood_zones.flood_alerts(s, now=now, at_ms=at), request)
         if bbox:
             if flood_history.is_past(at_ms, now):
                 return _json(flood_history.past_area_alerts(_bbox(bbox), now=now, at_ms=at_ms), request)
@@ -438,6 +485,11 @@ def get_river_gauges(request: Request, flood: str | None = Query(None, max_lengt
     def run() -> Response:
         now = _now()
         with_series = bool(series)
+        if flood and at_ms is None and _synthetic(flood) is None:
+            s = _summary(flood)
+            if s.get("mode") == "historical" and flood_history.is_past(_past_at(s, None), now):
+                # a past flood asked without a time: its own dates (never today's readings; review BFL-R5)
+                return _json(flood_history.past_flood_gauges(s, now=now, at_ms=_past_at(s, None)), request)
         if at_ms is not None and flood_history.is_past(at_ms, now) and scope != "national":
             # never today's readings for a past time: USGS's measured readings (backend-flood-live M2)
             if flood and _synthetic(flood) is None:
