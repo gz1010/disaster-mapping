@@ -285,6 +285,77 @@ export const HYDRO = {
   originalUnits: '{value} in the original units',
 } as const
 
+/** The Command flood view's own words (web-flood-command; PLAN-5 §4.5). Tags and labels are upper case on screen. */
+export const FLOOD_COMMAND = {
+  // the readout
+  selectedPoint: 'Selected point',
+  pickPrompt: 'Click the map or search to select a point',
+  layersAtPoint: 'Flood layers at this spot',
+  tagOfficial: 'Official',
+  tagForecast: 'Forecast',
+  tagForecastIssued: 'Forecast · issued {time}',
+  tagSatellite: 'Satellite',
+  tagSatelliteAge: 'Satellite · {age}',
+  tagFema: 'FEMA',
+  tagModel: 'Model',
+  tagOfficialTip: 'Official NWS information: its own words, issuer and times',
+  tagForecastTip: "NWS's experimental 5-day forecast flooded area: a forecast, not today's water",
+  tagSatelliteTip: 'Water seen by satellite (NASA OPERA): days old, never "now"; clouds and no data hide water',
+  tagFemaTip: "FEMA's 1% annual-chance floodplain: background for flood insurance, not current flooding",
+  tagModelTip: 'Experimental model output (NOAA National Water Model): not an NWS forecast and not advice on when to evacuate',
+  gaugeTitle: 'River gauge',
+  gaugeNearest: 'Nearest gauge',
+  gaugePrimary: 'Primary gauge of this flood',
+  gaugeNearby: 'nearby, not part of this flood',
+  gaugeDistance: '{distance} {direction} of this spot',
+  stageLabel: 'River stage (USGS) · {lid}',
+  stageLabelOther: 'River stage · {lid}',
+  stageNoReading: 'No reading',
+  categoryLabel: 'NWS category',
+  floodStageLabel: 'Flood stage (NWS, minor)',
+  floodStageNotSet: 'Not set',
+  crestLabel: 'Forecast crest (NWS)',
+  forecastInChart: 'NWS forecasts this gauge: choose it in the river-level chart below for its forecast.',
+  gaugesChecking: 'Checking river gauges…',
+  // event rows
+  floodIdLabel: 'Flood ID',
+  primaryGaugeLabel: 'Primary gauge · {lid}',
+  primaryGaugeTip: "The flood's primary river gauge (NWS). Not necessarily where the water is highest.",
+  lastUpdateLabel: 'Last official update',
+  lastUpdateSub: 'newest NWS product or member gauge reading',
+  noUpdateTime: 'No update time given',
+  // area figures (each on its own line with its caveat; C6)
+  areaTitle: 'Area figures (Fire-3d measurements)',
+  demoNote: 'Demo data: a simulated flood, not an NWS product or gauge reading.',
+  // the bar's gauge line ("SHRN5 · 15.2 FT · MINOR · 12 MIN AGO")
+  gaugeStatusTip: 'The primary river gauge: its newest reading, NWS category and age. Opens the list of gauges.',
+  gaugeListTitle: "This flood's river gauges",
+  // Official now on phones and the column
+  officialTitle: 'Official now',
+  officialHide: 'Hide',
+  officialHideTip: 'Hide this column (the Official now button brings it back)',
+  officialShow: 'Official now',
+  officialShowTip: 'NWS flood products, the river forecast, evacuations and local officials’ messages for this flood',
+  updatesToggleTip: 'Official flood information: NWS products, river forecast, evacuations',
+  // legend chips
+  chipSatellite: 'Water seen by satellite ({date})',
+  chipSatelliteNone: 'Water seen by satellite: no usable image',
+  chipNoView: 'No satellite view',
+  chipForecast: 'NWS forecast flooded area',
+  chipWarning: 'NWS warning area',
+  chipFloodplain: 'FEMA 1 % floodplain',
+  chipCatfim: 'NWS category flood map (experimental)',
+  chipModel: 'Model (NWM, experimental)',
+  chipHighFlow: 'Model high-flow reaches (NWM, experimental)',
+  chipSelected: 'Selected location',
+  // model and CatFIM in the legend details and the readout
+  catfimFor: 'NWS category flood map: {category} flooding at {lid} (experimental map library)',
+  catfimNone: 'No NWS category flood map for this flood',
+  modelChecking: 'Model output: checking…',
+  highFlowTitle: 'Model high-flow reaches (NOAA National Water Model)',
+  highFlowBody: 'River reaches where the model analysis flow is above its high-water level, with how rare that flow is (NWM). Experimental model output, never an NWS forecast.',
+} as const
+
 /** Forensic's strings (also in ui/forensic-flood/floodForensicCopy.ts, owned by web-flood-forensic). */
 export const FORENSIC_FLOOD = {
   notPrepared: "Fire-3d has not prepared this flood's 3D terrain yet.",

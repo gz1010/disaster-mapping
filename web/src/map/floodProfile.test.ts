@@ -6,6 +6,7 @@ describe('flood map profiles (D12, D21, D22; C13, C14)', () => {
   it('Public never draws model output or NWS category maps; FEMA is a toggle, off by default', () => {
     const p = floodProfile('public-flood')
     expect(p.model).toBe(false)
+    expect(p.modelHighFlow).toBe(false)
     expect(p.catfim).toBe(false)
     expect(p.floodplain).toBe('toggle')
     expect(floodLayerShown('public-flood', 'model', true)).toBe(false)
@@ -15,7 +16,7 @@ describe('flood map profiles (D12, D21, D22; C13, C14)', () => {
 
   it('Command: FEMA, CatFIM and the model are toggles, off by default', () => {
     const p = floodProfile('command-flood')
-    for (const k of ['floodplain', 'catfim', 'model'] as const) {
+    for (const k of ['floodplain', 'catfim', 'model', 'modelHighFlow'] as const) {
       expect(p[k]).toBe('toggle')
       expect(floodLayerShown('command-flood', k, DEFAULT_FLOOD_LAYERS[k])).toBe(false)
     }

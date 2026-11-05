@@ -13,15 +13,26 @@
 // Pure and tested (floodCheck.test.ts). Used by the point card (location/FloodPointCard.tsx) and Command's readout.
 import type { FloodAlert, FloodAlertsResponse, FloodMapResponse, ModelOutputResponse, RiverGauge, SatelliteWaterResponse } from '../api/types'
 import { distanceToAreas } from '../lib/areaDistance'
+import { bearingDeg, distanceM } from '../lib/geodesy'
 import { distance } from '../lib/plainLanguage'
-import { fmtAt, fmtDayDate, timeFmt, type TimeFmt } from '../lib/time'
-import { fimMapped, productsAt, type AnswerState } from '../official/floodModel'
+import { fmtAt, fmtClock, fmtDayDate, fmtRelative, timeFmt, type TimeFmt } from '../lib/time'
+import { fimMapped, productsAt, rfcName, type AnswerState } from '../official/floodModel'
 import type { Units } from '../state/workspace'
 import {
   ALERTS_UNAVAILABLE,
+  CREST_LINE,
   CURSOR_FUTURE_PRODUCTS,
   fillCopy,
+  FLOOD_COMMAND,
   FLOOD_PUBLIC,
+  FORECAST_HIGH_LABEL,
+  FORECAST_HIGH_LINE,
+  GAUGE_BELOW_STAGE_SUB,
+  GAUGE_CATEGORY_DISPLAY,
+  NO_RFC_FORECAST,
+  RFC_FIM_AREA_COMMAND,
+  SAT_AREA_COMMAND,
+  type GaugeCategoryKey,
   IN_FLOODPLAIN,
   INSIDE_FIM,
   INSIDE_WARNING,
@@ -37,6 +48,7 @@ import {
   SAT_OUTSIDE_POINT,
   SAT_UNAVAILABLE,
 } from '../ui/shell/floodCopy'
+import { fmtStage } from '../ui/public/floodOverviewText'
 import { polygonsOf } from '../ui/public/floodView'
 
 /** A DSWx class at the spot: 0 not water, 1 open water, 2 partial water, 252 snow/ice, 253 cloud, 254 ocean, 255 no
@@ -235,3 +247,127 @@ export function checkPoint(i: FloodPointInput): FloodPointCheck {
   if (nothing) lines.push({ key: 'nothing', kind: 'note', text: NOTHING_COVERS, tone: 'quiet' })
   return { lines, future, nothing }
 }
+
+// ------------------------------------------------------------------------------------------------ the nearest gauge
+/** Gauges further than this from a spot are not offered (NO_GAUGE_NEAR's 25 km). */
+export const READOUT_GAUGE_KM = 25
+
+const riverKey = (s: string | null | undefined) => (s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+
+/** Is the gauge on one of the flood's rivers (its waterbody or name names one)? */
+export function onFloodRiver(g: Pick<RiverGauge, 'waterbody' | 'name'>, rivers: readonly string[]): boolean {
+  const own = [riverKey(g.waterbody), riverKey(g.name)].filter(Boolean)
+  return rivers.map(riverKey).some((r) => r && own.some((o) => o === r || o.includes(r) || (o.length > 3 && r.includes(o))))
+}
+
+export interface NearestGauge {
+  gauge: RiverGauge
+  km: number
+  bearingDeg: number
+  /** On one of the flood's rivers (picked first). */
+  onRiver: boolean
+}
+
+/** The gauge the readout names for a spot (PLAN-5 §4.5): the nearest within 25 km on one of the flood's rivers, else
+ *  the nearest at action stage or above; null when none (NO_GAUGE_NEAR only for an available answer, D24). The
+ *  readout always adds GAUGE_OTHER_STREAM: another stream may be closer. */
+export function nearestFloodGauge(gauges: readonly RiverGauge[], point: [number, number], rivers: readonly string[], maxKm = READOUT_GAUGE_KM): NearestGauge | null {
+  const [lon, lat] = point
+  const near = gauges
+    .filter((g) => Number.isFinite(g.lat) && Number.isFinite(g.lon))
+    .map((g) => {
+      const me = { lat, lon }
+      const at = { lat: g.lat, lon: g.lon }
+      return { gauge: g, km: distanceM(me, at) / 1000, bearingDeg: (bearingDeg(me, at) + 360) % 360, onRiver: onFloodRiver(g, rivers) }
+    })
+    .filter((x) => x.km <= maxKm)
+    .sort((a, b) => a.km - b.km)
+  const rank = (c: string) => ({ action: 1, minor: 2, moderate: 3, major: 4 })[c] ?? 0
+  return near.find((x) => x.onRiver) ?? near.find((x) => rank(x.gauge.observed.category) >= 1) ?? null
+}
+
+// ------------------------------------------------------------------------------------------------ Command's readout (pure)
+/** The UTM zone of a point (the bundle's grid when it has one). */
+export function utmZoneOf(lon: number, gridZone: number | null | undefined): number {
+  if (gridZone != null && Number.isFinite(gridZone)) return gridZone
+  return Math.min(60, Math.max(1, Math.floor((lon + 180) / 6) + 1))
+}
+
+export interface LineTag {
+  text: string
+  cls: string
+  tip: string
+}
+
+/** The outlined tag of a check line: what the layer is and how old (PLAN-5 §4.5). */
+export function lineTag(l: Pick<FloodCheckLine, 'kind'>, ctx: { fim: FloodMapResponse | null; satellite: SatelliteWaterResponse | null; nowMs: number; tf: TimeFmt }): LineTag | null {
+  switch (l.kind) {
+    case 'official':
+      return { text: FLOOD_COMMAND.tagOfficial, cls: 'is-official', tip: FLOOD_COMMAND.tagOfficialTip }
+    case 'forecast': {
+      const t = ctx.fim?.status === 'available' ? (ctx.fim.reference_ms ?? ctx.fim.updated_ms) : null
+      return { text: t != null ? fillCopy(FLOOD_COMMAND.tagForecastIssued, { time: fmtClock(t, ctx.tf) }) : FLOOD_COMMAND.tagForecast, cls: 'is-forecast', tip: FLOOD_COMMAND.tagForecastTip }
+    }
+    case 'satellite': {
+      const g = ctx.satellite?.status === 'available' ? ctx.satellite.granules[0] : null
+      // the age at render time from the image's own time (C16)
+      return { text: g ? fillCopy(FLOOD_COMMAND.tagSatelliteAge, { age: fmtRelative(g.acquired_ms, ctx.nowMs) }) : FLOOD_COMMAND.tagSatellite, cls: 'is-satellite', tip: FLOOD_COMMAND.tagSatelliteTip }
+    }
+    case 'background':
+      return { text: FLOOD_COMMAND.tagFema, cls: 'is-fema', tip: FLOOD_COMMAND.tagFemaTip }
+    case 'model':
+      return { text: FLOOD_COMMAND.tagModel, cls: 'is-model', tip: FLOOD_COMMAND.tagModelTip }
+    default:
+      return null
+  }
+}
+
+/** "4.2 km²" / "1.6 mi²". */
+export function fmtArea(km2: number, units: Units): string {
+  if (units === 'metric') return `${km2 < 10 ? km2.toFixed(1) : Math.round(km2).toLocaleString('en-US')} km²`
+  const mi2 = km2 * 0.386102
+  return `${mi2 < 10 ? mi2.toFixed(1) : Math.round(mi2).toLocaleString('en-US')} mi²`
+}
+
+/** The area figures (C6): the forecast area only when the backend measured it from the flood's member reaches
+ *  (`stats` null when that join failed: no figure), the satellite water only from a measured image. */
+export function areaFigures(fim: FloodMapResponse | null, sat: SatelliteWaterResponse | null, units: Units): { key: string; text: string; caveat: string | null }[] {
+  const out: { key: string; text: string; caveat: string | null }[] = []
+  if (fim?.status === 'available' && fim.stats && Number.isFinite(fim.stats.area_km2))
+    out.push({ key: 'fim', text: fillCopy(RFC_FIM_AREA_COMMAND, { area: fmtArea(fim.stats.area_km2, units) }), caveat: fim.coverage_note || null })
+  if (sat?.status === 'available' && sat.measured && sat.stats && Number.isFinite(sat.stats.water_km2)) {
+    const water = sat.stats.water_km2 + (Number.isFinite(sat.stats.partial_km2) ? sat.stats.partial_km2 : 0)
+    out.push({ key: 'sat', text: fillCopy(SAT_AREA_COMMAND, { area: fmtArea(water, units) }), caveat: sat.caveats[0] ?? null })
+  }
+  return out
+}
+
+/** A gauge's NWS category in words (PLAN-5 §5.3; never a raw value): the short label and the sentence. */
+export function categoryWords(g: Pick<RiverGauge, 'observed'>, tf: TimeFmt, nowMs: number): { short: string; sentence: string } {
+  const c = (g.observed.category in GAUGE_CATEGORY_DISPLAY ? g.observed.category : 'unknown') as GaugeCategoryKey
+  const d = GAUGE_CATEGORY_DISPLAY[c]
+  const time = g.observed.valid_ms != null ? fmtAt(g.observed.valid_ms, tf, { zone: true, year: 'auto', refMs: nowMs }) : '—'
+  const sentence = d.sentence == null ? GAUGE_BELOW_STAGE_SUB : fillCopy(d.sentence, { time })
+  return { short: d.short, sentence }
+}
+
+/** The forecast row of a gauge: the crest (CREST_LINE) or the forecast high still rising at its end (C7); none when
+ *  the gauge is not a forecast point (NO_RFC_FORECAST); a forecast point without its forecast here says where to see
+ *  it (never NO_RFC_FORECAST then; bundle-api deviation 4). */
+export function forecastRow(g: RiverGauge, tf: TimeFmt, units: Units, nowMs: number): { label: string; value: string; sub: string } {
+  const f = g.forecast
+  if (f && f.max_value != null) {
+    const unit = g.thresholds?.unit ?? g.observed.unit ?? 'ft'
+    const value = fmtStage(f.max_value, unit, units) ?? '—'
+    const [v, u] = [value.replace(/\s\S+$/, ''), value.split(' ').pop() ?? '']
+    const when = f.max_ms != null ? fmtAt(f.max_ms, tf, { weekday: true, zone: true, year: 'auto', refMs: nowMs }) : '—'
+    const issued = f.issued_ms != null ? fmtAt(f.issued_ms, tf, { zone: true, year: 'auto', refMs: nowMs }) : '—'
+    const slots = { value: v, unit: u, 'day time zone': when, 'RFC name': rfcName(f), time: issued }
+    return f.crest_at_end
+      ? { label: FORECAST_HIGH_LABEL, value, sub: fillCopy(FORECAST_HIGH_LINE, slots) }
+      : { label: FLOOD_COMMAND.crestLabel, value: `${value} · ${when}`, sub: fillCopy(CREST_LINE, slots) }
+  }
+  if (g.is_forecast_point) return { label: FLOOD_COMMAND.crestLabel, value: '—', sub: FLOOD_COMMAND.forecastInChart }
+  return { label: FLOOD_COMMAND.crestLabel, value: NO_RFC_FORECAST, sub: '' }
+}
+

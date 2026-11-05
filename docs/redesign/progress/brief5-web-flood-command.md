@@ -8,7 +8,13 @@ Role `web-flood-command` (PLAN-5 §4.5-4.6, plan5-roles.json). Ports: API 8755, 
 - M1 hydrograph: done (`ui/timeline/hydrographModel.ts` + test (32 cases), `Hydrograph.tsx` + SSR test (11 cases),
   `hydrographData.ts`, `hydrograph.css`; `HYDRO` strings in `floodCopy.ts`). Committed and pushed as
   "brief 5 web-flood-command: M1 hydrograph". Forensic mounts `<Hydrograph variant="dock" floodId lid />`.
-- M2: pending. M3: pending.
+- M2: done. `CommandFloodChrome.tsx` (Command fire's layout; bar with the flood name, LIVE, place, DEMO, the primary
+  gauge line that opens the gauge list; readout; Official now column / phone sheet; controls bar, legend chips, slim
+  chart, fixed copy, credits), `location/FloodReadout.tsx` (+ test), pure readout helpers in `location/floodCheck.ts`,
+  `FloodLegend` flood-view chips, `FloodOfficialNow` river forecast sentence (CREST_LINE / FORECAST_HIGH_LINE),
+  `styles/view-command.css` scoped to both Command chromes with `:is()`, `styles/view-flood-command.css`,
+  `state/floodLayerData.ts` (model / high-flow / CatFIM answers), additive layer key `modelHighFlow`.
+- M3: in progress.
 
 ## Decisions so far
 

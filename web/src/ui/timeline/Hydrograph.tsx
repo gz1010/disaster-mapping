@@ -10,7 +10,7 @@
 //     (productsAt: after now they keep the NWS products in effect now, and the chart says CURSOR_FUTURE_PRODUCTS, C1).
 //   - Flow mode: NWS flow on the handle's first line, the model on its own line (C28); no model without a reach.
 //   - Empty states: PLAN-5 §5.5. Nothing animates (reduced motion needs nothing more).
-import { Fragment, useId, useMemo, useRef, useState, type KeyboardEvent as RKeyboardEvent, type PointerEvent as RPointerEvent, type RefObject } from 'react'
+import { Fragment, useCallback, useId, useMemo, useRef, useState, type KeyboardEvent as RKeyboardEvent, type PointerEvent as RPointerEvent } from 'react'
 import type { FloodAlert, RiverGauge } from '../../api/types'
 import { HOUR_MS, type TimeFmt } from '../../lib/time'
 import { CATEGORY_COLORS, FLOOD_ALERT, FLOOD_TOKENS, gaugeTone } from '../../map/floodStyle'
@@ -20,7 +20,7 @@ import { openFloodSummary, useFlood } from '../../state/flood'
 import { useTimeFormatFor } from '../../state/timeZone'
 import { useWorkspace } from '../../state/workspace'
 import { Popover, Segmented } from '../controls'
-import { useElementSize, useNow } from '../hooks'
+import { useNow } from '../hooks'
 import {
   CURSOR_FUTURE_PRODUCTS,
   fillCopy,
@@ -71,7 +71,7 @@ export interface HydrographProps {
 /** Right gutter for the NWS level labels ("MODERATE 17.0"). */
 const GUTTER = 82
 const PAD_Y = 5
-const PLOT_H: Record<HydrographVariant, number> = { slim: 64, dock: 78 }
+const PLOT_H: Record<HydrographVariant, number> = { slim: 76, dock: 78 }
 
 export function Hydrograph({ variant, floodId, lid, products, gauges, atMs = null, initialAxis = 'stage', widthPx = 0, className }: HydrographProps) {
   const summary = useFlood((s) => (s.floodId === floodId ? openFloodSummary(s) : null))
@@ -92,8 +92,8 @@ export function Hydrograph({ variant, floodId, lid, products, gauges, atMs = nul
   const wall = useNow(60_000)
   const nowMs = atMs ?? wall
   const prods = useMemo(() => products ?? officialAlerts(offAlerts), [products, offAlerts])
-  const [plotRef, size] = useElementSize<HTMLDivElement>()
-  const plotW = Math.max(0, (size.width || widthPx) - GUTTER)
+  const [plotRef, measured] = useWidth()
+  const plotW = Math.max(0, (measured || widthPx) - GUTTER)
   const model = useMemo(
     () =>
       gauge && plotW > 40
@@ -136,13 +136,11 @@ export function Hydrograph({ variant, floodId, lid, products, gauges, atMs = nul
       <div className="hg-body">
         <HydroTop variant={variant} name={name} model={model} axis={axis} setAxis={setAxis} units={units} gauge={gauge ?? listed} />
         {problem ? (
-          <>
-            <div className="hg-plot is-empty" ref={plotRef} style={{ height: PLOT_H[variant] }}>
-              <p className="hg-empty" title={data.gauge.error ?? undefined}>
-                {problem}
-              </p>
-            </div>
-          </>
+          <div className="hg-plot is-empty" ref={plotRef} style={{ height: PLOT_H[variant] }}>
+            <p className="hg-empty" title={data.gauge.error ?? undefined}>
+              {problem}
+            </p>
+          </div>
         ) : (
           <HydroChart variant={variant} model={model} tf={tf} plotRef={plotRef} plotW={plotW} />
         )}
@@ -228,7 +226,7 @@ function LineGlyph({ kind }: { kind: 'observed' | 'forecast' | 'model' }) {
 }
 
 // ------------------------------------------------------------------------------------------------ the chart
-function HydroChart({ variant, model, tf, plotRef, plotW }: { variant: HydrographVariant; model: HydrographModel | null; tf: TimeFmt; plotRef: RefObject<HTMLDivElement | null>; plotW: number }) {
+function HydroChart({ variant, model, tf, plotRef, plotW }: { variant: HydrographVariant; model: HydrographModel | null; tf: TimeFmt; plotRef: (el: HTMLDivElement | null) => void; plotW: number }) {
   const cursorMs = useFlood((s) => s.cursorMs)
   const helpId = useId()
   const H = PLOT_H[variant]
@@ -255,6 +253,27 @@ function HydroChart({ variant, model, tf, plotRef, plotW }: { variant: Hydrograp
 }
 
 const clampX = (x: number, w: number) => Math.min(w, Math.max(0, x))
+
+/** The width of an element given by a callback ref (the plot's element changes between the loading and the chart
+ *  states, so the observer follows the element, unlike ui/hooks.ts useElementSize). */
+function useWidth(): [(el: HTMLDivElement | null) => void, number] {
+  const [w, setW] = useState(0)
+  const ro = useRef<ResizeObserver | null>(null)
+  const ref = useCallback((el: HTMLDivElement | null) => {
+    ro.current?.disconnect()
+    ro.current = null
+    if (!el) return
+    const update = (x: number) => setW((p) => (Math.abs(p - x) < 0.5 ? p : x))
+    update(el.getBoundingClientRect().width)
+    if (typeof ResizeObserver === 'undefined') return
+    ro.current = new ResizeObserver((entries) => {
+      const cr = entries[0]?.contentRect
+      if (cr) update(cr.width)
+    })
+    ro.current.observe(el)
+  }, [])
+  return [ref, w]
+}
 
 /** The handle's words above the plot, at the handle: the time and value; the model on its own line (flow); the
  *  future-products note after now (C1). */
@@ -529,19 +548,53 @@ function AxisRow({ model: m, plotW }: { model: HydrographModel; plotW: number })
 }
 
 // ------------------------------------------------------------------------------------------------ the gauge picker
-/** The slim chart's 40 px button: the gauge's category diamond; opens the list of the flood's gauges (members first,
- *  then nearby gauges, labelled "not part of this flood"). */
+/** The list of the flood's gauges (members first, then nearby gauges labelled "not part of this flood"); picking one
+ *  shows it in the river-level chart (useFlood.setGauge). Used by the chart's picker and Command's bar gauge line. */
+export function GaugeList({ floodId, lid, gauges, onPick }: { floodId: string; lid: string | null; gauges?: readonly RiverGauge[]; onPick?: () => void }) {
+  const summary = useFlood((s) => (s.floodId === floodId ? openFloodSummary(s) : null))
+  const offGauges = useFloodOfficial((s) => (s.floodId === floodId ? s.gauges.data : null))
+  const list = useMemo(() => gauges ?? officialGauges(offGauges, summary), [gauges, offGauges, summary])
+  const members = list.filter((g) => g.member)
+  const nearby = list.filter((g) => !g.member)
+  const pick = (g: RiverGauge) => {
+    if (useFlood.getState().floodId === floodId) useFlood.getState().setGauge(g.lid)
+    onPick?.()
+  }
+  return (
+    <div role="listbox" aria-label={HYDRO.pickGauge}>
+      {[
+        { title: HYDRO.pickerMembers, list: members },
+        { title: HYDRO.pickerNearby, list: nearby },
+      ].map(
+        (grp) =>
+          grp.list.length > 0 && (
+            <Fragment key={grp.title}>
+              <p className="hg-picker-title">{grp.title}</p>
+              {grp.list.map((g) => {
+                const cat = (g.observed.category in GAUGE_CATEGORY_DISPLAY ? g.observed.category : 'unknown') as GaugeCategoryKey
+                return (
+                  <button key={g.lid} type="button" role="option" aria-selected={g.lid === lid} className={`hg-picker-item${g.lid === lid ? ' is-current' : ''}`} onClick={() => pick(g)}>
+                    <Diamond tone={gaugeTone(g.observed.category)} size={10} />
+                    <span className="hg-picker-name">
+                      <strong>{g.lid}</strong> · <span data-verbatim="">{g.name}</span>
+                    </span>
+                    <span className="hg-picker-cat">{GAUGE_CATEGORY_DISPLAY[cat].short}</span>
+                  </button>
+                )
+              })}
+            </Fragment>
+          ),
+      )}
+    </div>
+  )
+}
+
+/** The slim chart's 40 px button: the gauge's category diamond; opens GaugeList. */
 function GaugePicker({ gauges, lid, floodId }: { gauges: readonly RiverGauge[]; lid: string | null; floodId: string }) {
   const [open, setOpen] = useState(false)
   const anchor = useRef<HTMLButtonElement | null>(null)
   const current = gauges.find((g) => g.lid === lid) ?? null
   const tone = gaugeTone(current?.observed.category)
-  const members = gauges.filter((g) => g.member)
-  const nearby = gauges.filter((g) => !g.member)
-  const pick = (g: RiverGauge) => {
-    if (useFlood.getState().floodId === floodId) useFlood.getState().setGauge(g.lid)
-    setOpen(false)
-  }
   const label = `${HYDRO.pickGauge}${lid ? ` (${lid})` : ''}`
   return (
     <>
@@ -559,31 +612,7 @@ function GaugePicker({ gauges, lid, floodId }: { gauges: readonly RiverGauge[]; 
         <Diamond tone={tone} size={12} />
       </button>
       <Popover anchor={anchor} open={open} onClose={() => setOpen(false)} placement="top-start" width={340} className="hg-picker" label={HYDRO.pickGauge}>
-        <div role="listbox" aria-label={HYDRO.pickGauge}>
-          {[
-            { title: HYDRO.pickerMembers, list: members },
-            { title: HYDRO.pickerNearby, list: nearby },
-          ].map(
-            (grp) =>
-              grp.list.length > 0 && (
-                <Fragment key={grp.title}>
-                  <p className="hg-picker-title">{grp.title}</p>
-                  {grp.list.map((g) => {
-                    const cat = (g.observed.category in GAUGE_CATEGORY_DISPLAY ? g.observed.category : 'unknown') as GaugeCategoryKey
-                    return (
-                      <button key={g.lid} type="button" role="option" aria-selected={g.lid === lid} className={`hg-picker-item${g.lid === lid ? ' is-current' : ''}`} onClick={() => pick(g)}>
-                        <Diamond tone={gaugeTone(g.observed.category)} size={10} />
-                        <span className="hg-picker-name">
-                          <strong>{g.lid}</strong> · {g.name}
-                        </span>
-                        <span className="hg-picker-cat">{GAUGE_CATEGORY_DISPLAY[cat].short}</span>
-                      </button>
-                    )
-                  })}
-                </Fragment>
-              ),
-          )}
-        </div>
+        <GaugeList floodId={floodId} lid={lid} gauges={gauges} onPick={() => setOpen(false)} />
       </Popover>
     </>
   )

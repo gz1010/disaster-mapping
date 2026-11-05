@@ -24,6 +24,7 @@ import '../../styles/view-flood-public.css'
 import { ALERTS_UNAVAILABLE, fillCopy, FLOOD_PUBLIC, MODEL_SEPARATE, NO_PRODUCT, NO_RFC_FORECAST, PAST_NO_FORECAST } from '../shell/floodCopy'
 import { fmtStage } from '../public/floodOverviewText'
 import { polygonsOf } from '../public/floodView'
+import { forecastRow } from '../../location/floodCheck'
 import { FloodEvacRows } from './FloodEvacRows'
 import { CommandRows, LocalAlertsRow, Row, SourceLink } from './OfficialNow'
 
@@ -99,18 +100,21 @@ export function FloodOfficialNow({ variant = 'command' }: { variant?: 'command' 
   const rows = floodAlertRows(off.alerts.data, { zone: summary?.time_zone ?? tf.tz, clock, nowMs, past })
   const g = primaryMemberGauge(off.gauges.data, summary)
   const f = g?.forecast ?? null
-  let forecast: { verdict: string; meta: string | null } | null = null
-  if (past) forecast = { verdict: PAST_NO_FORECAST, meta: null }
+  let forecast: { verdict: string; meta: string | null; line: string | null } | null = null
+  if (past) forecast = { verdict: PAST_NO_FORECAST, meta: null, line: null }
   else if (g && g.is_forecast_point && f && f.max_value != null) {
     const gtf = timeFmt(g.time_zone || tf.tz, clock)
     const v = fmtStage(f.max_value, g.observed.unit ?? 'ft', 'us') ?? ''
     const when = f.max_ms != null ? fmtAt(f.max_ms, gtf, { weekday: true, zone: true, year: 'auto', refMs: nowMs }) : ''
     const issued = f.issued_ms != null ? fmtAt(f.issued_ms, gtf, { zone: true, year: 'auto', refMs: nowMs }) : ''
+    // the whole sentence (CREST_LINE, or FORECAST_HIGH_LINE when the highest value is the last step; C7)
+    const row = forecastRow(g, gtf, 'us', nowMs)
     forecast = {
       verdict: f.crest_at_end ? `high ${v} at the end of the forecast (${when}); still forecast to rise` : `crest ${v} ${when}`,
       meta: `NWS ${rfcName(f)}${issued ? `, issued ${issued}` : ''}`,
+      line: row.sub || null,
     }
-  } else if (g) forecast = { verdict: NO_RFC_FORECAST, meta: g.name }
+  } else if (g) forecast = { verdict: NO_RFC_FORECAST, meta: g.name, line: null }
   const local = summary?.mode === 'live' && off.local.data ? localAlertsState(off.local) : null
   return (
     <section className={`on is-command ffo ffo-${variant}`} aria-labelledby="ffo-title">
@@ -131,7 +135,7 @@ export function FloodOfficialNow({ variant = 'command' }: { variant?: 'command' 
           )}
           {forecast && (
             <Row icon={null} label="River forecast" title="River forecast" verdict={forecast.verdict} meta={forecast.meta ?? undefined} source="NWS" tone="info">
-              <p className="on-meta">{f && f.max_value != null ? (forecast.meta ?? '') : forecast.verdict}</p>
+              <p className="on-meta">{forecast.line ?? (f && f.max_value != null ? (forecast.meta ?? '') : forecast.verdict)}</p>
               {f?.url && <SourceLink href={f.url}>{FLOOD_PUBLIC.forecastLink}</SourceLink>}
             </Row>
           )}

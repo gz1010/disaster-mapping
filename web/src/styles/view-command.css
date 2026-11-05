@@ -1,13 +1,16 @@
 /* Command inside a fire (brief 4 H2b; docs/redesign/handoff-4/screens/CommandView.dc.html; PLAN-4 §3.2; CONTRACT §15.2,
    frozen after H2). Every rule is scoped to the map workspace root of that chrome, .mw[data-view='command-fire'], so the
-   overview and Public stay as they are. No panels on the map: the readout (left) and "Official now" (right) are text
-   on the map's edge gradients (map/MapAtmosphere.tsx edges="command"); the bottom row holds the map controls bar (left)
-   and the legend chips with the scale (right) above the slim full-width timeline, then the fixed copy and the credits.
+   overview and Public stay as they are. Brief 5 (web-flood-command): the Command flood view shares this layout, so the
+   rules are scoped to both chromes, .mw:is([data-view='command-fire'], [data-view='command-flood']) (the same
+   specificity: the fire view is unchanged); what differs for floods is in styles/view-flood-command.css.
+   No panels on the map: the readout (left) and "Official now" (right) are text on the map's edge gradients
+   (map/MapAtmosphere.tsx edges="command"); the bottom row holds the map controls bar (left) and the legend chips
+   with the scale (right) above the slim full-width timeline, then the fixed copy and the credits.
    Values are the screen's: readout left 40 / top 100 / 420 wide, official right 40 / top 100 / 380 wide, timeline left
    40 / right 40, 72 px high. 1024-1279 px: 360 / 320 px columns (decision h). Phones (<= 760 px): the readout is a
    bottom sheet with a one-line peek, "Official now" the Updates sheet, the timeline full width. */
 
-.mw[data-view='command-fire'] {
+.mw:is([data-view='command-fire'], [data-view='command-flood']) {
   --cmd-x: 40px;
   --cmd-top: calc(var(--m-chrome-top) + 16px);
   --cmd-left-w: 420px;
@@ -18,7 +21,7 @@
 
 /* ------------------------------------------------------------------------------------------------ top bar */
 /* the place gives way first; the demo badge follows it (amber, short below 1280 px) */
-.mw[data-view='command-fire'] .mw-header .tb-left .mw-demo-badge {
+.mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-header .tb-left .mw-demo-badge {
   height: 22px;
   padding: 0 8px;
   border-radius: 999px;
@@ -26,7 +29,7 @@
   letter-spacing: 0.12em;
   text-shadow: none;
 }
-.mw[data-view='command-fire'] .cmd-status {
+.mw:is([data-view='command-fire'], [data-view='command-flood']) .cmd-status {
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
@@ -34,10 +37,10 @@
 
 /* the demo badge says "Demo" in Command's bar at every width, so the place keeps its room (the full wording is in its
    tooltip, its accessible text and the readout's demo note; review DF-15) */
-.mw[data-view='command-fire'] .mw-header .mw-demo-long {
+.mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-header .mw-demo-long {
   display: none;
 }
-.mw[data-view='command-fire'] .mw-header .mw-demo-short {
+.mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-header .mw-demo-short {
   display: inline;
 }
 
@@ -139,7 +142,7 @@
 }
 
 /* ------------------------------------------------------------------------------------------------ columns */
-.mw[data-view='command-fire'] .mw-top {
+.mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-top {
   top: var(--cmd-top);
   left: var(--cmd-x);
   right: var(--cmd-x);
@@ -148,46 +151,46 @@
   grid-template-areas: 'card . updates';
   gap: 24px;
 }
-.mw[data-view='command-fire'] .mw-card,
-.mw[data-view='command-fire'] .mw-firecard {
+.mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-card,
+.mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-firecard {
   width: 100%;
   scrollbar-width: thin;
 }
-.mw[data-view='command-fire'] .mw-card {
+.mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-card {
   /* the readout scrolls when the window is short; its edge stays transparent and fades while more is below */
   border-radius: 0;
 }
-.mw[data-view='command-fire'] .mw-card.is-overflowing {
+.mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-card.is-overflowing {
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
   mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
   padding-bottom: 24px;
 }
-.mw[data-view='command-fire'] .mw-updates,
-.mw[data-view='command-fire'].has-updates .mw-updates {
+.mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-updates,
+.mw:is([data-view='command-fire'], [data-view='command-flood']).has-updates .mw-updates {
   width: 100%;
 }
 /* panels hidden (H): the readout keeps the coordinates (brief 2 decision 7); the right column and the status go */
-.mw[data-view='command-fire'].is-collapsed .mw-card {
+.mw:is([data-view='command-fire'], [data-view='command-flood']).is-collapsed .mw-card {
   display: block;
 }
-.mw[data-view='command-fire'].is-collapsed .cro :is(.cro-official, .cro-more, .cro-model) {
+.mw:is([data-view='command-fire'], [data-view='command-flood']).is-collapsed .cro :is(.cro-official, .cro-more, .cro-model) {
   display: none;
 }
 
 /* Text on the map (no panel): a soft dark halo under the readout, the right column and the bottom line keeps meta
    text at 4.5:1 or more where bright map labels or aerial photos show through the edge gradients at low zoom (decision
    l; measured on Lower Sugarloaf and Eaton with the aerial basemap). Glass panels opened from them drop it. */
-.mw[data-view='command-fire'] :is(.cro:not(.is-sheet), .mw-updates-panel.is-column) {
+.mw:is([data-view='command-fire'], [data-view='command-flood']) :is(.cro:not(.is-sheet), .mw-updates-panel.is-column) {
   text-shadow:
     0 0 3px rgba(12, 12, 12, 0.95),
     0 0 8px rgba(12, 12, 12, 0.9),
     0 1px 2px rgba(12, 12, 12, 0.9);
 }
-.mw[data-view='command-fire'] :is(.cro:not(.is-sheet), .mw-updates-panel.is-column) :is(.popover, [data-popover], .on-btn, .mw-chip) {
+.mw:is([data-view='command-fire'], [data-view='command-flood']) :is(.cro:not(.is-sheet), .mw-updates-panel.is-column) :is(.popover, [data-popover], .on-btn, .mw-chip) {
   text-shadow: none;
 }
 /* buttons drop the inherited shadow by default (browser style): the text-only ones keep the halo */
-.mw[data-view='command-fire'] :is(.on-row-toggle, .cmd-view-all, .cmd-hide, .on-more) {
+.mw:is([data-view='command-fire'], [data-view='command-flood']) :is(.on-row-toggle, .cmd-view-all, .cmd-hide, .on-more) {
   text-shadow: inherit;
 }
 
@@ -717,7 +720,7 @@
 }
 
 /* ------------------------------------------------------------------------------------------------ bottom */
-.mw[data-view='command-fire'] .mw-bottom {
+.mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-bottom {
   left: var(--cmd-x);
   right: var(--cmd-x);
   bottom: 10px;
@@ -737,19 +740,19 @@
   pointer-events: auto;
   min-width: 0;
 }
-.mw[data-view='command-fire'] .cmd-controls {
+.mw:is([data-view='command-fire'], [data-view='command-flood']) .cmd-controls {
   --chrome-side: bottom;
   flex: none;
   justify-self: auto;
 }
-.mw[data-view='command-fire'] .cmd-legend {
+.mw:is([data-view='command-fire'], [data-view='command-flood']) .cmd-legend {
   flex: 1 1 auto;
   justify-self: auto;
   display: flex;
   justify-content: flex-end;
   max-width: none;
 }
-.mw[data-view='command-fire'] .mw-timeline {
+.mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-timeline {
   width: 100%;
   justify-self: stretch;
 }
@@ -765,12 +768,12 @@
   pointer-events: auto;
   min-width: 0;
 }
-.mw[data-view='command-fire'] .cmd-note {
+.mw:is([data-view='command-fire'], [data-view='command-flood']) .cmd-note {
   flex: none;
   margin: 0 !important;
   white-space: nowrap;
 }
-.mw[data-view='command-fire'] .mw-note > .fxc {
+.mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-note > .fxc {
   padding: 0;
   border-radius: 0;
   background: none;
@@ -779,17 +782,17 @@
   color: var(--m-text-4);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
-.mw[data-view='command-fire'] .mw-footer {
+.mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-footer {
   flex: 1 1 auto;
   min-width: 0;
 }
-.mw[data-view='command-fire'] .mw-footer-attrib {
+.mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-footer-attrib {
   background: none;
   font: 400 10px / 14px var(--m-font-mono);
   color: var(--m-text-4);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
-.mw[data-view='command-fire'] .mw-footer .fxm-attrib {
+.mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-footer .fxm-attrib {
   padding: 0;
   background: none;
   color: inherit;
@@ -949,12 +952,12 @@
 
 /* ------------------------------------------------------------------------------------------------ medium widths */
 @media (max-width: 1279px) {
-  .mw[data-view='command-fire'] {
+  .mw:is([data-view='command-fire'], [data-view='command-flood']) {
     --cmd-x: 28px;
     --cmd-left-w: 360px;
     --cmd-right-w: 320px;
   }
-  .mw[data-view='command-fire'] .mw-top {
+  .mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-top {
     gap: 16px;
   }
   .cro-point {
@@ -966,12 +969,12 @@
    wrapped lines pushed the controls and the timeline up and the readout's rows off screen. The full credits open
    above the bottom row, every text kept. Phones use the same fold (overview.css). */
 @media (min-width: 761px) and (max-width: 1279px) {
-  .mw[data-view='command-fire'] .mw-footer.is-fold {
+  .mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-footer.is-fold {
     position: relative;
     display: flex;
     justify-content: flex-end;
   }
-  .mw[data-view='command-fire'] .mw-credits-toggle {
+  .mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-credits-toggle {
     --chrome-side: bottom;
     flex: none;
     height: 20px;
@@ -986,15 +989,15 @@
     white-space: nowrap;
     cursor: pointer;
   }
-  .mw[data-view='command-fire'] .mw-credits-toggle:hover,
-  .mw[data-view='command-fire'] .mw-credits-toggle[aria-expanded='true'] {
+  .mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-credits-toggle:hover,
+  .mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-credits-toggle[aria-expanded='true'] {
     color: var(--m-text);
   }
-  .mw[data-view='command-fire'] .mw-credits-toggle:focus-visible {
+  .mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-credits-toggle:focus-visible {
     outline: none;
     box-shadow: var(--m-focus-ring);
   }
-  .mw[data-view='command-fire'] .mw-footer.is-open .mw-footer-attrib {
+  .mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-footer.is-open .mw-footer-attrib {
     position: absolute;
     right: 0;
     bottom: calc(100% + 6px);
@@ -1008,12 +1011,12 @@
     text-shadow: none;
     z-index: 2;
   }
-  .mw[data-view='command-fire'] .mw-footer-attrib[hidden] {
+  .mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-footer-attrib[hidden] {
     display: none;
   }
 }
 @media (max-width: 1023px) {
-  .mw[data-view='command-fire'] {
+  .mw:is([data-view='command-fire'], [data-view='command-flood']) {
     --cmd-x: 20px;
     --cmd-left-w: 320px;
     --cmd-right-w: 290px;
@@ -1022,11 +1025,11 @@
 
 /* ------------------------------------------------------------------------------------------------ phones */
 @media (max-width: 760px) {
-  .mw[data-view='command-fire'] {
+  .mw:is([data-view='command-fire'], [data-view='command-flood']) {
     --cmd-x: var(--m-gap);
     --cmd-top: var(--m-chrome-top);
   }
-  .mw[data-view='command-fire'] .mw-top {
+  .mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-top {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: auto auto;
     grid-template-areas:
@@ -1057,11 +1060,11 @@
     text-shadow: none;
   }
   /* the fire's name keeps a readable width */
-  .mw[data-view='command-fire'] .mw-header .picker-btn.is-title {
+  .mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-header .picker-btn.is-title {
     min-width: 88px;
   }
   /* the readout is a sheet above the timeline: its peek line always, the whole readout when opened */
-  .mw[data-view='command-fire'] .mw-card {
+  .mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-card {
     height: auto;
     border-radius: var(--m-radius);
   }
@@ -1122,12 +1125,12 @@
     font-size: 22px;
     line-height: 28px;
   }
-  .mw[data-view='command-fire'] .cro .cro-btn,
-  .mw[data-view='command-fire'] .cro-actions .loc-copy {
+  .mw:is([data-view='command-fire'], [data-view='command-flood']) .cro .cro-btn,
+  .mw:is([data-view='command-fire'], [data-view='command-flood']) .cro-actions .loc-copy {
     width: 40px;
     height: 40px;
   }
-  .mw[data-view='command-fire'] .mw-bottom {
+  .mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-bottom {
     bottom: 2px;
     gap: 6px;
   }
@@ -1137,14 +1140,14 @@
     flex-wrap: wrap;
   }
   /* both fixed lines stay whole (they wrap; the credits toggle keeps the end of the line) */
-  .mw[data-view='command-fire'] .cmd-note {
+  .mw:is([data-view='command-fire'], [data-view='command-flood']) .cmd-note {
     flex: 1 1 0;
     white-space: normal;
   }
-  .mw[data-view='command-fire'] .mw-note > .fxc {
+  .mw:is([data-view='command-fire'], [data-view='command-flood']) .mw-note > .fxc {
     white-space: normal;
   }
-  .mw[data-view='command-fire'] .cmd-foot > .mw-footer {
+  .mw:is([data-view='command-fire'], [data-view='command-flood']) .cmd-foot > .mw-footer {
     flex: none;
     align-self: flex-end;
   }

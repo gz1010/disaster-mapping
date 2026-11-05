@@ -27,8 +27,10 @@ import { useWorkspace } from './workspace'
 
 export type { FloodListKey, FloodListSlot } from './floodCatalog'
 
-/** Flood map layers (CONTRACT §16.10-16.11). What a view draws is this AND its profile (map/floodProfile.ts). */
-export type FloodLayerKey = 'events' | 'gauges' | 'warnings' | 'forecastArea' | 'satellite' | 'channel' | 'floodplain' | 'model' | 'catfim'
+/** Flood map layers (CONTRACT §16.10-16.11). What a view draws is this AND its profile (map/floodProfile.ts).
+ *  Additive (web-flood-command, wave 3): 'modelHighFlow', the National Water Model's high-flow reaches (Command's
+ *  Layers drawer, PLAN-5 §4.5; model output, off by default). */
+export type FloodLayerKey = 'events' | 'gauges' | 'warnings' | 'forecastArea' | 'satellite' | 'channel' | 'floodplain' | 'model' | 'catfim' | 'modelHighFlow'
 
 /** FEMA floodplain, model output and NWS category maps start off (D12, D21, D22); everything else on. */
 export const DEFAULT_FLOOD_LAYERS: Record<FloodLayerKey, boolean> = {
@@ -41,6 +43,7 @@ export const DEFAULT_FLOOD_LAYERS: Record<FloodLayerKey, boolean> = {
   floodplain: false,
   model: false,
   catfim: false,
+  modelHighFlow: false,
 }
 
 export type FloodSource = 'list' | 'marker' | 'url' | 'search' | 'history' | 'card' | null
