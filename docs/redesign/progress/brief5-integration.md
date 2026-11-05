@@ -12,3 +12,12 @@ contracts.py, web/src/api/types.ts, floodTypes.ts) are not touched by this part.
 - [ ] (3) CONTRACT 16 alignment (16.16 + deviations), triple consistency check
 - [ ] (4) README floods section
 - [ ] (5) gates, report, as-built note, commit, push
+
+## Incident (09:53 UTC): data/floods wiped by an unisolated debug test (mine)
+- A throw-away debug test that imported the grouping tests' helpers without their autouse isolation fixture ran
+  `fresh()` (`shutil.rmtree(config.FLOODS_DIR)`) on the real `data/floods`. Lost: fixture-flood, the real flood
+  bundles (Calcasieu, Grand River, Moenkopi Wash, Platte, Peace, St. Johns, Rio Grande, Ducktown), registry,
+  last-known summaries and the year lists' disk copies. data/cache, data/incidents, data/official untouched.
+- Recovery: polluted remains moved to the scratchpad (not deleted); fixture-flood regenerated (make_fixture --only
+  flood); real bundles rebuilt through the real API (HTTP cache warm); registry and year lists rebuilt by the code.
+  Flood ids are recomputed from their anchors (some dates/ids may differ from earlier reports).

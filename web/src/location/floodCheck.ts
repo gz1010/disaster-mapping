@@ -25,7 +25,7 @@ import { distanceToAreas } from '../lib/areaDistance'
 import { bearingDeg, distanceM } from '../lib/geodesy'
 import { distance } from '../lib/plainLanguage'
 import { fmtAt, fmtClock, fmtDayDate, fmtRelative, timeFmt, type TimeFmt } from '../lib/time'
-import { fimMapped, rfcName, type AnswerState } from '../official/floodModel'
+import { fimMapped, forecastPassed, rfcName, type AnswerState } from '../official/floodModel'
 import type { Units } from '../state/workspace'
 import {
   ALERTS_UNAVAILABLE,
@@ -512,6 +512,8 @@ export function forecastRow(g: RiverGauge, tf: TimeFmt, units: Units, nowMs: num
     if (f.crest_at_end) return { label: FORECAST_HIGH_LABEL, value, sub: fillCopy(FORECAST_HIGH_LINE, slots) }
     // a falling forecast: its highest value is its first step, below the latest reading (review WFC-R14)
     if (falling) return { label: FLOOD_COMMAND.highestForecastLabel, value: `${value} · ${when}`, sub: fillCopy(FLOOD_COMMAND.highestForecastSub, slots) }
+    // NWS's highest value is for a time that has passed: no crest to come (integration)
+    if (forecastPassed(f, nowMs)) return { label: FLOOD_COMMAND.highestForecastLabel, value: `${value} · ${when}`, sub: fillCopy(FLOOD_COMMAND.highestPassedSub, slots) }
     // without the series (a nearby gauge's answer): NWS's highest value below the latest reading is no crest to come
     if (forecastBelowReading(g)) return { label: FLOOD_COMMAND.highestForecastLabel, value: `${value} · ${when}`, sub: fillCopy(FLOOD_COMMAND.highestBelowSub, slots) }
     return { label: FLOOD_COMMAND.crestLabel, value: `${value} · ${when}`, sub: fillCopy(CREST_LINE, slots) }

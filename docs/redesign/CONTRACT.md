@@ -4118,13 +4118,16 @@ export interface FloodSummary {
   gauges: FloodGaugeRef[]          // member gauges at action or above, primary first
   gauges_in_flood: number          // observed minor or worse
   max_category: FloodCategory | null // highest observed or NWS-forecast category among members
-  products: FloodProductRef[]      // in effect or upcoming (live); every product (past)
+  products: FloodProductRef[]      // in effect or upcoming (live; "ended" once the flood left the lists, 16.16); every
+                                   // product (past); a gauge-only flood also lists the products whose area holds its
+                                   // gauge (attached, never its own key; 16.16 Integration)
   offices: string[]                // "KABQ"
   bundle_status: FloodBundleStatus
   bundle_built_ms: number | null
   aliases: string[]
   synthetic: boolean               // fixture-flood and the fixture server's list rows
-  caveat: string | null            // GAUGE_ONLY_CAVEAT for level gauge_only, else null
+  caveat: string | null            // level gauge_only: GAUGE_ONLY_CAVEAT, GAUGE_ONLY_COASTAL_CAVEAT or ALERTS_UNAVAILABLE
+                                   // (16.14); else null
 }
 
 export interface FloodListSource {
@@ -4455,7 +4458,7 @@ existing local-alerts route in `api/official.py`. Every route answers `fixture-f
 
 | Method | Path | Answer | Errors |
 |---|---|---|---|
-| GET | `/api/floods?mode=live\|historical&year=` | `FloodListResponse` | 503 `FLOOD_LISTS_DOWN` only when no source and no bundle answered |
+| GET | `/api/floods?mode=live\|historical&year=` | `FloodListResponse` | **As built: always 200** (backend-flood-sources deviation BFS-R6, adopted by the integration): with both lists down it lists the ready real flood bundles on disk as they left the lists, every source `unavailable` with `FLOOD_LISTS_DOWN` and `products_in_effect: null`; the web shows `FLOOD_LISTS_DOWN` and the bar `FLOOD LISTS UNAVAILABLE`, never `FLOOD_LIST_EMPTY` (it also handles a 503) |
 | GET | `/api/floods/status` | `FloodLiveStatus` | — |
 | GET | `/api/floods/{id}` | `FloodDetailResponse` (`resolved_from`; rule-13 chain) | 404 only when the chain ends (lists answered); 503 `FLOOD_LISTS_503` (lists could not decide and nothing on disk) |
 | POST | `/api/floods/{id}/build?force=0\|1` | `JobStatus` | 409 `fixture-flood` or outside the lower 48 |
@@ -4464,9 +4467,9 @@ existing local-alerts route in `api/official.py`. Every route answers `fixture-f
 | GET | `/api/floods/{id}/model?kind=nwm_analysis\|nwm_5day\|nwm_high_flow\|nwm_series&lid=` | `ModelOutputResponse` | past: `not_available_for_past_dates` |
 | GET | `/api/floods/{id}/satellite?at_ms=` | `SatelliteWaterResponse` | — |
 | GET | `/api/floods/{id}/satellite.png?granule=` | `image/png` | 404 |
-| GET | `/api/official/flood-alerts?flood=<id>\|bbox=w,s,e,n&at_ms=` | `FloodAlertsResponse` | 422 without `flood` or `bbox` |
-| GET | `/api/official/river-gauges?flood=<id>\|bbox=\|lid=\|scope=national&min=action&series=0\|1&at_ms=` | `RiverGaugesResponse` (`bbox` and nearby from `riv_gauges` by envelope; NWPS per `lid` only) | 422 without a scope |
-| GET | `/api/official/local-alerts?bbox=&hazard=fire\|flood` | `LocalAlertsResponse` (existing; `hazard` default `fire`) | as today |
+| GET | `/api/official/flood-alerts?flood=<id>\|bbox=w,s,e,n&at_ms=` | `FloodAlertsResponse` (`bbox` with w = e and s = n is a point query: `covers_point`) | 422 without `flood` or `bbox`; `bbox` at most 4° on a side |
+| GET | `/api/official/river-gauges?flood=<id>\|bbox=\|lid=\|scope=national&min=action&series=0\|1&at_ms=` | `RiverGaugesResponse` (`bbox` and nearby from `riv_gauges` by envelope; NWPS per `lid` only; scope priority flood, lid, national, bbox) | 422 without a scope; 404 unknown `lid`; `bbox` at most 4° on a side; a past `at_ms` (older than now − 6 h): see 16.16 (bundle-api: `not_available_for_past_dates`; backend-flood-live M2: USGS readings) |
+| GET | `/api/official/local-alerts?bbox=&hazard=fire\|flood` | `LocalAlertsResponse` (existing; `hazard` default `fire`); `hazard=flood` takes `bbox` only | as today; 400 for `incident` with `hazard=flood` |
 | GET | `/api/extras/evacuations?bbox=&hazard=fire\|flood` | existing evacuations answer; `hazard` default `fire` (byte-for-byte as today); `flood` answers Oregon (a wildfire-only feed) not-available with `OR_EVAC_FIRE_ONLY` and keeps Cal OES `event_type` verbatim | as today |
 | GET | `/api/jobs/{id}` | `JobStatus` (existing) | as today |
 
@@ -4518,6 +4521,18 @@ days (2026). Per-gauge NWPS calls: timeout 20 s, one retry, outage memory (`Down
   list build. The gauge join of rule 3 needs the memberships to overlap in time (gap ≤ `GAUGE_ACTIVE_H`).
   Numbers arrive as strings in `riv_gauges` and as `-999`/`-9999` for missing in NWPS: both parse to `None`.
   `riv_gauges.obstime` is treated as UTC only after a recorded sample confirms it against NWPS `validTime`.
+- **As built (folded from the contract5 notes; details in 16.16):** rule 2 also links a flooding gauge to an areal
+  (FA.*) product inside its area on the water its text names (such a flood is kind river); rule 8 marks the products of
+  a flood that left the lists `ended` (`catalog.as_left`); rule 10 adds the **continuation** of a replaced flash or
+  areal warning (`catalog.continuations`, `grouping.CONTINUE_KINDS`); gauge-only floods at tide or lake gauges carry
+  `GAUGE_ONLY_COASTAL_CAVEAT`. **Integration (2026-11-05, the real list):** rule 3 also joins an **areal** product by
+  the water its text names ("along the San Juan River") with river members of that river within `SAME_RIVER_KM`; a
+  **gauge-only flood lists the non-watch products whose area holds its gauge** (attached like a watch: never a join,
+  never its own registry key), so its views never claim "no NWS flood product here" while one covers the gauge; a
+  gauge at flood stage under only a watch stays level `gauge_only` (never hidden as watch-only, U2); names drop state
+  and position notes of a waterbody ("Toccoa River (GA) / Ocoee River (TN)" → "Toccoa River / Ocoee River") and a
+  state suffix that no longer separates two floods; a split part that loses the id to the part holding its anchor gets
+  a new id whose keys are reassigned to it (stable through later NWS updates), and a live part's id is never aliased.
 
 ### 16.9 The fixture `fixture-flood`
 
@@ -4581,6 +4596,9 @@ export interface FloodState {
   setGauge(lid: string | null): void
   setCursor(ms: number | null): void
   setFloodLayer(k: FloodLayerKey, on: boolean): void
+  // As built (additive, 16.16): resolvedFrom: FloodDetailResponse['resolved_from'] | null, detailLoading: boolean,
+  // detailError: string | null (web-flood-overview); buildError: string | null (web-flood-public);
+  // FloodLayerKey also has 'modelHighFlow' (default false; Public never, Command a toggle; web-flood-command)
 }
 export const useFlood: UseBoundStore<StoreApi<FloodState>>
 export function pickFlood(id: string, source: FloodState['source']): void   // opens the flood view for the preset
@@ -4618,11 +4636,14 @@ export function atmosphereEdgesOf(chrome: MapChrome): 'overview' | 'fire' | 'com
 export interface FloodLayersHandle {
   update(): void                         // re-sync from useFlood / useWorkspace; GeoJSON sources updated in place
   restyle(theme: MapTheme): void         // basemap switch: re-add from cached data
-  hit(point: PointLike): { kind: 'flood' | 'gauge' | 'group'; id: string } | null
+  hit(point: PointLike): { kind: 'flood' | 'gauge' | 'group'; id: string; lngLat?: [number, number] } | null  // as built:
+                                         // FloodHit; a group's id is "<group>:<cluster id>"
+  zoomToGroup(hit: FloodHit, ease: (center: [number, number], zoom: number) => void): void   // as built (additive)
+  hoverLines(point: PointLike): { lines: { text: string; cls?: string }[]; clickable: boolean } | null  // as built
   remove(): void
   layerIds(): string[]
 }
-export function mountFloodLayers(map: MapLibreMap, opts: { beforeId: string[]; topBeforeId: string[] }): FloodLayersHandle
+export function mountFloodLayers(map: MapLibreMap, opts?: { beforeId?: string[]; topBeforeId?: string[] }): FloodLayersHandle
 // map/floodProfile.ts
 export function floodProfile(chrome: MapChrome): Record<FloodLayerKey, boolean | 'toggle'>
 // public-flood: model false, catfim false (never), floodplain 'toggle' (off by default; D21)
@@ -4682,6 +4703,20 @@ export type SceneManifest = Pick<IncidentManifest, 'id' | 'grid' | 'time_origin_
 // ui/forensic-flood/forensicFloodState.ts: Forensic's own toggles (NAIP, contours, telemetry, CatFIM, model, tab)
 // scene/flood/gaugeBarMath.ts (pure; not gaugeBars.ts, which would clash with GaugeBars.tsx on macOS)
 ```
+
+**As built (16.16 has the details):** `HazardDisc` adds `label` (the accessible name), `tipName`, `rain`, `ref` and the
+tone `'unknown'`; `WaterTexture` adds `rain`, `svgRef`; `distanceToArea` returns `… | null` without a usable ring;
+`checkPoint` adds the optional inputs `alertsStatus`, `zones`, `satClass`, `tf`, `units`, `fimState`, `satelliteState`,
+`nfhlState`, `modelState`, `catfim`, `catfimState`, `catfimFor` and returns `{ lines, future, nothing, issuedForCursor
+}`; **`productsShown(alerts, cursorMs, nowMs) → { alerts, future, issuedForCursor }`** (`ui/timeline/hydrographModel.ts`)
+extends `productsAt` (which stays in `official/floodModel.ts` and is re-exported): at now it also keeps issued
+products still to start, after now it also keeps every issued product whose own period covers the handle;
+`futureProductsNote(shown)` gives `CURSOR_FUTURE_ISSUED` or `CURSOR_FUTURE_PRODUCTS`. The map, the point checks, the
+chart and Forensic's drapes and dock use `productsShown`. `Hydrograph` adds `products`, `gauges`, `atMs`, `initialAxis`,
+`widthPx`, `className`; `buildHydrograph` adds `modelLoading`, `clock`, `past`; also exported `cursorReadout` (→
+`CursorReadout`), `GaugeList`, `Diamond`; stores `useHydroData` (`ui/timeline/hydrographData.ts`) and
+`useFloodLayerData` (`state/floodLayerData.ts`). `SceneManifest` typechecks with the frozen `scene/fx/**`, so no
+`SceneAssets` base type exists and nothing is cast.
 
 New file names keep the case rule (`lib/fileNames.test.ts`, stems): no `FloodView.tsx` next to `floodView.ts`, no
 `gaugeBars.ts` next to `GaugeBars.tsx`.

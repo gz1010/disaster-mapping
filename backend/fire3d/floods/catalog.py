@@ -694,19 +694,28 @@ def assign_ids(rows: list[dict], now: int, reg: reg_mod.Registry) -> None:
         if chosen is None:
             chosen = naming.make_flood_id(int(started), r["name"], r["_anchor"])
         r["id"] = chosen
-        taken[chosen] = i
+        # merges alias the other ids to the chosen one; an id another part of a split keeps is never aliased away
+        # (integration: a split part that lost the id aliased the anchor part's live id to its own new id)
         for _fs, fid, _k in cand:
-            if fid != chosen:
+            if fid != chosen and fid not in taken:
                 aliases.append((fid, chosen))
+        taken[chosen] = i
     for i in range(len(rows)):                               # a split part that lost its id gets a new one
         if not rows[i]["id"]:
             rows[i]["id"] = naming.make_flood_id(rows[i]["started_ms"], rows[i]["name"], rows[i]["_anchor"])
+    # A split part whose registered keys all name the other part's id got a new id above; its keys now name that new
+    # id, so the next build gives it the same one (integration, 2026-11-05: "Ducktown flash flood" changed id with
+    # each NWS update, because its new id came from its newest product's key and was never registered).
+    reassign: list[tuple[str, str]] = []
+    for i, (r, keys) in enumerate(zip(rows, row_keys)):
+        if claims[i] and r["id"] not in {fid for _fs, fid, _k in claims[i]}:
+            reassign += [(k, r["id"]) for k in keys if reg.id_for(k) is not None]
     for r, keys in zip(rows, row_keys):
         for k in keys:
             hit = reg.id_for(k)
             if hit is None:
                 register.append((k, r["id"], now))
-    reg.write(register=register, aliases=aliases, retire=retire)
+    reg.write(register=register, aliases=aliases, retire=retire, reassign=reassign)
     for r in rows:
         r["aliases"] = reg.aliases_of(r["id"])
 

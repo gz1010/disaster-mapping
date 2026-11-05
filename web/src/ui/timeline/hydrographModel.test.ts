@@ -444,6 +444,20 @@ describe('hydrographModel: review fixes (WFC-R3, R5, R10, R11, R14)', () => {
     expect(forecastFalling({ series: null })).toBe(false)
   })
 
+  it('integration: a highest forecast value for a time that has passed is not a crest still to come', () => {
+    const g = primary()
+    const latest = g.series!.observed[g.series!.observed.length - 1]
+    const t0 = latest[0]
+    const v0 = (latest[1] ?? 17) + 0.4
+    // NWS issued it before the latest reading: its peak (above the reading) is already behind NOW, then it falls
+    g.series!.forecast = [[t0 - 3 * HOUR_MS, v0 - 0.2, null], [t0 - 2 * HOUR_MS, v0, null], ...[1, 2, 3].map((i) => [t0 + i * 6 * HOUR_MS, v0 - 0.3 * i - 0.5, null] as [number, number, null])]
+    g.forecast = g.forecast ? { ...g.forecast, crest_at_end: false } : null
+    const m = build({ gauge: g })
+    expect(m.crest?.passed).toBe(true)
+    expect(m.crest?.label).toMatch(/^HIGHEST NWS FORECAST [\d.]+ FT [A-Z]{3} \d\d:\d\d$/)
+    expect(build().crest?.passed).toBe(false)
+  })
+
   it('R11: the dock key keeps the issuer and a short issue time', () => {
     const m = build()
     expect(m.forecastLabel).toMatch(/^FORECAST · NWS ZZRFC · ISSUED NOV 4 \d\d:\d\d MST$/)

@@ -13,7 +13,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useExtrasRuntime } from '../../extras/runtime'
 import { fmtAt, fmtRelative, timeFmt, zoneAbbr } from '../../lib/time'
 import { useFloodOfficial } from '../../official/floodHooks'
-import { officialState, floodAlertRows, primaryMemberGauge, rfcName, type FloodAlertRow } from '../../official/floodModel'
+import { officialState, floodAlertRows, forecastPassed, primaryMemberGauge, rfcName, type FloodAlertRow } from '../../official/floodModel'
 import { localAlertsState } from '../../official/localAlerts'
 import { fitOfficialBounds } from '../../official/select'
 import { openFloodSummary, useFlood } from '../../state/flood'
@@ -119,7 +119,9 @@ export function FloodOfficialNow({ variant = 'command' }: { variant?: 'command' 
         ? `high ${v} at the end of the forecast (${when}); still forecast to rise`
         : falling
           ? fillCopy(FLOOD_COMMAND.highestForecastVerdict, { value: v, when })
-          : forecastBelowReading(g)
+          : forecastPassed(f, nowMs)
+            ? fillCopy(FLOOD_COMMAND.highestPassedVerdict, { value: v, when })
+            : forecastBelowReading(g)
             ? fillCopy(FLOOD_COMMAND.highestBelowVerdict, { value: v, when })
             : `crest ${v} ${when}`,
       meta: `NWS ${rfcName(f)}${issued ? `, issued ${issued}` : ''}`,

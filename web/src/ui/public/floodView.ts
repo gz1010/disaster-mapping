@@ -15,7 +15,7 @@ import { bearingDeg, distanceM } from '../../lib/geodesy'
 import { directionWord, distance } from '../../lib/plainLanguage'
 import { fmtAt, fmtClock, fmtDayDate, fmtRelative, HOUR_MS, DAY_MS, MONTHS, timeFmt, wallParts, type TimeFmt } from '../../lib/time'
 import { stateName } from '../../lib/usStates'
-import { answerReason, officialState, fimMapped, floodEvacuation, leadAlert, mainAlert, memberGaugesOf, orderAlerts, primaryMemberGauge, rfcName, senderName, shownGranule, type Answer, type AnswerState, type FloodEvacFact } from '../../official/floodModel'
+import { answerReason, officialState, fimMapped, floodEvacuation, forecastPassed, leadAlert, mainAlert, memberGaugesOf, orderAlerts, primaryMemberGauge, rfcName, senderName, shownGranule, type Answer, type AnswerState, type FloodEvacFact } from '../../official/floodModel'
 import { gaugeCategoryRank, highestProduct } from '../../state/floodOverview'
 import type { Units } from '../../state/workspace'
 import type { EvacuationsResponse } from '../../extras/types'
@@ -29,6 +29,7 @@ import {
   CREST_LINE,
   DATE_LINE,
   DISTANCE_CHIP_LINES,
+  FLOOD_COMMAND,
   FLOOD_PUBLIC,
   FORECAST_HIGH_LABEL,
   FORECAST_HIGH_LINE,
@@ -298,13 +299,24 @@ function forecastRow(key: 'crest' | 'riverForecast', g: RiverGauge | null, i: Fl
   const slots = { value, unit, 'day time zone': day, 'RFC name': rfcName(f), time: issued }
   const cat = f.category ? (GAUGE_CATEGORY_DISPLAY[f.category] ?? GAUGE_CATEGORY_DISPLAY.unknown).short : null
   const link = https(f.url) ?? https(g.url)
+  // integration: NWS's highest value for a time that has passed, or below the latest reading, is no crest to come
+  // (the same sentences as Command's readout, review WFC-R14)
+  const passed = forecastPassed(f, i.nowMs)
+  const below = !passed && !f.crest_at_end && num(g.observed?.value) && f.max_value < (g.observed.value as number)
+    && (!g.observed.unit || !g.thresholds?.unit || g.observed.unit.toLowerCase() === g.thresholds.unit.toLowerCase())
   return {
     key,
-    label: f.crest_at_end ? FORECAST_HIGH_LABEL : label,
+    label: f.crest_at_end ? FORECAST_HIGH_LABEL : passed || below ? FLOOD_PUBLIC.labelHighestForecast : label,
     value,
     unit,
     size: 26,
-    sub: f.crest_at_end ? fillCopy(FORECAST_HIGH_LINE, slots) : fillCopy(CREST_LINE, slots),
+    sub: f.crest_at_end
+      ? fillCopy(FORECAST_HIGH_LINE, slots)
+      : passed
+        ? fillCopy(FLOOD_COMMAND.highestPassedSub, slots)
+        : below
+          ? fillCopy(FLOOD_COMMAND.highestBelowSub, slots)
+          : fillCopy(CREST_LINE, slots),
     link: link ? { url: link, label: FLOOD_PUBLIC.forecastLink } : null,
     tip: join([g.name, cat ? `NWS forecast category: ${cat}` : null]),
   }

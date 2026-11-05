@@ -278,6 +278,17 @@ describe('facts per kind (PLAN-5 §4.4, C4, C6, C7, D5)', () => {
     expect(crest.label).toBe(FORECAST_HIGH_LABEL)
     expect(crest.sub).toMatch(/^Highest NWS forecast value .+ at the end of the forecast \(.+\); the river is still forecast to rise/)
   })
+  it("river (integration): NWS's highest forecast value for a time that has passed, or below the latest reading, is not a crest", () => {
+    const crestMs = GAUGES().gauges[0].forecast!.max_ms!
+    const passed = floodFacts(input({ nowMs: crestMs + H })).find((r) => r.key === 'crest')!
+    expect(passed.label).toBe('Highest NWS forecast')
+    expect(passed.sub).toMatch(/^Highest NWS forecast value 18\.0 ft was for .+, which has passed; no higher value is forecast after it/)
+    const g = GAUGES()
+    g.gauges = g.gauges.map((x, i) => (i === 0 ? { ...x, observed: { ...x.observed, value: (x.forecast?.max_value ?? 0) + 0.5 } } : x))
+    const below = floodFacts(input({ gauges: ans(g) })).find((r) => r.key === 'crest')!
+    expect(below.label).toBe('Highest NWS forecast')
+    expect(below.sub).toMatch(/below the latest reading: not a crest still to come/)
+  })
   it('flash (fixture-flood-flash): detection and damage threat verbatim, NO_MEMBER_GAUGE (never the nearby below-stage gauge)', () => {
     const rows = floodFacts(flashInput())
     expect(rows.map((r) => r.key)).toEqual(['detection', 'damage', 'gauges', 'started', 'product', 'evac', 'updated'])

@@ -74,8 +74,8 @@ export interface HydrographProps {
   className?: string
 }
 
-/** Right gutter for the NWS level labels ("MODERATE 17.0"). */
-const GUTTER = 82
+/** Right gutter for the NWS level labels ("MODERATE 17.0"; 92 px so the dock never cuts the last digit, integration). */
+const GUTTER = 92
 const PAD_Y = 5
 const PLOT_H: Record<HydrographVariant, number> = { slim: 76, dock: 78 }
 
@@ -414,7 +414,7 @@ function Plot({ model: m, readout, width, height }: { model: HydrographModel; re
       {m.crest && (
         <path
           d={`M${x(m.crest.t) - 4} ${y(m.crest.v) - 8}L${x(m.crest.t) + 4} ${y(m.crest.v) - 8}L${x(m.crest.t)} ${y(m.crest.v) - 3}Z`}
-          className={`hg-crest${m.crest.atEnd || m.crest.falling ? ' is-end' : ''}`}
+          className={`hg-crest${m.crest.atEnd || m.crest.falling || m.crest.passed ? ' is-end' : ''}`}
         >
           <title>{crestTip(m.crest)}</title>
         </path>
@@ -508,7 +508,7 @@ function PlotOverlays({ model: m, plotW, height, past }: { model: HydrographMode
 /** The crest mark's tooltip: a crest, the forecast high still rising at its end (C7), or the highest value of a falling
  *  forecast (its first step, below the latest reading: not a peak still to come; review WFC-R14). */
 function crestTip(c: NonNullable<HydrographModel['crest']>): string {
-  return c.atEnd ? HYDRO.highAtEndTip : c.falling ? HYDRO.highestFallingTip : HYDRO.crestTip
+  return c.atEnd ? HYDRO.highAtEndTip : c.falling ? HYDRO.highestFallingTip : c.passed ? HYDRO.highestPassedTip : HYDRO.crestTip
 }
 
 /** Where the crest label starts: centred on the crest, kept after the NOW label and inside the plot. */

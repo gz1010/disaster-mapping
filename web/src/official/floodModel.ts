@@ -251,6 +251,13 @@ export function primaryGaugeReading(summary: Pick<FloodSummary, 'primary_gauge'>
   return { category: ref.observed_category, value: ref.observed_value, unit: ref.unit, valid_ms: ref.observed_ms }
 }
 
+/** NWS's highest forecast value is for a time that has passed (and is not the last step, C7): not a crest still to
+ *  come (integration, the real Rio Grande at Alamosa: the 23:00 crest of an 18:00 forecast was shown at 02:50 as
+ *  "FORECAST CREST"). The forecast after it is not higher. */
+export function forecastPassed(f: Pick<NonNullable<RiverGauge['forecast']>, 'max_ms' | 'crest_at_end'> | null | undefined, nowMs: number): boolean {
+  return f != null && !f.crest_at_end && typeof f.max_ms === 'number' && Number.isFinite(f.max_ms) && f.max_ms < nowMs
+}
+
 /** "Example River Forecast Center (synthetic)", else the RFC code, else "River Forecast Center". */
 export function rfcName(f: Pick<NonNullable<RiverGauge['forecast']>, 'producer' | 'producer_name'> | null | undefined): string {
   return f?.producer_name?.trim() || f?.producer?.trim() || 'River Forecast Center'

@@ -964,7 +964,8 @@ flood (no zone outline, product text, gauge detail or series) is requested in th
    gauge inside a FL or FA area whose waterbody the segment's own description names is linked too (the
    "<River> near <Place> affecting <County>" lines that list a whole product's rivers never count).
 3. **Join** (union-find) products with one VTEC key (the CAP `references` chain when NWS sends no VTEC), linked gauges,
-   river members of the same river (equal significant name words) within 25 km, and flash / areal polygons overlapping
+   river members of the same river (equal significant name words) within 25 km (an areal product counts as a river
+   member of the water its text names, "Flooding along the San Juan River"; integration), and flash / areal polygons overlapping
    30 % of the smaller or within 10 km and issued within 12 h (issue time: the oldest message of the CAP `references`
    chain, so an update never splits a flood). River and flash products never join by distance alone; names that name
    no river ("Tide Station") never join. While NWS cannot be read, gauges whose open episodes belong to one flood stay
@@ -976,10 +977,15 @@ flood (no zone outline, product text, gauge detail or series) is requested in th
    water (SHEF code HM / HC, a tidal datum note such as "(in MHHW)", a coastal word in its waterbody, or within 10 km of
    such a gauge) says instead that Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products, which may be in
    effect there; while NWS cannot be read the caveat is "NWS flood products could not be reached right now. …".
+   A gauge-only flood whose gauge stands inside the area of a non-watch NWS product lists that product too (attached
+   like a watch: never a join, never its own registry key), so it is never shown as "no NWS flood product here" while
+   one covers the gauge (integration, 2026-11-05: the Ocoee River gauge at Copperhill read major under NWS Morristown's
+   Flash Flood Emergency for Copperhill).
 6. **Fields:** primary gauge (highest observed, then forecast category, then flow); point (primary gauge, else the
    representative point of the largest polygon); `bbox_lonlat`; state, states, county and IANA time zone from
    `fire3d.regions` (never NWPS's POSIX zones); kind river (any FL.* or gauge) / flash (FF.W) / areal; level warning >
-   advisory > watch, else gauge_only; `max_category` over member gauges' observed and forecast categories.
+   advisory > watch, else gauge_only (a gauge at flood stage under only a watch stays gauge_only: it is never hidden as
+   a watch-only flood); `max_category` over member gauges' observed and forecast categories.
 7. **Start:** the earliest of a NEW product's VTEC begin and own time, the oldest referenced message, and the
    registry's first-seen time (`started_basis` `nws_product` / `first_seen`); a member gauge's first crossing of flood
    stage refines it (`gauge`) only when its series is already cached.
@@ -990,12 +996,16 @@ flood (no zone outline, product text, gauge detail or series) is requested in th
    its products is listed now with another flood; during an outage it is not listed (its detail answers its last-known
    summary, its products in effect until their own NWS end time).
 9. **Names:** "<River> flood", "<Place> flash flood", "<Water> flood" / "<Place> flood", "Flood watch: <first area>
-   and N more areas"; duplicates get the state, then a place-based name, then a number; never "fire".
+   and N more areas"; a waterbody's datum, state and position notes are dropped ("Toccoa River (GA) / Ocoee River
+   (TN)" → "Toccoa River / Ocoee River"); duplicates get the state, then a place-based name, then a number, and a state
+   suffix that no longer separates two floods is dropped; never "fire".
 10. **Ids** `flood-{YYYYMMDD}-{slug}-{h6}` stay stable through `data/floods/registry.jsonl`: VTEC keys are permanent,
     a gauge key is an episode `NWSLI@first_seen_ms`, kept until its flood has been quiet longer than 48 h (judged from
     the flood's last-known summary, never from Fire-3d's own build gaps: a restart after a night off keeps the ids);
     a gauge flooding again later gets a new id; merges keep the older id (`aliases`), a split keeps it on the part with
-    the anchor. During an outage an id's last-known summary is not overwritten.
+    the anchor, and the other part's keys are reassigned to its new id (stable through later NWS updates; a live
+    part's id is never aliased to another live part). During an outage an id's last-known summary is not
+    overwritten.
 11. **Sources and outages:** `sources[]` `nws_alerts`, `nwps_gauges`, `rfc_forecasts`, `iem_archive` (the IEM join;
     its outage never shortens the cache) with `status`, `retrieved_ms`, `stale`, `reason`. A failed source answers from its last cached copy (`stale: true`); without one: NWS down → floods
     from gauges only, gauges down → from products only, both down → the flood bundles on disk only. Cached 5 min, 60 s

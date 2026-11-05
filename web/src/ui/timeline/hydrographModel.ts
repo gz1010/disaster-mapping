@@ -163,7 +163,7 @@ export interface HydrographModel {
   latest: (HydroMark & { stale: boolean; ageText: string }) | null
   /** `atEnd`: the highest value is the last step (C7); `falling`: it is the first step and below the latest reading, so
    *  not a peak still to come ("HIGHEST NWS FORECAST …", hollow caret; review WFC-R14, a gap next to PLAN C7). */
-  crest: (HydroMark & { atEnd: boolean; falling: boolean }) | null
+  crest: (HydroMark & { atEnd: boolean; falling: boolean; passed: boolean }) | null
   productTicks: HydroProductTick[]
   dayTicks: HydroDayTick[]
   /** PLAN-5 §5.5 sentences that apply (and the flow axis' "no flood lines" note). */
@@ -476,14 +476,16 @@ export function buildHydrograph(input: HydrographInput): HydrographModel {
     const lastStep = forecastAll[forecastAll.length - 1]
     const atEnd = top.t >= lastStep.t || (axis === 'stage' && gauge.forecast?.crest_at_end === true)
     const falling = !atEnd && top === fcIn[0] && fcIn.length > 1 && latestPt != null && top.v < latestPt.v
+    // integration: the highest value is for a time that has passed (a crest already behind the NOW line)
+    const passed = !atEnd && !falling && top.t < nowMs
     const value = fmtValue(top.v, axis, units)
     const day = upper(`${fmtDayDate(top.t, tf.tz, { weekday: true }).split(' ')[0]} ${fmtClock(top.t, tf)}`)
     const label = atEnd
       ? fillCopy(HYDROGRAPH_MARKS.highAtEnd, { value, UNIT: unit })
-      : falling
+      : falling || passed
         ? upper(fillCopy(HYDRO.highestFalling, { value, UNIT: unit, 'DAY HH:MM': day }))
         : fillCopy(HYDROGRAPH_MARKS.crest, { value, UNIT: unit, 'DAY HH:MM': day })
-    crest = { t: top.t, v: top.v, label, atEnd, falling }
+    crest = { t: top.t, v: top.v, label, atEnd, falling, passed }
   }
 
   const productTicks: HydroProductTick[] = input.products

@@ -152,6 +152,11 @@ describe('gauge words', () => {
     expect(belowRow.sub).toMatch(/^Highest NWS forecast value 18\.0 ft \(Thu Nov 5, 17:00 MST\), below the latest reading: not a crest still to come/)
     expect(floodWordingProblems(belowRow.sub)).toEqual([])
     expect(forecastBelowReading(g0)).toBe(false)
+    // integration: NWS's highest value for a time that has passed is no crest to come either
+    const passed = forecastRow(g0, TF, 'us', (g0.forecast?.max_ms ?? 0) + 3_600_000)
+    expect(passed.label).toBe(FLOOD_COMMAND.highestForecastLabel)
+    expect(passed.sub).toMatch(/^Highest NWS forecast value 18\.0 ft was for Thu Nov 5, 17:00 MST, which has passed; no higher value is forecast after it/)
+    expect(floodWordingProblems(passed.sub)).toEqual([])
     expect(forecastBelowReading(GAUGE_RISING_AT_END())).toBe(false)
     const none = forecastRow(gaugesOf()[2], TF, 'us', FIXTURE_NOW_MS)
     expect(none.value).toBe(NO_RFC_FORECAST)

@@ -14,7 +14,8 @@ interagency list, NIFC WFIGS. Past fires can be replayed hour by hour and re-for
 well the model would have done (a *hindcast*). Official information (evacuation orders and warnings, the agencies' own
 fire records, National Weather Service fire-weather alerts and the local officials' messages the NWS relays) is shown
 with its issuer and its own times, always separate from the model. Every time is shown in the fire's own time zone.
-Alaska and Hawaii are not supported yet. Fire-3d is a **research prototype, not for operational use**.
+Alaska and Hawaii are not supported yet. Since brief 5 it also shows **floods** in the lower 48 (see
+[Floods](#floods-brief-5) below). Fire-3d is a **research prototype, not for operational use**.
 
 > [!IMPORTANT]
 > Fire-3d's forecasts are experimental model output. They are not evacuation instructions and they are not official
@@ -252,6 +253,53 @@ the terrain selects a point.
   Forensic only);
 - a setting "Prepare analysis when I pick an unprepared fire" (off by default) for Forensic's own incident picker.
 
+## Floods (brief 5)
+
+A switch at the top of the national map reads **Fires | Floods**. In Floods, the map lists the floods the National
+Weather Service (NWS) is warning about, and the river gauges that read at flood stage. Everything works without any
+key.
+
+**What a "flood" is here.** Fire-3d groups, per river or area, the NWS flood products in effect (Flood Warning, Flash
+Flood Warning, Flood Watch, Flood Advisory and their statements) and the river gauges at minor, moderate or major flood
+stage, and names each group like "Rio Grande flood" or "Ducktown flash flood". A gauge at flood stage that no NWS
+product names is listed too ("No NWS flood product names this gauge right now."). Flood watches are hidden until you
+turn on "Show watches". Coastal and lakeshore flood products are not read. Past years (2026, 2025) list the river
+floods that reached or were forecast to reach moderate or major stage at an NWS gauge and the flash floods NWS tagged
+considerable, catastrophic or an emergency, from the Iowa Environmental Mesonet's archive of NWS products. A place with
+no marker is **not** an all-clear.
+
+**The three views**, like fires:
+
+- **Public flood view:** the place and dates, a water circle with the NWS product as its status ("FLOOD · WARNING",
+  "FLASH FLOOD · EMERGENCY"), and seven plain facts per kind of flood: for a river flood, the NWS forecast flooded area,
+  the river stage at the main gauge (measured by USGS) and the NWS forecast crest; for a flash flood, how NWS detected it
+  and the damage threat it states. The map shows the NWS warning areas (pink), NWS's forecast flooded area, the river
+  gauges as diamonds coloured by flood category, the main channel and the water seen by satellite. FEMA's 100-year
+  floodplain is a background layer you can turn on. The model never appears in Public.
+- **Command flood view:** a dense readout of the selected point (which layers cover it, the nearest gauge, its stage,
+  category and forecast), "Official now" with every NWS product verbatim, the river forecast, evacuations and local
+  officials' messages, and a **river-level chart** (hydrograph): measured stage or flow, the NWS forecast, NWS flood
+  levels, and on the flow axis NOAA's National Water Model as a separate, dotted, experimental line. Dragging the
+  chart's handle shows the NWS products in effect at that time.
+- **Forensic flood view:** "Prepare 3D data (about 1 min)" builds the flood's terrain bundle; then the flood layers are
+  draped on 3D terrain, with gauges as bars (bar height is the river stage, scaled, not water depth), every saved
+  version of each NWS product in the Evidence tab, and the river-level chart in the dock. 3D data is prepared for
+  current floods only (NWS's forecast maps, the model and river forecasts are not kept for past dates).
+
+**What is official, what is measured, what is a model.** NWS products, river forecasts and flood categories, FEMA zones
+and evacuation orders are official: shown verbatim with their issuer, their own times and a link, never merged with
+anything else. River stages are measured by USGS (provisional data). "Water seen by satellite" (NASA OPERA) is a
+measurement that can be days old; clouds, trees and the days between passes hide water, so dry pixels do not mean no
+flooding, and the image includes the river's normal water. NWS's forecast flooded-area and category maps are labelled
+experimental by NWS. The National Water Model is **experimental model output**, shown only in Command (off on the map
+until you turn it on) and Forensic. A gauge below flood stage, a missing warning or a dry satellite pixel is never an
+all-clear: follow local officials. Fire-3d has no flood model of its own.
+
+**Try it without the network:** `cd backend && uv run python scripts/make_fixture.py --only flood` writes
+`fixture-flood`, a synthetic "Ridge Fork River flood" in New Mexico with fictional issuers ("NWS Example Office
+(synthetic)"); open it at `/?flood=fixture-flood` (it is marked DEMO and is never listed with real floods).
+`scripts/serve_fixture.py` also serves seven synthetic demo floods (flash flood emergency, watch only, past, …).
+
 ## Quick start
 
 ### Prerequisites
@@ -291,6 +339,28 @@ FIRMS_MAP_KEY=<your key>
 and run `chmod 600 .env`. Only `backend/fire3d/config.py` reads it (a real environment variable of the same name takes
 precedence). `.gitignore` already excludes `.env` and `.env.*`, so the key is never committed, and Fire-3d masks it as
 `***` in logs and error messages. Never paste the key into code, issues or screenshots.
+
+### Optional: a NASA Earthdata token (satellite water)
+
+Floods work without it: "Water seen by satellite" then comes from NASA's public optical images (Landsat and
+Sentinel-2 through NASA Earthdata GIS), which cannot see through clouds, and the app says "No radar images: NASA login
+not set up". A free NASA Earthdata user token adds the radar images (OPERA DSWx-S1, which see through clouds) and the
+newest optical day. To set it up:
+
+1. Create a free account at <https://urs.earthdata.nasa.gov/> and choose **Generate Token** (the token is valid for
+   about 60 days; note the date).
+2. Sign in once at <https://search.earthdata.nasa.gov/> and download any one OPERA DSWx file, so NASA's PO.DAAC
+   archive is approved for your account.
+3. Add the token to the same `.env` file, then `chmod 600 .env`:
+
+   ```ini
+   EARTHDATA_TOKEN=<your token>
+   ```
+
+Only `backend/fire3d/config.py` reads it; it is sent only to `archive.podaac.earthdata.nasa.gov` (never to another
+host, never in a URL), masked in logs and errors, and never written to a file. Never paste it into code, issues,
+chats or screenshots. When it expires the app says the login was refused; generate a new one. The token path has been
+tested with a fake token and a simulated server only.
 
 ### Run
 
@@ -441,6 +511,8 @@ uv run python -m fire3d.cli build eaton                                  # build
 uv run python -m fire3d.cli forecast <id> --horizon 72 --ensemble auto   # optional: --start ISO, --members N
 uv run python -m fire3d.cli hindcast <id> --start 2025-01-08T08:18:00Z --ensemble perturbed   # prints the skill scores
 uv run python -m fire3d.cli serve --port 8710 --no-live                  # the API alone (also --reload, --live, --auto-build)
+uv run python -m fire3d.cli catalog --hazard flood                       # the live flood list (--mode historical --year 2025)
+uv run python -m fire3d.cli build-flood "rio grande"                     # prepare a flood's 3D bundle by id or name (--force)
 ```
 
 `--ensemble` accepts `auto` (live fires: `gfs025`; past fires: `perturbed`), `gfs025` (31 GFS members),
@@ -454,6 +526,8 @@ Helper scripts, also from `backend/`:
 | `uv run python scripts/make_fixture.py [--only demo\|live\|east]` | write the two synthetic demo bundles (fixture-demo, fixture-live); `--only east` writes fixture-east (North Carolina), which the default run leaves out |
 | `uv run python scripts/serve_fixture.py --port 8710` | serve bundles from disk without the full backend |
 | `uv run python scripts/check_bundle.py <id> [--quicklook DIR]` | check a bundle against the data contract; optional quick-look images |
+| `uv run python scripts/make_fixture.py --only flood` | write the synthetic flood bundle `fixture-flood` and its canned API answers |
+| `uv run python scripts/check_bundle.py --hazard flood <id>` | check a flood bundle (layers, NWS and gauge files, satellite image, credits, no relative ages, no secrets) |
 | `uv run python -m fire3d.spread.validate hindcast …` or `… live-start …` | batch hindcasts for calibration, or the check of the live start on past fires (see [docs/validation.md](docs/validation.md), section 9) |
 
 <details>
@@ -477,7 +551,12 @@ Helper scripts, also from `backend/`:
 | GET | `/api/official/local-alerts?incident=<id>&at_ms=<ms>` or `?bbox=w,s,e,n` | the local officials' messages relayed by the NWS (live) or from FEMA's IPAWS archive (past days), verbatim |
 | GET | `/api/official/calfire?incident=<id>` | CAL FIRE's current record of the fire (its own numbers and update time) and every change Fire-3d has recorded since it first checked; past fires: CAL FIRE's final record |
 | GET | `/api/official/fire-weather?incident=<id>&at_ms=<ms>&margin_km=15` | NWS Red Flag Warnings and Fire Weather Watches whose zones meet the fire's area + 15 km, verbatim; the present from the NWS, past times from the Iowa Environmental Mesonet archive (labelled archived); without `incident`, every current alert in the lower 48 |
-| GET | `/api/extras/{evacuations,cameras,cameras/latest,imagery,sources}` | optional sources (`?incident=<id>` or `?bbox=w,s,e,n`; a camera image needs `?id=<camera id>`) |
+| GET | `/api/extras/{evacuations,cameras,cameras/latest,imagery,sources}` | optional sources (`?incident=<id>` or `?bbox=w,s,e,n`; a camera image needs `?id=<camera id>`); evacuations take `&hazard=flood` |
+| GET | `/api/floods?mode=live\|historical&year=` | the flood list (`sources` says which lists answered) |
+| GET | `/api/floods/status`, `/api/floods/{id}` | the flood live loop's status; one flood (summary, bundle manifest, job) |
+| POST | `/api/floods/{id}/build?force=0\|1` | prepare a flood's 3D bundle (a job) |
+| GET | `/api/floods/{id}/{files/<path>,maps,model,satellite,satellite.png}` | bundle files; NWS forecast and category maps and FEMA zones (`?kind=rfc_fim\|catfim\|nfhl`); the National Water Model (`?kind=…`, model output); water seen by satellite |
+| GET | `/api/official/flood-alerts?flood=<id>\|bbox=` and `/api/official/river-gauges?flood=\|lid=\|bbox=\|scope=national` | NWS flood products verbatim; river gauges (readings, NWS flood levels and forecasts; `&series=1` for the chart) |
 
 </details>
 
@@ -886,10 +965,32 @@ you share or publish anything made with Fire-3d.
 | [NASA GIBS](https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api) | Landsat (HLS), VIIRS and GOES-West image tiles (their pass times come from NASA CMR, above) | NASA open data, [no restrictions on use](https://www.earthdata.nasa.gov/engage/open-data-services-software-policies/data-use-guidance); GOES is NOAA public domain | the product's credit plus "NASA GIBS (ESDIS)" and the GIBS acknowledgement |
 | [Element 84 Earth Search](https://www.element84.com/earth-search/) | Sentinel-2 scene search | free public STAC API; the images follow the Copernicus terms above | Earth Search by Element 84 |
 
+### Flood data (brief 5)
+
+| Source | Used for | License and terms | Credit |
+|---|---|---|---|
+| [National Weather Service API](https://www.weather.gov/documentation/services-web-api) | the NWS flood products in effect (Flood / Flash Flood Warning, Flood / Flash Flood Watch, Flood Advisory and statements), their zones and product text (river gauge ids) | U.S. public domain ([NWS disclaimer](https://www.weather.gov/disclaimer), read 2026-11-04: no implied endorsement; do not alter and present as official) | National Weather Service |
+| [NOAA National Water Prediction Service](https://water.noaa.gov/) (the `riv_gauges` map service and the NWPS API) | river gauges, NWS flood categories and flood levels, readings and series, impacts | NWS disclaimer; [water.noaa.gov/about/api](https://water.noaa.gov/about/api) | NOAA National Water Prediction Service (NWS), plus each gauge's own data attribution ("Observations courtesy of U.S. Geological Survey") |
+| NWS River Forecast Centers (`rfc_max_forecast`, NWPS forecasts) | official river forecasts and crests | NWS disclaimer | NWS <River Forecast Center>, issued by NWS <office> |
+| [NOAA water maps](https://maps.water.noaa.gov/server/rest/services) (`rfc/rfc_based_5day_max_inundation_extent`, `fim_libs/static_stage_based_catfim`, `reference/static_nwm_flowlines`) | NWS forecast flooded area (next 5 days), NWS category flood maps, river lines; all labelled experimental by NWS | NWS disclaimer | NOAA/NWS National Water Center (experimental) |
+| [National Water Model](https://water.noaa.gov/about/nwm) (`nwm/ana_inundation_extent`, `ana_high_flow_magnitude`, `mrf_gfs_5day_max_inundation_extent`, NWPS reach streamflow) | experimental model output in Command and Forensic only | NWS disclaimer; water.noaa.gov/about/api ("not an official forecast product") | NOAA/NWS National Water Center, National Water Model (experimental model output) |
+| [FEMA National Flood Hazard Layer](https://hazards.fema.gov/femaportal/wps/portal/NFHLWMS) | the 1 % (100-year) floodplain, floodway and 0.2 % band as a background layer, with FEMA's effective dates | [ArcGIS item terms](https://www.arcgis.com/home/item.html?id=ae38b6f94eaf4abf97f986fa01921e13): provided "as is", the user assumes all risk; no FEMA logo, no endorsement | Flood zones: FEMA National Flood Hazard Layer (effective) |
+| [NASA OPERA DSWx-HLS](https://podaac.jpl.nasa.gov/dataset/OPERA_L3_DSWX-HLS_V1) via [NASA Earthdata GIS](https://gis.earthdata.nasa.gov/) (no login) or PO.DAAC (with the optional token); [NASA GIBS](https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api) and [NASA CMR](https://cmr.earthdata.nasa.gov/) for pass dates | water seen by satellite (optical) | NASA open data ([data use guidance](https://www.earthdata.nasa.gov/engage/open-data-services-software-policies/data-use-guidance): no restrictions, cite; [citing PO.DAAC](https://podaac.jpl.nasa.gov/CitingPODAAC)); contains Copernicus Sentinel data | Water seen by satellite: NASA JPL OPERA DSWx-HLS (PO.DAAC, doi:10.5067/OPDSW-PL3V1) via NASA Earthdata GIS (or via NASA GIBS); contains modified Copernicus Sentinel data |
+| [NASA OPERA DSWx-S1](https://podaac.jpl.nasa.gov/dataset/OPERA_L3_DSWX-S1_V1) (optional `EARTHDATA_TOKEN`) | radar water that sees through clouds | as above | NASA JPL OPERA DSWx-S1 (PO.DAAC); contains modified Copernicus Sentinel data |
+| [USGS Water Data API](https://api.waterdata.usgs.gov/ogcapi/v0/) (`continuous`, no key) | measured stage and flow at past times (past floods) | U.S. public domain ([USGS copyrights and credits](https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits)); [provisional data statement](https://waterdata.usgs.gov/provisional-data-statement/) | U.S. Geological Survey (provisional data) |
+| [Iowa Environmental Mesonet](https://mesonet.agron.iastate.edu/) (Iowa State University) | the gauge ids of current river warnings (a join key, never shown); past years' NWS flood warnings and their product text | public domain ([IEM disclaimer](https://mesonet.agron.iastate.edu/disclaimer.php)); an archived copy, not an official NWS source | National Weather Service, archived copy via the Iowa Environmental Mesonet (Iowa State University) |
+
+Evacuations for a flood come from the same official layers as for fires (`hazard=flood`): Cal OES zones keep their
+own event type verbatim; Oregon's feed covers wildfires only, so the app says flood evacuations are not shown there.
+Local officials' messages relayed by NWS are kept when they mention flooding, water, a levee or a dam.
+
 **Not used, and why:** FEMA's live IPAWS feed (needs registration; the NWS relay and the public archive are used
 instead); Washington's evacuation layer (its terms require users to indemnify the State of Washington; you declined
 it); Florida's statewide status (county status only, not zones); Arizona's planning zones (not maintained); county and
 vendor evacuation systems (need agreements, out of scope); Google data, paid map services and Nominatim (never used).
+For floods: NWPS's gauge list by area (times out), NOAA's `flash` map folder (needs a token), the legacy USGS
+WaterServices (retiring), VIIRS flood maps via SSEC RealEarth (volume-limited, paid tiers), Copernicus GFM (needs an
+account), USGS NHD services (time out) and NOAA HEFS (experimental API).
 
 ### Software
 

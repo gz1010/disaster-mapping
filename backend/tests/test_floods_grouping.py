@@ -693,3 +693,34 @@ def test_integration_names_drop_state_and_position_notes_and_needless_suffixes()
     rows = [{"name": "Key Largo flood", "state": "FL", "_first_sent": 1}, {"name": "Key Largo flood", "state": "FL", "_first_sent": 2}]
     naming.dedupe_names(rows)
     assert [r["name"] for r in rows] == ["Key Largo flood (FL)", "Key Largo flood (FL, 2)"]
+
+
+def test_integration_a_split_part_keeps_its_new_id_through_later_updates() -> None:
+    """Seen on the real list: the part of a split that lost the id to the part holding its anchor got an id made from
+    its newest product key at every build, so each NWS update gave it another id (and orphaned its bundle). Its keys
+    now name its new id: the next builds, after its products were updated, give it the same id."""
+    ff = cap("ff", "Flash Flood Warning", vt("NEW", "FF", "W", 82, office="KMRX"), box(-84.38, 35.0, 0.08, 0.06),
+             desc="Some locations that will experience flash flooding include...\nDucktown and Copperhill.",
+             ugcs=("TNC139",), same=("047139",), area="Polk, TN", sent=NOW - 3 * H)
+    fa = cap("fa", "Flood Warning", vt("NEW", "FA", "W", 2, office="KMRX"), box(-84.36, 35.0, 0.06, 0.05),
+             desc="Flooding along the Ocoee River. Some locations that will experience flooding include...\nCopperhill.",
+             ugcs=("TNC139",), same=("047139",), area="Polk, TN", sent=NOW - 2 * H)
+    g = riv("CPHT1", -84.3767, 34.9914, "major", "Ocoee River", state="TN")
+    merged = build(inputs([ff, fa], obs=[g]))["floods"]                       # the gauge on the named river: one flood
+    assert len(merged) == 1 and merged[0]["primary_gauge"]["lid"] == "CPHT1"
+    fa2 = cap("fa2", "Flood Warning", vt("CON", "FA", "W", 2, office="KMRX"), box(-84.36, 35.0, 0.06, 0.05),
+              desc="Flooding of creeks continues. Some locations that will experience flooding include...\nCopperhill.",
+              ugcs=("TNC139",), same=("047139",), area="Polk, TN", sent=NOW - H)  # no longer names the river: a split
+    cat.reset_state()
+    split = {s["primary_gauge"]["lid"] if s["primary_gauge"] else "flash": s["id"]
+             for s in build(inputs([ff, fa2], obs=[g]), now=NOW + H)["floods"]}
+    assert split["CPHT1"] == merged[0]["id"] and split["flash"] != merged[0]["id"]
+    for k, t in ((3, 2), (5, 4)):                                             # NWS updates both products twice
+        cat.reset_state()
+        ffk = cap(f"ff{k}", "Flash Flood Warning", vt("EXT", "FF", "W", 82, office="KMRX"), box(-84.38, 35.0, 0.08, 0.06),
+                  desc="Some locations that will experience flash flooding include...\nDucktown and Copperhill.",
+                  ugcs=("TNC139",), same=("047139",), area="Polk, TN", sent=NOW + t * H)
+        fak = {**fa2, "id": f"fa{k}", "properties": {**fa2["properties"], "id": f"fa{k}", "sent": iso(NOW + (t - 1) * H)}}
+        again = {s["primary_gauge"]["lid"] if s["primary_gauge"] else "flash": s["id"]
+                 for s in build(inputs([ffk, fak], obs=[g]), now=NOW + k * H)["floods"]}
+        assert again == split, k

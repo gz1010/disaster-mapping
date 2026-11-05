@@ -27,7 +27,7 @@ import { useNow } from '../hooks'
 import { SceneBoundary, Toasts } from '../Overlays'
 import { TooltipLayer } from '../Tooltip'
 import { FixedCopy } from '../shell/FixedCopy'
-import { fillCopy } from '../shell/floodCopy'
+import { fillCopy, PAST_NO_BUNDLE } from '../shell/floodCopy'
 import { switchWorkspace } from '../shell/handoff'
 import { NARROW_QUERY, useMediaQuery } from '../shell/hooks'
 import { FloodDock } from './FloodDock'
@@ -171,6 +171,9 @@ function NotPrepared() {
                 <RotateCcw size={14} aria-hidden="true" /> {FLOOD_FORENSIC.prepareAgain}
               </button>
             </>
+          ) : prep.kind === 'needed' && summary?.mode === 'historical' ? (
+            // a past flood: the build answers 409 PAST_NO_BUNDLE, so say it up front (integration; BFL-R4)
+            <p className="fxf-prep-text">{PAST_NO_BUNDLE}</p>
           ) : prep.kind === 'needed' ? (
             <>
               <p className="fxf-prep-text">{FLOOD_FORENSIC.notPrepared}</p>

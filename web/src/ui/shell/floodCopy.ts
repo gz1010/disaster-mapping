@@ -42,7 +42,10 @@ export const FLOOD_HERE_IN_FIRES = 'NWS flood products are in effect here · Sho
 export const DEMO_TAG = 'DEMO'
 export const PAST_PREPARING = 'Preparing past floods (the first time takes about 10 minutes)…'
 export const PAST_RULE_NOTE =
-  'Past years list river floods that reached moderate or major flood stage at an NWS gauge, and flash floods NWS tagged considerable or catastrophic or called an emergency. Smaller floods are not listed; not an all-clear.'
+  'Past years list river floods that reached or were forecast to reach moderate or major flood stage at an NWS gauge, and flash floods NWS tagged considerable or catastrophic or called an emergency. Smaller floods are not listed; not an all-clear.'
+/** (B) backend-flood-live BFL-R4: a past flood's build answers 409 with this text (floods/history.py PAST_NO_BUNDLE). */
+export const PAST_NO_BUNDLE =
+  "Fire-3d prepares 3D data for current floods only: NWS's forecast maps, the model and river forecasts are not kept for a past flood's dates."
 export const PAST_RULE_NOTE_FALLBACK =
   'Past years list NWS river Flood Warnings at river gauges and NWS Flash Flood Emergencies. Other flash floods are not listed; not an all-clear.'
 
@@ -299,6 +302,8 @@ export const HYDRO = {
   // a falling forecast: its highest value is its first step, below the latest reading (review WFC-R14)
   highestFalling: 'Highest NWS forecast {value} {UNIT} {DAY HH:MM}',
   highestFallingTip: 'The highest NWS forecast value is its first step, below the latest reading: not a crest still to come. Forecasts change; check NWS for the newest.',
+  // the highest forecast value is for a time that has passed (integration)
+  highestPassedTip: 'The highest NWS forecast value is for a time that has passed; no higher value is forecast after it. Not a crest still to come. Forecasts change; check NWS for the newest.',
   // the flow axis of a gauge that reports river stage only (review WFC-R5)
   flowStageOnly: 'This gauge reports river stage only; no flow readings (see the stage view)',
   stageLineTip: 'NWS flood level at this gauge ({category}): {value} {unit}. NWS sets these levels; they are not a forecast.',
@@ -347,6 +352,10 @@ export const FLOOD_COMMAND = {
   highestBelowSub:
     'Highest NWS forecast value {value} {unit} ({day time zone}), below the latest reading: not a crest still to come (NWS {RFC name}, issued {time}). Forecasts change; check NWS for the newest.',
   highestBelowVerdict: 'highest {value} ({when}), below the latest reading',
+  // the highest forecast value is for a time that has passed (integration, the real Rio Grande at Alamosa)
+  highestPassedSub:
+    'Highest NWS forecast value {value} {unit} was for {day time zone}, which has passed; no higher value is forecast after it (NWS {RFC name}, issued {time}). Forecasts change; check NWS for the newest.',
+  highestPassedVerdict: 'highest {value} ({when}), already passed; no higher value forecast after it',
   forecastInChart: 'NWS forecasts this gauge: choose it in the river-level chart below for its forecast.',
   gaugesChecking: 'Checking river gauges…',
   // event rows
@@ -505,6 +514,8 @@ export const FLOOD_PUBLIC = {
   labelFim: 'Forecast flooded area (NWS, 5 days)',
   labelStage: 'River stage (USGS)',
   labelCrest: 'Forecast crest (NWS)',
+  /** The crest row when NWS's highest forecast value has passed or is below the latest reading (integration). */
+  labelHighestForecast: 'Highest NWS forecast',
   labelDetection: 'Flash flood detection (NWS)',
   labelDamage: 'Damage threat (NWS)',
   labelGauges: 'River gauges',
