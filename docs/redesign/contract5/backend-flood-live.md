@@ -257,8 +257,11 @@ What changed against the sections above. Every finding is fixed; R9 needs one we
     and takes the rebuilt summary's member lids): an `unavailable` rebuild keeps the earlier `gauges.json`; a member
     that the rebuild could read only from the NWS gauge map (`GAUGE_DETAIL_DOWN` and no impacts / reach / attribution)
     keeps its earlier NWPS detail with the map's newer reading (`keep_detail`); a member of the flood that the rebuild
-    left out is put back; `GAUGE_DETAIL_DOWN` is dropped when no member is left with the map's reading only; the
-    gauge credits (NWPS, data attributions, RFCs) are re-added through `build._gauge_credits`;
+    left out is put back; a gauge that has **left** the flood (no longer at action stage or above in NWS's list) stays
+    as a nearby gauge (`member: false`) with its earlier detail, observed rows and the newest reading (the bundle keeps
+    what it saw, as it keeps every product version; facts and leaders use members only); `GAUGE_DETAIL_DOWN` is
+    dropped when no member is left with the map's reading only; the gauge credits (NWPS, data attributions, RFCs) are
+    re-added through `build._gauge_credits`;
   - NWM series: earlier `model/nwm_series_<lid>.json` files of current members are put back (`files.model`, credit);
   - layers (`LAYER_PARTS`): `naip`, `water_forecast` (+ `maps/rfc_fim.geojson`), `floodplain` (+ `maps/nfhl.geojson`),
     `water_model` (+ `model/nwm_analysis.geojson`) and `water_satellite` (+ `satellite.json`, `satellite.png`) that were
@@ -307,6 +310,29 @@ What changed against the sections above. Every finding is fixed; R9 needs one we
 - `scripts/check_bundle.py --hazard flood` notes (not problems) member gauges of the summary missing from
   `gauges.json`, members with the gauge map's reading only, and `REFRESH_KEPT` warnings.
 
+### Measured after the fixes (2026-11-05, port 8760, `FIRE3D_LIVE=1 FIRE3D_AUTO_BUILD_LIVE=0`, scratch copies of `data/floods`)
+
+- **First cycle (the reviewer's scenario):** prefetch 1 request; appended to 7 bundles; 6 refreshes due (Peace,
+  Grand, Platte, Calcasieu `rfc_fim`; St. Johns, Moenkopi `satellite`), warmed and rebuilt in 1-40 s, **0 "request
+  limit is reached" lines**. Before → after: St. Johns members 6 → 7 (SJWF1 and DLAF1 kept; PALF1 joined), observed
+  rows 21,478 → 24,480, NWM series 5 → 5; Peace, Grand, Moenkopi, Platte: members, impacts, reaches, attributions and
+  series unchanged or more (Platte series 2 → 3); no layer lost; `check_bundle --hazard flood` 0 problems on all 8.
+  Calcasieu: CWOL1 had left the flood (NWS list: below action stage); with the later "left the flood" rule it is kept
+  as a nearby gauge with its 621 observed rows and 11 impacts (second run).
+- **Restart with the pass keys on disk (R6):** a fresh copy of the same bundles plus `live_state.json`: no `satellite`
+  refresh queued again (only `rfc_fim`, NWS's forecast maps had new times); 0 limit lines; 0 problems.
+- **Year lists rebuilt (SCHEMA 2):** 2025 1,977 floods, 2026 2,109 (2 served as live rows; 0 historical rows ending
+  after now; 0 sharing a VTEC key with a live flood). Rough River (KY, 2) `last_product_ms` 2025-04-26 16:10 UTC
+  (was 04-03 22:40), `ended_ms` 04-27 10:14; 59 of 770 river rows still end more than a day after their last
+  product (a final product with a later end), not 601.
+- `POST /api/floods/flood-20250403-rough-river-flood-781c6b/build` → 409 `PAST_NO_BUNDLE`; its `/model` (analysis,
+  series) and `/maps?kind=rfc_fim` without `at_ms` → `not_available_for_past_dates`; `cli build-flood` → refused,
+  exit 1. The old Chatsworth id `flood-20261105-blue-ridge-flash-flood-2c43eb` → `resolved_from: "alias"`, the
+  canonical live flood.
+- Screenshots: `docs/screenshots/brief5-backend-flood-live-fix-past-rough-public.png` ("APR 3 2025 — LAST NWS PRODUCT
+  APR 26 2025"), `-chatsworth-old-id.png` (the live Toccoa River / Ocoee flood, "FLASH FLOOD · EMERGENCY"),
+  `-past-rough-forensic.png` (Prepare → `PAST_NO_BUNDLE`), `-past-rough-command.png` (model chip: no model output).
+
 ### For the integration and the web roles
 
 - **R9 wording:** `PAST_RULE_NOTE` in `web/src/ui/shell/floodCopy.ts` (not this role's file) should say "river floods
@@ -316,4 +342,10 @@ What changed against the sections above. Every finding is fixed; R9 needs one we
   whole background budget (prefetch + append), `APPEND_SHARE` 8, `NWPS_RESERVE` 10; 16.7: build 409 for a past flood,
   and the default `at_ms` of a past flood's per-flood routes.
 - Forensic (web): for a `mode: "historical"` flood the "Prepare 3D data" button could say `PAST_NO_BUNDLE` up front
-  instead of offering a build that answers 409.
+  instead of offering a build (and "Prepare again") that answers 409.
+- Command (web): for a past flood the model chip says "Model (NWM, experimental) · could not be loaded" while the answer
+  is `not_available_for_past_dates` (it should use the past-date text); the slim hydrograph labels the past reading
+  "25.2 FT OBSERVED · MINOR" (a category from today's thresholds; the backend sends `unknown`, `THRESHOLDS_TODAY`) and
+  "LATEST 11:00 · 10 MIN AGO" (an age against the asked time, not now). Seen on Rough River (KY, 2).
+- `data/floods/years/*.json` written before this fix (SCHEMA 1) are rebuilt on the first request (about 25 s a year,
+  the month answers come from the HTTP cache).

@@ -52,3 +52,11 @@ Role `backend-flood-live` (PLAN-5 §3.5-3.6, §10.1; plan5-roles.json). Ports AP
   line blue-ridge -> toccoa was written after the build), R1/R4-R8 in the code paths the reviewer named.
 - Fixed in `floods/live.py`, `floods/history.py`, `api/floods.py`, `cli.py`, `scripts/check_bundle.py`, SPEC 6 /
   8.9 / 8.10; tests in `test_floods_live.py` (+9) and `test_floods_history.py` (+7). Flood tests 379 passed.
+- 09:46-09:53 UTC: two real runs on port 8760 (scratch copies of `data/floods`): first cycle 6 refreshes, 0 NWPS limit
+  hits, nothing lost (St. Johns members 6 -> 7 with SJWF1 and DLAF1 kept); restart with the pass keys on disk: no
+  satellite refresh queued again. Year lists rebuilt (SCHEMA 2). Calcasieu showed a gauge that left the flood losing its
+  history at a refresh: such gauges now stay as nearby gauges with their history (test added). Screenshots
+  `docs/screenshots/brief5-backend-flood-live-fix-*.png` (4, viewed). Servers on 8760 / 5220 stopped.
+- Gates: backend 1404 passed, 0 skipped; web typecheck, lint 55 (all src/scene), 1784 passed (2 pre-existing skips),
+  build. Report `docs/redesign/reports/review5-backend-flood-live.json`; role report and as-built note
+  updated.
