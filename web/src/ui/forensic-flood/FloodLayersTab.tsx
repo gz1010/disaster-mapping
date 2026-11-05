@@ -163,7 +163,7 @@ function RowNote({ k, exp }: { k: FloodForensicLayer; exp?: boolean }) {
   if (k === 'model')
     return (
       <div className="legend fxf-note">
-        <span className="exp-tag">experimental model</span> {FLOOD_FORENSIC.keyModel}
+        <span className="exp-tag">experimental model output</span>
       </div>
     )
   if (exp)

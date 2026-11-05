@@ -1,0 +1,72 @@
+{
+  "role": "web-flood-forensic",
+  "brief": 5,
+  "summary": "The Forensic 3D flood view (PLAN-5 4.7) is built. ForensicWorkspace shows a FloodForensic branch while a flood is open (the fire Forensic is untouched): a flood without 3D data gets \"Fire-3d has not prepared this flood's 3D terrain yet.\" with \"Prepare 3D data (about 1 min)\" through useFlood.startFloodBuild and its progress, and the scene loads when the job is done (checked on the real route: Calcasieu River flood prepared from the button, built in 52 s). The scene takes its assets from useSceneAssets(): IncidentAssets.manifest is typed SceneManifest (the frozen scene/fx typechecks, no cast) and scene/flood/floodAssets adds a flood part. The terrain drapes the NWS forecast flooded area (hatch), satellite water (blue with an edge; clouds, no data and snow the same grey no-view cross-hatch, never transparent or land, from a class table the shader reads), FEMA floodplain, NWS category maps and NWM model (amber dotted, labelled MODEL · EXPERIMENTAL), the last three off by default. NWS warning areas are pink lines that follow the hydrograph handle (warningsAt: the newest version at the handle; after now the products in effect now, with CURSOR_FUTURE_PRODUCTS). River gauges are bars (1 ft = 12 m) with flood-stage ticks, reading and forecast caps and mono labels, with the key line 'Bar height: river stage at the gauge (scaled), not water depth'. FloodHeader, Frame flood / Charts & NWS products, the demo badge, a scene key with each layer's own time, FloodRightPanel (Layers, Analysis, Evidence with every NWS product version verbatim, Notes; Flood overview and River gauges cards) and the dock with web-flood-command's Hydrograph (variant dock) complete it; the hand-off reads the flood's grid. Fixed copy on every state, phones included; nothing animates under reduced motion. Gates: backend 1340 passed; web typecheck, lint (55 warnings, all in src/scene), 1706 tests passed (2 skipped, not flood tests), build.",
+  "milestones": [
+    "M1 34dc4dd: branch, Prepare, forensicFloodState, SceneManifest assets, frame and overlays for floods, drapes, warning lines",
+    "M2 a1b7b07: gauge bars, header, entry controls, right panel and tabs (CatFIM toggle), evidence, hand-off",
+    "M3: dock hydrograph (mounted; web-flood-command M1 was in git log), screenshots, report, as-built note"
+  ],
+  "files": [
+    "web/src/ui/shell/ForensicWorkspace.tsx",
+    "web/src/ui/shell/ForensicWorkspace.test.ts",
+    "web/src/ui/shell/handoff.ts",
+    "web/src/ui/shell/handoff.test.ts",
+    "web/src/ui/forensic-flood/FloodForensic.tsx",
+    "web/src/ui/forensic-flood/FloodHeader.tsx",
+    "web/src/ui/forensic-flood/FloodRightPanel.tsx",
+    "web/src/ui/forensic-flood/FloodLayersTab.tsx",
+    "web/src/ui/forensic-flood/FloodEvidenceTab.tsx",
+    "web/src/ui/forensic-flood/FloodDock.tsx",
+    "web/src/ui/forensic-flood/floodForensicCopy.ts",
+    "web/src/ui/forensic-flood/floodForensicView.ts",
+    "web/src/ui/forensic-flood/floodForensicView.test.ts",
+    "web/src/ui/forensic-flood/forensicFloodState.ts",
+    "web/src/ui/forensic-flood/forensicFloodState.test.ts",
+    "web/src/ui/forensic-flood/safeArea.ts",
+    "web/src/scene/Scene.tsx",
+    "web/src/scene/assets.ts",
+    "web/src/scene/frame.ts",
+    "web/src/scene/overlays/SceneOverlays.tsx",
+    "web/src/scene/terrain/Terrain.tsx",
+    "web/src/scene/terrain/terrainMaterial.ts",
+    "web/src/scene/flood/floodAssets.ts",
+    "web/src/scene/flood/floodGeo.ts",
+    "web/src/scene/flood/floodGeo.test.ts",
+    "web/src/scene/flood/satClasses.ts",
+    "web/src/scene/flood/satClasses.test.ts",
+    "web/src/scene/flood/FloodFx.tsx",
+    "web/src/scene/flood/GaugeBars.tsx",
+    "web/src/scene/flood/gaugeBarMath.ts",
+    "web/src/scene/flood/gaugeBarMath.test.ts",
+    "web/src/styles/forensic-flood.css",
+    "docs/redesign/contract5/web-flood-forensic.md",
+    "docs/redesign/progress/brief5-web-flood-forensic.md",
+    "docs/redesign/reports/brief5-web-flood-forensic.json"
+  ],
+  "screenshots": [
+    "docs/screenshots/brief5-web-flood-forensic-fixture.png",
+    "docs/screenshots/brief5-web-flood-forensic-model-on.png",
+    "docs/screenshots/brief5-web-flood-forensic-cursor-future.png",
+    "docs/screenshots/brief5-web-flood-forensic-unprepared.png",
+    "docs/screenshots/brief5-web-flood-forensic-real.png",
+    "docs/screenshots/brief5-web-flood-forensic-phone.png",
+    "docs/screenshots/brief5-web-flood-forensic-unprepared-phone.png",
+    "docs/screenshots/brief5-web-flood-forensic-fire-regression.png"
+  ],
+  "known_issues": [
+    "The dock's Hydrograph (web-flood-command's component) tags a member gauge NEARBY when given the gauges prop, its handle words overlap the NOW and CREST labels in the 112 px dock, and its 82 px gutter cuts 'MODERATE 17.0' to 'MODERATE 17.' (told to web-flood-command).",
+    "Analysis tab: no small multiples (below the cut line); it lists each gauge's reading and NWS forecast with a Chart button for the dock.",
+    "brief5-web-flood-forensic-real.png shows the Calcasieu River flood reopened after it was prepared from the button: the first Prepare screenshot run lost its state to a Vite hot reload caused by another role's concurrent edits (the store module was replaced); the build itself finished and loaded (API log), and a second run of the same flow from the store kept the flood open.",
+    "Clouds and no data can cover most of a 60 km real area (St. Johns: 66 % no data outside the Landsat swath); the grey no-view hatch then covers much of the terrain (by design, D25).",
+    "The NAIP year is not in the flood manifest: the aerial photo row says 'before this flood' without a year.",
+    "Gauge bars are 1 ft = 12 m: on a 60 km area at the default framing a bar is only ~20 px tall; the labels carry the values.",
+    "The fixture was regenerated in data/ (make_fixture.py --only flood, 2026-11-05 05:00 UTC) so its NWS products are in effect for the screenshots."
+  ],
+  "cut_line_left": [
+    "Analysis tab small multiples (one hydrograph per gauge)"
+  ],
+  "test_skip_count": 2,
+  "gates": "backend: 1340 passed; web: typecheck ok, lint 55 warnings (all src/scene, none added), 131 files / 1706 passed / 2 skipped, build ok",
+  "ports": { "api": 8756, "vite": 5216 }
+}

@@ -224,7 +224,7 @@ async function loadFloodAssets(m: FloodManifest, summary: FloodSummary, key: str
       satellite: satJson?.kind === 'satellite_water' ? satJson : null,
       frame: floodFrameOf(summary, m.grid),
       // the model's label east of the middle, the category map's west of it (the two areas overlap the river)
-      anchors: { model: maskAnchor(mArr, w, h, extent, [0.28, 0]), catfim: maskAnchor(cArr, w, h, extent, [-0.3, 0]) },
+      anchors: { model: maskAnchor(mArr, w, h, extent, [0.12, 0.3]), catfim: maskAnchor(cArr, w, h, extent, [-0.3, 0]) },
     },
   }
 }

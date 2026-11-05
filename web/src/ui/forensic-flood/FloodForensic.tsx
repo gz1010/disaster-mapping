@@ -64,7 +64,7 @@ function EntryControls({ narrow, dockFull, onDock, sheetOpen, onSheet }: { narro
 }
 
 /** The scene key: one line per layer drawn, each with its own time (D8, C16), and the gauge bars' meaning. */
-function SceneKey() {
+function SceneKey({ narrow }: { narrow: boolean }) {
   const flood = floodAssetStore((s) => s.assets?.flood ?? null)
   const layers = useForensicFlood((s) => s.layers)
   const tf = useTimeFormat()
@@ -78,9 +78,10 @@ function SceneKey() {
     hasWarnings: flood.warnings?.status === 'available' && flood.warnings.alerts.length > 0,
     hasGauges: flood.gauges?.status === 'available' && flood.gauges.gauges.length > 0,
   })
+  // phones: folded to its title (the Layers sheet has the legend too); desktop: open
   return (
-    <div className="fxf-key glass" role="note" aria-label={FLOOD_FORENSIC.keyTitle}>
-      <div className="fxf-key-title eyebrow">{FLOOD_FORENSIC.keyTitle}</div>
+    <details key={narrow ? 'narrow' : 'wide'} className="fxf-key glass" open={!narrow} aria-label={FLOOD_FORENSIC.keyTitle}>
+      <summary className="fxf-key-title eyebrow">{FLOOD_FORENSIC.keyTitle}</summary>
       <ul>
         {items.map((it) => (
           <li key={it.key} className={it.stale ? 'is-stale' : undefined}>
@@ -90,7 +91,7 @@ function SceneKey() {
         ))}
       </ul>
       <p className="fxf-key-foot">{FLOOD_FORENSIC.keyNotAllClear}</p>
-    </div>
+    </details>
   )
 }
 
@@ -222,7 +223,7 @@ function FloodScene() {
             <span className="fxf-demo-sub">{FLOOD_FORENSIC.demoBadgeSub}</span>
           </span>
         )}
-        {!collapsed && <SceneKey />}
+        {!collapsed && <SceneKey narrow={narrow} />}
       </div>
       <div className="fx-note">
         <FixedCopy variant="pill" />
