@@ -109,4 +109,85 @@ Reused from `floods/copy.py`: `SAT_CAVEAT` (per pass), `SAT_NOT_SET_UP`, `SAT_LO
 
 ## M2 · 3D terrain products
 
-(in progress)
+`manifest.terrain3d` (absent in brief-5 bundles; `scripts/flood_3d.py <id>...` adds it, and the M1 timeline, to an
+existing bundle; done on disk 2026-11-05 for `fixture-flood`, Calcasieu River and St Johns River). Module:
+`backend/fire3d/floods/terrain3d.py`. SPEC §5.4 has the method and its limits.
+
+```ts
+export type TerrainProductKind = 'hand' | 'depth'
+export interface FloodRelief {
+  area: 'water' | 'grid'; area_note: string; cells: number
+  min_m: number; max_m: number; p05_m: number; p95_m: number; range_m: number; width_m: number
+  exaggeration: number                 // 1.5 | 2 | 3 | 5 | 8 | 10: the default height boost ("Height ×10")
+  rule: string                         // RELIEF_RULE
+}
+export interface FloodTerrainStats { cells: number; area_km2: number; p50_m: number; p90_m: number; max_m: number }
+export interface FloodTerrainProduct {
+  key: string                          // "hand" | "depth_satellite" | "depth_forecast"
+  kind: TerrainProductKind; layer: string | null; status: LayerState; reason: string | null
+  label: string; caveat: string; method: string; citation: string
+  source_layer: string | null; source: string; time_ms: number | null; stats: FloodTerrainStats | null
+}
+export interface FloodTerrain3d {
+  version: 1; relief: FloodRelief | null; hand: FloodTerrainProduct
+  depth: FloodTerrainProduct[]         // [depth_satellite, depth_forecast], always both, in that order
+  scale_m: number; top_code: number; nodata: number   // 0.1, 254, 255
+  built_ms: number
+}
+// FloodManifest.terrain3d?: FloodTerrain3d | null; FloodManifest.files.maps.flowlines = "maps/flowlines.geojson"
+```
+
+### Rasters (for web-forensic-flood-3d)
+
+- `layers/hand.bin`, `layers/depth_satellite.bin`, `layers/depth_forecast.bin`: **uint8**, 1024 × 1024 render grid,
+  row 0 north (same layout as `water_satellite.bin`). Metres = value × 0.1; 254 = 25.4 m or more; **255 = no value**
+  (outside the mapped water for depth; more than 10 km from a channel for HAND). `LayerInfo.units` = "0.1 m",
+  `nodata` = 255, `min` / `max` exclude 255.
+- **Depth is only inside the mapped water.** `depth_satellite` belongs to the pass in `water_satellite.bin`
+  (`timeline.passes.shown_key` in the bundle); the other passes have no depth raster: show the water surface only while
+  the shown pass (or the forecast layer) is on, and say "Estimated depth …" with `label` and `caveat`.
+- **HAND** (`label` "Height above the river (from terrain). Not a flood map") is off by default; `caveat` always with
+  it. An empty or shallow tint is never an all-clear.
+- **Height boost:** `relief.exaggeration` is the default factor; the user can change it; always show it.
+- Water surface for drawing: surface = terrain + depth (inside the water only).
+- **Closer framing:** not a backend product; the river lines (`maps/flowlines.geojson`, `strm_order`, `name`) and the
+  member gauges give the main river's course if the camera needs it.
+
+### Strings (exact; `copy_time.py`)
+
+| Name | Text |
+|---|---|
+| `RELIEF_RULE` | Height boost: the smallest of ×1.5, ×2, ×3, ×5, ×8 and ×10 that makes the middle 90% of the ground heights near the mapped water (5th to 95th percentile) span at least 2% of the area's width; ×1.5 when the ground is already steep enough. Only heights are boosted, never distances. |
+| `RELIEF_AREA_WATER` | ground within {km} km of the mapped water (satellite water and the NWS forecast flooded area) |
+| `RELIEF_AREA_GRID` | the whole 3D area (no mapped water to measure around) |
+| `HAND_LABEL` | Height above the river (from terrain). Not a flood map |
+| `HAND_CAVEAT` | Height of the ground above the nearest river channel, from the terrain model and NOAA's river lines. It is not a flood map: low ground is not always flooded, and higher ground can flood (rain, small streams, drains). Experimental. Not an all-clear. |
+| `HAND_METHOD` | NOAA National Water Model river lines (stream order {order} and up) are drawn on the terrain grid. Each channel cell takes the lowest terrain height within one cell of it; every other cell takes the height of its nearest channel cell in a straight line and shows how far above it the ground is (below it counts as 0). Cells more than {km} km from a channel are left out. Simplified from Height Above the Nearest Drainage (Nobre et al., 2011), which follows the downhill flow path instead: near a ridge between two valleys a cell can be measured against the other valley. |
+| `HAND_NO_LINES` | Height above the river is not available: NOAA's river lines could not be loaded for this area. |
+| `HAND_NO_CHANNEL` | Height above the river is not available: NOAA lists no river line in this area. |
+| `HAND_SOURCE` | Terrain (USGS 3DEP) and river lines (NOAA National Water Model) |
+| `HAND_CITATION` | Nobre, A. D., et al. (2011). Height Above the Nearest Drainage, a hydrologically relevant new terrain model. Journal of Hydrology 404(1-2), 13-29. |
+| `DEPTH_LABEL` | Estimated depth (from the terrain at the water's edge), experimental |
+| `DEPTH_CAVEAT` | Estimated depth inside the mapped water only: the water surface is taken from the terrain height along the water's edge and the ground is subtracted (the published FwDET method, Cohen et al.). Experimental: errors of a metre or more are common, most where the edge runs up a steep bank or the map and the terrain do not line up. The terrain model shows the river's normal water surface, not its bed, so depth in the normal channel is not measured. Shallow water here is not an all-clear. Follow local officials. |
+| `DEPTH_METHOD` | Cells of the mapped water next to open ground are its edge (edges against clouds, no data, ocean or the area's border are not used). Each water cell takes the terrain height of its nearest edge cell as the water surface; depth = water surface − terrain, below 0 counts as 0, then a 3 × 3 average over the water smooths it (FwDET v2.0). Only cells inside the mapped water get a depth. |
+| `DEPTH_CITATION` | Cohen, S., et al. (2018). Estimating Floodwater Depths from Flood Inundation Maps and Topography. JAWRA 54(4), 847-858, doi:10.1111/1752-1688.12609. Cohen, S., et al. (2019). The Floodwater Depth Estimation Tool (FwDET v2.0) for improved remote sensing analysis of coastal flooding. NHESS 19, 2053-2065, doi:10.5194/nhess-19-2053-2019. |
+| `DEPTH_SOURCE_SATELLITE` | Water seen by satellite (NASA OPERA), image of {date_time} |
+| `DEPTH_SOURCE_FORECAST` | NWS forecast flooded area (next 5 days, experimental), forecast of {date_time} |
+| `DEPTH_NO_LAYER` | No depth estimate: this water layer is not in the 3D data. |
+| `DEPTH_NO_WATER` | No depth estimate: this layer maps no water in this area. That is not an all-clear. |
+| `DEPTH_NO_EDGE` | No depth estimate: the mapped water has no edge on open ground here (it meets clouds, no data or the area's border everywhere). |
+
+### Bundle build
+
+Steps and weights: catalog 0.05, terrain 0.25, maps 0.15, gauges 0.15, satellite 0.15, timeline 0.15, terrain3d 0.05,
+finish 0.05. River lines come from one more request in the parallel maps step (`water_maps.flowlines`, NOAA/NWS
+National Water Center, credited). A failed terrain3d step leaves `terrain3d` null and the bundle `ready`.
+
+### For other roles
+
+- **make_fixture.py owner (not mine):** to give a freshly generated `fixture-flood` its terrain products, run
+  `uv run python scripts/flood_3d.py fixture-flood` after `make_fixture.py --only flood`, or add at the end of
+  `build_flood_fixture` a call of `flood_3d.add_terrain3d(bdir, manifest, grid, flowlines=fixture_flowlines(grid),
+  flow_reason=None, now=now)` and write the manifest. The committed web fixture copy
+  (`web/src/api/__fixtures__/floods/`) has no canned terrain3d or timeline answer; the real API serves
+  `/api/floods/fixture-flood/timeline` from the fixture bundle.

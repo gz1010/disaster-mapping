@@ -11,6 +11,10 @@ Layout (``data/floods/{id}/``)::
     layers/water_satellite.bin   uint8        DSWx classes; 255 outside the satellite image
     layers/water_model.bin       uint8 0/255  National Water Model analysis flooded area (model output, separate)
     layers/water_pass_<key>.bin  uint8        brief 6: DSWx classes of each kept satellite pass (newest usable, at most 8)
+    layers/hand.bin              uint8        brief 6: height above the nearest river channel, 0.1 m steps (terrain3d)
+    layers/depth_satellite.bin   uint8        brief 6: FwDET depth estimate inside the satellite water, 0.1 m steps
+    layers/depth_forecast.bin    uint8        brief 6: FwDET depth estimate inside the NWS forecast flooded area
+    maps/flowlines.geojson                    brief 6: NOAA National Water Model river lines (the HAND input)
     warnings.json  gauges.json  satellite.json  satellite.png
     timeline.json                brief 6: FloodTimelineResponse (every pass; every NWS product version)
     maps/rfc_fim.geojson  maps/catfim_<lid>_<category>.geojson  maps/nfhl.geojson
@@ -18,9 +22,10 @@ Layout (``data/floods/{id}/``)::
 
 * **Area** (:func:`fire3d.floods.maps.flood_area`): the flood's NWS polygons and member gauges, padded 3 km, square,
   8-60 km (cut around the primary gauge when longer; ``aoi_note``), on a 1024² UTM render grid.
-* **Steps and weights:** catalog 0.05, terrain 0.30, maps 0.15, gauges 0.15, satellite 0.15, timeline 0.15 (brief 6:
+* **Steps and weights:** catalog 0.05, terrain 0.25, maps 0.15, gauges 0.15, satellite 0.15, timeline 0.15 (brief 6:
   every satellite pass read on the grid after the satellite step, so it never takes the satellite step's request
-  slots; every NWS product version), finish 0.05. Terrain is required (a failure fails the job and leaves any earlier bundle as it was); every other step that fails writes its
+  slots; every NWS product version), terrain3d 0.05 (brief 6: relief and height boost, HAND, FwDET depth;
+  ``floods/terrain3d.py``), finish 0.05. Terrain is required (a failure fails the job and leaves any earlier bundle as it was); every other step that fails writes its
   ``layer_status`` entry with a reason and a manifest warning, and the bundle is still ``ready``.
 * **Gate** (:func:`gate`): a flood the lists know (live list, alias, bundle or last-known summary), in the lower 48 or
   DC, not synthetic (``fixture-flood``: 409).
@@ -54,18 +59,18 @@ from .. import bundle, config, regions
 from ..build import pipeline
 from ..contracts import FloodManifest, validate_strict
 from ..grid import Grid, manifest_grid, transformer, utm_epsg_for
-from ..sources import imagery, terrain
+from ..sources import imagery, terrain, water_maps
 from ..sources.nws import SourceBusy, SourceError
 from ..timeutil import HOUR_MS, now_ms
-from . import catalog, gauges as gauges_mod, maps, satellite, store, timeline, zones
+from . import catalog, gauges as gauges_mod, maps, satellite, store, terrain3d, timeline, zones
 from . import copy as fcopy
 from . import copy_time as tcopy
 
 log = logging.getLogger(__name__)
 
 ProgressFn = Callable[[str, float, str], None]
-WEIGHTS = {"catalog": 0.05, "terrain": 0.30, "maps": 0.15, "gauges": 0.15, "satellite": 0.15, "timeline": 0.15,
-           "finish": 0.05}
+WEIGHTS = {"catalog": 0.05, "terrain": 0.25, "maps": 0.15, "gauges": 0.15, "satellite": 0.15, "timeline": 0.15,
+           "terrain3d": 0.05, "finish": 0.05}
 PRODUCT_TRIES = 6                    # the NWS product history waits for Disaster Mapping's IEM limit this many times
 PRODUCT_WAIT_S = 10.0
 STAGING = ".staging"
@@ -301,6 +306,7 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
         f_alerts = pool.submit(zones.flood_alerts, summary, now=now)
         f_gauges = pool.submit(gauges_mod.flood_gauges, summary, now=now, with_series=True)
         f_sat = pool.submit(satellite.flood_satellite, fid, bbox, now=now, time_zone=tz, grid=grid)
+        f_flow = pool.submit(water_maps.flowlines, bbox, 1)          # brief 6: NWM river lines (HAND)
 
         # ---- terrain (required) -------------------------------------------------------------------------------
         prog.report("terrain", 0.05, "Fetching USGS 3DEP elevation")
@@ -335,11 +341,13 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
         # ---- maps -----------------------------------------------------------------------------------------------
         prog.report("maps", 0.0, "NWS forecast flooded area, FEMA floodplain, model")
         fim = _result(f_fim, "RFC FIM")
+        fc_raster: np.ndarray | None = None
         if fim and fim["status"] == "available":
             bundle.write_json(stage / "maps" / "rfc_fim.geojson", compact_fc(fim["features"], grid))
             files["maps"]["rfc_fim"] = "maps/rfc_fim.geojson"
+            fc_raster = rasterize(fim["features"]["features"], grid)
             layers["water_forecast"] = bundle.write_layer(
-                stage, "water_forecast", rasterize(fim["features"]["features"], grid), "render", None,
+                stage, "water_forecast", fc_raster, "render", None,
                 "NWS forecast flooded area, next 5 days (experimental; 0/255)", register=False)
             status["water_forecast"] = _status("ok", None, fcopy.CREDIT_NWC_EXPERIMENTAL, fim.get("reference_ms"))
             _credit(sources, fcopy.CREDIT_NWC_EXPERIMENTAL,
@@ -498,6 +506,22 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
         # ---- time history (brief 6): every satellite pass and every NWS product version ---------------------
         _timeline_step(summary, grid, bbox, stage, prog, now, ans, layers, files, sources, warnings)
 
+        # ---- 3D terrain products (brief 6): relief and height boost, HAND, FwDET depth ------------------------
+        prog.report("terrain3d", 0.0, "Height boost, height above the river, depth estimates")
+        flow = _result(f_flow, "NWM flowlines")
+        flow_feats = None
+        if flow is not None:
+            flow_feats = flow.features
+            bundle.write_json(stage / "maps" / "flowlines.geojson",
+                              compact_fc({"type": "FeatureCollection", "features": flow_feats}, grid))
+            files["maps"]["flowlines"] = "maps/flowlines.geojson"
+            _credit(sources, fcopy.CREDIT_NWC_EXPERIMENTAL,
+                    f"National Water Model river lines: {len(flow_feats)} reaches (maps/flowlines.geojson; the "
+                    "height-above-the-river input)", flow.fetched_ms, now)
+        terrain3d_entry = _terrain3d_step(summary, grid, stage, dem, sat.grid_classes, status, fc_raster, flow_feats,
+                                          layers, now)
+        prog.report("terrain3d", 1.0, "3D terrain products ready")
+
     # ---- finish ------------------------------------------------------------------------------------------------
     prog.report("finish", 0.2, "Writing the manifest")
     for k in ("water_forecast", "floodplain", "water_satellite", "water_model", "naip"):
@@ -517,7 +541,7 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
         "time_range": {"start_ms": int(t_start), "end_ms": int(t_end), "now_ms": now},
         "grid": manifest_grid(grid, grid, float(np.nanmin(dem)), float(np.nanmax(dem))), "aoi_note": area.note,
         "layers": layers, "layer_status": status, "files": files, "data_sources": sources,
-        "warnings": list(dict.fromkeys(warnings)), "built_ms": now,
+        "warnings": list(dict.fromkeys(warnings)), "built_ms": now, "terrain3d": terrain3d_entry,
     }
     log.info("flood bundle %s built in %.1f s", fid, time.monotonic() - t0)
     return m
@@ -570,6 +594,26 @@ def _timeline_step(summary: dict, grid: Grid, bbox: tuple, stage: Path, prog: pi
     if prods["status"] != "available":
         warnings.append(prods["reason"] or fcopy.ALERTS_UNAVAILABLE)
     prog.report("timeline", 1.0, f"{len(pa['passes'])} satellite passes, {len(prods['products'])} NWS product versions")
+
+
+def _terrain3d_step(summary: dict, grid: Grid, stage: Path, dem: np.ndarray, sat_classes: np.ndarray | None,
+                    status: dict, fc_raster: np.ndarray | None, flow_feats: list[dict] | None, layers: dict,
+                    now: int) -> dict | None:
+    """``manifest.terrain3d`` and its uint8 rasters (optional: a failure leaves ``terrain3d`` null)."""
+    st_sat, st_fc = status.get("water_satellite") or {}, status.get("water_forecast") or {}
+    water = terrain3d.water_layers_of(sat_classes, st_sat.get("time_ms"), st_sat.get("reason"),
+                                      fc_raster, st_fc.get("time_ms"), st_fc.get("reason"))
+    try:
+        res = terrain3d.products(dem, grid, water=water, flowlines=flow_feats,
+                                 flowlines_reason=None if flow_feats is not None else tcopy.HAND_NO_LINES,
+                                 time_zone=summary.get("time_zone") or "UTC", now=now)
+    except Exception as e:  # noqa: BLE001 - optional products: the 3D view keeps the plain terrain
+        log.warning("terrain3d %s: %s", summary["id"], pipeline.short_error(e))
+        return None
+    for name, arr in res.rasters.items():
+        layers[name] = bundle.write_layer(stage, name, arr, "render", "0.1 m", res.descriptions[name],
+                                          nodata=terrain3d.NODATA, register=False)
+    return res.entry
 
 
 def _nfhl_code(f: dict) -> int:

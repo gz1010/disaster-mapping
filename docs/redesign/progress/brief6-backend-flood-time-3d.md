@@ -30,3 +30,10 @@ time history and the 3D terrain products, their routes in `api/floods.py`, `floo
   note and the repo folder), `scripts/check_bundle.py` knows the new layers (declared in the contract6 note),
   `tests/test_floods_timeline.py` (13). Backend suite 1441 passed; web typecheck clean.
   Real runs: Moenkopi Wash 6 passes (8 s cold); Grand River 3 passes, all no view; St Johns 97 product versions.
+- 2026-11-05: **M2 done.** `floods/terrain3d.py` (relief + boost rule, HAND from NWM river lines, FwDET depth for the
+  satellite and forecast layers; uint8 0.1 m rasters, 255 = no value), build step "terrain3d" (+ river lines in the
+  maps step, `maps/flowlines.geojson`), `scripts/flood_3d.py` (adds the products and the timeline to existing
+  bundles; run on `fixture-flood`, Calcasieu River, St Johns River: check_bundle 0 problems), SPEC §5.4 / §5.3 / §10,
+  `tests/test_floods_terrain3d.py` (17; HAND checked against the fixture valley's known heights, FwDET against a
+  bathtub of known depth). HAND cut-off raised from 5 to 10 km after a visible circle on the Calcasieu plain.
+  Gates: backend 1458 passed; web typecheck, lint (55 warnings, all src/scene), 1809 tests, build.

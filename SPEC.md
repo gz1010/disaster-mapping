@@ -388,6 +388,10 @@ data/floods/{id}/
   layers/water_model.bin       render  uint8    0/255 National Water Model analysis flooded area (model output, separate)
   layers/water_pass_<key>.bin  render  uint8    brief 6: DSWx classes of one satellite pass (the 8 newest passes that saw
                                                 the area; 255 outside the pass), named in timeline.json (§8.11)
+  layers/hand.bin              render  uint8    brief 6: height above the nearest river channel (§5.4), 0.1 m steps
+  layers/depth_satellite.bin   render  uint8    brief 6: FwDET depth estimate inside the satellite water (§5.4)
+  layers/depth_forecast.bin    render  uint8    brief 6: FwDET depth estimate inside the NWS forecast flooded area (§5.4)
+  maps/flowlines.geojson                        brief 6: NOAA National Water Model river lines (the HAND input)
   warnings.json                FloodAlertsResponse (the flood's NWS products, verbatim; every version seen, §8.9)
   gauges.json                  RiverGaugesResponse (member gauges with 30-day series and the RFC forecast; nearby gauges)
   satellite.json + satellite.png   SatelliteWaterResponse (absolute times only) and its PNG (clouds and no data hatched)
@@ -399,9 +403,10 @@ data/floods/{id}/
 
 - **Area:** the flood's NWS polygons and member gauges, padded 3 km, square, 8-60 km; longer floods are cut to 60 km
   around the primary gauge (else the flood's point) and `aoi_note` says so. 1024² UTM render grid (59 m at 60 km).
-- **Steps** (weights): catalog 0.05, terrain 0.30, maps 0.15, gauges 0.15, satellite 0.15, timeline 0.15 (brief 6;
-  after the satellite step, so its reads never take the satellite step's request slots), finish 0.05, the network
-  steps in parallel. Terrain is required (a failure fails the job and keeps any earlier bundle); every other step that
+- **Steps** (weights): catalog 0.05, terrain 0.25, maps 0.15, gauges 0.15, satellite 0.15, timeline 0.15 (brief 6;
+  after the satellite step, so its reads never take the satellite step's request slots), terrain3d 0.05 (brief 6,
+  §5.4; under 1 s), finish 0.05, the network steps in parallel. Size: 12-18 MB before brief 6; brief 6 adds 3 MB
+  (terrain products) and up to 8 MB (pass images): St Johns River measured 29.5 MB with 8 passes, Calcasieu 18.2 MB. Terrain is required (a failure fails the job and keeps any earlier bundle); every other step that
   fails writes its `layer_status` entry (`unavailable` + a reason: `NFHL_DOWN`, `RFC_FIM_UNAVAILABLE`, `NAIP_DOWN`, ...)
   and a manifest warning, and the bundle is still `ready`.
 - **Gate:** the flood resolves (live list, alias, bundle, last-known) and its state is lower 48 or DC; `fixture-flood`
@@ -418,6 +423,52 @@ data/floods/{id}/
   category maps (NOAA/NWS National Water Center, experimental), FEMA NFHL, the National Water Model (analysis and
   series), the National Weather Service (products; TIGERweb when zones are drawn as counties), NOAA NWPS with each
   gauge's data attribution and each RFC forecast's issuer, and NASA OPERA with its route and Copernicus clause.
+
+### 5.4 3D terrain products of the flood bundle (brief 6, decision 3; `backend/fire3d/floods/terrain3d.py`)
+
+The Forensic flood view on flat ground showed little: the terrain looked flat and the affected areas were hard to see.
+`manifest.terrain3d` (`FloodTerrain3d`, absent in brief-5 bundles) holds three products made at build (numpy / scipy
+only, under 1 s); `scripts/flood_3d.py <id>...` adds them (and the §8.11 time history) to an existing bundle without a
+rebuild (`fixture-flood`: its synthetic valley's centre line stands in for the river lines). Every raster is uint8 on
+the render grid: metres = value × `scale_m` (0.1), `top_code` 254 = 25.4 m or more, `nodata` 255 = no value; `LayerInfo`
+`units: "0.1 m"`, `nodata: 255`. Each product (`FloodTerrainProduct`) carries `label`, `caveat`, `method`, `citation`,
+`source`, the source layer's own `time_ms`, `stats` (`cells`, `area_km2`, `p50_m`, `p90_m`, `max_m`), and when it is
+missing `status` (`unavailable` | `not_covered`) with `reason`. Strings: `fire3d/floods/copy_time.py`.
+
+- **Relief and the height boost** (`relief`): the 5th-95th percentile of the ground within 2 km of the mapped water
+  (satellite open and partial water, and the NWS forecast flooded area; the whole grid when there is none or it
+  covers under 1 % of it). `exaggeration` = the smallest of ×1.5, ×2, ×3, ×5, ×8, ×10 that makes that range span at
+  least 2 % of the area's width (×10 when none does; ×1.5 when the ground is already steep enough). `rule` writes the
+  rule down (`RELIEF_RULE`). The web shows the factor ("Height ×5") and lets the user change it. Measured 2026-11-05:
+  St Johns River 9.0 m over 60 km → ×10; Calcasieu River 6.7 m → ×10; Grand River 27 m → ×10; Moenkopi Wash 534 m →
+  ×3; `fixture-flood` → ×3.
+- **Height above the river** (`hand`, HAND simplified; label `HAND_LABEL` "Height above the river (from terrain). Not a
+  flood map", off by default in the web): NOAA National Water Model river lines (`reference/static_nwm_flowlines`
+  layer 0, every stream order, one request cached 30 days, kept as `maps/flowlines.geojson`) of stream order 3 and up
+  (or the largest order present when none is that large) are drawn on the grid (all touched cells). Each channel cell
+  takes the lowest terrain height within one cell of it (the lines are not always on the channel bottom); every other
+  cell takes the height of its nearest channel cell in a straight line (`scipy.ndimage.distance_transform_edt`) and
+  keeps its height above it (below counts as 0); cells more than 10 km from a channel have no value. **Limits**
+  (`HAND_METHOD`): HAND proper (Nobre et al., 2011) follows the downhill flow path to the channel the cell drains to;
+  the straight-line version can measure a cell near a ridge against the next valley; levees, culverts and storm
+  drains are unknown; it is not a flood map and an empty tint is never an all-clear. River lines unreachable:
+  `unavailable` + `HAND_NO_LINES`; none in the area: `not_covered` + `HAND_NO_CHANNEL`. Checked on the fixture valley
+  (true height above its channel known): a constant offset of about 2 m (the channel bed lies below the water surface
+  in that terrain; real 3DEP lidar shows the water surface) and 90 % of floodplain cells within 1 m of it.
+- **Depth estimate** (`depth_satellite`, `depth_forecast`; FwDET, Cohen et al. 2018, doi:10.1111/1752-1688.12609, and
+  FwDET v2.0, Cohen et al. 2019, doi:10.5194/nhess-19-2053-2019; label `DEPTH_LABEL` "Estimated depth (from the terrain
+  at the water's edge), experimental") for each mapped water layer: the satellite pass the bundle shows
+  (`water_satellite`: open and partial water; open ground = class 0) and the NWS forecast flooded area
+  (`water_forecast`: 255; open ground = 0). The water's **edge** = water cells with a 4-neighbour of open ground;
+  edges against clouds, no data, ocean, snow or the grid border are not used (FwDET v2.0's boundary rule). Each water
+  cell takes the terrain height of its nearest edge cell as the water surface; depth = surface − terrain, below 0
+  counts as 0, then a 3 × 3 average over the water cells; cells outside the mapped water have no value (it is never
+  shown there). Known bias: the edge cells lie just inside the water, so depth reads low by up to one cell's rise of
+  the bank (tested on a bathtub of known depth); steep banks and maps that do not line up with the terrain give errors
+  of a metre or more; depth in the river's normal channel is not measured (lidar shows its water surface). Missing:
+  `unavailable` + the layer's own reason or `DEPTH_NO_LAYER`; no water mapped: `not_covered` + `DEPTH_NO_WATER`; no
+  edge on open ground: `not_covered` + `DEPTH_NO_EDGE`. Measured 2026-11-05: St Johns satellite water 479 km², median
+  0.03 m, 90th percentile 0.46 m, max 6.0 m; Calcasieu forecast area 39 km², median 0.24 m, max 2.4 m.
 
 ## 6. HTTP API (Contract)
 
@@ -1467,7 +1518,13 @@ interface AppState {
   `serve_fixture.py` also answers the seven synthetic demo floods. Web: `ui/shell/floodCopy.test.ts` (the wording
   guard over every flood copy file and the rendered fixture cases, verbatim text stripped), `map/floodStyle.test.ts`
   (no green), `state/floodFetchSpy.test.ts` (no fire-only request from a flood chrome). `scripts/check_bundle.py
-  --hazard flood <id>` checks a built flood bundle.
+  --hazard flood <id>` checks a built flood bundle (brief 6: also the pass and terrain layers and `timeline.json`).
+- **Floods, brief 6:** `test_floods_timeline.py` (window, overpass merging, one read per pass, no-view passes marked,
+  unfinished reads `unknown`, polite waits, product versions and their shown periods from the recorded IEM events,
+  archive outages never "no product", the fixture route, the bundle's `timeline.json` and pass rasters; the wording
+  guard over `copy_time.py`) and `test_floods_terrain3d.py` (encoding, the boost rule, relief near the water, HAND on a
+  V valley and on the fixture valley of known height, FwDET on a bathtub of known depth, edges against clouds and the
+  border, every missing-product reason, the build step with mocked river lines, `scripts/flood_3d.py` on the fixture).
 - **Frontend:** `cd web && npm run build` must pass (tsc + vite).
   `node scripts/shot.mjs <url> <out.png> [--wait ms] [--w 1720 --h 1080]` takes a screenshot with the installed
   Chrome (headless; it tries GPU flags and falls back to SwiftShader) and prints console errors. Inspect screenshots
