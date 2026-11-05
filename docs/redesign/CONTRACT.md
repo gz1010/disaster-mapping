@@ -5155,3 +5155,7 @@ uses it, and keep `SPEC.md`, `backend/fire3d/contracts.py` and `web/src/api/floo
   the bundle, joined by `key`; a depth estimate is shown only inside its own mapped water, and a pass without one
   shows no depth surface (said so, never an empty one); official products keep their issuer, own times, verbatim text
   and link, and their absence is never an all-clear.
+- **Final check (final-check):** `docs/redesign/contract6/final-check.md`: no interface changed. The README's flood
+  paragraphs now describe the time steps and the 3D flood view with their on-screen labels, and its demo-flood commands
+  run `scripts/flood_3d.py fixture-flood` after `make_fixture.py --only flood`. Report:
+  `docs/redesign/reports/final-verification-6.json`.

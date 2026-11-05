@@ -41,21 +41,39 @@ It is a **research prototype, not for operational use**. It was called **Fire-3d
 
 Taken on November 5, 2026.
 
-![The national map in Fires mode as it opens: the floating top bar with the Fires | Floods switch and the Public · Command · Forensic switch, today's date and the number of active fires, the "Check an address" search pill with the locate-me button, every listed fire of the lower 48 as an outlined orange circle (groups read "28 FIRES"), the largest fires named, the map controls and the "Show details" pill](docs/screenshots/brief6-rename-docs-readme-public-overview-fires.png)
+![The national map in Fires mode as it opens: the floating top bar with the Disaster Mapping logo and name, the Fires | Floods switch and the Public · Command · Forensic switch, today's date and the number of active fires, the "Check an address" search pill with the locate-me button, every listed fire of the lower 48 as an outlined orange circle (groups read "28 FIRES"), the largest fires named, the map controls and the "Show details" pill](docs/screenshots/brief6-final-public-overview-fires.png)
 
 | Floods on the national map | A fire in the Public view |
 |---|---|
-| ![The national map in Floods mode: each flood as a blue ring with a dot coloured by its flood category, the larger floods named with their category and river stage ("Devils Lake flood · MAJOR · 49.9 FT", "Grand River flood · MODERATE · 30.0 FT"), groups ("3 FLOODS") and the line "Only floods with an NWS flood product or a river gauge at flood stage are listed. A place with no marker is not an all-clear."](docs/screenshots/brief6-rename-docs-readme-public-overview-floods.png) | ![The Public view of the 2025 Lower Sugarloaf Fire: the place and dates, the "share your location" chip, a round hazard circle with "WILDFIRE · DECLARED OUT" and the fire's name, the newest agency perimeter on the map, and the official facts as "value — LABEL" rows with their sources and times](docs/screenshots/brief6-rename-docs-readme-public-fire-lower-sugarloaf.png) |
+| ![The national map in Floods mode: each flood as a blue ring with a dot coloured by its flood category, the larger floods named with their category and river stage ("Devils Lake flood · MAJOR · 49.9 FT", "Grand River flood · MODERATE · 30.2 FT"), groups ("3 FLOODS") and the line "Only floods with an NWS flood product or a river gauge at flood stage are listed. A place with no marker is not an all-clear."](docs/screenshots/brief6-final-public-overview-floods.png) | ![The Public view of the 2025 Lower Sugarloaf Fire: the place and dates, the "share your location" chip, a round hazard circle with "WILDFIRE · DECLARED OUT" and the fire's name, the newest agency perimeter on the map, and the official facts as "value — LABEL" rows with their sources and times](docs/screenshots/brief6-rename-docs-readme-public-fire-lower-sugarloaf.png) |
 
 | A flood in the Public view | A flood in Command |
 |---|---|
-| ![The Public view of the synthetic demo flood (marked DEMO): the water circle with "SIMULATED FLOOD · DEMO", seven facts with their issuer and time (the NWS forecast flooded area, the river stage measured by USGS, the NWS forecast crest, the warning in effect), and the map with the NWS warning areas in pink, the NWS forecast flooded area hatched, water seen by satellite in blue with grey "no view" patches and the main gauge as a red diamond](docs/screenshots/brief6-rename-docs-readme-public-flood-fixture.png) | ![Command for a real flood (Peace River, Florida): the selected point's readout on the left, "Official now" on the right with each NWS product, the river forecast, evacuations and local officials' messages, and the river-level chart along the bottom with the measured line, the dashed NWS forecast, the flood-stage lines and the forecast crest](docs/screenshots/brief6-rename-docs-readme-command-flood-real.png) |
+| ![The Public view of the Calcasieu River flood in Louisiana: the water circle with "FLOOD · WARNING", the facts with their issuer and time (the NWS forecast flooded area, no river gauge in this flood, the warning in effect until Nov 6, evacuations not available in this state), and the map with the NWS warning area in pink, the NWS forecast flooded area hatched, water seen by satellite in blue with grey "no view" patches and the main channel](docs/screenshots/brief6-final-public-flood.png) | ![Command for the St. Johns River flood in Florida at a past time step: the selected point's readout on the left, "Official now" on the right with each NWS Flood Warning, and along the bottom the river-level chart with the satellite passes as small triangles, the Play and step buttons and the step "Satellite pass Oct 25, 11:55 EDT · 11 days before now · no view of 53% of the area"; the map shows that pass's own image](docs/screenshots/brief6-final-command-playback-stjohns.png) |
+
+**Flood time steps.** Play and the step buttons move through a flood's satellite passes and NWS warning changes
+(here the Calcasieu River flood, which has no river gauge, so the chart is only the row of controls):
+
+| A satellite pass (Oct 25) | An NWS warning step (Nov 4) |
+|---|---|
+| ![Command for the Calcasieu River flood at the step "Satellite pass Oct 25, 11:44 CDT · 11 days before now": the map shows the Oct 25 image (legend "Water seen by satellite (Oct 25)"), no NWS warning area yet, and the note "As of now, not this time: NWS forecast area"](docs/screenshots/brief6-final-command-playback-pass1.png) | ![The same flood at the step "NWS Flood Warning issued Nov 4, 16:30 CST": the NWS warning area in pink, the row "Shown: satellite image of Oct 29, 11:54 CDT (6 days before the handle) · No satellite image after Oct 29 yet", and the "NWS products on the map at this time" list with the issuer (NWS Lake Charles LA), its own issue and end times, NWS's headline word for word, the "Archived copy (Iowa Environmental Mesonet)" tag and a link](docs/screenshots/brief6-final-command-playback-warning.png) |
 
 | A fire in Command | Forensic: a fire in 3D |
 |---|---|
-| ![Command in the synthetic fixture-live fire: the selected point's readout on the left (coordinates, inside the mapped fire area, the model line, official information), "Official now" as one-line rows on the right, the observed fire and the modeled spread labelled on the map, the controls bar and the slim timeline](docs/screenshots/brief6-rename-docs-readme-command-fire-fixture-live.png) | ![Forensic on the fixture-live fire: green 3D terrain with lines of equal arrival time and telemetry labels, the compass with turn buttons, the layer panel, the weather card and the timeline dock](docs/screenshots/brief6-rename-docs-readme-forensic-fixture-live.png) |
+| ![Command in the synthetic fixture-live fire: the selected point's readout on the left (coordinates, inside the mapped fire area, the model line, official information), "Official now" as one-line rows on the right, the observed fire and the modeled spread labelled on the map, the controls bar and the slim timeline](docs/screenshots/brief6-final-command-fire.png) | ![Forensic on the fixture-live fire: green 3D terrain with lines of equal arrival time and telemetry labels, the compass with turn buttons, the layer panel, the weather card and the timeline dock](docs/screenshots/brief6-final-forensic-fire.png) |
 
-![Forensic for the synthetic demo flood: the flood's layers draped on 3D terrain (water seen by satellite in blue, the NWS forecast flooded area hatched, NWS warning areas in pink), the river gauges as bars, the "In this 3D view" key, the layer panel with each layer's own date and the river-level chart in the dock](docs/screenshots/brief6-rename-docs-readme-forensic-flood-fixture.png)
+**The 3D flood view on a flat real flood (Calcasieu River, Louisiana).** Before: the whole area at the old height
+(×1.5), where the flood looks like a flat painting. After: how it now opens, in the river view with the automatic height
+boost (×10 here) and the estimated depth tint inside the water the satellite saw. Flat land still looks fairly flat,
+and the key says so ("Still flat at ×10: raise it, or use River view.").
+
+| Before | After |
+|---|---|
+| ![Forensic for the Calcasieu River flood framed as a whole at height ×1.5 with no depth surface: the terrain looks flat and the water layers, the grey "no view" hatching and the pink NWS warning area lie on it like paint](docs/screenshots/brief6-final-forensic-3d-before-calcasieu.png) | ![The same flood as it now opens: a lower, closer view along the Calcasieu River, "Height ×10 · auto" in the view dock, the key "Height ×10: heights drawn 10 times taller, distances true" and "Still flat at ×10: raise it, or use River view.", and inside the water seen by satellite on Oct 29 a see-through surface tinted by the estimated depth](docs/screenshots/brief6-final-forensic-3d-after-calcasieu.png) |
+
+| Height above the river (on) | Time steps in 3D (demo flood) |
+|---|---|
+| ![The Calcasieu River flood with Layers → From the terrain → Height above the river turned on: on this flat coastal plain almost all land is tinted violet (0–1, 1–2 and 2–5 m above the nearest river channel), and the key reads "Height above the river (from terrain). Not a flood map"](docs/screenshots/brief6-final-forensic-3d-low-ground-calcasieu.png) | ![Forensic for the synthetic demo flood at the step "NWS Flood Warning issued Nov 4": the water draped on 3D terrain with its depth tint (deeper is darker blue), the NWS warning lines in pink, the key with "Height ×3", and the dock's "NWS products on the map at this time" list](docs/screenshots/brief6-final-forensic-playback-warning-fixture.png) |
 
 ## A few words explained
 
@@ -859,6 +877,19 @@ multiplier schedule, the share of the perimeter held and the live fuel moisture 
   on) and Forensic.
 - **3D data is for current floods only.** NWS's forecast maps, the model and river forecasts are not kept for a past
   flood's dates. A gauge bar's height is the river stage at the gauge (scaled), not water depth.
+- **Time steps show only what was seen.** A satellite passes every few days, and NASA lists a pass 2 to 4 days after
+  it, so the newest days of a flood often have no image yet ("No satellite image after Oct 29 yet"). Nothing is drawn
+  or guessed between two passes. At a past step the NWS forecast flooded area, FEMA, NWS category maps and the model
+  still show *now* (tagged "now"), "Official now" lists what is in effect now, and the selected spot's lines in the
+  left panel can still name the pass of now. At now, the map shows the pass the satellite layer picked, which can be
+  older than the newest pass in the time steps (the 3D key says "Newer satellite passes exist").
+- **The 3D estimates are rough.** The estimated depth reads a little low near gentle banks and can be off by a metre or
+  more where banks are steep or the water map and the terrain do not line up; the river's normal channel reads near
+  0 m, because the terrain shows the water's surface, not the river bed. It exists only for the satellite pass the
+  3D data was prepared with, each kept pass, and NWS's forecast area. Height above the river uses the nearest channel
+  in a straight line, not the downhill path, and is blank more than 10 km from a mapped channel; on a wide flat plain
+  it tints almost everything. Some flat floods still look flat at ×10 (the key says so; pick ×15 or ×20, or River
+  view). A shallow estimate, an untinted area or a dry pixel is never an all-clear.
 - **One event can be listed twice.** Near Copperhill, Tennessee, the Ocoee River gauge flood and the Ducktown flash
   flood are one event listed as two floods (joining them would replace the flash flood's facts with the river's).
 - **Bundles keep the wording of when they were prepared.** A flood prepared before the rename (November 5, 2026) may
@@ -1009,7 +1040,7 @@ account), USGS NHD services (time out) and NOAA HEFS (experimental API).
 | [docs/redesign/PLAN-2.md](docs/redesign/PLAN-2.md) to [PLAN-5.md](docs/redesign/PLAN-5.md), [PLAN.md](PLAN.md) | how each brief was planned (PLAN-5 has the flood design and its safety wording) |
 | [docs/redesign/handoff-4/HANDOFF.md](docs/redesign/handoff-4/HANDOFF.md) | the brief-4 design handoff (screens, colours, type) |
 | [docs/redesign/reports/](docs/redesign/reports/) | what each build agent did, with its known issues (final checks: `final-verification-*.json`) |
-| [docs/redesign/contract3/](docs/redesign/contract3/), [contract5/](docs/redesign/contract5/), contract6/ | each role's as-built notes per brief |
+| [docs/redesign/contract3/](docs/redesign/contract3/), [contract5/](docs/redesign/contract5/), [contract6/](docs/redesign/contract6/) | each role's as-built notes per brief (contract6: the time steps, the 3D flood view, the rename and the final check) |
 | [docs/redesign/progress/](docs/redesign/progress/), [audit-*](docs/redesign/) | progress notes and audits written during the builds |
 | [docs/cloud/SETUP.md](docs/cloud/SETUP.md) | running a build in a Claude Code cloud session |
 | [docs/dev/module-reports.md](docs/dev/module-reports.md) | build notes of the first version |
