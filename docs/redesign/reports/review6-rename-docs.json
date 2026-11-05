@@ -101,5 +101,8 @@
     "docs/screenshots/brief6-rename-docs-readme-command-fire-fixture-live.png",
     "docs/screenshots/brief6-rename-docs-readme-forensic-fixture-live.png",
     "docs/screenshots/brief6-rename-docs-readme-forensic-flood-fixture.png"
+  ],
+  "commits": [
+    "5cdfa6b (review fixes)"
   ]
 }
