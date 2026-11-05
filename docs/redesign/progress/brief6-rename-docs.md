@@ -2,7 +2,7 @@
 
 Role: rename-docs (builder). Ports: API 8761, Vite 5221. Owned files: see BRIEF-6 role table.
 
-## M1 rename (in progress)
+## M1 rename (done, 17f0d6b)
 - Done: "Fire-3d" -> "Disaster Mapping" ("FIRE-3D" -> "DISASTER MAPPING") in web/src (strings and comments),
   web/*.html (title, description, noscript), backend/fire3d strings, docstrings and comments, backend/scripts,
   backend/tests asserting old strings, the flood fixture copies (backend/tests/data/floods/fixture_api and
@@ -15,8 +15,24 @@ Role: rename-docs (builder). Ports: API 8761, Vite 5221. Owned files: see BRIEF-
   backend/tests/test_product_name.py (tokenize: strings and f-string parts; the User-Agent).
 - test_floods_evacuations: the flood wording check no longer strips the app name before looking for "fire".
 
-## M2 dimming switch
-- pending
+- Follow-up in M2's commit: one regex literal in location/FloodReadout.test.ts ended in "Fire-3d/" and got the
+  User-Agent form ("Disaster-Mapping/"); fixed to "Disaster Mapping/".
+
+## M2 dimming switch (done)
+- map/zoomDimming.ts (key `fire3d.zoomDimming`, read/write wrapped in try/catch, default off), useWorkspace
+  `zoomDimming` + `setZoomDimming`, MapAtmosphere marks `data-vignette="on|off"` and follows the zoom only while on,
+  atmosphere.css hides `::before` unless on (edge gradients `::after` unchanged).
+- ui/shell/ZoomDimmingSwitch.tsx: `DisplaySection` ("Display" / "Zoom dimming", checkbox role="switch") after Units in
+  LayersPanel (overview, fires) and FloodLayersPanel (floods, Public and Command).
+- Tests: map/zoomDimming.test.ts, ui/shell/ZoomDimmingSwitch.test.ts.
+- Rename follow-up: the Forensic bar's brand word now hides up to 1720 px (was 1400): with the longer name the place
+  and date lines were cut at 1440-1600 px. CONTRACT 15 line updated.
+- Screenshots: brief6-rename-docs-public-fire-dimming-off/on, -public-overview, -command-overview-floods,
+  -forensic-flood-header (1440: brand word hidden, place and date whole) and -forensic-flood-header-1760 (brand word
+  shown), -public-flood-seen-since, -phone-public-flood-seen-since (fixture server: "SEEN BY DISASTER MAPPING SINCE",
+  three lines on a phone).
+- Found: flood bundles built before the rename keep the old name in stored notes (satellite login note in
+  data/floods/*/manifest.json and satellite.json) until rebuilt; note for backend-flood-time-3d / final-check.
 
 ## M3 docs
 - pending
