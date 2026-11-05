@@ -73,6 +73,10 @@ You do not need to know wildfire science, hydrology or 3D maps to use the app. T
 | **River forecast, crest** | The NWS forecast of a gauge's level for the next days; the *crest* is the highest level it forecasts. |
 | **Hydrograph** | A chart of a river's level (or flow) over time: what was measured, then the forecast. The app calls it the river-level chart. |
 | **Water seen by satellite** | Water mapped from a satellite image (NASA OPERA). It includes the river's normal water, and clouds or trees can hide flood water. |
+| **Satellite pass** | One image of the area, taken when a satellite flew over (every few days, at its own time). The flood's time steps go from pass to pass; nothing is drawn between two passes. |
+| **Height boost** | In 3D, heights drawn several times taller than they are ("Height ×10"), so low ground shows in flat places. Distances stay true. |
+| **Estimated depth** | How deep the mapped water might be, worked out from the height of the ground along the water's edge. Experimental, often off by a metre or more. |
+| **Height above the river** | How high the ground is above the nearest river channel, from the terrain alone. It shows low ground, not flooding: it is not a flood map. |
 | **Floodplain** | FEMA's map of the land with a 1 % chance of flooding in any year (the "100-year" floodplain). It is a planning map, not today's flood. |
 | **Terrain, 3D** | The shape of the ground (from USGS elevation data). In 3D the map is tilted so hills and valleys show. |
 | **Basemap** | The background map: dark, roads, or aerial photos. |
@@ -85,7 +89,7 @@ The app keeps three kinds of information apart and labels each one.
 |---|---|---|---|
 | **Official** (from the agency in charge) | the agency's fire record (CAL FIRE in California, otherwise the protecting agency via NIFC); evacuation orders and warnings from local officials (California and Oregon); NWS Red Flag Warnings and Fire Weather Watches; local officials' alerts relayed by the NWS | NWS flood products; NWS flood categories and river forecasts; FEMA flood zones; evacuation orders (California and Oregon) | word for word, with the issuer, the issuer's own times and a link; never merged with model output. A missing official item is never an all-clear. |
 | **Measured** (by an instrument, possibly hours or days old) | satellite heat detections; satellite images | river stage and flow (USGS, provisional); water seen by satellite (NASA OPERA) | with the time of the measurement and its age; "no water" or "no detection" in an image is not proof of no flooding or no fire |
-| **Estimate or experimental model** | the burned area reconstructed from detections and perimeters (an estimate); the spread forecast (Disaster Mapping's own experimental model) | NWS's forecast flooded-area and category maps (labelled experimental by NWS); NOAA's National Water Model (experimental, Command and Forensic only) | labelled "Estimate", "Model" or "experimental"; never an evacuation instruction |
+| **Estimate or experimental model** | the burned area reconstructed from detections and perimeters (an estimate); the spread forecast (Disaster Mapping's own experimental model) | NWS's forecast flooded-area and category maps (labelled experimental by NWS); NOAA's National Water Model (experimental, Command and Forensic only); in 3D, the estimated water depth and the height above the river (Disaster Mapping's own, from the terrain; experimental) | labelled "Estimate", "Model" or "experimental"; never an evacuation instruction |
 
 Every view keeps the lines "Research prototype — not for operational use" and "Not an all-clear. Follow local
 officials." Disaster Mapping has no flood model of its own.
@@ -206,8 +210,8 @@ a past step lists each one with its issuer, its own issue and end times, NWS's o
 are marked so). The readout and the point card judge the selected spot by what the map shows at that step. Layers that
 describe *now* (the NWS forecast flooded area, FEMA, NWS category maps, the model) stay drawn and are tagged "now" ("As
 of now, not this time: NWS forecast area"). Play never starts by itself, stops at the latest step, and with your
-system's reduced-motion setting each press shows one step. **Next** after the latest step, or **NOW**, returns to the
-present. The Public view has no time steps: it always shows now.
+system's reduced-motion setting each press shows one step. **Next** after the latest step, or the chart's **NOW**
+button, returns to the present. The Public view has no time steps: it always shows now.
 
 **Forensic (3D).** **Prepare 3D data (about 1 min)** builds the flood's terrain bundle; then the flood layers are draped
 on 3D terrain, the gauges stand as bars (bar height is the river stage, scaled, not water depth), the Evidence tab keeps
@@ -258,8 +262,10 @@ the time steps) and its 3D terrain products (height boost, depth, height above t
 - **Your location.** "Use my location" and the distance chip ask your browser for your location only when you click.
   It stays in your browser (never in the link, never stored) until you choose "Check this spot".
 - **Keyboard and phone.** `/` focuses the search box, `H` hides the panels, `Space` plays a fire's timeline and the
-  arrow keys step it (Shift: 6 hours). On the map, the arrow keys pan, `+` and `-` zoom and Shift + arrows rotate.
-  Reduced-motion settings are respected. On phones the panels become bottom sheets.
+  arrow keys step it (Shift: 6 hours). In a flood (Command and Forensic), `Space` plays or pauses the flood's time steps
+  and the comma and full stop keys step back and forward. On the map, the arrow keys pan, `+` and `-` zoom and Shift +
+  arrows rotate. Reduced-motion settings are respected (nothing plays by itself). On phones the panels become bottom
+  sheets.
 - **Links.** The address bar keeps the view, so a link opens the same thing: `?incident=2025-eaton-fire-dbfa57`,
   `?flood=<id>`, `&preset=command`, `&ws=forensic`, `&persp=3d`, `&basemap=dark|roads|aerial`, `&units=metric`,
   `&hazard=flood`, `&view=<lon>,<lat>,<zoom>[,<bearing>,<pitch>]` and `&sel=<lat>,<lon>`. A link to an unknown fire
