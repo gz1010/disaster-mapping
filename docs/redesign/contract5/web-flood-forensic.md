@@ -74,9 +74,9 @@ mounts the real `Hydrograph variant="dock"` (no placeholder).
   → `GaugeBarSpec { lid, x, z, member, heightM, color, crestM, crestColor, ticks, topM, label, labelled }`. Members
   through `memberGaugesOf` (one reading per gauge, WFP-R2), then nearby gauges inside the area; labels only for members
   and gauges at action or above (a 60 km area holds dozens of gauges).
-- `scene/overlays/SceneOverlays.tsx`: for a flood the probe readout shows coordinates, elevation, slope, the satellite
-  class word, inside / outside the NWS forecast area, and FEMA / the model only while on (never fuel, arrival or
-  ignition); the frame button says "Frame the flood"; the loading veil follows the flood's assets.
+- `scene/overlays/SceneOverlays.tsx`: for a flood the probe readout shows coordinates, elevation, slope and the rows of
+  `scene/flood/floodProbe.ts` (review WFF-R1, below; never fuel, arrival or ignition); the frame button says "Frame the
+  flood"; the loading veil follows the flood's assets.
 
 ## Panels (`ui/forensic-flood/`)
 
@@ -109,6 +109,51 @@ mounts the real `Hydrograph variant="dock"` (no placeholder).
   `CURSOR_FUTURE_PRODUCTS` after now.
 - `styles/forensic-flood.css`: everything above (no green).
 
+## Review fixes (review5-web-flood-forensic.json, 14 findings, all fixed)
+
+The code is in the orchestrator's snapshot 8e756a7 (taken during a usage-limit pause); the card grid fix, screenshots
+and docs are in `brief 5 web-flood-forensic: review fixes`.
+
+- **Hover readout (R1)**: new pure `scene/flood/floodProbe.ts`: `floodProbeRows({ flood, layers, extent, point: { x, z,
+  lon, lat }, cursorMs, nowMs, tf }) → { rows: ProbeRow[], note }` (`ProbeRow { key, label, text, tone? }`), `cellAt`,
+  `catfimCategoryLabel(category)` ("Moderate flooding (NWS)"), `catfimCategoryWord(category)` ("moderate"). Rows: NWS
+  products drawn at the handle whose area holds the spot (`INSIDE_WARNING` / `INSIDE_WARNING_UPCOMING`, issuer's zone);
+  SATELLITE with the pass's own sentences (`FLOOD_PUBLIC.satWaterPoint` / `satNotWaterPoint` / `satSnowPoint` /
+  `satOceanPoint` / `satNoViewPoint`, `SAT_CLOUD_POINT`, `SAT_NODATA_POINT`, `SAT_OUTSIDE_POINT` outside
+  `image.bounds_lonlat`); NWS FCST inside / "unknown, not absent"; FEMA (while on) its zone, `NFHL_OUTSIDE` only when
+  `layer_status.floodplain.reason` is null, `NFHL_NO_MAP`, else "may not cover this spot. Not an all-clear."; the category
+  map and the model only inside (`MODEL_AT_POINT`), never "not flooded". Note: `NOTHING_COVERS` (no NWS product, forecast
+  area or satellite water at the spot), `NOTHING_COVERS_OFFICIAL` (only FEMA / category map / model), the copy's outage
+  text when warnings.json is not available. Values wrap (`.fxf-probe-row`).
+- **Layer notes and caveats (R2)**: `floodForensicView.layerNote(k, flood)` (the reason of an 'ok' layer); `layerUnavailable`
+  returns the backend's reason for a layer made with nothing to draw. `SceneKeyItem` gains `notes?: string[]` (shown
+  under the line: `SAT_NOT_SET_UP_SHORT`, FEMA's partial map, other reasons) and `more?: { title, texts }` (the key's
+  fold-out "About these layers": satellite.json caveats + `login_note`, `RFC_FIM_NOTE` + `RFC_FIM_OUTSIDE`, `NFHL_NOTE`,
+  `CATFIM_NOTE`, `MODEL_CAVEAT`, warnings.json / gauges.json caveats). The Layers tab shows the note under the row.
+- **Dates (R3)**: `floodplainEffective(flood)` (FEMA's `time_ms` as a UTC calendar date); the key's FEMA line is
+  `NFHL_LABEL`; row notes ("effective {date}", "taken before this flood", the image day, the category in words) are a
+  line of their own (`.fxf-row-meta`), never the `.lrow-meta` the narrow column hides.
+- **Handle after now (R4)**: `sceneKeyItems({ …, cursorMs })` adds an amber `future` item with `futureProductsNote(warningsAt(…))`
+  (web-flood-command's shared note: `CURSOR_FUTURE_PRODUCTS` or `CURSOR_FUTURE_ISSUED`); on phones it shows under the
+  folded key. `warningsAt` now returns web-flood-command's `ShownProducts` (`productsShown`, WFC-R1).
+- **Dock absence (R5)**: `dockNoProduct({ cursorMs, nowMs, savedMs, tf })`, `COPY_FRESH_MS` (30 min); the products column
+  also shows "Copy saved with the 3D data · {time} ({age})".
+- **Overview card (R6)**: `overviewProduct(warnings, built_ms, now) → { kind: 'unavailable', text } | { kind: 'product', alert }
+  | { kind: 'none' }`; the card never reads the live list. `.kv.fxf-kv` is one column (the base `.kv` grid had put two
+  rows side by side).
+- **Gauges card (R7)**: gauges.json caveats and `GAUGE_NOT_ALL_CLEAR` whenever a listed gauge is below flood stage.
+- **Bar labels (R8)**: `gaugeBarMath.placeBarLabel(anchor, size, wPx, hPx, offset, insets, blocked) → { flip, hidden, box }`,
+  `ScreenRect`; new `scene/flood/floodOverlayRects.ts` (`setFloodOverlayRect(id, rect | null)`, `floodOverlayRects()`),
+  fed by `FloodForensic` (ResizeObserver on the key column, badge, entry controls, prototype pill). `GaugeBars` drives
+  `ScreenLabel`'s `fade` / `flip` / `screen` refs per frame (instant under reduced motion).
+- **Phone picker (R9)**: under `NARROW_QUERY` the picker shows the diamond and the gauge id (`.fxf-pick.is-narrow`).
+- **Loader test (R10)**: `scene/flood/floodAssets.test.ts` (stubbed fetch, 5 cases).
+- **Nits**: R11 category in words; R12 `where`, `analysisPlaceholder`, `dockPlaceholder`, `keyFuture` removed (new keys:
+  `keyMore*`, `probeNws`, `probeCatfim`, `probeOutPlainUnknown`, `probeInCatfim`, `layerNaipBefore`,
+  `layerFloodplainEffective`, `keyFloodplainNoDate`, `overviewProductAt`, `dockCopyTime`, `dockNoProductAt`,
+  `dockNoProductCopy`; `keyCatfim` and the probe sentences reworded); R13 flood colours from `--m-flood*`, `--m-alert`,
+  `--m-cat-*`; R14 fire regression retaken at `--wait 40000`.
+
 ## Hand-off (`ui/shell/handoff.ts`)
 
 `openEventGrid()` → `{ kind: 'fire' | 'flood', id, grid } | null` (the open fire's ready manifest, else the open
@@ -127,8 +172,9 @@ rule is unchanged (`handoff.test.ts`: fire cases unchanged, one flood case).
 
 ## For the next roles
 
-- **web-flood-command (Hydrograph, dock variant):** (1) with an explicit `gauges` prop the dock still tags a member
-  gauge "NEARBY" (the `?lid=` answer has `member: false`): take membership from the `gauges` prop / picker list;
-  (2) the handle's words overlap the "NOW" and "CREST … / HIGH … AT END" labels in the 112 px dock; (3) the 82 px
-  right gutter cuts "MODERATE 17.0" to "MODERATE 17." (and "16." for St. Johns).
-- **integration:** Analysis-tab small multiples (cut line); CONTRACT §16.16 from this note.
+- **web-flood-command (Hydrograph, dock variant):** after its review fixes the dock label rows read in full; still seen
+  in the review-fix screenshots: the 82 px right gutter cuts "MODERATE 17.0" to "MODERATE 17.", and with the products
+  column open the title row touches the "--- FORECAST" legend.
+- **integration:** Analysis-tab small multiples (cut line); CONTRACT §16.16 from this note (including the review-fix
+  exports above: `floodProbe.ts`, `floodOverlayRects.ts`, `placeBarLabel`, `layerNote`, `floodplainEffective`,
+  `dockNoProduct`, `overviewProduct`, `SceneKeyItem.notes / more`).

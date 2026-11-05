@@ -524,8 +524,10 @@ p.fxf-key-future {
 }
 
 /* ------------------------------------------------------------------------------------------------ cards */
-.fxf-kv {
+.kv.fxf-kv {
   display: grid;
+  /* one row per <div> (each row is its own dt / dd grid): never the base .kv's two columns */
+  grid-template-columns: minmax(0, 1fr);
   gap: 5px;
   margin: 0;
   font-size: 12px;

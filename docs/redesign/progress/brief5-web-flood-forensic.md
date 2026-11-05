@@ -37,3 +37,10 @@ Role `web-flood-forensic` (PLAN-5 §4.7, CONTRACT §16.12). Ports API 8756, Vite
   dock absence, overview from warnings.json, gauge caveats, label placement + floodOverlayRects, phone picker,
   floodAssets.test.ts, unused copy removed, tokens in CSS); targeted tests green, typecheck ok, lint 55. Next:
   screenshots on 8756 / 5216, then gates.
+- 09:20 UTC: resumed after a usage-limit pause. The code fixes of 07:24 were committed by the orchestrator's snapshot
+  8e756a7 (no uncommitted edits left in this role's files). Next: re-verify, typecheck / lint / targeted tests,
+  screenshots on 8756 / 5216, gates, reports, commit "review fixes".
+- 09:30 UTC: screenshots retaken and viewed (fixture, probe, cursor-future, past-dock, phone, St. Johns FEMA, model-on, fire regression at 40 s); found and fixed the Flood overview card's two-column grid (.kv base columns). Next: full gates.
+- 09:40 UTC: gates green (backend 1383 passed; web typecheck ok, lint 55 all in src/scene, 135 files / 1780 passed / 2
+  skipped, build ok). Servers on 8756 / 5216 stopped. review5-web-flood-forensic.json written (14 fixed, 0 skipped), role
+  report and as-built note updated; committing "brief 5 web-flood-forensic: review fixes".

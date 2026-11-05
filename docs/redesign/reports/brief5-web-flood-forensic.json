@@ -1,11 +1,12 @@
 {
   "role": "web-flood-forensic",
   "brief": 5,
-  "summary": "The Forensic 3D flood view (PLAN-5 4.7) is built. ForensicWorkspace shows a FloodForensic branch while a flood is open (the fire Forensic is untouched): a flood without 3D data gets \"Fire-3d has not prepared this flood's 3D terrain yet.\" with \"Prepare 3D data (about 1 min)\" through useFlood.startFloodBuild and its progress, and the scene loads when the job is done (checked on the real route: Calcasieu River flood prepared from the button, built in 52 s). The scene takes its assets from useSceneAssets(): IncidentAssets.manifest is typed SceneManifest (the frozen scene/fx typechecks, no cast) and scene/flood/floodAssets adds a flood part. The terrain drapes the NWS forecast flooded area (hatch), satellite water (blue with an edge; clouds, no data and snow the same grey no-view cross-hatch, never transparent or land, from a class table the shader reads), FEMA floodplain, NWS category maps and NWM model (amber dotted, labelled MODEL · EXPERIMENTAL), the last three off by default. NWS warning areas are pink lines that follow the hydrograph handle (warningsAt: the newest version at the handle; after now the products in effect now, with CURSOR_FUTURE_PRODUCTS). River gauges are bars (1 ft = 12 m) with flood-stage ticks, reading and forecast caps and mono labels, with the key line 'Bar height: river stage at the gauge (scaled), not water depth'. FloodHeader, Frame flood / Charts & NWS products, the demo badge, a scene key with each layer's own time, FloodRightPanel (Layers, Analysis, Evidence with every NWS product version verbatim, Notes; Flood overview and River gauges cards) and the dock with web-flood-command's Hydrograph (variant dock) complete it; the hand-off reads the flood's grid. Fixed copy on every state, phones included; nothing animates under reduced motion. Gates: backend 1340 passed; web typecheck, lint (55 warnings, all in src/scene), 1706 tests passed (2 skipped, not flood tests), build.",
+  "summary": "The Forensic 3D flood view (PLAN-5 4.7) is built. ForensicWorkspace shows a FloodForensic branch while a flood is open (the fire Forensic is untouched): a flood without 3D data gets \"Fire-3d has not prepared this flood's 3D terrain yet.\" with \"Prepare 3D data (about 1 min)\" through useFlood.startFloodBuild and its progress, and the scene loads when the job is done (checked on the real route: Calcasieu River flood prepared from the button, built in 52 s). The scene takes its assets from useSceneAssets(): IncidentAssets.manifest is typed SceneManifest (the frozen scene/fx typechecks, no cast) and scene/flood/floodAssets adds a flood part. The terrain drapes the NWS forecast flooded area (hatch), satellite water (blue with an edge; clouds, no data and snow the same grey no-view cross-hatch, never transparent or land, from a class table the shader reads), FEMA floodplain, NWS category maps and NWM model (amber dotted, labelled MODEL · EXPERIMENTAL), the last three off by default. NWS warning areas are pink lines that follow the hydrograph handle (warningsAt: the newest version at the handle; after now the products in effect now, with CURSOR_FUTURE_PRODUCTS). River gauges are bars (1 ft = 12 m) with flood-stage ticks, reading and forecast caps and mono labels, with the key line 'Bar height: river stage at the gauge (scaled), not water depth'. FloodHeader, Frame flood / Charts & NWS products, the demo badge, a scene key with each layer's own time, FloodRightPanel (Layers, Analysis, Evidence with every NWS product version verbatim, Notes; Flood overview and River gauges cards) and the dock with web-flood-command's Hydrograph (variant dock) complete it; the hand-off reads the flood's grid. Fixed copy on every state, phones included; nothing animates under reduced motion. Gates: backend 1340 passed; web typecheck, lint (55 warnings, all in src/scene), 1706 tests passed (2 skipped, not flood tests), build. Review fixes (review5-web-flood-forensic.json, 14 findings, all fixed): the 3D hover readout is scene/flood/floodProbe.ts (no negative model line, FEMA 'outside' only where FEMA's map covers the area, the satellite pass's own point sentences, the NWS product at the spot, NOTHING_COVERS; values wrap); the backend's notes on 'ok' layers and each layer's caveats are in the Layers tab and the scene key (with a fold-out 'About these layers'); FEMA's effective date (NFHL_LABEL) and every row note show in the narrow column; the key says 'NWS products in effect now…' whenever the handle is after now; the dock's absence sentence is time-bound to the saved copy; the Flood overview card reads warnings.json at build time (and its grid is fixed); the gauges card says a gauge below flood stage is not an all-clear; bar labels mirror before the right column and hide under the UI; the phone picker is the diamond plus the id; floodAssets.test.ts added; CatFIM category in words; unused copy removed; token colours in the CSS; fire regression retaken at 40 s.",
   "milestones": [
     "M1 34dc4dd: branch, Prepare, forensicFloodState, SceneManifest assets, frame and overlays for floods, drapes, warning lines",
     "M2 a1b7b07: gauge bars, header, entry controls, right panel and tabs (CatFIM toggle), evidence, hand-off",
-    "M3 d4c0cdf: dock hydrograph (mounted; web-flood-command M1 was in git log), screenshots, report, as-built note"
+    "M3 d4c0cdf: dock hydrograph (mounted; web-flood-command M1 was in git log), screenshots, report, as-built note",
+    "review fixes: code in 8e756a7 (orchestrator snapshot during a usage-limit pause), the rest in 'brief 5 web-flood-forensic: review fixes'"
   ],
   "files": [
     "web/src/ui/shell/ForensicWorkspace.tsx",
@@ -42,7 +43,12 @@
     "web/src/styles/forensic-flood.css",
     "docs/redesign/contract5/web-flood-forensic.md",
     "docs/redesign/progress/brief5-web-flood-forensic.md",
-    "docs/redesign/reports/brief5-web-flood-forensic.json"
+    "docs/redesign/reports/brief5-web-flood-forensic.json",
+    "web/src/scene/flood/floodProbe.ts",
+    "web/src/scene/flood/floodProbe.test.ts",
+    "web/src/scene/flood/floodAssets.test.ts",
+    "web/src/scene/flood/floodOverlayRects.ts",
+    "docs/redesign/reports/review5-web-flood-forensic.json"
   ],
   "screenshots": [
     "docs/screenshots/brief5-web-flood-forensic-fixture.png",
@@ -52,21 +58,29 @@
     "docs/screenshots/brief5-web-flood-forensic-real.png",
     "docs/screenshots/brief5-web-flood-forensic-phone.png",
     "docs/screenshots/brief5-web-flood-forensic-unprepared-phone.png",
-    "docs/screenshots/brief5-web-flood-forensic-fire-regression.png"
+    "docs/screenshots/brief5-web-flood-forensic-fire-regression.png",
+    "docs/screenshots/brief5-web-flood-forensic-fix-probe.png",
+    "docs/screenshots/brief5-web-flood-forensic-fix-stjohns-fema.png",
+    "docs/screenshots/brief5-web-flood-forensic-fix-past-dock.png"
   ],
   "known_issues": [
-    "The dock's Hydrograph (web-flood-command's component) tags a member gauge NEARBY when given the gauges prop, its handle words overlap the NOW and CREST labels in the 112 px dock, and its 82 px gutter cuts 'MODERATE 17.0' to 'MODERATE 17.' (told to web-flood-command).",
     "Analysis tab: no small multiples (below the cut line); it lists each gauge's reading and NWS forecast with a Chart button for the dock.",
     "brief5-web-flood-forensic-real.png shows the Calcasieu River flood reopened after it was prepared from the button: the first Prepare screenshot run lost its state to a Vite hot reload caused by another role's concurrent edits (the store module was replaced); the build itself finished and loaded (API log), and a second run of the same flow from the store kept the flood open.",
     "Clouds and no data can cover most of a 60 km real area (St. Johns: 66 % no data outside the Landsat swath); the grey no-view hatch then covers much of the terrain (by design, D25).",
     "The NAIP year is not in the flood manifest: the aerial photo row says 'before this flood' without a year.",
     "Gauge bars are 1 ft = 12 m: on a 60 km area at the default framing a bar is only ~20 px tall; the labels carry the values.",
-    "The fixture was regenerated in data/ (make_fixture.py --only flood, 2026-11-05 05:00 UTC) so its NWS products are in effect for the screenshots."
+    "The dock's Hydrograph is web-flood-command's component (its review fixes changed the handle rows and the dock's issue time); with the products column open its title row touches the '--- FORECAST' legend in the narrower chart.",
+    "On phones most gauge bar labels are hidden by the label-placement rule (a ~40-character label runs off a 390 px screen on both sides); the dock chart and the River gauges card carry the values.",
+    "Under SwiftShader a layer checkbox switched by script just before a capture can be drawn in its old state in the PNG (fix-probe, model-on); the DOM is correct.",
+    "The fixture's NWS products were in effect at the screenshot time (the fixture was regenerated at 05:00 UTC; rerun make_fixture.py --only flood when they have ended)."
   ],
   "cut_line_left": [
     "Analysis tab small multiples (one hydrograph per gauge)"
   ],
   "test_skip_count": 2,
-  "gates": "backend: 1340 passed; web: typecheck ok, lint 55 warnings (all src/scene, none added), 131 files / 1706 passed / 2 skipped, build ok",
-  "ports": { "api": 8756, "vite": 5216 }
+  "gates": "backend: 1383 passed; web: typecheck ok, lint 55 warnings (all src/scene, none added), 135 files / 1780 passed / 2 skipped, build ok (after the review fixes)",
+  "ports": {
+    "api": 8756,
+    "vite": 5216
+  }
 }
