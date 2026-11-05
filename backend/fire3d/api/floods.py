@@ -182,6 +182,7 @@ def flood_file(flood_id: str, path: str, request: Request) -> Response:
 # ----------------------------------------------------------------------------------------------------------------
 # Per-flood maps, model and satellite; official flood alerts and river gauges (backend-flood-bundle-api M3)
 # ----------------------------------------------------------------------------------------------------------------
+PAST_TOLERANCE_MS = 6 * 3_600_000                        # an at_ms older than now - this is "past" (as extras)
 _FICTIONAL_LID = re.compile(r"^ZZ[A-Z0-9]{3}$")          # the fixture's gauges (fictional ids; never a real NWSLI)
 _LID = re.compile(r"^[A-Za-z0-9]{5}$")
 
@@ -397,6 +398,12 @@ def get_river_gauges(request: Request, flood: str | None = Query(None, max_lengt
     def run() -> Response:
         now = _now()
         with_series = bool(series)
+        if at_ms is not None and at_ms < now - PAST_TOLERANCE_MS and scope != "national":
+            # never today's readings for a past time (USGS history comes with backend-flood-live)
+            return _json({**flood_gauges.envelope("river_gauges", now=now, flood_id=flood, status="not_available_for_past_dates",
+                                                  reason=fcopy.GAUGES_PAST_NOT_YET, reason_code="past_date", at_ms=at_ms,
+                                                  caveats=[fcopy.GAUGE_NOT_ALL_CLEAR]),
+                          "gauges": [], "area_bbox": None}, request)
         if flood:
             bdir = _synthetic(flood)
             if bdir is not None:

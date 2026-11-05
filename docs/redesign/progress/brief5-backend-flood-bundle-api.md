@@ -9,9 +9,9 @@ file, no milestone commit, no uncommitted edit in this role's paths).
 - [x] M1 sources: `sources/water_maps.py`, `sources/nfhl.py`, `sources/opera.py` (+ token path), `sources/usgs_water.py`,
       recorder `scripts/record_test_samples_flood_maps.py`, samples `tests/data/floods/{maps,nfhl,opera,usgs}/`
 - [x] M2 bundle: `floods/build.py` (+ `satellite.py`, `maps.py`), POST build, files route
-- [ ] M3 routes: maps, model, satellite (+ png), flood-alerts, river-gauges, local-alerts `hazard=flood`, evacuations
+- [x] M3 routes: maps, model, satellite (+ png), flood-alerts, river-gauges, local-alerts `hazard=flood`, evacuations
       `hazard=flood`; `tests/test_flood_endpoint_contracts.py`; SPEC 5.3
-- [ ] Real flood bundle built, satellite PNG screenshot, report, contract5 note
+- [x] Real flood bundle built, satellite PNG screenshot, report, contract5 note
 
 ## Log
 
@@ -31,3 +31,13 @@ file, no milestone commit, no uncommitted edit in this role's paths).
   files; list and detail rows carry the bundle state per request. store.bundle_state reads the build lock. Tests:
   test_floods_build.py (the recorded Platte River flood built end to end offline), test_floods_api.py. Fixed a test
   leak: flood_iso now resets the flood rate limiters.
+- 01:00 M3: routes maps, model, satellite (+ png), official flood-alerts and river-gauges in api/floods.py;
+  hazard=flood for local alerts (official.py) and evacuations (extras.py; Oregon fire-only); fixture-flood from its
+  bundle; isolated tests/test_flood_endpoint_contracts.py; test_floods_evacuations.py; SPEC 5.3 and 6. An orchestrator
+  WIP snapshot (90f3d97) committed the M3 code while I worked; the M3 milestone commit carries the docs.
+- 01:05 Real data on port 8753 (FIRE3D_LIVE=0): 47 live floods; every route contract-valid for fixture-flood, Peace
+  River (FL), St. Johns River (FL) and Platte River (MO). Fixed on real data: a GEOS topology error in the RFC FIM union
+  (safe_union), FEMA paging truncation caveat, bundle size (compact vector copies: 21 -> 17.6 MB). Builds through POST
+  build: Peace River 15-24 s warm, St. Johns River 36 s cold, 17.7 MB. Screenshot of the St. Johns satellite PNG.
+  Past gauge queries now answer not_available_for_past_dates (never today's readings for a past time).
+- Gates: backend 1322+ passed, 0 skipped; web typecheck clean, lint 55 (src/scene), 1573 passed + 2 old skips, build OK.

@@ -127,6 +127,8 @@ NFHL_PARTLY_MAPPED = ("FEMA's digital flood map covers only part of this area; o
                       "shown.")
 NFHL_TRUNCATED = ("FEMA's map has more flood zones in this area than Fire-3d draws; some of the floodplain may be missing "
                   "here.")
+GAUGES_PAST_NOT_YET = ("Past river gauge readings are not served yet (the archive comes with a later step). That is "
+                       "not an all-clear.")
 ALERTS_PAST_NOT_YET = ("Past NWS flood products are not served yet (the archive comes with a later step). That is not "
                        "an all-clear: follow local officials.")
 # HTTP error details of the build and per-flood routes
@@ -149,7 +151,8 @@ BUNDLE_STRINGS: dict[str, str] = {
     "GAUGE_DETAIL_DOWN": GAUGE_DETAIL_DOWN, "NEARBY_GAUGES_DOWN": NEARBY_GAUGES_DOWN, "SAT_NO_IMAGE": SAT_NO_IMAGE,
     "SAT_BEFORE_ARCHIVE": SAT_BEFORE_ARCHIVE, "RFC_FIM_PAST": RFC_FIM_PAST, "CATFIM_TODAY": CATFIM_TODAY,
     "MODEL_PAST": MODEL_PAST, "MODEL_DOWN": MODEL_DOWN, "MODEL_NO_REACH": MODEL_NO_REACH,
-    "NFHL_PARTLY_MAPPED": NFHL_PARTLY_MAPPED, "NFHL_TRUNCATED": NFHL_TRUNCATED, "ALERTS_PAST_NOT_YET": ALERTS_PAST_NOT_YET,
+    "NFHL_PARTLY_MAPPED": NFHL_PARTLY_MAPPED, "NFHL_TRUNCATED": NFHL_TRUNCATED,
+    "ALERTS_PAST_NOT_YET": ALERTS_PAST_NOT_YET, "GAUGES_PAST_NOT_YET": GAUGES_PAST_NOT_YET,
     "BUILD_SYNTHETIC": BUILD_SYNTHETIC, "BUILD_OUTSIDE_L48": BUILD_OUTSIDE_L48,
     "FLOOD_ROUTE_NOT_LISTED": FLOOD_ROUTE_NOT_LISTED, "GAUGE_NOT_FOUND": GAUGE_NOT_FOUND,
     "SATELLITE_IMAGE_GONE": SATELLITE_IMAGE_GONE, "TERRAIN_DOWN": TERRAIN_DOWN, "NAIP_DOWN": NAIP_DOWN,

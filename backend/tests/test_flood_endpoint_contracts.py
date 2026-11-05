@@ -246,3 +246,10 @@ def test_satellite_picture_fallback_when_earthdata_gis_is_down(api, monkeypatch)
     assert sat["status"] == "available" and sat["measured"] is False and sat["stats"] is None and sat["image"] is None
     assert sat["tiles"]["date"] == "2026-10-31" and sat["tiles"]["max_zoom"] == 12
     assert "via NASA GIBS" in sat["source"]["credit"]
+
+
+def test_past_gauges_are_never_todays_readings(api):
+    past = 1700000000000
+    for q in (f"flood={api.fid}", "lid=AGYM7&series=1", "bbox=-94.8,39.6,-94.6,39.8"):
+        g = ok(api.get(f"/api/official/river-gauges?{q}&at_ms={past}"), C.RiverGaugesResponse)
+        assert g["status"] == "not_available_for_past_dates" and g["gauges"] == [] and g["reason"] == fcopy.GAUGES_PAST_NOT_YET
