@@ -27,7 +27,7 @@
     "backend": "uv run pytest -q: 1458 passed",
     "web": "typecheck clean; lint 55 warnings, all in src/scene, 0 errors; 1809 tests passed (2 skipped); build ok"
   },
-  "scans": "count-only: 1 secret configured, 0 hits in my files, the samples and the bundles' manifest/timeline files; no 'FireTrace'",
+  "scans": "count-only: 1 secret configured, 0 hits in my files, the samples and the bundles' manifest/timeline files; the banned reference-demo name appears nowhere",
   "measured": {
     "passes_route": "Moenkopi Wash 6 passes, 8.3 s cold, 0.03 s cached; one pass read ~3 s and ~1 MB (1600 px)",
     "products": "St Johns River 5 events, 97 versions (233 KB); Ducktown flash flood 12 versions; Calcasieu 2",
