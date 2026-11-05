@@ -5,10 +5,13 @@
 // then every 2 minutes (the NWS alerts cache), and drops an answer for a flood that is no longer open.
 // `useFloodTimelineSync(floodId)` keeps it running while a view that needs it is mounted (the chart mounts it).
 // Dev handle: window.__floodTimeline.
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { create } from 'zustand'
 import { API_BASE, describeError, fetchJson } from '../api/client'
-import type { FloodTimelineResponse } from '../api/types'
+import type { FloodTimelineResponse, SatelliteWaterResponse } from '../api/types'
+import { satelliteAtHandle } from '../map/floodAreaLayers'
+import { useNow } from '../ui/hooks'
+import { useFlood } from './flood'
 
 export interface FloodTimelineState {
   /** The flood the answer is for (null: none asked). */
@@ -138,6 +141,16 @@ export function useFloodTimelineSync(floodId: string | null | undefined): void {
       }
     }
   }, [floodId])
+}
+
+/** The satellite answer the 2D views show at the chart's handle (map/floodAreaLayers.ts satelliteAtHandle): the
+ *  route's own answer at now; before now the pass at the handle (its own date), or none before the first pass. */
+export function useSatelliteAtHandle(base: SatelliteWaterResponse | null | undefined): SatelliteWaterResponse | null {
+  const floodId = useFlood((s) => s.floodId)
+  const cursorMs = useFlood((s) => s.cursorMs)
+  const tl = useFloodTimeline((s) => timelineFor(s, floodId))
+  const nowMs = useNow(60_000)
+  return useMemo(() => satelliteAtHandle(base, tl, cursorMs, nowMs), [base, tl, cursorMs, nowMs])
 }
 
 declare global {

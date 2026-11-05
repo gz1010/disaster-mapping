@@ -9,6 +9,11 @@
 // the rig registers the view's RotationTarget (state/rotation.ts: Q / E / N reach it), takes Safari's trackpad twist
 // (lib/rotateGesture.ts) and a touch twist on the canvas, and applies store.flyTo.bearingDeg (the map's heading on the
 // hand-off, ui/shell/handoff.ts). Every turn goes through a camera command, so the hand-off sees the user's turn.
+// Brief 6 (web-forensic-flood-3d, decision 3 "closer framing"): a flood with a main river line opens in the river view
+// (scene/flood/riverFrame.ts: lower, closer, looking along the main river near its gauge) instead of the whole flood
+// from far above; the camera command 'frame-river' ("River view") comes back to it, 'frame-fire' ("Frame flood")
+// still fits the whole flood. The map's hand-off (store.flyTo) keeps the map's place when the map was closer than the
+// river view, else the river view is used (a map framing the whole flood would hide the flooded ground again).
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
@@ -18,6 +23,7 @@ import { attachRotateGesture } from '../../lib/rotateGesture'
 import { registerRotation } from '../../state/rotation'
 import { useStore } from '../../state/store'
 import type { IncidentAssets } from '../assets'
+import { riverDistance, riverViewHeading, RIVER_POLAR_DEG, type RiverReach } from '../flood/riverFrame'
 import { fireFrameWithForecast } from '../frame'
 import { reducedMotion } from '../motion'
 import { useSceneStore, type CameraCommand, type ViewInsets } from '../sceneStore'
@@ -104,6 +110,13 @@ export function framingPose(assets: IncidentAssets, exag: number, width: number,
   return { tx: cx, ty: assets.heightAt(cx, cz) * exag, tz: cz, dist, polar, azimuth }
 }
 
+/** Brief 6: the river view of a flood (lower, closer, along the main river), or null without a river line. */
+function riverViewPose(assets: IncidentAssets, river: RiverReach | null | undefined, exag: number, width: number, height: number, insets: ViewInsets, fovDeg: number): Pose | null {
+  if (!river) return null
+  const dist = riverDistance(river, { width, height, insets, fovDeg, extent: assets.extent })
+  return { tx: river.cx, ty: assets.heightAt(river.cx, river.cz) * exag, tz: river.cz, dist, polar: RIVER_POLAR_DEG * DEG, azimuth: azimuthOfHeading(riverViewHeading(river)) }
+}
+
 export function CameraRig({ assets }: { assets: IncidentAssets | null }) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
   const gl = useThree((s) => s.gl)
@@ -180,7 +193,10 @@ export function CameraRig({ assets }: { assets: IncidentAssets | null }) {
     const exag = useStore.getState().exaggeration
     exagRef.current = exag
     const vm = useStore.getState().viewMode
-    const pose = framingPose(assets, exag, size.width, size.height, useSceneStore.getState().viewInsets, camera.fov, vm === '2d' ? POLAR_2D : POLAR_3D, vm === '2d' ? 0 : AZ_SSE)
+    const insetsNow = useSceneStore.getState().viewInsets
+    // a flood opens in the river view (3D), else the whole fire / flood is framed
+    const river = vm === '3d' ? riverViewPose(assets, assets.flood?.river, exag, size.width, size.height, insetsNow, camera.fov) : null
+    const pose = river ?? framingPose(assets, exag, size.width, size.height, insetsNow, camera.fov, vm === '2d' ? POLAR_2D : POLAR_3D, vm === '2d' ? 0 : AZ_SSE)
     tween.current = null
     applyPose(pose, camera, controls)
     controls.maxDistance = assets.extent * 2.6
@@ -212,6 +228,14 @@ export function CameraRig({ assets }: { assets: IncidentAssets | null }) {
     const f = useStore.getState().flyTo
     if (!f || !assets) return
     const exag = useStore.getState().exaggeration
+    // brief 6: a flood's hand-off from a map wider than the river view keeps the river view (lower and closer)
+    if (assets.flood?.river && useStore.getState().viewMode === '3d') {
+      const rv = riverViewPose(assets, assets.flood.river, exag, size.width, size.height, useSceneStore.getState().viewInsets, camera.fov)
+      if (rv && (f.distance == null || f.distance > rv.dist * 1.25)) {
+        startTween(rv, 1.5)
+        return
+      }
+    }
     const cur = poseOf(camera, controls.target)
     const dist = f.distance ?? Math.min(cur.dist, assets.extent * 0.32)
     const azimuth = f.bearingDeg != null && Number.isFinite(f.bearingDeg) ? azimuthOfHeading(f.bearingDeg) : cur.azimuth
@@ -253,7 +277,12 @@ export function CameraRig({ assets }: { assets: IncidentAssets | null }) {
         controls.update()
       } else if (cmd.kind === 'zoom-in') startTween({ ...cur, dist: Math.max(controls.minDistance, cur.dist * 0.6) }, 0.5)
       else if (cmd.kind === 'zoom-out') startTween({ ...cur, dist: Math.min(controls.maxDistance, cur.dist / 0.6) }, 0.5)
-      else if (cmd.kind === 'frame-fire') {
+      else if (cmd.kind === 'frame-river') {
+        // brief 6: the river view of a flood (the whole flood when it has no river line)
+        const vm = useStore.getState().viewMode
+        const rv = vm === '3d' ? riverViewPose(a, a.flood?.river, exag, width, height, useSceneStore.getState().viewInsets, camera.fov) : null
+        startTween(rv ?? framingPose(a, exag, width, height, useSceneStore.getState().viewInsets, camera.fov, vm === '2d' ? POLAR_2D : POLAR_3D, cur.azimuth), 1.4)
+      } else if (cmd.kind === 'frame-fire') {
         // fit the whole fire, keeping the heading (north up only on request)
         const vm = useStore.getState().viewMode
         startTween(framingPose(a, exag, width, height, useSceneStore.getState().viewInsets, camera.fov, vm === '2d' ? POLAR_2D : POLAR_3D, cur.azimuth), 1.4)

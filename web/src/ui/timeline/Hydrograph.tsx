@@ -5,7 +5,7 @@
 // plot, the day ticks); `variant="dock"` is Forensic's 112 px dock (90 px plot, the key folded into the header).
 //   - Style and words carry the meaning, never colour alone: observed solid "OBSERVED · USGS", the NWS forecast dashed
 //     with its issuer and issue time, the model dotted amber "MODEL · NWM · EXPERIMENTAL".
-//   - The handle reads values; there is no play button (D13). Drag, or keys on the slider (←/→ one hour, Shift six,
+//   - The handle reads values (brief 5: no play button, D13; brief 6 adds the time steps below). Drag, or keys on the slider (←/→ one hour, Shift six,
 //     Home / End); "NOW" brings it back. It sets useFlood.cursorMs: the map, the readout and the point check follow
 //     (productsShown: after now they keep the NWS products in effect now and add the ones NWS issued for that time; the
 //     chart says CURSOR_FUTURE_PRODUCTS, or CURSOR_FUTURE_ISSUED when one covers the handle's time; C1, WFC-R1).
@@ -13,6 +13,11 @@
 //     flow mode); the future note is a wrapped line under them, never cut and never over the plot or the key (WFC-R3).
 //   - Flow mode: NWS flow on the handle's first line, the model on its own line (C28); no model without a reach.
 //   - Empty states: PLAN-5 §5.5. Nothing animates (reduced motion needs nothing more).
+//   - Brief 6 (web-flood-playback, BRIEF-6 decision 2): the flood's time steps (HydrographPlayback.tsx): Play / Pause and
+//     Previous / Next above the plot move the handle from satellite pass to NWS product change (no autoplay; reduced
+//     motion: one step per press), the step and the gap between passes in words, the passes as marks along the top,
+//     the NWS changes as the ticks; while stepping the axis starts at the first step (back to 72 h at now). This
+//     replaces brief 5's "no play button" (D13) for floods only.
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as RKeyboardEvent, type PointerEvent as RPointerEvent } from 'react'
 import type { FloodAlert, RiverGauge } from '../../api/types'
 import { HOUR_MS, type TimeFmt } from '../../lib/time'
@@ -33,6 +38,7 @@ import {
   type GaugeCategoryKey,
 } from '../shell/floodCopy'
 import { gaugeKey, gaugeOf, useHydroData, useHydrographData } from './hydrographData'
+import { PassMarks, PlayRow, usePlaybackView, type PlaybackView } from './HydrographPlayback'
 import {
   buildHydrograph,
   clampCursor,
@@ -97,8 +103,11 @@ export function Hydrograph({ variant, floodId, lid, products, gauges, atMs = nul
   const data = useHydrographData(floodId, resolved, { wantModel, atMs })
   const gauge = resolved ? gaugeOf(data.gauge.data, resolved) : null
   const tf = useTimeFormatFor(gauge?.time_zone ?? summary?.time_zone)
+  // the flood's zone for satellite pass times (NWS products keep their own zones)
+  const floodTf = useTimeFormatFor(summary?.time_zone ?? gauge?.time_zone)
   const wall = useNow(60_000)
   const nowMs = atMs ?? wall
+  const pb = usePlaybackView(floodId, nowMs, atMs != null, floodTf)
   const prods = useMemo(() => products ?? officialAlerts(offAlerts), [products, offAlerts])
   const [plotRef, measured] = useWidth()
   const plotW = Math.max(0, (measured || widthPx) - GUTTER)
@@ -117,9 +126,11 @@ export function Hydrograph({ variant, floodId, lid, products, gauges, atMs = nul
             zone: tf.tz,
             clock: tf.clock,
             past: atMs != null,
+            startMs: pb.startMs,
+            ticks: pb.ticks,
           })
         : null,
-    [gauge, axis, data.model, prods, nowMs, plotW, units, tf, atMs],
+    [gauge, axis, data.model, prods, nowMs, plotW, units, tf, atMs, pb.startMs, pb.ticks],
   )
   const cls = `hg is-${variant}${className ? ` ${className}` : ''}`
   // a `?lid=` answer does not know the flood: membership comes from the flood's own lists
@@ -133,6 +144,7 @@ export function Hydrograph({ variant, floodId, lid, products, gauges, atMs = nul
       <section className={`${cls} is-empty`} aria-label={HYDRO.title}>
         {picker}
         <div className="hg-body">
+          <PlayRow view={pb} variant={variant} />
           <p className="hg-empty">
             <strong>{NO_MEMBER_GAUGE}</strong> · {NO_MEMBER_GAUGE_SUB}
           </p>
@@ -147,6 +159,7 @@ export function Hydrograph({ variant, floodId, lid, products, gauges, atMs = nul
       {picker}
       <div className="hg-body">
         <HydroTop variant={variant} name={name} model={model} axis={axis} setAxis={setAxis} units={units} nearby={isNearby} />
+        <PlayRow view={pb} variant={variant} />
         {problem ? (
           <div className="hg-plot is-empty" ref={plotRef} style={{ height: PLOT_H[variant] }}>
             <p className="hg-empty" title={data.gauge.error ?? undefined}>
@@ -154,7 +167,7 @@ export function Hydrograph({ variant, floodId, lid, products, gauges, atMs = nul
             </p>
           </div>
         ) : (
-          <HydroChart variant={variant} model={model} tf={tf} plotRef={plotRef} plotW={plotW} past={atMs != null} products={prods} />
+          <HydroChart variant={variant} model={model} tf={tf} plotRef={plotRef} plotW={plotW} past={atMs != null} products={prods} pb={pb} />
         )}
       </div>
     </section>
@@ -250,6 +263,7 @@ function HydroChart({
   plotW,
   past,
   products,
+  pb,
 }: {
   variant: HydrographVariant
   model: HydrographModel | null
@@ -258,6 +272,7 @@ function HydroChart({
   plotW: number
   past: boolean
   products: readonly FloodAlert[]
+  pb: PlaybackView
 }) {
   const cursorMs = useFlood((s) => s.cursorMs)
   const helpId = useId()
@@ -277,7 +292,7 @@ function HydroChart({
       <div className="hg-plot" ref={plotRef} style={{ height: H }}>
         {model && readout && (
           <>
-            <Plot model={model} readout={readout} width={plotW} height={H} />
+            <Plot model={model} readout={readout} width={plotW} height={H} pb={pb} cursorMs={cursorMs} />
             <PlotOverlays model={model} plotW={plotW} height={H} past={past} />
             <Slider model={model} readout={readout} plotW={plotW} height={H} helpId={helpId} futureNote={futureNote} />
           </>
@@ -351,7 +366,7 @@ function pathOf(points: readonly HydroPoint[], m: HydrographModel, w: number, h:
   return d
 }
 
-function Plot({ model: m, readout, width, height }: { model: HydrographModel; readout: CursorReadout; width: number; height: number }) {
+function Plot({ model: m, readout, width, height, pb, cursorMs }: { model: HydrographModel; readout: CursorReadout; width: number; height: number; pb: PlaybackView; cursorMs: number | null }) {
   const y = (v: number) => PAD_Y + yFrac(m, v) * (height - 2 * PAD_Y)
   const x = (t: number) => xFrac(m, t) * width
   const nowX = x(m.nowMs)
@@ -426,6 +441,8 @@ function Plot({ model: m, readout, width, height }: { model: HydrographModel; re
           <title>{p.label}</title>
         </line>
       ))}
+      {/* the satellite passes (brief 6): filled where NASA saw something, hollow grey where it saw nothing */}
+      <PassMarks view={pb} model={m} width={width} cursorMs={cursorMs} />
       {/* the handle */}
       <line x1={hx} x2={hx} y1={0} y2={height} className="hg-cursor" />
       {readout.kind !== 'none' && (() => {
@@ -573,13 +590,18 @@ function AxisRow({ model: m, plotW }: { model: HydrographModel; plotW: number })
   const latestX = m.latest ? xFrac(m, m.latest.t) * plotW : null
   const latestW = m.latest ? m.latest.label.length * 6.4 + 8 : 0
   const latestLeft = latestX != null ? Math.min(plotW - latestW, Math.max(0, latestX - latestW / 2)) : null
+  // each label clears the last one kept (brief 6: the wider axis while stepping has days narrower than a label, and
+  // comparing with the previous day dropped every label)
+  let lastRight = Number.NEGATIVE_INFINITY
   const days = m.dayTicks
     .map((d) => ({ ...d, x: xFrac(m, d.t) * plotW }))
-    .filter((d, i, a) => {
+    .filter((d) => {
       const w = d.label.length * 6.4 + 6
       if (d.x + w > plotW + GUTTER) return false
       if (latestLeft != null && d.x + w > latestLeft - 4 && d.x < latestLeft + latestW + 4) return false
-      return i === 0 || d.x - a[i - 1].x >= w
+      if (d.x < lastRight) return false
+      lastRight = d.x + w
+      return true
     })
   return (
     <div className="hg-axis">

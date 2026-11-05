@@ -17,6 +17,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useFloodOfficial } from '../official/floodHooks'
 import { answerState, fimMapped, shownGranule } from '../official/floodModel'
 import { extraLayerReason, extraLayerState, useFloodLayerData, type ExtraLayerState } from '../state/floodLayerData'
+import { useSatelliteAtHandle } from '../state/floodTimelineData'
 import { useWorkspace } from '../state/workspace'
 import { fmtDayDate } from '../lib/time'
 import { satLoginNote } from '../ui/public/floodView'
@@ -116,7 +117,11 @@ export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant 
   // the national gauge layer could not be read: only the listed floods' own gauges are drawn (WFO-R8)
   const gaugesDown = useNationalGauges(nationalGaugesDown) && gaugesOn && !floodOpen
   // a flood view: what each of its layers is (the backend's own caveats; brief 5 web-flood-public)
-  const view = useFloodOfficial(useShallow((s) => ({ satellite: s.satellite.data, fim: s.fim.data, nfhl: s.nfhl.data })))
+  const official = useFloodOfficial(useShallow((s) => ({ satellite: s.satellite.data, fim: s.fim.data, nfhl: s.nfhl.data })))
+  // brief 6 (web-flood-playback, declared edit): the satellite layer of the chart's handle (the pass the map draws,
+  // with its own date); at now the satellite route's own answer
+  const satAtHandle = useSatelliteAtHandle(official.satellite)
+  const view = { ...official, satellite: satAtHandle }
   // a request that failed with no answer still gets its line (review WFP-R1): never a layer that silently vanishes
   const failed = useFloodOfficial(
     useShallow((s) => ({

@@ -16,6 +16,9 @@
 //                      #7fd4ff edge, no glints) with clouds and no data as the same grey cross-hatch ("no view", never
 //                      transparent, never land: the classes' look comes from scene/flood/satClasses.ts through
 //                      uSatLut), and National Water Model output as an amber dotted edge
+//   height above river brief 6 (web-forensic-flood-3d), a flood only, off by default (uHandOpacity 0): the ground's
+//                      height above the nearest river channel (HAND, uint8 0.1 m, 255 = no value) as violet bands
+//                      0-1 / 1-2 / 2-5 m (lowest strongest), under the water drapes. "Not a flood map"
 // Every overlay has an opacity uniform; emissive values > 1 are left in HDR so bloom picks them up.
 import * as THREE from 'three'
 import { ATMOSPHERE_GLSL, atmosphereUniforms } from '../atmosphere/atmosphere'
@@ -146,6 +149,10 @@ const fragmentShader = /* glsl */ `
   uniform float uPlainOpacity;
   uniform float uModelOpacity;
   uniform float uCatfimOpacity;
+  // brief 6: height above the nearest river channel (uint8 0.1 m, 255 = no value; nearest), its opacity (0 = off)
+  uniform sampler2D uHand;
+  uniform float uHasHand;
+  uniform float uHandOpacity;
 
   varying vec3 vWorld;
   varying vec2 vUv;
@@ -483,6 +490,41 @@ const fragmentShader = /* glsl */ `
         col = mix(col, plainC * 0.55, band * (0.08 + stip * mix(0.35, 0.6, sfha)) * uPlainOpacity);
         col = mix(col, plainC, isoAA(fl.g, 0.3, 0.55) * 0.45 * uPlainOpacity);
       }
+      // brief 6: height above the river (HAND, "Not a flood map"): violet bands 0-1 / 1-2 / 2-5 m, bilinear over the
+      // cells that have a value (255 = more than 10 km from a channel: nothing drawn there)
+      if (uHasHand > 0.5 && uHandOpacity > 0.0) {
+        ivec2 hsz = textureSize(uHand, 0);
+        vec2 hp = uv * vec2(hsz) - 0.5;
+        ivec2 h0 = ivec2(floor(hp));
+        vec2 hf = hp - vec2(h0);
+        float hv = 0.0;
+        float hw = 0.0;
+        for (int k = 0; k < 4; k++) {
+          ivec2 o = ivec2(k & 1, k >> 1);
+          float code = floor(texelFetch(uHand, clamp(h0 + o, ivec2(0), hsz - 1), 0).r * 255.0 + 0.5);
+          float wk = (o.x == 1 ? hf.x : 1.0 - hf.x) * (o.y == 1 ? hf.y : 1.0 - hf.y);
+          if (code < 254.5) {
+            hv += code * 0.1 * wk;
+            hw += wk;
+          }
+        }
+        // derivatives stay in uniform control flow: no branch on the per-pixel coverage
+        float hm = hw > 0.0 ? hv / max(hw, 1e-4) : 99.0;
+        float cov = smoothstep(0.25, 0.6, hw);
+        float aa = max(fwidth(hm), 0.02);
+        float b1 = 1.0 - smoothstep(1.0 - aa, 1.0 + aa, hm);
+        float b2 = (1.0 - smoothstep(2.0 - aa, 2.0 + aa, hm)) - b1;
+        float b3 = (1.0 - smoothstep(5.0 - aa, 5.0 + aa, hm)) - b1 - b2;
+        vec3 c1 = srgb2lin(vec3(167.0, 123.0, 255.0) / 255.0);
+        vec3 c2 = srgb2lin(vec3(185.0, 155.0, 255.0) / 255.0);
+        vec3 c3 = srgb2lin(vec3(214.0, 198.0, 255.0) / 255.0);
+        col = mix(col, c1, b1 * 0.42 * cov * uHandOpacity);
+        col = mix(col, c2, b2 * 0.27 * cov * uHandOpacity);
+        col = mix(col, c3, b3 * 0.14 * cov * uHandOpacity);
+        // a hairline at each band's upper edge (1, 2 and 5 m), so the bands read on any ground
+        float edge = max(max(isoAA(hm, 1.0, 0.9), isoAA(hm, 2.0, 0.7)), isoAA(hm, 5.0, 0.6));
+        col = mix(col, c2, edge * 0.45 * cov * uHandOpacity);
+      }
       // NWS forecast flooded area (next 5 days, experimental): faint water-blue fill, "/" hatch, edge
       if (uFimOpacity > 0.0) {
         float fim = smoothstep(0.35, 0.65, fl.r);
@@ -744,6 +786,9 @@ export function terrainUniforms(): Record<string, THREE.IUniform> {
     uPlainOpacity: { value: 0 },
     uModelOpacity: { value: 0 },
     uCatfimOpacity: { value: 0 },
+    uHand: { value: null },
+    uHasHand: { value: 0 },
+    uHandOpacity: { value: 0 },
   }
 }
 

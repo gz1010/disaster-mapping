@@ -56,6 +56,8 @@ export const PLAYBACK = {
   unread: 'some passes are still being read',
   /** A pass whose image the map cannot draw (the route sent none). */
   noImage: 'This pass has no image to draw on the map.',
+  /** The satellite layer's note when the handle is before the first usable pass (the map draws no image). */
+  noImageAtHandle: 'No satellite image at or before this time: the water then is not seen. That is not an all-clear.',
 
   // ---------------------------------------------------------------------------------------------- at now
   /** The row at now: what Play steps through. */

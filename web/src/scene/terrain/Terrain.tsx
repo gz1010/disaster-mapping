@@ -6,6 +6,7 @@
 // Brief 5 (PLAN-5 §4.7): for an open flood (assets.flood) the terrain also drapes the flood layers (terrainMaterial.ts
 // "flood drapes"), and its terrain, aerial photo and contour switches are Forensic's own flood toggles
 // (ui/forensic-flood/forensicFloodState.ts), never the fire store's layers.
+// Brief 6 (web-forensic-flood-3d): the height above the river (HAND) drape for a flood, off by default.
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
@@ -149,8 +150,10 @@ export function Terrain({ assets }: { assets: IncidentAssets }) {
     u.uSatWater.value = fl?.textures.satWater ?? null
     u.uHasSat.value = fl?.textures.satWater ? 1 : 0
     u.uSatLut.value = fl?.textures.satLut ?? null
+    u.uHand.value = fl?.textures.hand ?? null
+    u.uHasHand.value = fl?.textures.hand ? 1 : 0
     // any sampler that stays null still needs a valid texture object
-    for (const k of ['uNaip', 'uFuel', 'uCanopy', 'uSkyView', 'uWater', 'uObserved', 'uForecast', 'uSeverity', 'uFloodPack', 'uSatWater', 'uSatLut']) {
+    for (const k of ['uNaip', 'uFuel', 'uCanopy', 'uSkyView', 'uWater', 'uObserved', 'uForecast', 'uSeverity', 'uFloodPack', 'uSatWater', 'uSatLut', 'uHand']) {
       if (!u[k].value) u[k].value = blankTexture()
     }
   }, [assets, material])
@@ -247,12 +250,14 @@ export function Terrain({ assets }: { assets: IncidentAssets }) {
       u.uPlainOpacity.value = fl.has.floodplain ? shownOpacity(F.floodplain) : 0
       u.uModelOpacity.value = fl.has.model ? shownOpacity(F.model) : 0
       u.uCatfimOpacity.value = fl.has.catfim ? shownOpacity(F.catfim) : 0
+      u.uHandOpacity.value = fl.has.hand ? shownOpacity(F.hand) : 0
     } else {
       u.uSatOpacity.value = 0
       u.uFimOpacity.value = 0
       u.uPlainOpacity.value = 0
       u.uModelOpacity.value = 0
       u.uCatfimOpacity.value = 0
+      u.uHandOpacity.value = 0
     }
 
     // isochrone step by fire duration and zoom

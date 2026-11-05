@@ -12,6 +12,9 @@
 //   - note: NOTHING_COVERS when no NWS product, forecast area or satellite water covers the spot (whatever is switched
 //     on); NOTHING_COVERS_OFFICIAL when FEMA, the category map or the model says "inside"; the products' outage text
 //     when the bundle's NWS copy could not be read
+//   - brief 6 (web-forensic-flood-3d): DEPTH (while the depth surface shows) the estimate at the spot inside its mapped
+//     water only (nothing outside it: no "0 m"); ABOVE RIVER (while the height above the river is on) the ground's
+//     height above the nearest channel, "Not a flood map"
 // Pure and tested (floodProbe.test.ts); rendered by scene/overlays/SceneOverlays.tsx.
 import type { FloodAlert, FloodAlertsResponse } from '../../api/types'
 import { pointInRings, type Ring } from '../../location/geometry'
@@ -37,7 +40,9 @@ import { FLOOD_FORENSIC } from '../../ui/forensic-flood/floodForensicCopy'
 import { shownOpacity, type FloodForensicLayer, type FloodLayerSetting } from '../../ui/forensic-flood/forensicFloodState'
 import { isUpcoming, productEnd, productStart } from '../../ui/timeline/hydrographModel'
 import type { FloodSceneAssets } from './floodAssets'
+import { FLOOD_3D } from './flood3dCopy'
 import { warningsAt } from './floodGeo'
+import { cellMetres, fmtMetres } from './terrain3d'
 
 export type ProbeTone = 'alert' | 'water' | 'quiet' | 'warn' | 'model'
 
@@ -102,6 +107,8 @@ export function floodProbeRows(i: {
   cursorMs: number | null
   nowMs: number
   tf: TimeFmt
+  /** Brief 6: the depth raster on screen (null: no depth surface is drawn). */
+  depth?: Uint8Array | null
 }): FloodProbe {
   const { flood: fl, layers: L, extent, point: p, tf, nowMs } = i
   const on = (k: FloodForensicLayer) => shownOpacity(L[k]) > 0
@@ -185,6 +192,19 @@ export function floodProbeRows(i: {
     else if (inModel) {
       const t = st.water_model?.time_ms
       rows.push({ key: 'model', label: FLOOD_FORENSIC.probeModel, text: fillCopy(MODEL_AT_POINT, { time: t != null ? fmtAt(t, tf, { zone: true, year: 'auto', refMs: nowMs }) : '—' }), tone: 'model' })
+    }
+  }
+
+  // brief 6: the estimated depth at the spot (inside the mapped water only) and the height above the river
+  if (on('depth') && i.depth) {
+    const v = cellMetres(at(i.depth) ?? Number.NaN)
+    if (v) rows.push({ key: 'depth', label: FLOOD_3D.probeDepth, text: v.top ? FLOOD_3D.probeDepthTop : fillCopy(FLOOD_3D.probeDepthAt, { m: fmtMetres(v.m) }), tone: 'water' })
+  }
+  if (on('hand') && fl.has.hand && fl.arrays.hand) {
+    const raw = at(fl.arrays.hand)
+    if (raw != null) {
+      const v = cellMetres(raw)
+      rows.push({ key: 'hand', label: FLOOD_3D.probeHand, text: !v ? FLOOD_3D.probeHandFar : v.top ? FLOOD_3D.probeHandTop : fillCopy(FLOOD_3D.probeHandAt, { m: fmtMetres(v.m) }), tone: 'quiet' })
     }
   }
 

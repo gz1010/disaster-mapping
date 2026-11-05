@@ -11,9 +11,18 @@
 //   forecast      the NWS forecast flooded area (5-day maximum, experimental): a water-blue hatch with a light edge
 //   warnings      the NWS products in effect (productsAt, C1): pink outlines with a faint pink fill; zone-based
 //                 products drawn from their zones
+// Brief 6 (web-flood-playback M3; BRIEF-6 decision 2): both follow the river-level chart's handle through the flood's
+// time history (GET /api/floods/{id}/timeline; state/floodTimeline.ts). satelliteAtHandle: before now, the latest usable
+// pass at or before the handle, as a satellite answer of its own (its own image, date, caveat and credit; the same
+// palette and no-view hatch); before the first pass no image (said, never an all-clear); at and after now the satellite
+// route's own answer, as in brief 5. Never a blend of two passes. warningsAtHandle: before now the NWS versions shown
+// at the handle (from their issue time until their end or next version, archived ones included; zone-based versions
+// from the timeline's zones); at and after now brief 5's productsShown on the live answer.
 // Ids start with fx-flood- (never a fire id). Never the model and never NWS category maps in Public (floodProfile.ts).
 import type { LayerSpecification } from 'maplibre-gl'
-import type { FloodAlert, FloodAlertsResponse, FloodMapResponse, SatelliteWaterResponse } from '../api/types'
+import type { FloodAlert, FloodAlertsResponse, FloodMapResponse, FloodTimelineResponse, SatelliteWaterResponse } from '../api/types'
+import { passAt, passesOf, productsAt, STEP_EPS_MS } from '../state/floodTimeline'
+import { PLAYBACK } from '../ui/timeline/floodPlaybackCopy'
 import { VECTOR_SOURCE } from './basemapStyle'
 import { FLOOD_ALERT, FLOOD_AREA, FLOOD_TOKENS } from './floodStyle'
 import type { Feature, FeatureCollection, Geometry } from './overlayModel'
@@ -103,6 +112,77 @@ export function satelliteEdge(sat: SatelliteWaterResponse | null | undefined): F
   if (!img) return EMPTY
   const c = imageCorners(img.bounds)
   return { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'LineString', coordinates: [...c, c[0]] }, properties: {} }] }
+}
+
+/** The handle is on a time before now (the time history applies); null and now or later: the views' now. */
+const beforeNow = (cursorMs: number | null, nowMs: number): cursorMs is number => cursorMs != null && Number.isFinite(cursorMs) && cursorMs < nowMs - STEP_EPS_MS
+
+/** The satellite answer the 2D views show at the handle (brief 6; module docstring): `base` (the satellite route's
+ *  answer) at and after now or without the timeline's passes; before now the pass at or before the handle as its own
+ *  measured answer, or, before the first usable pass, an answer with no image that says so. */
+export function satelliteAtHandle(
+  base: SatelliteWaterResponse | null | undefined,
+  tl: FloodTimelineResponse | null | undefined,
+  cursorMs: number | null,
+  nowMs: number,
+): SatelliteWaterResponse | null {
+  const block = tl?.passes
+  if (!beforeNow(cursorMs, nowMs) || !block || block.status !== 'available' || !block.passes?.length) return base ?? null
+  const at = passAt(passesOf(tl), cursorMs)
+  const p = at.pass
+  const credit = (block.sources ?? []).find((s) => p != null && s.name.includes(p.product)) ?? block.source
+  const common = {
+    kind: 'satellite_water' as const,
+    status: 'available' as const,
+    reason_code: null,
+    login: block.login,
+    login_note: block.login_note,
+    tiles: null,
+    source: credit,
+    retrieved_ms: block.retrieved_ms,
+    now_ms: nowMs,
+    flood_id: tl?.flood_id ?? base?.flood_id ?? null,
+    synthetic: tl?.synthetic === true || base?.synthetic === true,
+  }
+  if (!p || !p.image) {
+    // nothing seen at or before the handle: no image, and the layer says so (never an all-clear)
+    return { ...common, reason: p ? PLAYBACK.noImage : PLAYBACK.noImageAtHandle, measured: false, granules: [], image: null, stats: null, caveats: base?.caveats ?? [] }
+  }
+  return {
+    ...common,
+    reason: null,
+    measured: true,
+    granules: [
+      {
+        id: p.granules[0] ?? p.key,
+        product: p.product,
+        platform: p.platform,
+        acquired_ms: p.acquired_ms,
+        produced_ms: null,
+        cloud_pct: p.cloud_pct,
+        route: p.route,
+        url: p.url,
+      },
+    ],
+    image: { url: p.image.url, bounds_lonlat: p.image.bounds_lonlat },
+    // the pass's own figures over the map area (no total area: the route's stats are not this pass's)
+    stats: null,
+    caveats: p.caveat ? [p.caveat] : (base?.caveats ?? []),
+  }
+}
+
+/** The NWS warning areas at the handle (brief 6; module docstring): the timeline's versions before now (zone-based ones
+ *  from the timeline's zones), the live answer's productsShown at and after now (C1). */
+export function warningsAtHandle(
+  live: FloodAlertsResponse | null | undefined,
+  liveAlerts: readonly FloodAlert[],
+  tl: FloodTimelineResponse | null | undefined,
+  cursorMs: number | null,
+  nowMs: number,
+): FeatureCollection {
+  const products = tl?.products?.status === 'available' ? tl.products.products : null
+  const r = productsAt(products, liveAlerts, cursorMs, nowMs)
+  return warningFeatures(r.alerts, r.source === 'timeline' ? tl?.products?.zones : live?.zones)
 }
 
 /** The polygons of a map answer (an available answer only). */

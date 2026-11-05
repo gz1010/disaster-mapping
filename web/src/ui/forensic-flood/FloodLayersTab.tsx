@@ -6,8 +6,13 @@
 // note under its row ("NASA Earthdata login is not set up…", "FEMA's digital flood map covers only part of this area…";
 // review WFF-R2), and its own date or category on a line of its own (WFF-R3). The switches are Forensic's own
 // (forensicFloodState.ts).
+// Brief 6 (web-forensic-flood-3d): a group "From the terrain" (experimental) with the estimated water depth surface
+// (on; its depth ramp, which mapped water it is of, the backend's label) and the height above the river (off by
+// default; its bands and HAND_LABEL "Not a flood map").
 import { Eye, EyeOff, RotateCcw } from 'lucide-react'
 import { fmtDayDate } from '../../lib/time'
+import { useDepthShown } from '../../scene/flood/flood3dHooks'
+import { FLOOD_3D, HAND_LABEL_FALLBACK } from '../../scene/flood/flood3dCopy'
 import { floodAssetStore } from '../../scene/flood/floodAssets'
 import { catfimCategoryLabel } from '../../scene/flood/floodProbe'
 import { useTimeFormat } from '../../state/timeZone'
@@ -43,6 +48,14 @@ const GROUPS: { id: string; label: string; rows: Row[] }[] = [
       { key: 'warnings', label: FLOOD_FORENSIC.layerWarnings, tip: FLOOD_FORENSIC.layerWarningsTip },
       { key: 'gauges', label: FLOOD_FORENSIC.layerGauges, tip: FLOOD_FORENSIC.layerGaugesTip },
       { key: 'catfim', label: FLOOD_FORENSIC.layerCatfim, tip: FLOOD_FORENSIC.layerCatfimTip, exp: true },
+    ],
+  },
+  {
+    id: 'terrain3d',
+    label: FLOOD_3D.groupTerrain3d,
+    rows: [
+      { key: 'depth', label: FLOOD_3D.layerDepth, tip: FLOOD_3D.layerDepthTip, exp: true },
+      { key: 'hand', label: FLOOD_3D.layerHand, tip: FLOOD_3D.layerHandTip, exp: true },
     ],
   },
   {
@@ -155,8 +168,66 @@ export function FloodLayersTab() {
   )
 }
 
+/** Brief 6: the depth surface's legend (deeper = darker blue), what it is (the backend's DEPTH_LABEL), and which
+ *  mapped water it is of (the satellite pass on screen, or the NWS forecast area). */
+function DepthNote() {
+  const flood = floodAssetStore((s) => s.assets?.flood ?? null)
+  const depth = useDepthShown(flood)
+  const from = useForensicFlood((s) => s.depthFrom)
+  if (!flood || !depth) return null
+  const shown = depth.from
+  const pick = (f: 'satellite' | 'forecast') => useForensicFlood.getState().setDepthFrom(f)
+  return (
+    <div className="legend legend-wrap fxf-note">
+      <div className="fxf-depth-legend" aria-label={depth.product?.label ?? FLOOD_3D.layerDepth}>
+        <i className="fxf-depth-ramp" />
+        <span>{FLOOD_3D.depthShallow}</span>
+        <span>{FLOOD_3D.depthMid}</span>
+        <span>{FLOOD_3D.depthMid2}</span>
+        <span>{FLOOD_3D.depthDeep}</span>
+      </div>
+      {depth.product && <span className="fxf-row-meta">{depth.product.label}</span>}
+      <div className="fxf-depth-from" role="group" aria-label={FLOOD_3D.depthFrom}>
+        <span className="fxf-depth-from-label">{FLOOD_3D.depthFrom}</span>
+        <button type="button" aria-pressed={shown === 'satellite'} disabled={!flood.has.depthSatellite && from !== 'satellite'} onClick={() => pick('satellite')}>
+          {FLOOD_3D.depthFromSatellite}
+        </button>
+        <button type="button" aria-pressed={shown === 'forecast'} disabled={!flood.has.depthForecast} onClick={() => pick('forecast')}>
+          {FLOOD_3D.depthFromForecast}
+        </button>
+      </div>
+      {depth.note && <span className="fxf-row-why">{depth.note}</span>}
+      <span className="exp-tag">experimental</span>
+    </div>
+  )
+}
+
+/** Brief 6: the height above the river's bands, with HAND_LABEL ("Not a flood map"). */
+function HandNote() {
+  const label = floodAssetStore((s) => s.assets?.flood.terrain3d?.hand.label ?? HAND_LABEL_FALLBACK)
+  return (
+    <div className="legend legend-wrap fxf-note">
+      <span className="legend-chip">
+        <i className="fxf-hand-chip b1" />
+        {FLOOD_3D.handBand1}
+      </span>
+      <span className="legend-chip">
+        <i className="fxf-hand-chip b2" />
+        {FLOOD_3D.handBand2}
+      </span>
+      <span className="legend-chip">
+        <i className="fxf-hand-chip b3" />
+        {FLOOD_3D.handBand3}
+      </span>
+      <span className="fxf-row-meta">{label}</span>
+    </div>
+  )
+}
+
 /** The short legend under a visible row whose look carries meaning. */
 function RowNote({ k, exp }: { k: FloodForensicLayer; exp?: boolean }) {
+  if (k === 'depth') return <DepthNote />
+  if (k === 'hand') return <HandNote />
   if (k === 'gauges') return <div className="legend fxf-note">{FLOOD_FORENSIC.barHeight}</div>
   if (k === 'satellite')
     return (

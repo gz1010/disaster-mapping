@@ -86,10 +86,10 @@ export interface ScanSweep {
   radius: number
 }
 
-/** One-shot camera commands. Brief 4 (decision f): 'rotate' turns the heading by `deg` (clockwise positive; Q / E,
+/** One-shot camera commands. Brief 6: 'frame-river' is a flood's river view (scene/flood/riverFrame.ts). Brief 4 (decision f): 'rotate' turns the heading by `deg` (clockwise positive; Q / E,
  *  the ⟲ ⟳ buttons, ← → on the compass), 'set-heading' sets it to `deg` at once (compass drag, Safari and touch
  *  twists); 'reset-north' is heading 0 (N, a compass click). Both work in 2D and 3D. */
-export type CameraCommandKind = 'reset-north' | 'frame-fire' | 'zoom-in' | 'zoom-out' | 'rotate' | 'set-heading'
+export type CameraCommandKind = 'reset-north' | 'frame-fire' | 'zoom-in' | 'zoom-out' | 'rotate' | 'set-heading' | 'frame-river'
 export interface CameraCommand {
   kind: CameraCommandKind
   /** 'rotate': degrees to turn; 'set-heading': the compass heading in degrees. */

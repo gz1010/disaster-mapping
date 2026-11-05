@@ -32,8 +32,8 @@ function flood(over: { sat?: number[]; forecast?: number[]; floodplain?: number[
   const arr = (v: number[] | undefined) => (v ? Uint8Array.from(v) : null)
   return {
     manifest: { ...m, layer_status: ls },
-    has: { forecast: true, floodplain: true, model: true, catfim: true, satellite: true, noView: true },
-    arrays: { width: 2, height: 2, forecast: arr(over.forecast ?? [0, 0, 0, 0]), floodplain: arr(over.floodplain ?? [0, 0, 0, 0]), model: arr(over.model ?? [0, 0, 0, 0]), catfim: arr(over.catfim ?? [0, 0, 0, 0]), satellite: arr(over.sat ?? [0, 0, 0, 0]) },
+    has: { forecast: true, floodplain: true, model: true, catfim: true, satellite: true, noView: true, hand: false, depthSatellite: false, depthForecast: false },
+    arrays: { width: 2, height: 2, forecast: arr(over.forecast ?? [0, 0, 0, 0]), floodplain: arr(over.floodplain ?? [0, 0, 0, 0]), model: arr(over.model ?? [0, 0, 0, 0]), catfim: arr(over.catfim ?? [0, 0, 0, 0]), satellite: arr(over.sat ?? [0, 0, 0, 0]), hand: null, depthSatellite: null, depthForecast: null },
     catfim: { key: 'catfim_ZZRF1_moderate', lid: 'ZZRF1', category: 'moderate' },
     warnings: over.warnings === undefined ? warningsOnly() : over.warnings,
     satellite: SATELLITE(),

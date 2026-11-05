@@ -826,3 +826,98 @@ p.fxf-key-future {
   white-space: normal;
   color: var(--text-2, #bdbdbd);
 }
+
+/* ------------------------------------------------------------------- brief 6: height boost, depth, height above river */
+/* the depth ramp (scene/flood/DepthSurface.tsx DEPTH_RAMP): shallow light blue, deeper darker blue */
+:root {
+  --fxf-depth-0: #a9dcff;
+  --fxf-depth-1: #3f8fe0;
+  --fxf-depth-2: #1f5fb5;
+  --fxf-depth-3: #0d2f73;
+  /* the height above the river (scene/terrain/terrainMaterial.ts HAND bands): violet, lowest strongest */
+  --fxf-hand-1: #a77bff;
+  --fxf-hand-2: #b99bff;
+  --fxf-hand-3: #d6c6ff;
+}
+.fxf-key-height {
+  background:
+    linear-gradient(0deg, transparent 0 1px, rgba(230, 230, 230, 0.75) 1px 2px, transparent 2px) 0 100% / 100% 100% no-repeat,
+    linear-gradient(90deg, transparent 4px, rgba(230, 230, 230, 0.85) 4px 5.5px, transparent 5.5px 16px, rgba(230, 230, 230, 0.85) 16px 17.5px, transparent 17.5px),
+    linear-gradient(180deg, transparent 0 7px, rgba(230, 230, 230, 0.2) 7px);
+}
+.fxf-key-depth,
+.fxf-sw-depth,
+.fxf-depth-ramp {
+  background: linear-gradient(90deg, var(--fxf-depth-0), var(--fxf-depth-1) 34%, var(--fxf-depth-2) 67%, var(--fxf-depth-3));
+}
+.fxf-key-hand,
+.fxf-sw-hand {
+  background: linear-gradient(90deg, var(--fxf-hand-1) 0 34%, var(--fxf-hand-2) 34% 67%, var(--fxf-hand-3) 67%);
+  opacity: 0.85;
+}
+.fxf-depth-legend {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px 0;
+  width: 100%;
+  max-width: 260px;
+  margin-top: 2px;
+}
+.fxf-depth-legend .fxf-depth-ramp {
+  grid-column: 1 / -1;
+  height: 8px;
+  border-radius: 2px;
+}
+.fxf-depth-legend span {
+  font: 400 10px/1.2 var(--font-mono);
+  color: var(--text-3, #9a9a9a);
+}
+.fxf-depth-legend span:last-child {
+  text-align: right;
+}
+.fxf-hand-chip {
+  display: inline-block;
+  width: 12px;
+  height: 9px;
+  margin-right: 4px;
+  border-radius: 2px;
+  vertical-align: -1px;
+}
+.fxf-hand-chip.b1 {
+  background: var(--fxf-hand-1);
+}
+.fxf-hand-chip.b2 {
+  background: var(--fxf-hand-2);
+}
+.fxf-hand-chip.b3 {
+  background: var(--fxf-hand-3);
+}
+.fxf-depth-from {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.fxf-depth-from .fxf-depth-from-label {
+  font: 400 11px/1.2 var(--font-ui);
+  color: var(--text-3, #9a9a9a);
+}
+.fxf-depth-from button {
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: var(--text-body, #e6e6e6);
+  font: 400 11px/1 var(--font-ui);
+  cursor: pointer;
+}
+.fxf-depth-from button[aria-pressed='true'] {
+  border-color: var(--m-flood-edge, #7fd4ff);
+  background: rgba(42, 140, 230, 0.18);
+}
+.fxf-depth-from button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

@@ -20,15 +20,18 @@ function flood(over: Partial<FloodSceneAssets> = {}): FloodSceneAssets {
   return {
     manifest: d.manifest!,
     summary: d.summary,
-    textures: { pack: null, satWater: null, satLut: null as never },
-    has: { forecast: true, floodplain: true, model: true, catfim: true, satellite: true, noView: true },
-    arrays: { width: 14, height: 1, forecast: null, floodplain: null, model: null, catfim: null, satellite: sat },
+    textures: { pack: null, satWater: null, satLut: null as never, hand: null },
+    has: { forecast: true, floodplain: true, model: true, catfim: true, satellite: true, noView: true, hand: false, depthSatellite: false, depthForecast: false },
+    arrays: { width: 14, height: 1, forecast: null, floodplain: null, model: null, catfim: null, satellite: sat, hand: null, depthSatellite: null, depthForecast: null },
     catfim: { key: 'catfim_ZZRF1_moderate', lid: 'ZZRF1', category: 'moderate' },
     warnings: ALERTS(),
     gauges: GAUGES(),
     satellite: SATELLITE(),
     frame: { minX: -1, maxX: 1, minZ: -1, maxZ: 1, cx: 0, cz: 0 },
     anchors: { model: null, catfim: null },
+    terrain3d: null,
+    boost: { factor: 3, basis: 'grid', rangeM: 90, widthM: 12000, reached: true, relief: null },
+    river: null,
     ...over,
   }
 }
@@ -68,7 +71,7 @@ describe('layerNote and empty layers (review WFF-R2)', () => {
   })
 
   it("a layer made with nothing to draw says the backend's reason (FEMA has no digital map), not \"Not in this bundle\"", () => {
-    const f = flood({ has: { forecast: true, floodplain: false, model: true, catfim: true, satellite: true, noView: true } })
+    const f = flood({ has: { forecast: true, floodplain: false, model: true, catfim: true, satellite: true, noView: true, hand: false, depthSatellite: false, depthForecast: false } })
     const m = { ...f.manifest, layer_status: { ...f.manifest.layer_status, floodplain: { ...f.manifest.layer_status.floodplain, reason: NFHL_NO_MAP } } }
     expect(layerUnavailable('floodplain', { ...f, manifest: m })).toBe(NFHL_NO_MAP)
     expect(layerUnavailable('floodplain', f)).toBe(FLOOD_FORENSIC.layerUnavailable)
@@ -131,7 +134,7 @@ describe('sceneKeyItems', () => {
   })
 
   it('a bundle without a measured image says so instead of drawing nothing silently', () => {
-    const f = flood({ has: { forecast: false, floodplain: false, model: false, catfim: false, satellite: false, noView: false } })
+    const f = flood({ has: { forecast: false, floodplain: false, model: false, catfim: false, satellite: false, noView: false, hand: false, depthSatellite: false, depthForecast: false } })
     const items = sceneKeyItems({ flood: f, layers: layers(), tf: TF, nowMs: Date.now(), hasWarnings: false, hasGauges: false })
     expect(items).toHaveLength(1)
     expect(items[0].key).toBe('satnone')

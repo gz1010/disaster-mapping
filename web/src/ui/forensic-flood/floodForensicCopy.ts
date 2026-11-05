@@ -105,7 +105,7 @@ export const FLOOD_FORENSIC = {
   layerTelemetryTip: 'Monospace labels at the gauges and on the experimental drapes',
   layerUnavailable: 'Not in this bundle',
   layersReset: 'Reset to defaults',
-  layersFoot: 'FEMA, NWS category maps and the model start off',
+  layersFoot: 'FEMA, NWS category maps, the model and the height above the river start off',
   // analysis tab
   analysisTitle: 'River level charts',
   analysisNone: 'This flood has no river gauge in its 3D data. Small streams and streets are not measured. Not an all-clear.',

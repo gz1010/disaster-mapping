@@ -7,9 +7,14 @@
 //   SatelliteEdge  the satellite image's edge (thin dashed grey), so "no view" outside it never reads as dry ground
 //   DrapeLabels    "MODEL · EXPERIMENTAL" (amber) and "NWS CATEGORY MAP · EXPERIMENTAL" on those drapes when switched on
 //   GaugeBars      the river gauges as thin bars (GaugeBars.tsx)
+// Brief 6 (web-forensic-flood-3d):
+//   HeightBoost    the flood's height boost on the shared exaggeration while the flood scene is mounted (heightBoost.ts:
+//                  the automatic value from the bundle's relief, or the user's choice for this flood); the fire view's
+//                  own value comes back when it unmounts. A layout effect, so the camera frames the flood at its height
+//   DepthSurface   the estimated water surface (FwDET) with its depth tint, inside the mapped water only (DepthSurface.tsx)
 // Nothing here animates: lines, bars and labels are static (prefers-reduced-motion has nothing to stop).
 import { useFrame } from '@react-three/fiber'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useLayoutEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { lonLatToLocal } from '../../lib/reproject'
 import { useFlood } from '../../state/flood'
@@ -23,8 +28,10 @@ import { GLSL_RIBBON_FRAG, GLSL_RIBBON_VERT, drape, ribbonGeometry, type RibbonL
 import { InOverlay, Overlay, ScreenLabel } from '../fx/text'
 import { useSceneStore } from '../sceneStore'
 import type { FloodSceneAssets } from './floodAssets'
+import { DepthSurface } from './DepthSurface'
 import { clipRingToBox, polygonsLocal, warningsAt } from './floodGeo'
 import { GaugeBars } from './GaugeBars'
+import { boostInUse } from './heightBoost'
 import { SAT_NO_VIEW } from './satClasses'
 
 const DEFAULT_FOG = new THREE.Color('#0b0f0d')
@@ -219,10 +226,33 @@ function DrapeLabels({ assets, flood }: { assets: IncidentAssets; flood: FloodSc
   )
 }
 
+/** The flood's height boost on the shared exaggeration (store.exaggeration, which the terrain, camera, probe, lines and
+ *  bars all read) while this flood's scene is mounted; the value from before (the fire view's) comes back after. */
+function HeightBoost({ floodId, auto }: { floodId: string; auto: number }) {
+  useLayoutEffect(() => {
+    const before = useStore.getState().exaggeration
+    const apply = () => {
+      const { factor } = boostInUse(floodId, auto, useForensicFlood.getState().boost)
+      if (useStore.getState().exaggeration !== factor) useStore.getState().setExaggeration(factor)
+    }
+    apply()
+    const unsub = useForensicFlood.subscribe((s, p) => {
+      if (s.boost !== p.boost) apply()
+    })
+    return () => {
+      unsub()
+      useStore.getState().setExaggeration(before)
+    }
+  }, [floodId, auto])
+  return null
+}
+
 export function FloodFx({ assets, flood }: { assets: IncidentAssets; flood: FloodSceneAssets }) {
   return (
     <Overlay>
+      <HeightBoost floodId={flood.manifest.id} auto={flood.boost.factor} />
       <FloodFxDriver extent={assets.extent} />
+      <DepthSurface assets={assets} flood={flood} />
       <WarningLines assets={assets} flood={flood} />
       <SatelliteEdge assets={assets} flood={flood} />
       <GaugeBars assets={assets} flood={flood} />
