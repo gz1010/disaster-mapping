@@ -145,5 +145,10 @@
     "backend": "uv run pytest -q: 1466 passed",
     "web": "typecheck: clean in this role's files (at the final run one error in web/src/scene/flood/productsOnScreen.test.ts, the parallel web-forensic-flood-3d review's uncommitted work, 'node:fs' types); lint: 0 errors, 55 warnings, all in src/scene (none added); vitest: 151 files, 1917 passed, 2 skipped; vite build: ok",
     "scans": "count-only: FIRMS_MAP_KEY's value in 0 changed files (EARTHDATA_TOKEN not set in this session); no 'FireTrace', 'safe' or 'low risk' in the new strings; new strings pass the flood wording guard (floodCopy.test.ts reads floodPlaybackCopy.ts; rendered rows and NwsVersion checked with data-verbatim stripped)"
-  }
+  },
+  "commits": [
+    "f41d647 brief 6 web-flood-playback: review fixes (code: R1-R10 with tests)",
+    "f4ec1c1 brief 6 web-flood-playback: review fixes (two-line phone row, 'As of now' wording, screenshots, review report, as-built note, progress)",
+    "(an earlier orchestrator snapshot, 01fd5e7 / f1ed151, carried part of the R1/R2 edits mid-step)"
+  ]
 }
