@@ -6,6 +6,7 @@ script ``scripts/flood_3d.py``. Offline."""
 from __future__ import annotations
 
 import json
+import re
 import shutil
 
 import httpx
@@ -13,8 +14,9 @@ import numpy as np
 import pytest
 
 import fire3d.http as fhttp
-from fire3d.contracts import FloodManifest, FloodTerrain3d, contract_problems, validate_strict
+from fire3d.contracts import FloodManifest, FloodTerrain3d, FloodTimelineResponse, contract_problems, validate_strict
 from fire3d.floods import build, store, terrain3d, timeline
+from fire3d.floods import copy as fcopy
 from fire3d.floods import copy_time as tcopy
 from fire3d.grid import Grid, grids_from_manifest
 from fire3d.sources import opera
@@ -63,9 +65,11 @@ def test_relief_near_the_water_or_the_whole_grid():
     near = terrain3d.relief(dem, RES, 6000.0, water)
     assert near["area"] == "water" and near["range_m"] < 10 and near["exaggeration"] == 10.0
     assert near["rule"] == tcopy.RELIEF_RULE and "2 km" in near["area_note"]
+    # review BTD-R4: a flat floodplain saturates at x10 without reaching the target, and the rule says so
+    assert near["target_reached"] is False and "At most ×10" in near["rule"]
     whole = terrain3d.relief(dem, RES, 6000.0, None)
     assert whole["area"] == "grid" and whole["range_m"] > 290 and whole["exaggeration"] == 1.5
-    assert whole["area_note"] == tcopy.RELIEF_AREA_GRID
+    assert whole["area_note"] == tcopy.RELIEF_AREA_GRID and whole["target_reached"] is True
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -235,12 +239,51 @@ def test_upgrade_script_adds_products_to_the_fixture(flood_fixture_bundle, tmp_d
     from fire3d import config
 
     monkeypatch.setattr(config, "FLOODS_DIR", tmp_data_dir / "floods")
-    assert load_script("flood_3d").main(["fixture-flood"]) == 0
+    # review BTD-R11: a bundle written before the rename keeps the old name in stored notes; the script replaces them
+    f3 = load_script("flood_3d")
+    old_note = fcopy.SAT_NOT_SET_UP.replace("Disaster Mapping", f3.OLD_NAME)
+    for name, path in (("manifest.json", ("layer_status", "water_satellite", "reason")), ("satellite.json", ("login_note",))):
+        doc = json.loads((dst / name).read_text())
+        cur = doc
+        for k in path[:-1]:
+            cur = cur[k]
+        cur[path[-1]] = old_note
+        (dst / name).write_text(json.dumps(doc))
+    assert f3.main(["fixture-flood"]) == 0
+    assert f3.OLD_NAME not in (dst / "manifest.json").read_text() + (dst / "satellite.json").read_text()
     m = json.loads((dst / "manifest.json").read_text())
+    assert m["layer_status"]["water_satellite"]["reason"] == fcopy.SAT_NOT_SET_UP
     validate_strict(FloodManifest, m)
     t3 = m["terrain3d"]
     assert contract_problems(FloodTerrain3d, t3) == []
     assert t3["hand"]["status"] == "ok" and all(d["status"] == "ok" for d in t3["depth"])
-    assert m["files"]["maps"]["flowlines"] == "maps/flowlines.geojson" and "timeline" not in m["files"]
+    assert m["files"]["maps"]["flowlines"] == "maps/flowlines.geojson"
+    # review BTD-R9: four simulated passes for the web roles (clear, no view, a five-day gap, partly hidden, own image)
+    assert m["files"]["timeline"] == "timeline.json"
+    tl = json.loads((dst / "timeline.json").read_text())
+    validate_strict(FloodTimelineResponse, tl)
+    ps = tl["passes"]["passes"]
+    assert [p["view"] for p in ps] == ["clear", "no_view", "partly_hidden", "clear"]
+    assert all(re.fullmatch(r"DSWx-HLS_\d{8}T\d{4}_[A-Z0-9]+", p["key"]) for p in ps)
+    assert ps[2]["acquired_ms"] - ps[1]["acquired_ms"] >= 4 * 86_400_000                 # the gap
+    assert tl["passes"]["shown_key"] == ps[-1]["key"] and tl["synthetic"]
+    assert ps[1]["layer"] is None and ps[1]["image"] is None and ps[1]["caveat"] == tcopy.PASS_NO_VIEW
+    for p in (ps[0], ps[2], ps[3]):
+        assert p["layer"] in m["layers"] and p["depth_layer"] in m["layers"] and p["image"]["url"]
+        assert (dst / "passes" / f"{p['key']}.png").is_file()
     rep, _ = load_script("check_bundle").check_flood_bundle(dst)
     assert rep.problems == []
+    assert load_script("flood_3d").main(["fixture-flood"]) == 0                          # a re-run: one credit each
+    m2 = json.loads((dst / "manifest.json").read_text())
+    assert len(m2["data_sources"]) == len(m["data_sources"]) and len(m2["layers"]) == len(m["layers"])
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setattr(config, "DATA_DIR", tmp_data_dir)
+    from fire3d.api.app import app
+
+    with TestClient(app) as client:
+        d = client.get("/api/floods/fixture-flood/timeline").json()
+        assert [p["key"] for p in d["passes"]["passes"]] == [p["key"] for p in ps]
+        r = client.get(ps[2]["image"]["url"])
+        assert r.status_code == 200 and r.headers["content-type"] == "image/png"
+        assert client.get(f"/api/floods/fixture-flood/passes/{ps[1]['key']}.png?area=abcdef12").status_code == 404

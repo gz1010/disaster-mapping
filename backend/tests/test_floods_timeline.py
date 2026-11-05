@@ -18,6 +18,7 @@ from fire3d import config
 from fire3d.contracts import FloodManifest, FloodTimelineResponse, contract_problems, validate_strict
 from fire3d.floods import build, copy_time as tcopy, store, timeline
 from fire3d.floods import copy as fcopy
+from fire3d.grid import Grid
 from fire3d.sources import opera
 
 from conftest import FLOOD_SAMPLES, route_transport
@@ -58,12 +59,27 @@ def test_every_timeline_and_terrain_string_passes_the_wording_guard():
 # ---------------------------------------------------------------------------------------------------------------
 def test_flood_window_live_past_and_cap():
     now = 1_793_900_000_000
+    day0 = lambda t: t // DAY * DAY                                    # noqa: E731 - midnight UTC
     live = {"started_ms": now - 2 * DAY, "mode": "live"}
-    assert timeline.flood_window(live, now) == (now - 12 * DAY, now)
+    assert timeline.flood_window(live, now) == (day0(now - 12 * DAY), now)          # start rounded down to the day
     long = {"started_ms": now - 90 * DAY, "mode": "live"}
     assert timeline.flood_window(long, now) == (now - timeline.MAX_WINDOW_DAYS * DAY, now)
     past = {"started_ms": now - 200 * DAY, "last_product_ms": now - 190 * DAY, "mode": "historical"}
-    assert timeline.flood_window(past, now) == (now - 210 * DAY, now - 187 * DAY)
+    assert timeline.flood_window(past, now) == (day0(now - 210 * DAY), now - 187 * DAY)
+
+
+def test_route_and_bundle_windows_list_the_same_passes_when_the_start_is_refined():
+    """Review BTD-R10 (Calcasieu): the live list refined the start from 11:00Z to 22:30Z after the build; the route's
+    window must still begin where the bundle's did, so Command and Forensic list the same passes."""
+    now = 1_793_886_893_338
+    built = 1_792_967_400_000 - 11 * 3_600_000                          # the bundle's start (earlier)
+    live = {"started_ms": 1_792_967_400_000, "mode": "live"}            # refined later the same day
+    b_start, _ = timeline.flood_window({**live, "started_ms": built}, now)
+    r_start, _ = timeline.flood_window(live, now)
+    assert r_start == b_start and r_start % DAY == 0                   # same day: rounding alone is enough
+    later = {**live, "started_ms": built + 3 * DAY}                     # refined by days: the bundle's start is kept
+    assert timeline.flood_window(later, now, also_started=built)[0] == b_start
+    assert timeline.flood_window(later, now)[0] > b_start
 
 
 def _granule(name: str, oid: int) -> opera.Granule:
@@ -156,6 +172,9 @@ def test_route_passes_read_once_mark_no_view_and_make_pngs(flood_iso, monkeypatc
     img = np.asarray(Image.open(__import__("io").BytesIO(png)))
     assert img.shape[2] == 4 and (img[..., 3] == 0).any() and (img[..., 3] > 0).any()
     assert timeline.pass_png(summary["id"], good[0]["key"], "00000000", bbox=bbox) is None
+    # a pass with no view has no image at all (review BTD-R13)
+    assert not timeline.png_path(summary["id"], last["key"], area).exists()
+    assert timeline.pass_png(summary["id"], last["key"], area, bbox=bbox) is None
     assert contract_problems(FloodTimelineResponse, timeline.timeline(summary, out, timeline._products_env(
         summary["id"], now), now=now)) == []
 
@@ -340,3 +359,151 @@ def test_bundle_keeps_the_timeline_and_pass_rasters(recorded_flood):  # noqa: F8
     pr = tl["products"]
     assert pr["status"] == "available" and pr["products"] and tcopy.PRODUCTS_ARCHIVE_DOWN in pr["caveats"]
     assert any("satellite passes" in d["detail"] for d in m["data_sources"])
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Review fixes (BTD-R1, R5-R8, R13, R15)
+# ---------------------------------------------------------------------------------------------------------------
+LIVE = {"id": "flood-20261101-test-river-flood-abcdef", "mode": "live", "status": "active",
+        "started_ms": 1_793_600_000_000, "bbox_lonlat": [-87.6, 38.4, -86.8, 39.2], "states": ["IN"],
+        "time_zone": "America/Indiana/Indianapolis",
+        "products": [{"id": "x", "vtec_key": "KIND.FL.W.0030.2025", "sent_ms": 1_743_600_000_000}]}
+
+
+def test_live_feed_down_says_so_and_is_not_kept(flood_iso, monkeypatch):
+    """BTD-R1: an open flood whose live NWS feed fails shows archived copies only, says so (never an all-clear) and
+    is asked again (complete false: neither cache keeps it)."""
+    monkeypatch.setattr(fhttp, "_transport", _iem_routes())
+    asked = []
+
+    def down(summary, *, now, at_ms=None):
+        asked.append(now)
+        raise opera.SourceError("NWS down")
+
+    monkeypatch.setattr(timeline.zones, "flood_alerts", down)
+    now = 1_793_900_000_000
+    info: dict = {}
+    out = timeline.product_history(LIVE, now=now, info=info)
+    assert out["status"] == "available" and out["products"] and all(p["archived"] for p in out["products"])
+    assert tcopy.PRODUCTS_LIVE_DOWN in out["caveats"] and out["complete"] is False
+    assert out["source"]["credit"] == fcopy.CREDIT_IEM and info == {"busy": 0, "live_down": True}
+    assert guard(tcopy.PRODUCTS_LIVE_DOWN) == [] and "not an all-clear" in tcopy.PRODUCTS_LIVE_DOWN
+    timeline.cached_product_history(LIVE, now=now)
+    timeline.cached_product_history(LIVE, now=now)
+    assert len(asked) == 3                                              # not kept: asked again each time
+    # a past flood never reads the live feed: no such caveat
+    assert tcopy.PRODUCTS_LIVE_DOWN not in timeline.product_history(PAST, now=now)["caveats"]
+
+
+def test_more_events_than_listed_keeps_the_newest_and_says_so(flood_iso, monkeypatch):
+    """BTD-R15."""
+    monkeypatch.setattr(fhttp, "_transport", _iem_routes())
+    n = timeline.MAX_EVENTS + 3
+    prods = [{"id": f"p{i}", "vtec_key": f"KIND.FL.W.{i + 1:04d}.2025", "sent_ms": 1_743_000_000_000 + i * 3_600_000}
+             for i in range(n)]
+    keys = timeline._event_keys({**PAST, "products": prods}, [])
+    assert len(keys) == n and keys[0] == f"KIND.FL.W.{n:04d}.2025"                      # newest first
+    out = timeline.product_history({**PAST, "products": prods}, now=1_793_900_000_000)
+    assert tcopy.PRODUCTS_EVENTS_TRUNCATED in out["caveats"]
+
+
+def test_cached_and_frozen_products_are_served_with_phases_of_now(flood_iso, monkeypatch):
+    """BTD-R6: a version whose end passed between the cache and the answer is ended; products.now_ms is now."""
+    t0 = 1_793_000_000_000
+    h = 3_600_000
+    block = {**timeline._products_env("f", t0), "products": timeline.with_timing(
+        [_alert("a", "NEW", t0, t0 + 2 * h), _alert("b", "NEW", t0 + 5 * h, None, etn=9)], now=t0 + h)}
+    assert [p["phase"] for p in block["products"]] == ["in_effect", "upcoming"]
+    later = timeline.phases_at(block, t0 + 6 * h)
+    assert [p["phase"] for p in later["products"]] == ["ended", "in_effect"] and later["now_ms"] == t0 + 6 * h
+    assert timeline.PRODUCTS_TTL_S <= timeline.nws.ALERTS_TTL_S
+
+
+def test_route_keeps_the_passes_but_makes_the_products_for_each_answer(flood_iso, monkeypatch):
+    """BTD-R6: only the passes block is kept 10 min; a new NWS version shows in the next answer."""
+    calls = {"passes": 0, "products": 0}
+
+    def passes(summary, bbox, *, now, shown_granules=None, wait_s=0):
+        calls["passes"] += 1
+        return {**timeline._passes_base(now, now - DAY, now, "not_configured")}
+
+    def products(summary, *, now, info=None):
+        calls["products"] += 1
+        return {**timeline._products_env(summary["id"], now), "products": []}
+
+    monkeypatch.setattr(timeline, "route_passes", passes)
+    monkeypatch.setattr(timeline, "product_history", products)
+    monkeypatch.setattr(timeline, "PRODUCTS_TTL_S", 0.0)
+    now = 1_793_900_000_000
+    a = timeline.route_timeline(LIVE, (-87.6, 38.4, -86.8, 39.2), now=now)
+    b = timeline.route_timeline(LIVE, (-87.6, 38.4, -86.8, 39.2), now=now + 60_000)
+    assert calls == {"passes": 1, "products": 2}
+    assert b["now_ms"] == b["products"]["now_ms"] == now + 60_000 and a["passes"] is b["passes"]
+
+
+def test_a_failed_read_that_finished_at_once_is_read_again(monkeypatch):
+    """BTD-R7: a read that fails before its future is registered never blocks the pass for good."""
+    from concurrent.futures import Future
+
+    class Sync:
+        def submit(self, fn, *a):
+            f: Future = Future()
+            try:
+                f.set_result(fn(*a))
+            except Exception as e:  # noqa: BLE001
+                f.set_exception(e)
+            return f
+
+    monkeypatch.setattr(timeline, "_get_pool", lambda: Sync())
+    reads = []
+
+    def fail(p, bbox, fid, area):
+        reads.append(p.key)
+        raise opera.SourceError("down")
+
+    monkeypatch.setattr(timeline, "read_lonlat", fail)
+    p = _recorded_passes()[0]
+    known, r, fut = timeline._start_read("f", p, (0, 0, 1, 1), "abcdef12")
+    assert not known and fut.done() and fut.result() is None and not timeline._inflight
+    key = timeline._read_key("f", p, "abcdef12")
+    timeline._reads[key] = (0.0, None)                                  # the failed-read time has run out
+    timeline._inflight[key] = fut                                       # a stale done future (the old race)
+    known, r, fut2 = timeline._start_read("f", p, (0, 0, 1, 1), "abcdef12")
+    assert fut2 is not fut and len(reads) == 2                          # a new read started
+
+
+def test_sources_credit_every_product_and_route():
+    """BTD-R8: with EARTHDATA_TOKEN, radar and PO.DAAC passes are credited too."""
+    g1 = opera.Granule("a", "DSWx-HLS", "T1", 1000, None, "L9", "earthdata_gis")
+    g2 = opera.Granule("b", "DSWx-S1", "T1", 2000, None, "S1A", "podaac")
+    g3 = opera.Granule("c", "DSWx-HLS", "T1", 3000, None, "S2B", "podaac")
+    ps = [opera.Pass(f"k{i}", g.product, g.sensor, g.acquired_ms, [g]) for i, g in enumerate((g3, g2, g1))]
+    src = timeline.sources_of(ps)
+    assert [s["credit"] for s in src] == [fcopy.opera_credit("DSWx-HLS", "earthdata_gis"),
+                                          fcopy.opera_credit("DSWx-HLS", "podaac"),
+                                          fcopy.opera_credit("DSWx-S1", "podaac")]
+
+
+def test_bundle_passes_never_ask_again_and_have_their_own_depth(monkeypatch):
+    """BTD-R5 and R3: passes beyond MAX_BUNDLE_READS (or failed reads) are unknown with the bundle's own caveat,
+    never "ask again in a minute"; each kept pass has its own depth estimate."""
+    grid = Grid(32613, 500_000.0, 4_000_000.0, 4096.0, 64, 64)
+    passes = _recorded_passes()[:4]
+    monkeypatch.setattr(timeline, "list_passes", lambda *a, **k: timeline.PassList(passes, 1, True, False, "x"))
+    monkeypatch.setattr(timeline, "MAX_BUNDLE_READS", 2)
+    cls = np.zeros((64, 64), np.uint8)
+    cls[:, 28:36] = opera.OPEN_WATER
+    monkeypatch.setattr(timeline, "read_grid", lambda p, g: timeline.PassRead(timeline.shares_grid(cls, 64.0), None, cls))
+    x = np.abs(np.arange(64) - 32.0)
+    dem = np.tile(100.0 + x, (64, 1)).astype(np.float32)
+    s = {"id": "flood-x", "started_ms": passes[-1].acquired_ms - DAY, "mode": "live", "time_zone": "UTC"}
+    bp = timeline.bundle_passes(s, grid, (0, 0, 1, 1), now=passes[0].acquired_ms + DAY, dem=dem)
+    ans = bp.answer
+    assert ans["complete"] and tcopy.PASSES_PARTIAL not in ans["caveats"]
+    assert tcopy.PASSES_BUNDLE_UNREAD in ans["caveats"]
+    assert [p["view"] for p in ans["passes"]] == ["unknown", "unknown", "clear", "clear"]   # oldest first
+    kept = [p for p in ans["passes"] if p["layer"]]
+    assert len(kept) == 2 and all(p["depth_layer"] == f"depth_pass_{p['key']}" for p in kept)
+    d = bp.depth[kept[0]["depth_layer"]]
+    assert d.dtype == np.uint8 and (d[:, 28:36] < 255).all() and (d[:, :20] == 255).all()
+    assert all(p["depth_layer"] is None for p in ans["passes"] if not p["layer"])

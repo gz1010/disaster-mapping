@@ -48,6 +48,7 @@ import os
 import shutil
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
@@ -58,7 +59,7 @@ from shapely.geometry import shape
 from .. import bundle, config, regions
 from ..build import pipeline
 from ..contracts import FloodManifest, validate_strict
-from ..grid import Grid, manifest_grid, transformer, utm_epsg_for
+from ..grid import Grid, grids_from_manifest, manifest_grid, transformer, utm_epsg_for
 from ..sources import imagery, terrain, water_maps
 from ..sources.nws import SourceBusy, SourceError
 from ..timeutil import HOUR_MS, now_ms
@@ -504,23 +505,29 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
         prog.report("satellite", 1.0, "Satellite water ready")
 
         # ---- time history (brief 6): every satellite pass and every NWS product version ---------------------
-        _timeline_step(summary, grid, bbox, stage, prog, now, ans, layers, files, sources, warnings)
+        old = _earlier_bundle(fid, grid)
+        _timeline_step(summary, grid, bbox, stage, prog, now, ans, layers, files, sources, warnings, dem=dem, old=old)
 
         # ---- 3D terrain products (brief 6): relief and height boost, HAND, FwDET depth ------------------------
-        prog.report("terrain3d", 0.0, "Height boost, height above the river, depth estimates")
+        prog.report("terrain3d", 0.0, tcopy.PROGRESS_TERRAIN3D)
         flow = _result(f_flow, "NWM flowlines")
-        flow_feats = None
-        if flow is not None:
-            flow_feats = flow.features
+        flow_feats, flow_fetched = (flow.features, flow.fetched_ms) if flow is not None else (None, None)
+        if flow_feats is None and old is not None:       # a rebuild never loses the river lines (review BTD-R2)
+            flow_feats = terrain3d.bundle_flowlines(old.bdir, old.m)
+            if flow_feats is not None:
+                flow_fetched = next((d.get("fetched_ms") for d in old.m.get("data_sources") or []
+                                     if d.get("name") == fcopy.CREDIT_NWC_EXPERIMENTAL
+                                     and "maps/flowlines.geojson" in str(d.get("detail"))), None)
+                warnings.append(_kept_note(tcopy.KEPT_FLOWLINES, now))
+        if flow_feats is not None:
             bundle.write_json(stage / "maps" / "flowlines.geojson",
                               compact_fc({"type": "FeatureCollection", "features": flow_feats}, grid))
             files["maps"]["flowlines"] = "maps/flowlines.geojson"
-            _credit(sources, fcopy.CREDIT_NWC_EXPERIMENTAL,
-                    f"National Water Model river lines: {len(flow_feats)} reaches (maps/flowlines.geojson; the "
-                    "height-above-the-river input)", flow.fetched_ms, now)
+            _credit(sources, fcopy.CREDIT_NWC_EXPERIMENTAL, tcopy.SRC_FLOWLINES.format(n=len(flow_feats)),
+                    flow_fetched, now)
         terrain3d_entry = _terrain3d_step(summary, grid, stage, dem, sat.grid_classes, status, fc_raster, flow_feats,
                                           layers, now)
-        prog.report("terrain3d", 1.0, "3D terrain products ready")
+        prog.report("terrain3d", 1.0, tcopy.PROGRESS_TERRAIN3D_DONE)
 
     # ---- finish ------------------------------------------------------------------------------------------------
     prog.report("finish", 0.2, "Writing the manifest")
@@ -547,13 +554,75 @@ def _build(summary: dict, stage: Path, prog: pipeline.BuildProgress, now: int) -
     return m
 
 
+@dataclass
+class EarlierBundle:
+    """The flood's earlier ready bundle, still in place while a rebuild writes its staging folder."""
+
+    bdir: Path
+    m: dict
+    timeline: dict | None
+    same_grid: bool
+
+
+def _earlier_bundle(flood_id: str, grid: Grid) -> EarlierBundle | None:
+    bdir = store.flood_dir(flood_id)
+    m = store.load_flood_manifest(flood_id)
+    if not m or m.get("status") != "ready":
+        return None
+    tl = None
+    rel = (m.get("files") or {}).get("timeline")
+    if rel:
+        try:
+            tl = bundle.read_json(bdir / rel)
+        except (OSError, ValueError):
+            tl = None
+    try:
+        og, _ = grids_from_manifest(m)
+        same = (og.epsg, og.width, og.height) == (grid.epsg, grid.width, grid.height) and \
+            all(abs(float(a) - float(b)) < 1e-6 for a, b in zip(og.bounds, grid.bounds))
+    except (KeyError, TypeError, ValueError):
+        same = False
+    return EarlierBundle(bdir, m, tl, same)
+
+
+def _kept_note(what: str, now: int) -> str:
+    return tcopy.REBUILD_KEPT.format(time=time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(now / 1000)), what=what)
+
+
+def _keep_passes(old: EarlierBundle, stage: Path, layers: dict) -> dict | None:
+    """The earlier bundle's passes block and its pass rasters copied into ``stage`` (a rebuild that could not reach
+    NASA never loses them; review BTD-R2), or None when it has none. On another grid the rasters are not kept."""
+    ps = (old.timeline or {}).get("passes") or {}
+    if ps.get("status") != "available" or not ps.get("passes"):
+        return None
+    ps = {**ps, "passes": [dict(p) for p in ps["passes"]]}
+    for p in ps["passes"]:
+        for k in ("layer", "depth_layer"):
+            name = p.get(k)
+            info = (old.m.get("layers") or {}).get(name) if name else None
+            src = old.bdir / info["file"] if info else None
+            if not (old.same_grid and src is not None and src.is_file()):
+                p[k] = None
+                continue
+            dst = stage / info["file"]
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(src, dst)
+            layers[name] = info
+        if not p.get("layer"):
+            p["depth_layer"] = None
+    return ps
+
+
 def _timeline_step(summary: dict, grid: Grid, bbox: tuple, stage: Path, prog: pipeline.BuildProgress, now: int,
-                   sat_answer: dict, layers: dict, files: dict, sources: list[dict], warnings: list[str]) -> None:
-    """``timeline.json`` and ``layers/water_pass_<key>.bin`` (optional: a failure is a manifest warning only)."""
-    prog.report("timeline", 0.0, "Satellite passes and NWS product versions")
+                   sat_answer: dict, layers: dict, files: dict, sources: list[dict], warnings: list[str], *,
+                   dem: np.ndarray | None = None, old: EarlierBundle | None = None) -> None:
+    """``timeline.json``, ``layers/water_pass_<key>.bin`` and ``layers/depth_pass_<key>.bin`` (optional: a failure is
+    a manifest warning only). A rebuild over an earlier bundle keeps what it cannot load again (review BTD-R2): the
+    earlier pass list and its rasters when NASA cannot be reached, and every earlier NWS product version."""
+    prog.report("timeline", 0.0, tcopy.PROGRESS_TIMELINE)
     shown = [g["id"] for g in sat_answer.get("granules") or []] if sat_answer.get("measured") else None
     try:
-        bp = timeline.bundle_passes(summary, grid, bbox, now=now, shown_granules=shown,
+        bp = timeline.bundle_passes(summary, grid, bbox, now=now, shown_granules=shown, dem=dem,
                                     progress=lambda f, msg: prog.report("timeline", 0.75 * f, msg))
     except Exception as e:  # noqa: BLE001 - optional step: the passes say unavailable
         log.info("timeline passes %s: %s", summary["id"], pipeline.short_error(e))
@@ -561,39 +630,54 @@ def _timeline_step(summary: dict, grid: Grid, bbox: tuple, stage: Path, prog: pi
         bp = timeline.BundlePasses({**timeline._passes_base(now, start, end, satellite.opera.login_state()),
                                     "stats_over": "bundle_grid", "status": "unavailable",
                                     "reason_code": "upstream_error", "reason": tcopy.PASSES_UNAVAILABLE}, {}, {})
-    for name, arr in bp.rasters.items():
-        layers[name] = bundle.write_layer(stage, name, arr, "render", None, bp.descriptions[name], register=False)
-    prog.report("timeline", 0.8, "NWS product versions (live and archive)")
+    pa = bp.answer
+    kept_old = _keep_passes(old, stage, layers) if (old is not None and pa["status"] == "unavailable") else None
+    if kept_old is not None:
+        pa = kept_old
+        warnings.append(_kept_note(tcopy.KEPT_PASSES, now))
+    else:
+        for name, arr in bp.rasters.items():
+            layers[name] = bundle.write_layer(stage, name, arr, "render", None, bp.descriptions[name], register=False)
+        for name, arr in bp.depth.items():
+            layers[name] = bundle.write_layer(stage, name, arr, "render", "0.1 m", bp.descriptions[name],
+                                              nodata=terrain3d.NODATA, register=False)
+    prog.report("timeline", 0.8, tcopy.PROGRESS_PRODUCTS)
     prods = None
     for i in range(PRODUCT_TRIES):
+        info: dict = {}
         try:
-            prods = timeline.product_history(summary, now=now)
+            prods = timeline.product_history(summary, now=now, info=info)
         except Exception as e:  # noqa: BLE001 - optional step
             log.info("timeline products %s: %s", summary["id"], pipeline.short_error(e))
             break
-        if prods.get("complete") or i == PRODUCT_TRIES - 1:
-            break
-        time.sleep(PRODUCT_WAIT_S)                                   # Disaster Mapping's own IEM limit: wait
+        if prods.get("complete") or not info.get("busy") or i == PRODUCT_TRIES - 1:
+            break                                                    # only Disaster Mapping's own IEM limit waits
+        time.sleep(PRODUCT_WAIT_S)
     if prods is None:
         prods = {**timeline._products_env(summary["id"], now), "status": "unavailable",
                  "reason_code": "upstream_error", "reason": fcopy.ALERTS_UNAVAILABLE}
-    bundle.write_json(stage / "timeline.json", timeline.timeline(summary, bp.answer, prods, now=now))
+    old_prods = ((old.timeline or {}).get("products") if old is not None else None) or None
+    if old_prods is not None and old_prods.get("status") == "available":
+        if prods["status"] != "available":
+            warnings.append(_kept_note(tcopy.KEPT_PRODUCTS, now))
+        prods = timeline.merge_products(old_prods, prods, now)
+    bundle.write_json(stage / "timeline.json", timeline.timeline(summary, pa, prods, now=now))
     files["timeline"] = "timeline.json"
-    pa = bp.answer
     if pa["passes"]:
-        kept = sum(1 for p in pa["passes"] if p["layer"])
-        _credit(sources, pa["source"]["credit"],
-                f"{len(pa['passes'])} satellite passes from {_iso(pa['start_ms'])} to {_iso(pa['end_ms'])}, "
-                f"{kept} kept as images (timeline.json, layers/water_pass_<pass>.bin)", pa.get("retrieved_ms"), now)
+        n_kept = sum(1 for p in pa["passes"] if p["layer"])
+        for src in pa.get("sources") or [pa["source"]]:              # every product and route listed (BTD-R8)
+            _credit(sources, src["credit"], tcopy.SRC_PASSES.format(n=len(pa["passes"]), start=_iso(pa["start_ms"]),
+                                                                   end=_iso(pa["end_ms"]), kept=n_kept),
+                    pa.get("retrieved_ms"), now)
     elif pa["status"] != "available":
         warnings.append(pa["reason"] or tcopy.PASSES_UNAVAILABLE)
     if prods.get("archive_source"):
         n = sum(1 for p in prods["products"] if p.get("archived"))
-        _credit(sources, fcopy.CREDIT_IEM, f"{n} earlier versions of this flood's NWS products, verbatim (timeline.json)",
-                prods.get("retrieved_ms"), now)
+        _credit(sources, fcopy.CREDIT_IEM, tcopy.SRC_IEM_VERSIONS.format(n=n), prods.get("retrieved_ms"), now)
     if prods["status"] != "available":
         warnings.append(prods["reason"] or fcopy.ALERTS_UNAVAILABLE)
-    prog.report("timeline", 1.0, f"{len(pa['passes'])} satellite passes, {len(prods['products'])} NWS product versions")
+    prog.report("timeline", 1.0, tcopy.PROGRESS_TIMELINE_DONE.format(passes=len(pa["passes"]),
+                                                                    versions=len(prods["products"])))
 
 
 def _terrain3d_step(summary: dict, grid: Grid, stage: Path, dem: np.ndarray, sat_classes: np.ndarray | None,

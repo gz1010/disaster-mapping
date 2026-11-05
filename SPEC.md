@@ -388,6 +388,8 @@ data/floods/{id}/
   layers/water_model.bin       render  uint8    0/255 National Water Model analysis flooded area (model output, separate)
   layers/water_pass_<key>.bin  render  uint8    brief 6: DSWx classes of one satellite pass (the 8 newest passes that saw
                                                 the area; 255 outside the pass), named in timeline.json (§8.11)
+  layers/depth_pass_<key>.bin  render  uint8    brief 6 (review BTD-R3): FwDET depth estimate inside that pass's water
+                                                (§5.4), named by the pass's `depth_layer` in timeline.json
   layers/hand.bin              render  uint8    brief 6: height above the nearest river channel (§5.4), 0.1 m steps
   layers/depth_satellite.bin   render  uint8    brief 6: FwDET depth estimate inside the satellite water (§5.4)
   layers/depth_forecast.bin    render  uint8    brief 6: FwDET depth estimate inside the NWS forecast flooded area (§5.4)
@@ -399,6 +401,7 @@ data/floods/{id}/
   model/nwm_series_<lid>.json  ModelOutputResponse per member forecast point with an NWM reach
   timeline.json                brief 6: FloodTimelineResponse frozen at build (every satellite pass of the flood's window
                                with its view shares over the bundle grid; every version of its NWS products; §8.11)
+  passes/<key>.png             fixture-flood only (scripts/flood_3d.py): the 2D images of its simulated passes
 ```
 
 - **Area:** the flood's NWS polygons and member gauges, padded 3 km, square, 8-60 km; longer floods are cut to 60 km
@@ -406,7 +409,15 @@ data/floods/{id}/
 - **Steps** (weights): catalog 0.05, terrain 0.25, maps 0.15, gauges 0.15, satellite 0.15, timeline 0.15 (brief 6;
   after the satellite step, so its reads never take the satellite step's request slots), terrain3d 0.05 (brief 6,
   §5.4; under 1 s), finish 0.05, the network steps in parallel. Size: 12-18 MB before brief 6; brief 6 adds 3 MB
-  (terrain products) and up to 8 MB (pass images): St Johns River measured 29.5 MB with 8 passes, Calcasieu 18.2 MB. Terrain is required (a failure fails the job and keeps any earlier bundle); every other step that
+  (terrain products) and up to 16 MB on disk (8 pass images and their depth estimates, 1 MB each; the depth rasters
+  are mostly "no value" and shrink to a few kB with gzip on the wire): St Johns River measured 29.5 MB with 8 passes
+  before the per-pass depth, Calcasieu 18.2 MB. **A rebuild never loses its time history or river lines** (review
+  BTD-R2): when NASA cannot be reached, the earlier bundle's pass list and pass rasters are kept (same grid; on another
+  grid the list without rasters); every earlier NWS product version is kept (merged; a live copy still replaces the
+  archived copy of the same version); NOAA's river lines unreachable: the earlier `maps/flowlines.geojson`; each with
+  the manifest warning `REBUILD_KEPT`. After a refresh puts an earlier water layer back (§8.9), the 3D terrain
+  products are made again from the layers then in the bundle, so a depth estimate always belongs to the water layer
+  shown (`terrain3d.after_refresh`). Terrain is required (a failure fails the job and keeps any earlier bundle); every other step that
   fails writes its `layer_status` entry (`unavailable` + a reason: `NFHL_DOWN`, `RFC_FIM_UNAVAILABLE`, `NAIP_DOWN`, ...)
   and a manifest warning, and the bundle is still `ready`.
 - **Gate:** the flood resolves (live list, alias, bundle, last-known) and its state is lower 48 or DC; `fixture-flood`
@@ -436,10 +447,13 @@ the render grid: metres = value × `scale_m` (0.1), `top_code` 254 = 25.4 m or m
 missing `status` (`unavailable` | `not_covered`) with `reason`. Strings: `fire3d/floods/copy_time.py`.
 
 - **Relief and the height boost** (`relief`): the 5th-95th percentile of the ground within 2 km of the mapped water
-  (satellite open and partial water, and the NWS forecast flooded area; the whole grid when there is none or it
-  covers under 1 % of it). `exaggeration` = the smallest of ×1.5, ×2, ×3, ×5, ×8, ×10 that makes that range span at
-  least 2 % of the area's width (×10 when none does; ×1.5 when the ground is already steep enough). `rule` writes the
-  rule down (`RELIEF_RULE`). The web shows the factor ("Height ×5") and lets the user change it. Measured 2026-11-05:
+  (satellite open and partial water, and the NWS forecast flooded area; the whole grid when there is none, or when the
+  ground within 2 km of it covers under 1 % of the grid). `exaggeration` = the smallest of ×1.5, ×2, ×3, ×5, ×8, ×10
+  that makes that range span at least 2 % of the area's width (×10 when none does; ×1.5 when the ground is already
+  steep enough). `rule` writes the rule down (`RELIEF_RULE`, which says that ×10 is the most, so a very flat
+  floodplain can still look flat at the default). `target_reached` (review BTD-R4, additive) is false when even ×10
+  leaves the range under 2 % of the width: true of every flat flood measured, so the web may suggest a larger boost or
+  the closer framing. The web shows the factor ("Height ×5") and lets the user change it. Measured 2026-11-05:
   St Johns River 9.0 m over 60 km → ×10; Calcasieu River 6.7 m → ×10; Grand River 27 m → ×10; Moenkopi Wash 534 m →
   ×3; `fixture-flood` → ×3.
 - **Height above the river** (`hand`, HAND simplified; label `HAND_LABEL` "Height above the river (from terrain). Not a
@@ -530,8 +544,8 @@ interface Aircraft {
 | GET | `/api/floods/{id}/files/{path}` | Flood bundle files (gzip except JPEG / PNG, weak ETag + 304, `Cache-Control: no-cache`, traversal-safe; dotfiles such as the lock and `.staging/`, and the fixture's canned `api/` answers, are 404); `.geojson` as `application/geo+json`. |
 | GET | `/api/floods/{id}/maps?kind=rfc_fim\|catfim\|nfhl&lid=&category=&at_ms=` | `FloodMapResponse`: the NWS forecast flooded area (next 5 days, experimental), NWS category flood maps (experimental), FEMA's 1 % floodplain (background, with `availability` and effective dates); past times `not_available_for_past_dates` (CatFIM answers today's library with a caveat). A past (year-list) flood asked without `at_ms` is answered at its last NWS product's time (FEMA: today's map either way). |
 | GET | `/api/floods/{id}/model?kind=nwm_analysis\|nwm_5day\|nwm_high_flow\|nwm_series&lid=&at_ms=` | `ModelOutputResponse` (National Water Model, experimental model output; `MODEL_CAVEAT` always); past times `not_available_for_past_dates`; a past (year-list) flood asked without `at_ms` is answered at its last NWS product's time, so never today's model output. |
-| GET | `/api/floods/{id}/timeline?wait=0..30` | Brief 6 (§8.11). `FloodTimelineResponse` `{kind: "flood_timeline", flood_id, now_ms, start_ms, end_ms, passes: FloodPassHistory, products: FloodProductHistory, synthetic}`. `passes`: every satellite pass over the flood's window (oldest first; `view` clear \| partly_hidden \| no_view \| unknown, `usable`, view shares and water areas over the 2D map area, `image` `{url, bounds_lonlat}` for usable passes, `caveat` = that pass's `SAT_CAVEAT` or `PASS_NO_VIEW`, `shown_key` = the pass the satellite layer shows); passes still being read after `wait` seconds (default 20) come back `view: "unknown"` with `complete: false` (ask again). `products`: a `FloodEnvelope` (`kind: "flood_alerts"`) with every version of every NWS product of the flood (`FloodTimelineProduct` = `FloodAlert` + `vtec_key`, `replaced_ms`, `shown_from_ms`, `shown_until_ms`; oldest first), zone outlines in `zones`, `archive_source` (IEM) when archived copies are included, `complete`. Observation and official blocks are separate, never merged. `fixture-flood` answers from its bundle (`synthetic: true`). |
-| GET | `/api/floods/{id}/passes/{key}.png?area=<8 hex>` | Brief 6. The PNG of one pass of the timeline (water `#2a8ce6`, partial water lighter, clouds and no data the hatched grey "no view", outside the pass transparent; lon/lat bounds in the JSON). 404 `SATELLITE_IMAGE_GONE` when it is no longer kept or the map area changed; `key` `[A-Za-z0-9_-]`, `area` 8 hex digits (else 404 / 422). |
+| GET | `/api/floods/{id}/timeline?wait=0..30` | Brief 6 (§8.11). `FloodTimelineResponse` `{kind: "flood_timeline", flood_id, now_ms, start_ms, end_ms, passes: FloodPassHistory, products: FloodProductHistory, synthetic}`. `passes`: every satellite pass over the flood's window (oldest first; `view` clear \| partly_hidden \| no_view \| unknown, `usable`, view shares and water areas over the 2D map area, `image` `{url, bounds_lonlat}` for usable passes, `caveat` = that pass's `SAT_CAVEAT` or `PASS_NO_VIEW`, `shown_key` = the pass the satellite layer shows); passes still being read after `wait` seconds (default 20) come back `view: "unknown"` with `complete: false` (ask again). `products`: a `FloodEnvelope` (`kind: "flood_alerts"`) with every version of every NWS product of the flood (`FloodTimelineProduct` = `FloodAlert` + `vtec_key`, `replaced_ms`, `shown_from_ms`, `shown_until_ms`; oldest first), zone outlines in `zones`, `archive_source` (IEM) when archived copies are included, `complete`. Observation and official blocks are separate, never merged. Additive (brief 6 review): `passes.sources` (one credit per product and route), `FloodPass.depth_layer` (bundle), and the window starts at the earlier of the live start and the ready bundle's (BTD-R10). `fixture-flood` answers from its bundle (`synthetic: true`): four simulated passes (clear, no view, a five-day gap, partly hidden, its own image) once `scripts/flood_3d.py fixture-flood` ran after `make_fixture.py --only flood`, else its one pass. |
+| GET | `/api/floods/{id}/passes/{key}.png?area=<8 hex>` | Brief 6. The PNG of one pass of the timeline (water `#2a8ce6`, partial water lighter, clouds and no data the hatched grey "no view", outside the pass transparent; lon/lat bounds in the JSON). 404 `SATELLITE_IMAGE_GONE` when it is no longer kept, the map area changed, or the pass had no view (no image is made for a no-view pass; BTD-R13); `key` `[A-Za-z0-9_-]`, `area` 8 hex digits (else 404 / 422). `fixture-flood`: the frozen images in its bundle's `passes/<key>.png`. |
 | GET | `/api/floods/{id}/satellite?at_ms=` and `/api/floods/{id}/satellite.png?granule=` | `SatelliteWaterResponse` (water seen by satellite, NASA OPERA DSWx; `login` "not_configured" \| "configured" \| "refused", never the token) and its PNG (cloud and no-data pixels drawn as "no view", never transparent). A past (year-list) flood asked without `at_ms` is answered at its last NWS product's time. |
 | GET | `/api/official/flood-alerts?flood=<id>\|bbox=w,s,e,n&at_ms=` | `FloodAlertsResponse`: NWS flood products verbatim with issuer, own times, IANA zone and link, from the one national request the list uses (2 min); a flood: its own events (VTEC key, else CAP id) and attached watches; an area or point (w = e, s = n): every product touching it, watches included, with `covers_point`; zone-based products drawn from at most 20 NWS zone outlines, then whole counties (`ZONES_AS_COUNTIES`); `ALERTS_UNAVAILABLE` when NWS cannot be read (never `NO_PRODUCT`); a flood at a past time (`at_ms` older than 6 h): its archived products from the IEM archive (§8.10: every version sent by then, the event's own segment verbatim, `archived: true`, source IEM; `not_available_for_past_dates` before the flood's first product; `unavailable` when IEM cannot be read); an area at a past time `not_available_for_past_dates` (products are served per flood); 422 without `flood` or `bbox`. |
 | GET | `/api/official/river-gauges?flood=<id>\|bbox=\|lid=\|scope=national&min=action&series=0\|1&at_ms=` | `RiverGaugesResponse`: gauges, NWS flood categories and thresholds, USGS-measured readings (provisional), the official RFC forecast with its issue time; `bbox` and nearby gauges from the NWS `riv_gauges` map service (layer 0, and layer 15 for which are forecast points), NWPS per `lid` only; a nearby gauge's forecast is `rfc_max_forecast`'s when it is listed there, else null (`is_forecast_point` still says it has one; `?lid=` has it exactly); members fall back to the map's reading with `GAUGE_DETAIL_DOWN` when NWPS cannot be read; `bbox` of a point looks 10 km around it; 404 for a `lid` NOAA does not know; the fixture's fictional `ZZ…` gauges answer from its bundle; an `at_ms` older than 6 h (§8.10): a flood's member gauges or one `lid` with USGS's measured stage and flow around that time (provisional), NWS's flood stages of today (`THRESHOLDS_TODAY`), no forecast (`PAST_NO_FORECAST`), the reading's category `unknown`; an area `not_available_for_past_dates`; never today's readings for a past time; 422 without a scope. |
@@ -1195,10 +1209,13 @@ between two passes**, and no water is interpolated or invented between two image
 `fire3d/floods/copy_time.py` (under the PLAN-5 §5.1 wording guard).
 
 - **Window** (`flood_window`): from 10 days before the flood's start to now; a past (year-list) flood from 10 days
-  before its start to 3 days after its last NWS product. At most 45 days (the newest part is kept). Before 2023
+  before its start to 3 days after its last NWS product. At most 45 days (the newest part is kept). The start is
+  rounded down to midnight UTC, and the route takes the earlier of the live start and the start frozen in the flood's
+  ready bundle, so Command and Forensic list the same passes when the live list refines the start (review BTD-R10). Before 2023
   (NASA's archive): `not_available_for_past_dates`, `PASSES_BEFORE_ARCHIVE`.
 - **Passes:** one Earthdata GIS catalog search over the window (DSWx-HLS, cached 6 h); with `EARTHDATA_TOKEN` NASA's
-  catalogue (CMR) adds DSWx-S1 radar passes and HLS passes Earthdata GIS has not loaded yet (PO.DAAC). The tiles of
+  catalogue (CMR) adds DSWx-S1 radar passes and HLS passes Earthdata GIS has not loaded yet (PO.DAAC); `sources`
+  (additive) credits each product and route listed (review BTD-R8). The tiles of
   one overpass are sensed up to a minute or two apart, so passes of one product and sensor less than 10 minutes apart
   are **one pass** (the key of the earliest; e.g. `DSWx-HLS_20261029T1756_L9`). At most 40 passes (`truncated`).
 - **Each pass is read once**, locked to its own granules (`esriMosaicLockRaster`, so the image time is exact),
@@ -1206,8 +1223,8 @@ between two passes**, and no water is interpolated or invented between two image
   and view shares from that read; the bundle reads it on the render grid. Shares over the whole area: `clear_pct`
   (seen clearly: not cloud, not no data), `cloud_pct`, `nodata_pct` (no data and outside the pass), `water_km2`,
   `partial_km2` (they include the river's normal water). `view`: `clear` (≥ 50 % seen clearly), `partly_hidden`,
-  `no_view` (< 1 %: listed with `PASS_NO_VIEW`, `usable: false`, never drawn as water), `unknown` (not read yet or
-  could not be read; `PASSES_PARTIAL`). `shown_key`: the pass the satellite layer shows (the route's satellite answer
+  `no_view` (< 1 %: listed with `PASS_NO_VIEW`, `usable: false`, never drawn as water, and no PNG is made for it),
+  `unknown` (not read yet or could not be read; the route says `PASSES_PARTIAL`, the bundle `PASSES_BUNDLE_UNREAD`). `shown_key`: the pass the satellite layer shows (the route's satellite answer
   or the bundle's `satellite.json`; it can be a no-view pass when that is what the satellite step chose), else the
   newest pass that saw at least half of the area clearly, else the clearest.
 - **Polite reads:** at most 3 at a time; a read waits while fewer than 8 Earthdata GIS request slots (of 30 a
@@ -1217,9 +1234,15 @@ between two passes**, and no water is interpolated or invented between two image
   6 passes): 8 s cold, 0.03 s cached; one read about 3 s and 1 MB.
 - **Bundle:** the newest 24 passes are read on the render grid (the build waits for request slots: it is a
   background job) and the classes of the 8 newest usable ones are kept as `layers/water_pass_<key>.bin` (1 MB each;
-  gzip on the wire); the others are listed with `layer: null` (`PASSES_BUNDLE_LIMIT`). `timeline.json` keeps the
-  answer with `stats_over: "bundle_grid"` and no 2D image.
-- **NWS products** (`product_history`): every event of the flood (its products' VTEC keys, at most 20) from IEM's
+  gzip on the wire), each with its own FwDET depth estimate `layers/depth_pass_<key>.bin` (`depth_layer`; null when
+  that pass maps no water or its water has no edge on open ground: no depth surface is shown for it); the others are
+  listed with `layer: null` (`PASSES_BUNDLE_LIMIT`), passes not read stay `unknown` (`PASSES_BUNDLE_UNREAD`; nothing
+  reads a bundle again, so `complete` stays true). `timeline.json` keeps the answer with `stats_over: "bundle_grid"`
+  and no 2D image. **Forensic takes the pass list and the NWS products from `GET /timeline`** (live; the bundle's
+  products are a frozen record that the live loop does not append to) and only the pass rasters from the bundle, joined
+  by `key`; passes without a bundle raster are draped from the route's PNG (`image.bounds_lonlat`).
+- **NWS products** (`product_history`): every event of the flood (its products' VTEC keys, at most 20, the newest
+  events kept, `PRODUCTS_EVENTS_TRUNCATED`) from IEM's
   `json/vtec_event.py` (the issuance and every follow-up statement; one version per product segment carrying the
   event, its own text verbatim, its `LAT...LON` polygon; zone outlines from `geojson/vtec_event.py` for versions
   without one) plus NWS's live copies (CAP, in effect now). A live copy replaces the archived copy of the same version
@@ -1230,8 +1253,12 @@ between two passes**, and no water is interpolated or invented between two image
   them at `now`. Measured 2026-11-05: St Johns River (5 events) 97 versions, 233 KB; Ducktown flash flood (4 events)
   12 versions. Archive down with the live copies read: `PRODUCTS_ARCHIVE_DOWN` (some events: `PRODUCTS_ARCHIVE_PARTIAL`);
   nothing read: `unavailable` with `ALERTS_UNAVAILABLE` (a past flood: `PAST_ALERTS_DOWN`), never "no product"; a
-  flood with no product at all: `PRODUCTS_NONE`. Answers are kept 5 min (products) and 10 min (the whole answer, once
-  complete).
+  flood with no product at all: `PRODUCTS_NONE`. An open flood whose live NWS feed could not be read: the archived
+  copies with `PRODUCTS_LIVE_DOWN` (the newest may be missing; never an all-clear) and `complete: false`, so the
+  answer is not kept (review BTD-R1). Caches (review BTD-R6): the passes block of a complete answer 10 min; the products
+  block at most 2 min (the NWS alerts cache), made for every answer; a cached or frozen products block is served with
+  every version's `phase` and `now_ms` of the moment it is served (the web draws a version from `shown_from_ms` until
+  `shown_until_ms` at the playback time).
 
 ## 9. Frontend
 

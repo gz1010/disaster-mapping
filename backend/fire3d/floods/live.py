@@ -825,6 +825,11 @@ def keep_what_the_rebuild_lost(bdir: Path, old_m: dict | None, snap: dict[str, b
         credit(was.get("source"))
         kept.append(key)
 
+    # ---- brief 6: the 3D terrain products follow the water layers put back (review BTD-R2) ----------------------
+    from . import terrain3d
+
+    terrain3d.after_refresh(bdir, m, kept, now=now)
+
     # ---- NWS products: every version kept; an outage keeps the earlier answer ----------------------------------
     old_w = _load_bytes(snap.get("warnings.json"))
     new_w, _ = merge_alerts(old_w, _load(bdir / "warnings.json"))

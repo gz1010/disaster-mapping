@@ -1049,6 +1049,9 @@ class FloodRelief(ContractModel):
     width_m: float                      # the 3D area's width (grid extent)
     exaggeration: float                 # suggested height boost: 1.5 | 2 | 3 | 5 | 8 | 10
     rule: str                           # RELIEF_RULE, written down
+    # review BTD-R4 (additive): false when even x10 leaves the middle 90% under 2% of the width (a very flat
+    # floodplain still looks flat at the default; the web may suggest a larger boost or the closer framing)
+    target_reached: bool | None = Optional_()
 
 
 class FloodTerrainStats(ContractModel):
@@ -1404,6 +1407,9 @@ class FloodPass(ContractModel):
     image: FloodPassImage | None        # the 2D PNG (route answers, usable passes only)
     layer: str | None                   # bundle: manifest.layers key of its classes on the render grid
     caveat: str | None                  # SAT_CAVEAT of this pass, or PASS_NO_VIEW; null while unknown
+    # review BTD-R3 (additive): bundle: manifest.layers key of this pass's FwDET depth estimate ("depth_pass_<key>",
+    # uint8 0.1 m, 255 outside its water; FloodTerrain3d encoding); null: no depth surface for this pass
+    depth_layer: str | None = Optional_()
 
 
 class FloodPassHistory(ContractModel):
@@ -1413,6 +1419,8 @@ class FloodPassHistory(ContractModel):
     login: SatelliteLogin               # never the token
     login_note: str | None
     source: OfficialSource
+    # review BTD-R8 (additive): one source per (product, route) among the listed passes, each with its exact credit
+    sources: list[OfficialSource] | None = Optional_()
     retrieved_ms: int | None
     start_ms: int                       # the window searched
     end_ms: int

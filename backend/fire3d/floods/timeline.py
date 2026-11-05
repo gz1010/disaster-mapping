@@ -37,7 +37,7 @@ import threading
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from concurrent.futures import wait as wait_futures
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
@@ -70,8 +70,8 @@ LIMIT_RESERVE = 8                    # Earthdata GIS slots left for the satellit
 POLITE_WAIT_S = 120.0
 POLITE_SLEEP_S = 2.0
 FAILED_TTL_S = 120.0
-ANSWER_TTL_S = 600.0
-PRODUCTS_TTL_S = 300.0
+ANSWER_TTL_S = 600.0                 # the passes block of a complete route answer
+PRODUCTS_TTL_S = nws.ALERTS_TTL_S    # never longer than the NWS alerts cache (2 min; review BTD-R6)
 MAX_BUNDLE_READS = 24
 MAX_BUNDLE_PASSES = 8                # 1 MB each on disk (gzip on the wire)
 MAX_EVENTS = 20
@@ -83,15 +83,19 @@ ENDS_AT_ISSUE = ("CAN", "UPG")
 # ----------------------------------------------------------------------------------------------------------------
 # Window and passes
 # ----------------------------------------------------------------------------------------------------------------
-def flood_window(summary: dict, now: int) -> tuple[int, int]:
-    """(start_ms, end_ms) of the flood's satellite window (module docstring)."""
+def flood_window(summary: dict, now: int, *, also_started: int | None = None) -> tuple[int, int]:
+    """(start_ms, end_ms) of the flood's satellite window (module docstring). The start is rounded down to midnight
+    UTC, and ``also_started`` (the start in the flood's bundle, frozen at its build) is taken when it is earlier, so a
+    start the live list refines later never drops a pass the bundle lists (review BTD-R10)."""
     started = int(summary.get("started_ms") or now)
+    if also_started:
+        started = min(started, int(also_started))
     if summary.get("mode") == "historical":
         last = summary.get("last_product_ms") or summary.get("ended_ms") or summary.get("updated_ms") or started
         end = min(int(now), int(last) + PAST_AFTER_DAYS * DAY_MS)
     else:
         end = int(now)
-    start = max(started - BEFORE_DAYS * DAY_MS, end - MAX_WINDOW_DAYS * DAY_MS)
+    start = max((started - BEFORE_DAYS * DAY_MS) // DAY_MS * DAY_MS, end - MAX_WINDOW_DAYS * DAY_MS)
     return min(start, end), end
 
 
@@ -252,9 +256,12 @@ def read_lonlat(p: opera.Pass, bbox: BBox, flood_id: str, area: str) -> PassRead
     stats = _shares_lonlat(cls, bbox)
     crop = satellite._crop(inside, bbox)
     bounds = None
+    out = png_path(flood_id, p.key, area)
+    if view_of(stats) == "no_view":                 # never drawn as water: no image is made (review BTD-R13)
+        out.unlink(missing_ok=True)
+        return PassRead(stats, None)
     if crop is not None:
         rs, cs, bounds = crop
-        out = png_path(flood_id, p.key, area)
         out.parent.mkdir(parents=True, exist_ok=True)
         tmp = out.with_name(f".{out.name}.tmp")
         tmp.write_bytes(satellite.png_bytes(satellite.palette_rgba(cls[rs, cs], ~inside[rs, cs])))
@@ -280,7 +287,8 @@ def view_of(stats: dict | None) -> str:
     return "clear" if stats["clear_pct"] >= CLEAR_PCT else "partly_hidden"
 
 
-def pass_out(p: opera.Pass, read: PassRead | None, *, tz: str, image: dict | None, layer: str | None) -> dict:
+def pass_out(p: opera.Pass, read: PassRead | None, *, tz: str, image: dict | None, layer: str | None,
+             depth_layer: str | None = None) -> dict:
     """One ``FloodPass``."""
     st = read.stats if read is not None else None
     view = view_of(st)
@@ -297,7 +305,8 @@ def pass_out(p: opera.Pass, read: PassRead | None, *, tz: str, image: dict | Non
             "clear_pct": st["clear_pct"] if st else None, "cloud_pct": st["cloud_pct"] if st else None,
             "nodata_pct": st["nodata_pct"] if st else None, "water_km2": st["water_km2"] if st else None,
             "partial_km2": st["partial_km2"] if st else None,
-            "image": image if view in ("clear", "partly_hidden") else None, "layer": layer, "caveat": caveat}
+            "image": image if view in ("clear", "partly_hidden") else None, "layer": layer,
+            "depth_layer": depth_layer if layer else None, "caveat": caveat}
 
 
 def default_key(passes: list[dict]) -> str | None:
@@ -317,11 +326,20 @@ def key_for_granules(passes: list[opera.Pass], granule_ids: list[str]) -> str | 
 
 
 def _passes_base(now: int, start: int, end: int, login: str) -> dict:
+    src = satellite._source("DSWx-HLS", "earthdata_gis")
     return {"status": "available", "reason_code": None, "reason": None, "login": login,
             "login_note": {"not_configured": fcopy.SAT_NOT_SET_UP, "refused": fcopy.SAT_LOGIN_REFUSED}.get(login),
-            "source": satellite._source("DSWx-HLS", "earthdata_gis"), "retrieved_ms": None, "start_ms": int(start),
+            "source": src, "sources": [src], "retrieved_ms": None, "start_ms": int(start),
             "end_ms": int(end), "complete": True, "truncated": False, "stats_over": "map_area", "passes": [],
             "shown_key": None, "caveats": [tcopy.PASSES_NOTE]}
+
+
+def sources_of(passes: list[opera.Pass]) -> list[dict]:
+    """One OPERA source per (product, route) among the listed passes, each with its exact credit line (DSWx-HLS via
+    Earthdata GIS first; DSWx-S1 radar and the PO.DAAC route only with ``EARTHDATA_TOKEN``; review BTD-R8)."""
+    combos = sorted({(p.product, p.route) for p in passes},
+                    key=lambda c: (c[0] != "DSWx-HLS", c[1] != "earthdata_gis", c))
+    return [satellite._source(prod, route) for prod, route in combos]
 
 
 def _date(ms: int, tz: str) -> str:
@@ -345,6 +363,9 @@ def _list_or_answer(out: dict, bbox: BBox, start: int, end: int, now: int, tz: s
         out.update(status="unavailable", reason_code="upstream_error", reason=tcopy.PASSES_UNAVAILABLE)
         return None
     out.update(retrieved_ms=pl.retrieved_ms, truncated=pl.truncated, login=pl.login)
+    if pl.passes:
+        out["sources"] = sources_of(pl.passes)
+        out["source"] = out["sources"][0]
     if pl.truncated:
         out["caveats"].append(tcopy.PASSES_TRUNCATED)
     if not pl.passes:
@@ -401,18 +422,27 @@ def _run_read(key: tuple, p: opera.Pass, bbox: BBox, flood_id: str, area: str) -
 
 
 def _start_read(flood_id: str, p: opera.Pass, bbox: BBox, area: str) -> tuple[bool, PassRead | None, Future | None]:
-    """(known, read, future): a finished read (``read`` None when it failed recently) or the running one."""
+    """(known, read, future): a finished read (``read`` None when it failed recently) or the running one. A future
+    in ``_inflight`` that is already done is stale (its read finished before it was registered) and never stops a new
+    read (review BTD-R7)."""
     key = _read_key(flood_id, p, area)
+    pool = _get_pool()
     with _lock:
         hit = _reads.get(key)
         if hit is not None and hit[0] > time.monotonic():
             return True, hit[1], None
         fut = _inflight.get(key)
+        if fut is not None and fut.done():
+            _inflight.pop(key, None)
+            fut = None
     if fut is None:
-        fut = _get_pool().submit(_run_read, key, p, bbox, flood_id, area)
+        fut = pool.submit(_run_read, key, p, bbox, flood_id, area)
         with _lock:
-            _inflight.setdefault(key, fut)
-            fut = _inflight.get(key) or fut
+            cur = _inflight.get(key)
+            if cur is not None and not cur.done():
+                fut = cur                                # another caller's read of the same pass runs already
+            elif not fut.done():
+                _inflight[key] = fut                     # (a read that already finished is never registered)
     return False, None, fut
 
 
@@ -490,6 +520,10 @@ def pass_png(flood_id: str, key: str, area: str, *, bbox: BBox | None, summary: 
             return None
     if hit is None:
         return None
+    with _lock:
+        known = _reads.get(_read_key(flood_id, hit, area))
+    if known is not None and known[1] is not None and view_of(known[1].stats) == "no_view":
+        return None                                                  # no image of a pass with no view (BTD-R13)
     try:
         read_lonlat(hit, bbox, flood_id, area)
     except Exception as e:  # noqa: BLE001 - an image that cannot be made: 404
@@ -505,17 +539,27 @@ def pass_png(flood_id: str, key: str, area: str, *, bbox: BBox | None, summary: 
 class BundlePasses:
     answer: dict                                   # FloodPassHistory (stats over the bundle grid)
     rasters: dict[str, np.ndarray]                 # layer name -> classes on the render grid
-    descriptions: dict[str, str]
+    descriptions: dict[str, str]                   # layer name -> description (classes and depth layers)
+    depth: dict[str, np.ndarray] = field(default_factory=dict)   # depth_pass_<key> -> uint8 0.1 m (255 no value)
 
 
 def layer_name(key: str) -> str:
     return f"water_pass_{key}"
 
 
+def depth_layer_name(key: str) -> str:
+    return f"depth_pass_{key}"
+
+
 def bundle_passes(summary: dict, grid: Grid, bbox: BBox, *, now: int, shown_granules: list[str] | None = None,
-                  progress: Callable[[float, str], None] | None = None) -> BundlePasses:
+                  progress: Callable[[float, str], None] | None = None, dem: np.ndarray | None = None) -> BundlePasses:
     """Read the newest :data:`MAX_BUNDLE_READS` passes on the render grid (polite, waiting for the limiter: a build
-    is a background job) and keep the classes of the newest :data:`MAX_BUNDLE_PASSES` usable ones."""
+    is a background job) and keep the classes of the newest :data:`MAX_BUNDLE_PASSES` usable ones, each with its own
+    FwDET depth estimate when ``dem`` is given (``depth_pass_<key>``; review BTD-R3). Passes not read (beyond
+    :data:`MAX_BUNDLE_READS`, or a read that failed) stay ``unknown`` with :data:`copy_time.PASSES_BUNDLE_UNREAD`:
+    nothing reads a bundle again, so ``complete`` stays true (review BTD-R5)."""
+    from . import terrain3d
+
     fid = summary["id"]
     tz = summary.get("time_zone") or "UTC"
     start, end = flood_window(summary, now)
@@ -541,8 +585,9 @@ def bundle_passes(summary: dict, grid: Grid, bbox: BBox, *, now: int, shown_gran
             reads[key] = r
             done += 1
             if progress is not None:
-                progress(done / max(1, len(to_read)), f"Satellite passes: {done} of {len(to_read)} read")
+                progress(done / max(1, len(to_read)), tcopy.PROGRESS_PASSES_READ.format(done=done, n=len(to_read)))
     rasters: dict[str, np.ndarray] = {}
+    depth: dict[str, np.ndarray] = {}
     desc: dict[str, str] = {}
     kept = 0
     rows = []
@@ -550,24 +595,28 @@ def bundle_passes(summary: dict, grid: Grid, bbox: BBox, *, now: int, shown_gran
     for p in pl.passes:                                                 # newest first: rasters for the newest
         r = reads.get(p.key)
         unknown = unknown or r is None
-        layer = None
+        layer = dlayer = None
         if r is not None and view_of(r.stats) in ("clear", "partly_hidden") and kept < MAX_BUNDLE_PASSES:
             layer = layer_name(p.key)
             rasters[layer] = r.classes                                  # type: ignore[assignment]
-            desc[layer] = (f"Water seen by satellite, {p.product} pass of "
-                           f"{time.strftime('%Y-%m-%dT%H:%MZ', time.gmtime(p.acquired_ms / 1000))} (NASA OPERA DSWx "
-                           "WTR classes; 255 = no data or outside the image)")
+            desc[layer] = tcopy.DESC_PASS.format(
+                product=p.product, time=time.strftime('%Y-%m-%dT%H:%MZ', time.gmtime(p.acquired_ms / 1000)))
             kept += 1
-        rows.append(pass_out(p, r, tz=tz, image=None, layer=layer))       # Forensic draws ``layer``; no 2D image
+            got = terrain3d.pass_depth(dem, r.classes) if dem is not None and r.classes is not None else None
+            if got is not None:
+                dlayer = depth_layer_name(p.key)
+                depth[dlayer] = got
+                desc[dlayer] = tcopy.DESC_DEPTH.format(layer=layer)
+        rows.append(pass_out(p, r, tz=tz, image=None, layer=layer, depth_layer=dlayer))   # Forensic draws ``layer``
     out["passes"] = sorted(rows, key=lambda q: (q["acquired_ms"], q["key"]))
     out["shown_key"] = (key_for_granules(pl.passes, shown_granules) if shown_granules else None) or \
         default_key(out["passes"])
     usable_unkept = sum(1 for row in rows if row["usable"] and row["layer"] is None)
-    if usable_unkept or len(pl.passes) > len(to_read):
+    if usable_unkept:
         out["caveats"].append(tcopy.passes_bundle_limit(MAX_BUNDLE_PASSES))
     if unknown:
-        out["caveats"].append(tcopy.PASSES_PARTIAL)
-    return BundlePasses(out, rasters, desc)
+        out["caveats"].append(tcopy.PASSES_BUNDLE_UNREAD)
+    return BundlePasses(out, rasters, desc, depth)
 
 
 # ----------------------------------------------------------------------------------------------------------------
@@ -646,18 +695,30 @@ def with_timing(items: list[dict], now: int) -> list[dict]:
             until = min(ends) if ends else None
             if until is not None and sent is not None:
                 until = max(int(until), int(sent))
-        onset = a.get("onset_ms")
-        if sent is not None and sent > now:
-            phase = "upcoming"
-        elif (until is not None and until <= now) or (until is None and a.get("phase") == "ended"):
-            phase = "ended"                                         # its end passed, or a past flood's version
-        elif onset is not None and onset > now:
-            phase = "upcoming"
-        else:
-            phase = "in_effect"
+        phase = _phase(sent, until, a.get("onset_ms"), a.get("phase"), now)
         out.append({**a, "phase": phase, "vtec_key": k, "replaced_ms": replaced,
                     "shown_from_ms": int(sent) if sent is not None else None, "shown_until_ms": until})
     return sorted(out, key=lambda x: (x["shown_from_ms"] if x["shown_from_ms"] is not None else 0, x["id"]))
+
+
+def _phase(sent: int | None, until: int | None, onset: int | None, was: str | None, now: int) -> str:
+    """A version's phase at ``now`` from its own times (a past flood's version without an end stays ``ended``)."""
+    if sent is not None and sent > now:
+        return "upcoming"
+    if (until is not None and until <= now) or (until is None and was == "ended"):
+        return "ended"                                              # its end passed, or a past flood's version
+    if onset is not None and onset > now:
+        return "upcoming"
+    return "in_effect"
+
+
+def phases_at(products: dict, now: int) -> dict:
+    """The products block with every version's ``phase`` and ``now_ms`` at ``now`` (a cached or frozen answer is
+    served with phases of the moment it is served; review BTD-R6). The web draws a version from ``shown_from_ms``
+    until ``shown_until_ms`` at the playback time; ``phase`` is the state now."""
+    rows = [{**a, "phase": _phase(a.get("shown_from_ms"), a.get("shown_until_ms"), a.get("onset_ms"), a.get("phase"),
+                                  now)} for a in products.get("products") or []]
+    return {**products, "products": rows, "now_ms": int(now)}
 
 
 def _dedupe(archived: list[dict], live: list[dict]) -> list[dict]:
@@ -701,8 +762,51 @@ def _finish_products(out: dict, items: list[dict], zone_feats: dict[str, dict], 
     return out
 
 
-def product_history(summary: dict, *, now: int) -> dict:
-    """``FloodProductHistory`` of one flood (module docstring). Never raises for an upstream failure."""
+def merge_products(old: dict, new: dict, now: int) -> dict:
+    """A rebuild's products block that never loses a version the earlier bundle had (review BTD-R2): when the new
+    answer is unavailable, the earlier block (phases at ``now``); else every earlier version the new answer lacks is
+    added (a live copy still replaces the archived copy of the same version) and the timing is made again."""
+    if old.get("status") != "available":
+        return new
+    if new.get("status") != "available":
+        return phases_at(old, now)
+    have = {a["id"] for a in new.get("products") or []}
+    extra = [a for a in old.get("products") or [] if a["id"] not in have]
+    if not extra:
+        return new
+    every = list(new.get("products") or []) + extra
+    live = [a for a in every if not a.get("archived")]
+    arch = _dedupe([a for a in every if a.get("archived")], live)
+    zone_feats: dict[str, dict] = {}
+    for fc in (old.get("zones"), new.get("zones")):
+        for f in (fc or {}).get("features") or []:
+            props = f.get("properties") or {}
+            ugc = props.get("ugc") or str(f.get("id"))
+            if ugc in zone_feats:
+                ids = zone_feats[ugc]["properties"]["alert_ids"]
+                ids += [i for i in props.get("alert_ids") or [] if i not in ids]
+            else:
+                zone_feats[ugc] = {**f, "properties": {**props, "alert_ids": list(props.get("alert_ids") or [])}}
+    out = {**new, "caveats": list(new.get("caveats") or [])}
+    if old.get("archive_source") and not out.get("archive_source"):
+        out["archive_source"] = old["archive_source"]
+    return _finish_products(out, arch + live, zone_feats, now)
+
+
+def _event_keys(summary: dict, live_alerts: list[dict]) -> list[str]:
+    """The flood's event keys, newest event first (the latest issue time known of each)."""
+    last: dict[str, int] = {}
+    for a in list(summary.get("products") or []) + live_alerts:
+        k = a.get("vtec_key") or nws.vtec_key(a.get("vtec"))
+        if k:
+            last[k] = max(last.get(k, -1), int(a.get("sent_ms") or 0))
+    return sorted(last, key=lambda k: (-last[k], k))
+
+
+def product_history(summary: dict, *, now: int, info: dict | None = None) -> dict:
+    """``FloodProductHistory`` of one flood (module docstring). Never raises for an upstream failure. ``info`` (if
+    given) gets ``busy`` (events not read because of Disaster Mapping's own IEM limit: worth asking again soon) and
+    ``live_down`` (NWS's live feed could not be read for an open flood)."""
     fid = summary["id"]
     out = _products_env(fid, now)
     past = summary.get("mode") == "historical"
@@ -721,14 +825,12 @@ def product_history(summary: dict, *, now: int) -> dict:
                 out["caveats"] += [c for c in la.get("caveats") or [] if c not in out["caveats"]]
         except SourceError as e:                        # SourceBusy included
             log.info("timeline: live products %s: %s", fid, e)
-    keys: list[str] = []
-    for k in [p.get("vtec_key") for p in summary.get("products") or []] + \
-             [nws.vtec_key(a.get("vtec")) for a in live_alerts]:
-        if k and k not in keys:
-            keys.append(k)
+    keys = _event_keys(summary, live_alerts)
     archived: list[dict] = []
     zone_feats: dict[str, dict] = {}
     failed = busy = asked = 0
+    if len(keys) > MAX_EVENTS:                          # the newest events are kept (review BTD-R15)
+        out["caveats"].append(tcopy.PRODUCTS_EVENTS_TRUNCATED)
     for key in keys[:MAX_EVENTS]:
         ev = _event_of(key)
         if ev is None:
@@ -762,7 +864,15 @@ def product_history(summary: dict, *, now: int) -> dict:
         elif ugc:
             zone_feats[ugc] = {**f, "properties": {**f["properties"], "alert_ids": list(f["properties"].get("alert_ids") or [])}}
     items = archived + live_alerts
+    live_down = not past and not live_ok
+    if info is not None:
+        info.update(busy=busy, live_down=live_down)
     if busy:
+        out["complete"] = False
+    if live_down:
+        # an open flood whose live NWS feed could not be read: archived copies only, the newest may be missing; the
+        # answer is not kept (complete false), so it is asked again (review BTD-R1)
+        out["caveats"].append(tcopy.PRODUCTS_LIVE_DOWN)
         out["complete"] = False
     if asked and failed + busy == asked:
         if not live_ok:
@@ -781,12 +891,12 @@ def product_history(summary: dict, *, now: int) -> dict:
 
 
 def cached_product_history(summary: dict, *, now: int) -> dict:
-    """:func:`product_history` kept :data:`PRODUCTS_TTL_S` (complete answers only)."""
+    """:func:`product_history` kept :data:`PRODUCTS_TTL_S` (complete answers only), served with phases at ``now``."""
     fid = summary["id"]
     with _lock:
         hit = _products.get(fid)
         if hit is not None and hit[0] > time.monotonic():
-            return {**hit[1], "now_ms": now}
+            return phases_at(hit[1], now)
     ans = product_history(summary, now=now)
     if ans.get("complete") and ans["status"] == "available":
         with _lock:
@@ -805,21 +915,21 @@ def timeline(summary: dict, passes: dict, products: dict, *, now: int, synthetic
 
 def route_timeline(summary: dict, bbox: BBox, *, now: int, shown_granules: list[str] | None = None,
                    wait_s: float = ROUTE_WAIT_S) -> dict:
-    """The route's answer, kept :data:`ANSWER_TTL_S` once complete."""
+    """The route's answer: the passes block kept :data:`ANSWER_TTL_S` once complete; the NWS products block made for
+    each answer from a cache of at most :data:`PRODUCTS_TTL_S` (= the NWS alerts cache), so a new warning shows here
+    as soon as in "Official now" (review BTD-R6)."""
     fid = summary["id"]
-    ck = f"{fid}|{_area_hash(bbox)}"
+    ck = f"{fid}|{_area_hash(bbox)}|{summary.get('started_ms')}"         # a start taken from the bundle: another key
     with _lock:
         hit = _answers.get(ck)
-        if hit is not None and hit[0] > time.monotonic():
-            return {**hit[1], "now_ms": now}
-    ps = route_passes(summary, bbox, now=now, shown_granules=shown_granules, wait_s=wait_s)
+        ps = hit[1] if hit is not None and hit[0] > time.monotonic() else None
+    if ps is None:
+        ps = route_passes(summary, bbox, now=now, shown_granules=shown_granules, wait_s=wait_s)
+        if ps["complete"] and ps["status"] == "available" and tcopy.PASSES_PARTIAL not in ps["caveats"]:
+            with _lock:
+                _answers[ck] = (time.monotonic() + ANSWER_TTL_S, ps)
     pr = cached_product_history(summary, now=now)
-    ans = timeline(summary, ps, pr, now=now)
-    if ps["complete"] and pr["complete"] and ps["status"] == "available" and pr["status"] == "available" \
-            and tcopy.PASSES_PARTIAL not in ps["caveats"]:
-        with _lock:
-            _answers[ck] = (time.monotonic() + ANSWER_TTL_S, ans)
-    return ans
+    return timeline(summary, ps, pr, now=now)
 
 
 def bundle_timeline(bdir: Path, manifest: dict, *, now: int) -> dict | None:
@@ -831,9 +941,10 @@ def bundle_timeline(bdir: Path, manifest: dict, *, now: int) -> dict | None:
     p = bdir / "timeline.json"
     if p.is_file():
         try:
-            return {**orjson.loads(p.read_bytes()), "now_ms": now}
+            tl = orjson.loads(p.read_bytes())
         except (OSError, orjson.JSONDecodeError):
             return None
+        return {**tl, "now_ms": now, "products": phases_at(tl.get("products") or {}, now)}
     summary = manifest.get("summary") or {}
     if not summary.get("synthetic"):
         return None
@@ -842,16 +953,19 @@ def bundle_timeline(bdir: Path, manifest: dict, *, now: int) -> dict | None:
         warn = orjson.loads((bdir / "warnings.json").read_bytes())
     except (OSError, orjson.JSONDecodeError):
         return None
-    return synthetic_timeline(summary, sat, warn, now=now,
-                              has_layer="water_satellite" in (manifest.get("layers") or {}))
+    layers = manifest.get("layers") or {}
+    return synthetic_timeline(summary, sat, warn, now=now, has_layer="water_satellite" in layers,
+                              has_depth="depth_satellite" in layers)
 
 
-def synthetic_timeline(summary: dict, sat: dict, warn: dict, *, now: int, has_layer: bool) -> dict:
-    """The fixture's timeline: its one simulated pass and its frozen products (``synthetic: true``)."""
+def synthetic_timeline(summary: dict, sat: dict, warn: dict, *, now: int, has_layer: bool,
+                       has_depth: bool = False) -> dict:
+    """The fixture's timeline when its bundle has no ``timeline.json`` (``scripts/flood_3d.py fixture-flood`` writes
+    one with four simulated passes): its one simulated pass and its frozen products (``synthetic: true``)."""
     fid = summary["id"]
     start, end = flood_window(summary, now)
     ps = {**_passes_base(now, start, end, sat.get("login") or "not_configured"), "source": sat.get("source"),
-          "retrieved_ms": sat.get("retrieved_ms"), "stats_over": "bundle_grid"}
+          "sources": [sat.get("source")], "retrieved_ms": sat.get("retrieved_ms"), "stats_over": "bundle_grid"}
     ps["caveats"].append(tcopy.PASSES_SYNTHETIC)
     g = (sat.get("granules") or [None])[0]
     if sat.get("measured") and g:
@@ -866,6 +980,7 @@ def synthetic_timeline(summary: dict, sat: dict, warn: dict, *, now: int, has_la
                          "acquired_ms": int(g["acquired_ms"]), "route": "earthdata_gis", "granules": [g["id"]],
                          "url": g.get("url"), "view": view, "usable": view in ("clear", "partly_hidden"), **stats,
                          "image": sat.get("image"), "layer": "water_satellite" if has_layer else None,
+                         "depth_layer": "depth_satellite" if has_layer and has_depth else None,
                          "caveat": (sat.get("caveats") or [None])[0]}]
         ps["shown_key"] = key
     else:
@@ -887,7 +1002,7 @@ def satellite_granules(flood_id: str, bbox: BBox) -> list[str] | None:
             hit = satellite._cache.get(key)
     except AttributeError:
         return None
-    if hit is None:
+    if hit is None or time.monotonic() - hit[0] >= satellite.ROUTE_TTL_S:     # an expired answer is not used
         return None
     ans = hit[1].answer
     return [g["id"] for g in ans.get("granules") or []] if ans.get("measured") else None

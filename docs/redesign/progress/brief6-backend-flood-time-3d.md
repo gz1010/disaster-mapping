@@ -41,3 +41,27 @@ time history and the 3D terrain products, their routes in `api/floods.py`, `floo
   `/timeline` for Calcasieu River and the fixture, the pass PNG route, a bundle pass, `manifest.terrain3d` and the
   `hand` layer of St Johns River), as-built note `docs/redesign/contract6/backend-flood-time-3d.md`. Count-only scans:
   0 secret hits; the banned reference-demo name appears nowhere. API on 8762 stopped.
+
+## Review fixes (review6, BTD-R1..R16)
+
+- 2026-11-05: verified every finding against the code (R2: `snapshot()` does include every layer file, so only
+  `timeline.json` was missing from it; the real gaps were the rebuild dropping the passes on a NASA outage and the
+  depth estimate not following a water layer put back). Fixed:
+  - R1 `PRODUCTS_LIVE_DOWN` + `complete: false` (not cached; the build waits only for its own IEM limit).
+  - R2 rebuild keeps passes + rasters, every product version (`merge_products`) and the river lines
+    (`build._earlier_bundle`); `terrain3d.after_refresh` called from `live.keep_what_the_rebuild_lost` (one declared
+    line in live.py); contract: Forensic takes passes and products from `GET /timeline`, rasters from the bundle.
+  - R3 per-pass FwDET depth `depth_pass_<key>` + `FloodPass.depth_layer` (additive). R4 `RELIEF_RULE` cap sentence +
+    `FloodRelief.target_reached`. R5 `PASSES_BUNDLE_UNREAD` for the frozen file. R6 only the passes block cached 10 min;
+    products cache = NWS alerts cache (2 min); phases recomputed when served (`phases_at`); satellite answer TTL
+    checked. R7 stale done futures never block a read. R8 `FloodPassHistory.sources` + one credit per product/route.
+    R9 fixture: four simulated passes (`scripts/flood_3d.py fixture-flood`), PNGs served from the bundle. R10 window
+    start rounded to the day and the bundle's start taken when earlier. R11 `flood_3d.py` replaces old-name notes.
+    R12 strings to `copy_time.py` (`BUILD_STRINGS`). R13 no PNG for no-view passes. R15 events cap caveat, newest kept.
+    R16 SPEC 5.4 wording.
+  - Data on disk: `flood_3d.py` re-run on fixture-flood, Calcasieu, St Johns (23 passes, 8 kept with depth; 37.9 MB on
+    disk, depth rasters 25-50 kB gzipped), Grand River: check_bundle 0 problems each.
+  - CONTRACT.md §17 "Brief 6 interfaces" appended after rename-docs committed its CONTRACT lines (R14).
+  - Gates: web typecheck clean, lint 55 warnings (all src/scene), 140 files / 1813 tests, build ok; backend full suite
+    1466 passed. Real API (8764, stopped): Calcasieu route and bundle list the same 5 passes (R10); a no-view
+    pass PNG answers 404 (R13). Count-only scans: 1 secret configured, 0 hits; the banned reference-demo name 0.

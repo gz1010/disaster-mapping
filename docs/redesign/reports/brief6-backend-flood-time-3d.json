@@ -393,7 +393,16 @@
     "Earthdata GIS loads passes 2-4 days after the overpass, so the newest days of a live flood often have no pass yet (the window still reaches now). With EARTHDATA_TOKEN, PO.DAAC passes (DSWx-S1 radar) are listed and read; that path is untested live (no token in this session).",
     "Bundles grow with pass images: up to 8 MB more (St Johns 29.5 MB). The build test keeps its < 20 MB bound (the recorded flood has few passes); the new terrain test allows < 30 MB.",
     "A cold /timeline call can take its full 20 s budget on floods with many passes (each read ~3 s, 3 at a time); the web should call with wait=0 and poll while complete is false.",
-    "make_fixture.py (not this role's) does not add terrain3d to a fresh fixture: run scripts/flood_3d.py fixture-flood after it, or add the one call described in the contract6 note. The committed web fixture copy has no canned timeline / terrain3d answers."
+    "make_fixture.py (not this role's) does not add terrain3d to a fresh fixture: run scripts/flood_3d.py fixture-flood after it, or add the one call described in the contract6 note. The committed web fixture copy has no canned timeline / terrain3d answers.",
+    "Review fixes: make_fixture.py (outside the role table) does not call flood_3d.py; run scripts/flood_3d.py fixture-flood after make_fixture.py --only flood for the four simulated passes and terrain3d.",
+    "Review fixes: each kept pass adds a 1 MB depth raster on disk (St Johns 37.9 MB; 25-50 kB each gzipped)."
   ],
-  "notes_for_others": "contract6/backend-flood-time-3d.md has the shapes, rules and exact strings. Passes and products are oldest first; draw a product version from shown_from_ms until shown_until_ms (null = open); never draw a no_view pass as water; gap wording is the web's. Terrain rasters are uint8 (x0.1 m, 254 = 25.4 m+, 255 = no value); depth only inside the mapped water; HAND off by default with its label and caveat; relief.exaggeration is the default height boost."
+  "notes_for_others": "contract6/backend-flood-time-3d.md has the shapes, rules and exact strings. Passes and products are oldest first; draw a product version from shown_from_ms until shown_until_ms (null = open); never draw a no_view pass as water; gap wording is the web's. Terrain rasters are uint8 (x0.1 m, 254 = 25.4 m+, 255 = no value); depth only inside the mapped water; HAND off by default with its label and caveat; relief.exaggeration is the default height boost.",
+  "review_fixes": {
+    "report": "docs/redesign/reports/review6-backend-flood-time-3d.json",
+    "summary": "BTD-R1..R16 all fixed after checking each one: live NWS outage caveat (PRODUCTS_LIVE_DOWN, not cached); a rebuild keeps passes, pass rasters, every NWS version and the river lines, and a refresh that restores a water layer remakes the depth (terrain3d.after_refresh via one declared line in live.py); per-pass depth (FloodPass.depth_layer); RELIEF_RULE states the x10 cap (+ target_reached); bundle-only unread caveat; products cache = NWS alerts cache with phases at serve time; read race; per-route credits (FloodPassHistory.sources); fixture with four simulated passes; same window in Command and Forensic; old-name note migration in flood_3d.py; strings moved to copy_time; no PNG for no-view passes; events cap caveat; SPEC 5.4 wording; CONTRACT section 17.",
+    "files_added": [
+      "backend/fire3d/floods/live.py (declared: one call)"
+    ]
+  }
 }

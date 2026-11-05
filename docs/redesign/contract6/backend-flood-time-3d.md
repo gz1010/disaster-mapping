@@ -14,8 +14,14 @@ checks field names, optionality and every literal union of the new types. String
 | GET | `/api/floods/{id}/timeline?wait=0..30` | `FloodTimelineResponse` (default `wait` 20 s) |
 | GET | `/api/floods/{id}/passes/{key}.png?area=<8 hex>` | `image/png` of one pass (`FloodPass.image.url`); 404 `SATELLITE_IMAGE_GONE` |
 
-`fixture-flood` answers `/timeline` from its bundle: one simulated pass (its `water_satellite` layer, the frozen
-`satellite.png` URL) and its frozen products, `synthetic: true`, `PASSES_SYNTHETIC` in `passes.caveats`.
+`fixture-flood` answers `/timeline` from its bundle (`synthetic: true`, `PASSES_SYNTHETIC` in `passes.caveats`): after
+`uv run python scripts/flood_3d.py fixture-flood` (run it after every `make_fixture.py --only flood`, which writes the
+fixture without brief 6's products) **four simulated passes** (review BTD-R9), oldest first: `DSWx-HLS_<t-9d>_L8`
+clear (the river before the flood), `DSWx-HLS_<t-7d>_S2A` no view (all cloud; no image, no layer), a five-day gap,
+`DSWx-HLS_<t-2d>_L9` partly hidden (a cloud bank over the east 65 %), `DSWx-HLS_<t>_S2B` the fixture's own image
+(`shown_key`); each usable one with `layer` / `depth_layer` rasters in the bundle and a 2D image served by
+`GET /api/floods/fixture-flood/passes/<key>.png?area=<any 8 hex>` from the bundle's `passes/` folder. Without the
+script: one simulated pass (its `water_satellite` layer, the frozen `satellite.png` URL).
 
 ### Shapes (TypeScript; Python mirrors have the same names)
 
@@ -32,10 +38,12 @@ export interface FloodPass {
   image: FloodPassImage | null                       // route answers, usable passes only
   layer: string | null                               // bundle: manifest.layers key ("water_pass_<key>")
   caveat: string | null                              // SAT_CAVEAT of this pass | PASS_NO_VIEW | null (unknown)
+  depth_layer?: string | null                        // review BTD-R3: bundle: "depth_pass_<key>" (FwDET of this pass)
 }
 export interface FloodPassHistory {
   status: OfficialStatus; reason_code: SatelliteReasonCode; reason: string | null
   login: SatelliteLogin; login_note: string | null; source: OfficialSource; retrieved_ms: number | null
+  sources?: OfficialSource[] | null                  // review BTD-R8: one per (product, route) listed; credit each
   start_ms: number; end_ms: number; complete: boolean; truncated: boolean; stats_over: PassStatsOver
   passes: FloodPass[]                                // OLDEST FIRST
   shown_key: string | null; caveats: string[]        // PASSES_NOTE always first
@@ -62,22 +70,46 @@ export interface FloodTimelineResponse {
 - **Nothing between passes:** the backend never fills a gap. `PASSES_NOTE` says so; gap wording ("No satellite image
   between Oct 29 and Nov 3") is web-flood-playback's.
 - `view: 'no_view'` passes are listed (with `PASS_NO_VIEW`, `image: null`, `usable: false`) and must never be drawn
-  as water. `view: 'unknown'` (not read yet): `complete: false` while reads are still running; ask again (e.g. with
-  `wait=0` every few seconds) until `complete: true`. `PASSES_PARTIAL` is in `caveats` while any pass is unknown.
+  as water; no PNG is made for them (the PNG route answers 404; review BTD-R13). `view: 'unknown'` (not read yet):
+  `complete: false` while reads are still running; ask again (e.g. with `wait=0` every few seconds) until
+  `complete: true`. `PASSES_PARTIAL` is in the route's `caveats` while any pass is unknown. In the bundle's frozen
+  `timeline.json` an unknown pass was not read for the 3D data (beyond the 24 newest, or NASA unreachable at build):
+  `PASSES_BUNDLE_UNREAD`, `complete` stays true, nothing asks again (review BTD-R5).
+- **Window:** the start is rounded down to midnight UTC and the route takes the earlier of the live start and the
+  ready bundle's frozen start, so Command and Forensic list the same passes (review BTD-R10).
+- **Credits:** `sources` lists every OPERA product and route among the passes (DSWx-S1 radar and PO.DAAC only with
+  `EARTHDATA_TOKEN`); show each credit line. `source` stays the first of them.
 - `shown_key` = the pass the satellite layer shows (the satellite route's own answer when it has one, the bundle's
   `satellite.json`, else the newest pass that saw ≥ 50 % clearly, else the clearest). It can be a no-view pass when the
   satellite step itself chose one (seen 2026-11-05 on the Grand River flood: 7 % cloud, 93 % no data).
 - PNG: same palette as `satellite.png` (water `#2a8ce6` α .55, partial `#7fd4ff` α .35, no-view grey hatched, never
   transparent; outside the pass transparent). `bounds_lonlat` is the pass's footprint inside the area.
-- **Products:** every version of every event of the flood (live CAP copies + IEM archive). Draw a version from
-  `shown_from_ms` (its issue time) until `shown_until_ms` (exclusive; null = still open). CAN / UPG versions have
+- **Products:** every version of every event of the flood (live CAP copies + IEM archive; at most 20 events, the
+  newest kept, `PRODUCTS_EVENTS_TRUNCATED`). Draw a version from `shown_from_ms` (its issue time) until
+  `shown_until_ms` (exclusive; null = still open) at the playback time; `phase` is its state **now** (recomputed
+  whenever an answer is served, also from a cache or the frozen bundle; review BTD-R6). The products block is made for
+  every answer from a cache of at most 2 min (the NWS alerts cache), so a new warning appears here as soon as in
+  "Official now"; only the passes block is kept 10 min. An open flood whose live NWS feed could not be read:
+  archived copies only, `PRODUCTS_LIVE_DOWN` in `caveats` and `complete: false` (ask again; review BTD-R1). CAN / UPG versions have
   `shown_from_ms == shown_until_ms` (the event ends there). `archived: true` = IEM copy (credit `archive_source`),
   `false` = NWS's live CAP copy. Zone-based versions have `geometry: null`; their outlines are in `zones` by
   `alert_ids`. Every version is verbatim official text: render it inside `data-verbatim` with its `sender_name`, its
   own times and its `url`.
 - **Bundle (`timeline.json`):** `passes.stats_over: 'bundle_grid'`, `image: null` on every pass; the 8 newest usable
   passes have `layer` = `water_pass_<key>` (uint8 DSWx classes on the render grid, 255 outside the pass, same encoding
-  as `water_satellite`). Older or later-read passes have `layer: null` (`PASSES_BUNDLE_LIMIT` in caveats).
+  as `water_satellite`) and `depth_layer` = `depth_pass_<key>` (their own FwDET depth; FloodTerrain3d encoding; null
+  when the pass maps no water or its water has no edge on open ground). Older or later-read passes have `layer: null`
+  (`PASSES_BUNDLE_LIMIT` in caveats).
+- **Which source Forensic uses (review BTD-R2):** the **pass list and the NWS products from `GET /timeline`** (live:
+  the live loop appends new NWS versions to `warnings.json` only, so the bundle's products are a frozen record), and
+  **only the pass rasters from the bundle**, joined by `key` (`timeline.json` `passes[].layer` / `depth_layer`). A pass
+  of the route without a bundle raster (older than the 8 kept, or newer than the build): drape the route's PNG
+  (`image.url`, `image.bounds_lonlat`) and say that no depth surface is shown for it (never an empty surface). When
+  the route's passes are `unavailable`, `timeline.json`'s passes (frozen, each with its own time) may stand in.
+- **A rebuild never loses the time history (review BTD-R2):** when NASA cannot be reached the earlier bundle's pass
+  list and rasters are kept; every earlier NWS version is kept; NOAA's river lines too (manifest warning
+  `REBUILD_KEPT`). After a refresh puts an earlier water layer back, the 3D terrain products are made again
+  (`terrain3d.after_refresh`), so `depth_satellite` always belongs to the `water_satellite` shown.
 
 ### Strings (exact; `copy_time.py`)
 
@@ -91,12 +123,15 @@ export interface FloodTimelineResponse {
 | `PASSES_TRUNCATED` | This flood has more satellite passes than Disaster Mapping lists; the oldest ones are left out. |
 | `PASSES_BUNDLE_LIMIT` | The 3D data keeps the images of the {n} newest passes that saw this area; older passes are listed without an image here. |
 | `PASSES_BEFORE_ARCHIVE` | NASA's satellite water images start in 2023; none exists for this flood's dates. |
-| `PASSES_SYNTHETIC` | Synthetic test data: one simulated satellite pass, not a NASA image. |
+| `PASSES_SYNTHETIC` | Synthetic test data: simulated satellite passes, not NASA images. |
+| `PASSES_BUNDLE_UNREAD` | Some satellite passes were not read for the 3D data (too many passes, or NASA could not be reached when it was prepared); their view is shown as unknown here. That is not an all-clear. |
 | `PRODUCTS_NOTE` | Each NWS product is shown from the time NWS issued it until its own end time or NWS's next version of it. An NWS end time is not a forecast of when flooding stops. |
 | `PRODUCTS_ARCHIVE_DOWN` | Earlier versions of this flood's NWS products (Iowa Environmental Mesonet archive) could not be loaded right now; only the products NWS lists now are shown. That is not an all-clear. |
 | `PRODUCTS_ARCHIVE_PARTIAL` | Earlier versions of some of this flood's NWS products could not be loaded right now. That is not an all-clear. |
 | `PRODUCTS_NONE` | This flood has no NWS flood product (it is listed from a river gauge at flood stage). That is not an all-clear: follow local officials. |
 | `PRODUCTS_TRUNCATED` | This flood has more NWS product versions than Disaster Mapping lists; the oldest ones are left out. |
+| `PRODUCTS_EVENTS_TRUNCATED` | This flood has more NWS product events than Disaster Mapping lists; the oldest events are left out. |
+| `PRODUCTS_LIVE_DOWN` | NWS's current flood products could not be loaded right now; only archived copies are shown and the newest may be missing. That is not an all-clear. |
 
 Reused from `floods/copy.py`: `SAT_CAVEAT` (per pass), `SAT_NOT_SET_UP`, `SAT_LOGIN_REFUSED`, `SAT_UNAVAILABLE`,
 `ALERTS_UNAVAILABLE`, `SATELLITE_IMAGE_GONE`; `history.PAST_ALERTS_DOWN`.
@@ -104,8 +139,14 @@ Reused from `floods/copy.py`: `SAT_CAVEAT` (per pass), `SAT_NOT_SET_UP`, `SAT_LO
 ### Outside my files (declared)
 
 - `backend/scripts/check_bundle.py`: `flood_layer_spec()` accepts `water_pass_<key>` (DSWx classes) and the M2 layers
-  `hand`, `depth_satellite`, `depth_forecast` (uint8), and validates `timeline.json` against `FloodTimelineResponse`.
-  Additive; without it the bundle check (and `test_floods_live`) rejected the new layers.
+  `hand`, `depth_satellite`, `depth_forecast`, `depth_pass_<key>` (uint8), validates `timeline.json` against
+  `FloodTimelineResponse` and checks each pass's `layer` / `depth_layer` exists. Additive; without it the bundle check
+  (and `test_floods_live`) rejected the new layers.
+- `backend/fire3d/floods/live.py` (no brief-6 owner; review BTD-R2): one call at the end of the layer loop of
+  `keep_what_the_rebuild_lost`, `terrain3d.after_refresh(bdir, m, kept, now=now)`, which makes the 3D terrain
+  products again when the refresh put `water_satellite` or `water_forecast` back. Everything else of the fix is in my
+  files (`floods/build.py` keeps the passes, products and river lines at rebuild time; `floods/terrain3d.py`).
+  `tests/test_floods_live.py::test_refresh_keeps_layers_the_rebuild_could_not_load` covers it (fails without the call).
 
 ## M2 · 3D terrain products
 
@@ -120,6 +161,8 @@ export interface FloodRelief {
   min_m: number; max_m: number; p05_m: number; p95_m: number; range_m: number; width_m: number
   exaggeration: number                 // 1.5 | 2 | 3 | 5 | 8 | 10: the default height boost ("Height ×10")
   rule: string                         // RELIEF_RULE
+  target_reached?: boolean | null      // review BTD-R4: false when even ×10 leaves the middle 90% under 2% of the
+                                       // width (every flat flood measured): suggest a larger boost or the closer view
 }
 export interface FloodTerrainStats { cells: number; area_km2: number; p50_m: number; p90_m: number; max_m: number }
 export interface FloodTerrainProduct {
@@ -144,8 +187,10 @@ export interface FloodTerrain3d {
   (outside the mapped water for depth; more than 10 km from a channel for HAND). `LayerInfo.units` = "0.1 m",
   `nodata` = 255, `min` / `max` exclude 255.
 - **Depth is only inside the mapped water.** `depth_satellite` belongs to the pass in `water_satellite.bin`
-  (`timeline.passes.shown_key` in the bundle); the other passes have no depth raster: show the water surface only while
-  the shown pass (or the forecast layer) is on, and say "Estimated depth …" with `label` and `caveat`.
+  (`timeline.passes.shown_key` in the bundle); each kept pass has its own `depth_pass_<key>` (`FloodPass.depth_layer`;
+  review BTD-R3): while stepping, show the surface of the pass on screen; a pass with `depth_layer` null (or without a
+  bundle raster) shows no depth surface, and the view says so (never an empty surface, never "the water is gone").
+  Say "Estimated depth …" with `label` and `caveat`.
 - **HAND** (`label` "Height above the river (from terrain). Not a flood map") is off by default; `caveat` always with
   it. An empty or shallow tint is never an all-clear.
 - **Height boost:** `relief.exaggeration` is the default factor; the user can change it; always show it.
@@ -157,7 +202,7 @@ export interface FloodTerrain3d {
 
 | Name | Text |
 |---|---|
-| `RELIEF_RULE` | Height boost: the smallest of ×1.5, ×2, ×3, ×5, ×8 and ×10 that makes the middle 90% of the ground heights near the mapped water (5th to 95th percentile) span at least 2% of the area's width; ×1.5 when the ground is already steep enough. Only heights are boosted, never distances. |
+| `RELIEF_RULE` | Height boost: the smallest of ×1.5, ×2, ×3, ×5, ×8 and ×10 that makes the middle 90% of the ground heights near the mapped water (5th to 95th percentile) span at least 2% of the area's width; ×1.5 when the ground is already steep enough. At most ×10, so a very flat floodplain can still look flat at the default: raise the boost or look from closer. Only heights are boosted, never distances. |
 | `RELIEF_AREA_WATER` | ground within {km} km of the mapped water (satellite water and the NWS forecast flooded area) |
 | `RELIEF_AREA_GRID` | the whole 3D area (no mapped water to measure around) |
 | `HAND_LABEL` | Height above the river (from terrain). Not a flood map |

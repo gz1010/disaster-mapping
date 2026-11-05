@@ -5113,3 +5113,28 @@ code and UI). One small fix:
   `Hydrograph.tsx`) and `CREST_LABEL_ROOM` (22 px): with no room above the crest caret (a crest near the plot's top),
   the label goes beside the caret, right of it, else left of it, so the caret never covers its words; with room, or
   when neither side fits, it is centred as before. Slim (Command) and dock (Forensic) charts.
+
+## 17. Brief 6 interfaces (rename, flood time history, 3D flood products, zoom dimming)
+
+Brief 6 (`docs/redesign/BRIEF-6.md`) keeps its interfaces in one as-built note per role, appended here as each role
+finishes; this section points to them and lists what is new. Change an interface only together with every role that
+uses it, and keep `SPEC.md`, `backend/fire3d/contracts.py` and `web/src/api/floodTypes.ts` consistent.
+
+- **Notes:** `docs/redesign/contract6/backend-flood-time-3d.md` (flood time history and 3D terrain products, with
+  their exact strings, after the review fixes BTD-R1..R16) and `docs/redesign/contract6/rename-docs.md` (the name
+  "Disaster Mapping", internal names kept, the zoom-dimming switch). Wave-2 roles add theirs here.
+- **SPEC:** §5.3 (bundle files: `timeline.json`, `layers/water_pass_<key>.bin`, `layers/depth_pass_<key>.bin`,
+  `layers/hand.bin`, `layers/depth_satellite.bin`, `layers/depth_forecast.bin`, `maps/flowlines.geojson`), §5.4 (3D
+  terrain products: relief and height boost, height above the river, FwDET depth), §6 (routes), §8.11 (time history).
+- **Routes:** `GET /api/floods/{id}/timeline?wait=0..30` → `FloodTimelineResponse`; `GET
+  /api/floods/{id}/passes/{key}.png?area=<8 hex>` → one pass's 2D image (404 for a pass with no view).
+- **Types** (Python and TypeScript, same names): `FloodTimelineResponse`, `FloodPassHistory` (+ `sources`),
+  `FloodPass` (+ `depth_layer`), `FloodPassImage`, `PassView`, `PassStatsOver`, `FloodProductHistory`,
+  `FloodTimelineProduct`; `FloodTerrain3d`, `FloodRelief` (+ `target_reached`), `FloodTerrainProduct`,
+  `FloodTerrainStats`, `TerrainProductKind`; `FloodManifest.terrain3d`, `FloodManifest.files.timeline`,
+  `files.maps.flowlines`. Brief-6 strings: `backend/fire3d/floods/copy_time.py`.
+- **Rules worth repeating:** nothing is drawn or interpolated between two satellite passes; a no-view pass is never
+  drawn as water; Forensic takes the pass list and the NWS products from `GET /timeline` and only the pass rasters from
+  the bundle, joined by `key`; a depth estimate is shown only inside its own mapped water, and a pass without one
+  shows no depth surface (said so, never an empty one); official products keep their issuer, own times, verbatim text
+  and link, and their absence is never an all-clear.

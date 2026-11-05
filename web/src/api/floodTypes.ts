@@ -241,6 +241,9 @@ export interface FloodRelief {
   width_m: number // the 3D area's width (grid extent)
   exaggeration: number // suggested height boost: 1.5 | 2 | 3 | 5 | 8 | 10
   rule: string // RELIEF_RULE, written down
+  /** False when even x10 leaves the middle 90% of the heights under 2% of the width (a very flat floodplain still
+   * looks flat at the default: suggest a larger boost or the closer framing). Absent in older bundles. */
+  target_reached?: boolean | null
 }
 
 export interface FloodTerrainStats {
@@ -515,6 +518,9 @@ export interface FloodPass {
   image: FloodPassImage | null // the 2D PNG (route answers, usable passes only); hatched no-view, transparent outside
   layer: string | null // bundle: manifest.layers key of its DSWx classes on the render grid
   caveat: string | null // SAT_CAVEAT of this pass, or PASS_NO_VIEW; null while unknown
+  /** Bundle: manifest.layers key of this pass's FwDET depth estimate ("depth_pass_<key>", uint8 0.1 m, 255 outside
+   * its water; FloodTerrain3d encoding). Null or absent: no depth surface for this pass (say so; never an empty one). */
+  depth_layer?: string | null
 }
 
 export interface FloodPassHistory {
@@ -524,6 +530,7 @@ export interface FloodPassHistory {
   login: SatelliteLogin // never the token
   login_note: string | null
   source: OfficialSource
+  sources?: OfficialSource[] | null // one per (product, route) among the listed passes, each with its exact credit
   retrieved_ms: number | null
   start_ms: number // the window searched
   end_ms: number
