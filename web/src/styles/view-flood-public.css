@@ -1,0 +1,196 @@
+/* The Public flood view (brief 5; docs/redesign/handoff-4/screens/FloodView.dc.html; PLAN-5 §4.4, §4.9;
+   ui/shell/PublicFloodChrome.tsx). The layout is the Public fire view's (styles/view-public.css, scoped to both views);
+   this file holds what differs: the left gradient (600 px, .92 → .74 at 55 %), the water circle's colours, the key's
+   swatches (each layer named with its own time), the leader and the flood point, the satellite status and the notes.
+   Tokens: styles/map-tokens.css (--m-flood-*, --m-cat-*). No green anywhere (map/floodStyle.test.ts). */
+
+/* ------------------------------------------------------------------------------------------------ left gradient */
+/* the design's 600 px gradient behind the circle and the facts (the fire view's is 560 px, .9 → .72) */
+.mw[data-view='public-flood'] .mw-atmo[data-edges='fire']::after {
+  background: linear-gradient(90deg, rgba(12, 12, 12, 0.92) 0%, rgba(12, 12, 12, 0.74) 55%, rgba(12, 12, 12, 0) 100%) left top / min(600px, 44vw) 100% no-repeat;
+}
+@media (max-width: 760px) {
+  .mw[data-view='public-flood'] .mw-atmo[data-edges='fire']::after {
+    background:
+      linear-gradient(180deg, rgba(12, 12, 12, 0.88) 0%, rgba(12, 12, 12, 0) 100%) left top / 100% 140px no-repeat,
+      linear-gradient(0deg, rgba(12, 12, 12, 0.9) 0%, rgba(12, 12, 12, 0) 100%) left bottom / 100% 160px no-repeat;
+  }
+}
+.mw.is-collapsed[data-view='public-flood'] .mw-atmo::after {
+  opacity: 0;
+}
+
+/* ------------------------------------------------------------------------------------------------ water circle */
+/* FloodView.dc.html "Flood name dot": bg #1a221f, a grey-green ring and glow, the dark shade behind the text, status
+   mono #dff4ff, the name 72 / 800 #f2fbff, "MORE IN COMMAND ›" */
+.pfv-circle.is-water {
+  background-color: var(--m-flood-disc);
+  box-shadow:
+    0 0 0 1px rgba(200, 214, 206, 0.45),
+    0 0 48px rgba(120, 140, 130, 0.35),
+    inset 0 0 40px rgba(0, 0, 0, 0.65);
+  color: var(--m-flood-ink-2);
+}
+.pfv-circle.is-water:focus-visible {
+  box-shadow:
+    0 0 0 1px rgba(200, 214, 206, 0.45),
+    0 0 48px rgba(120, 140, 130, 0.35),
+    inset 0 0 40px rgba(0, 0, 0, 0.65);
+}
+.pfv-circle.is-water .pfv-circle-shade {
+  background: radial-gradient(ellipse 58% 30% at 50% 50%, rgba(2, 8, 16, 0.62) 0%, rgba(2, 8, 16, 0.3) 60%, rgba(2, 8, 16, 0) 100%);
+}
+.pfv-circle.is-water .pfv-circle-status {
+  color: var(--m-flood-ink);
+  /* the design's glow, plus a tight dark edge (4.5:1 over the bright waterline band) */
+  text-shadow:
+    0 0 3px rgba(0, 10, 25, 0.95),
+    0 1px 8px rgba(0, 10, 25, 0.8);
+}
+.pfv-circle.is-water .pfv-circle-more {
+  color: var(--m-flood-ink);
+  text-shadow:
+    0 0 3px rgba(0, 10, 25, 0.95),
+    0 0 6px rgba(0, 10, 25, 0.8),
+    0 1px 8px rgba(0, 10, 25, 0.9);
+}
+.pfv-circle.is-water .pfv-circle-name {
+  text-shadow:
+    0 0 4px rgba(0, 10, 25, 0.6),
+    0 2px 14px rgba(0, 10, 25, 0.75);
+}
+/* quiet (a watch, no NWS warning now, a past flood): darker water, a softer ring (its words say why) */
+.pfv-circle.is-water.is-quiet .pfv-circle-tex {
+  filter: saturate(0.6) brightness(0.62);
+}
+.pfv-circle.is-water.is-quiet {
+  box-shadow:
+    0 0 0 1px rgba(200, 214, 206, 0.28),
+    0 0 32px rgba(120, 140, 130, 0.18),
+    inset 0 0 40px rgba(0, 0, 0, 0.65);
+}
+
+/* ------------------------------------------------------------------------------------------------ title, bar */
+.mw[data-view='public-flood'] .ffv-demo {
+  align-self: center;
+}
+/* the satellite image's status from 1280 px: "NASA OPERA · OCT 31 · 4 D AGO" (amber after 3 days) */
+.ffv-sat-status {
+  margin: 0;
+  font: 400 11px / 1.3 var(--m-font-mono);
+  letter-spacing: 0.14em;
+  color: #d0d0d0;
+  text-shadow: var(--pfv-halo);
+  white-space: nowrap;
+  cursor: default;
+}
+.ffv-sat-status.is-stale {
+  color: var(--m-stale);
+}
+
+/* ------------------------------------------------------------------------------------------------ facts */
+.ffv-lastknown {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(232, 176, 74, 0.45);
+  border-radius: 10px;
+  background: rgba(40, 28, 8, 0.55);
+  font-size: 12px;
+  line-height: 1.45;
+  color: #f3dcae;
+  text-shadow: none;
+}
+/* an issuer's own words in a value (NWS's "OBSERVED", "CATASTROPHIC", a watch's area) keep their capitals */
+.ffv-facts .ro-value [data-verbatim] {
+  overflow-wrap: anywhere;
+}
+.ffv-facts .ro-17 .ro-value {
+  max-width: 100%;
+}
+
+/* ------------------------------------------------------------------------------------------------ key */
+/* several layers, each with its own time: the key wraps onto a second line rather than cutting a time */
+.pfv-key.ffk {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+.ffk-item.is-satellite .pfv-key-time.is-stale {
+  color: var(--m-stale);
+}
+.ffk-sw {
+  display: inline-block;
+  flex: none;
+  box-sizing: border-box;
+  width: 20px;
+  height: 12px;
+  border-radius: 2px;
+  vertical-align: middle;
+}
+/* water seen by satellite: solid 1.5 px #7fd4ff on rgba(42,140,230,.5) (the design's "Flooded area now" swatch) */
+.ffk-sw-sat {
+  border: 1.5px solid var(--m-flood-edge);
+  background: rgba(42, 140, 230, 0.5);
+}
+/* no satellite view (clouds or no data): the grey hatch, never transparent (D25) */
+.ffk-sw-noview {
+  border: 1px solid rgba(154, 154, 154, 0.7);
+  background: repeating-linear-gradient(45deg, rgba(154, 154, 154, 0.55) 0 2px, rgba(154, 154, 154, 0.12) 2px 5px);
+}
+/* the edge of the satellite image: a thin dashed grey line */
+.ffk-sw-edge {
+  height: 0;
+  border: 0;
+  border-top: 1.5px dashed #9a9a9a;
+  border-radius: 0;
+}
+/* the NWS forecast flooded area: hatched water blue */
+.ffk-sw-forecast {
+  border: 1px solid var(--m-flood-edge);
+  background: repeating-linear-gradient(-45deg, rgba(127, 212, 255, 0.55) 0 1.5px, rgba(42, 140, 230, 0.12) 1.5px 5px);
+}
+/* the main channel: dashed #4fb4ff on rgba(16,63,138,.7) (the design's swatch) */
+.ffk-sw-channel {
+  border: 1px dashed var(--m-flood-channel-edge);
+  background: rgba(16, 63, 138, 0.7);
+}
+/* NWS warning areas: the alert pink outline */
+.ffk-sw-warning {
+  border: 1.5px solid var(--m-alert);
+  background: rgba(238, 122, 160, 0.1);
+}
+/* FEMA floodplain (background): a faint stipple */
+.ffk-sw-floodplain {
+  border: 1px solid rgba(170, 186, 214, 0.7);
+  background: radial-gradient(circle, rgba(170, 186, 214, 0.75) 0.8px, transparent 1.2px) 0 0 / 4px 4px, rgba(150, 170, 200, 0.12);
+}
+.fxm-legend-details .ffk-sw {
+  margin-right: 4px;
+}
+.ffk-login {
+  color: var(--m-stale);
+}
+
+/* ------------------------------------------------------------------------------------------------ leader, point */
+/* map/FloodLeader.tsx: over the map, under the chrome (the fire view's overlay class) */
+.ffv-overlay .ffv-leader {
+  stroke-linecap: round;
+}
+
+/* ------------------------------------------------------------------------------------------------ phones */
+@media (max-width: 760px) {
+  .mw[data-view='public-flood'] .pfv-bar .tb-left {
+    gap: 8px;
+  }
+  .mw[data-view='public-flood'] .ffv-demo {
+    flex: none;
+  }
+}
+
+/* ------------------------------------------------------------------------------------------------ reduced motion */
+/* the circle's SMIL animations are left out by WaterTexture under reduced motion; nothing else here moves */
+@media (prefers-reduced-motion: reduce) {
+  .mw[data-view='public-flood'] * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

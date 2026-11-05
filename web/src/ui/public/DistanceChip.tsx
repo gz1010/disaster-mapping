@@ -4,6 +4,8 @@
 // the reported location, not its edge"); a click stops sharing (setDevice(null)) and the chip turns into "Share your
 // location to see how far you are", whose click asks the browser (navigator.geolocation, no outside service). Light
 // blue is the selected-point / distance colour of the design system; nothing here says or colours "safe".
+// Brief 5 (PLAN-5 §4.4, §4.8): split into the fire container (DistanceChip, unchanged behaviour) and the presentational
+// DistanceChipView, which the flood view's chip (ui/public/FloodTitle.tsx) fills with its own measure.
 import { LoaderCircle, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
@@ -13,7 +15,7 @@ import { newestPerimeter } from '../../map/fireProfile'
 import { useStore } from '../../state/store'
 import { useTimeFormat } from '../../state/timeZone'
 import { useWorkspace } from '../../state/workspace'
-import { distanceChipText, distanceToFire, SHARE_PROMPT } from './fireView'
+import { distanceChipText, distanceToFire, SHARE_PROMPT, type DistanceChipText } from './fireView'
 
 function ArrowIcon({ bearing }: { bearing: number | null }) {
   // the screen's arrow points north-east (45°): turned to the fire's compass direction from the viewer
@@ -34,6 +36,15 @@ function ShareIcon() {
   )
 }
 
+/** What the chip shows while the location is shared: the words, and the arrow's direction (none when inside). */
+export interface ChipMeasure {
+  text: DistanceChipText
+  inside: boolean
+  /** Bearing from the viewer to the target (degrees clockwise from true north). */
+  bearing: number
+}
+
+/** The fire view's chip: to the newest perimeter's nearest edge, else to the reported location (fireView.ts). */
 export function DistanceChip({ compact = false }: { compact?: boolean }) {
   const device = useWorkspace((s) => s.device)
   const units = useWorkspace((s) => s.units)
@@ -45,6 +56,16 @@ export function DistanceChip({ compact = false }: { compact?: boolean }) {
       perimeters: s.manifest?.status === 'ready' && s.manifest.id === s.incidentId ? (s.perimeters?.perimeters ?? null) : null,
     })),
   )
+  const newest = newestPerimeter(st.perimeters)
+  const d = device ? distanceToFire(device, { perimeter: newest, grid: st.grid, reported: st.summary }) : null
+  const measure = device && d ? { text: distanceChipText(d, units, newest ? fmtDayDate(newest.t_ms, tf.tz, { year: 'auto' }) : null), inside: d.inside, bearing: d.bearing } : null
+  return <DistanceChipView compact={compact} measure={measure} />
+}
+
+/** The chip's presentational part (brief 5 split, PLAN-5 §4.4: the flood view measures to its own areas with
+ *  lib/areaDistance.ts): the shared chip when `measure` is given, else "Share your location to see how far you are",
+ *  whose click asks the browser. The look is unchanged. */
+export function DistanceChipView({ compact = false, measure }: { compact?: boolean; measure: ChipMeasure | null }) {
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<LocateFailure | null>(null)
   const msgId = useId()
@@ -83,15 +104,13 @@ export function DistanceChip({ compact = false }: { compact?: boolean }) {
     )
   }
 
-  const newest = newestPerimeter(st.perimeters)
-  const d = device ? distanceToFire(device, { perimeter: newest, grid: st.grid, reported: st.summary }) : null
-  if (device && d) {
-    const t = distanceChipText(d, units, newest ? fmtDayDate(newest.t_ms, tf.tz, { year: 'auto' }) : null)
+  if (measure) {
+    const t = measure.text
     return (
       <div className={`pfv-dist-wrap${compact ? ' is-compact' : ''}`}>
         <button
           type="button"
-          className={`pfv-dist is-shared${d.inside ? ' is-inside' : ''}`}
+          className={`pfv-dist is-shared${measure.inside ? ' is-inside' : ''}`}
           aria-label={`${t.spoken} Click to stop sharing your location.`}
           data-tip={`Measured ${t.measures}, from your browser's location (not saved, not in the link). Click to stop sharing.`}
           onClick={() => {
@@ -100,7 +119,7 @@ export function DistanceChip({ compact = false }: { compact?: boolean }) {
           }}
         >
           <span className="pfv-dist-icon" aria-hidden="true">
-            <ArrowIcon bearing={d.inside ? null : d.bearing} />
+            <ArrowIcon bearing={measure.inside ? null : measure.bearing} />
           </span>
           <span className="pfv-dist-value" aria-hidden="true">
             {t.value}

@@ -1,6 +1,6 @@
 /* The Public map views (brief 4 H3 + H4; docs/redesign/handoff-4/screens/Main.dc.html and FireView.dc.html; PLAN-4
    §3.3-3.4). Every rule is scoped to its chrome's root: .mw[data-view='overview'] (the national overview, both presets;
-   ui/shell/OverviewChrome.tsx) and .mw[data-view='public-fire'] (the fire view, H4). Values are the screens': top bar
+   ui/shell/OverviewChrome.tsx) and .mw[data-view='public-fire'] (the fire view, H4; brief 5: also 'public-flood'). Values are the screens': top bar
    from the tokens, the centred search pill at --m-chrome-top (560 × 52 + the 52 px locate button), the first row of
    panels at 160 px (--ovw-row2), sides 28 px, the list panel 472 px at the right edge (12 px), the readout 360 px at
    the bottom left, the legend 600 px at the bottom right, the disclaimer centred above the credits and the "Show
@@ -451,8 +451,11 @@
 /* The Public fire view (ui/shell/PublicFireChrome.tsx; FireView.dc.html at 1440 × 1000): the close button at 24 / 24
    (44 px), the title centred at 22, the hazard circle at 48 / 88 (312 px), the facts under it (400 px wide, from
    452), the key at right 24 / bottom 52 and the 30 px bottom bar. No panels behind the text: it sits on the left edge
-   gradient (map/MapAtmosphere.tsx, edges "fire") with the readout's halo (decision l). */
-.mw[data-view='public-fire'] {
+   gradient (map/MapAtmosphere.tsx, edges "fire") with the readout's halo (decision l).
+   Brief 5 (PLAN-5 §4.4): the Public flood view (ui/shell/PublicFloodChrome.tsx, data-view 'public-flood') has the same
+   layout, so every rule here is scoped to both views with :is() (the same specificity as before); its own colours and
+   the water circle are in styles/view-flood-public.css. */
+.mw:is([data-view='public-fire'], [data-view='public-flood']) {
   --pfv-x: 48px;
   --pfv-circle: 312px;
   --pfv-col-w: 400px;
@@ -465,18 +468,18 @@
 }
 
 /* ------------------------------------------------------------------------------------------------ bar */
-.mw[data-view='public-fire'] .pfv-bar {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-bar {
   --tb-x: 24px;
   top: 24px;
 }
-.mw[data-view='public-fire'] .pfv-close {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-close {
   width: 44px;
   height: 44px;
   background: rgba(14, 14, 14, 0.6);
   border-color: rgba(200, 200, 200, 0.22);
   color: var(--m-text-body);
 }
-.mw[data-view='public-fire'] .pfv-bar .tb-right {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-bar .tb-right {
   gap: 8px;
 }
 
@@ -496,7 +499,7 @@
 }
 
 /* ------------------------------------------------------------------------------------------------ title */
-.mw[data-view='public-fire'] .pfv-title-slot {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-title-slot {
   --chrome-side: top;
   position: absolute;
   top: 22px;
@@ -649,11 +652,11 @@
 
 /* ------------------------------------------------------------------------------------------------ left column */
 /* the top region becomes a positioning frame over the whole map (its slots are placed one by one) */
-.mw[data-view='public-fire'] .pfv-top {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-top {
   inset: 0;
   display: block;
 }
-.mw[data-view='public-fire'] .pfv-left {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left {
   position: absolute;
   top: var(--pfv-circle-top);
   left: var(--pfv-x);
@@ -665,12 +668,12 @@
   gap: 52px;
   pointer-events: none;
 }
-.mw[data-view='public-fire'] .pfv-circle-slot {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-circle-slot {
   --chrome-side: left;
   flex: none;
   pointer-events: auto;
 }
-.mw[data-view='public-fire'] .pfv-facts-slot {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-facts-slot {
   --chrome-side: left;
   flex: 0 1 auto;
   width: 100%;
@@ -833,24 +836,24 @@
   border-top: 1px solid rgba(200, 200, 200, 0.35);
   border-bottom: 1px solid rgba(200, 200, 200, 0.35);
 }
-.mw[data-view='public-fire'] .pfv-facts .ro-row {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-facts .ro-row {
   padding: 11px 0;
 }
-.mw[data-view='public-fire'] .pfv-facts .ro-value {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-facts .ro-value {
   color: var(--m-text);
 }
-.mw[data-view='public-fire'] .pfv-facts .ro-row.is-alert .ro-value {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-facts .ro-row.is-alert .ro-value {
   color: var(--m-alert);
 }
-.mw[data-view='public-fire'] .pfv-facts .ro-label {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-facts .ro-label {
   font-size: 11px;
   white-space: nowrap;
 }
-.mw[data-view='public-fire'] .pfv-facts .ro-sub {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-facts .ro-sub {
   font-size: 11.5px;
   color: var(--m-text-2b);
 }
-.mw[data-view='public-fire'] .pfv-facts :is(.ro-copy, .mw-link-btn, a) {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-facts :is(.ro-copy, .mw-link-btn, a) {
   text-shadow: inherit;
 }
 .pfv-facts-foot {
@@ -931,26 +934,26 @@
    ui/public/useFactsFit.ts, review DF-H34-4): one step at a time, "snug" (less gap and row padding), "tight" (+ a
    smaller circle), "tighter" (smaller still), so every row and the foot stay in view; when even that does not fit,
    the facts scroll and the foot says "More below" */
-.mw[data-view='public-fire'] .pfv-left.is-snug {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left.is-snug {
   gap: 28px;
 }
-.mw[data-view='public-fire'] .pfv-left.is-snug .pfv-facts .ro-row {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left.is-snug .pfv-facts .ro-row {
   padding: 7px 0;
 }
-.mw[data-view='public-fire'] .pfv-left.is-tight {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left.is-tight {
   --pfv-circle: 248px;
 }
-.mw[data-view='public-fire'] .pfv-left.is-tight .pfv-circle {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left.is-tight .pfv-circle {
   --pfv-k: 0.795;
 }
-.mw[data-view='public-fire'] .pfv-left.is-tighter {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left.is-tighter {
   --pfv-circle: 200px;
   gap: 18px;
 }
-.mw[data-view='public-fire'] .pfv-left.is-tighter .pfv-circle {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left.is-tighter .pfv-circle {
   --pfv-k: 0.641;
 }
-.mw[data-view='public-fire'] .pfv-left.is-tighter .pfv-facts .ro-row {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left.is-tighter .pfv-facts .ro-row {
   padding: 5px 0;
 }
 /* over the foot's fade, at its top right: it takes no room of its own */
@@ -978,11 +981,11 @@
   border-color: rgba(200, 200, 200, 0.45);
 }
 /* an unprepared or preparing fire: a smaller circle, so the prepare button stays in view under the facts */
-.mw[data-view='public-fire'] .pfv-left:has(.pfv-prep:not(.is-note)) {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left:has(.pfv-prep:not(.is-note)) {
   --pfv-circle: 248px;
   gap: 36px;
 }
-.mw[data-view='public-fire'] .pfv-left:has(.pfv-prep:not(.is-note)) .pfv-circle {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left:has(.pfv-prep:not(.is-note)) .pfv-circle {
   --pfv-k: 0.795;
 }
 .pfv-prep-btn {
@@ -1002,7 +1005,7 @@
 
 /* ------------------------------------------------------------------------------------------------ right column */
 /* under the top-right cluster: the satellite image's status line, then a picked point's location card (360 px) */
-.mw[data-view='public-fire'] .pfv-right {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-right {
   position: absolute;
   top: calc(var(--m-chrome-top) + 2px);
   right: var(--pfv-right);
@@ -1014,27 +1017,27 @@
   gap: 10px;
   pointer-events: none;
 }
-.mw[data-view='public-fire'] .pfv-right > * {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-right > * {
   pointer-events: auto;
 }
-.mw[data-view='public-fire'] .pfv-status {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-status {
   --chrome-side: none;
   max-width: 100%;
   min-width: 0;
   text-shadow: var(--pfv-halo);
 }
-.mw[data-view='public-fire'] .pfv-card {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-card {
   --chrome-side: right;
   flex: 0 1 auto;
   width: 100%;
   max-height: 100%;
   min-height: 0;
 }
-.mw[data-view='public-fire'] .pfv-card.is-empty {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-card.is-empty {
   display: none;
 }
 /* bottom right: the compact map controls (zoom, ⟲ compass ⟳) above the map key (right 24, bottom 52) */
-.mw[data-view='public-fire'] .pfv-right-bottom {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-right-bottom {
   position: absolute;
   right: var(--pfv-right);
   bottom: calc(var(--mw-bottom-stack) + 22px);
@@ -1046,18 +1049,18 @@
   max-width: min(900px, calc(100vw - var(--pfv-x) - var(--pfv-col-w) - 2 * var(--pfv-right)));
   pointer-events: none;
 }
-.mw[data-view='public-fire'] .pfv-right-bottom > * {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-right-bottom > * {
   pointer-events: auto;
 }
-.mw[data-view='public-fire'] .pfv-cluster {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-cluster {
   --chrome-side: right;
   position: static;
 }
 /* a location card takes the right column: the controls step left of it */
-.mw[data-view='public-fire'].has-selection .pfv-cluster {
+.mw:is([data-view='public-fire'], [data-view='public-flood']).has-selection .pfv-cluster {
   margin-right: calc(min(360px, 100vw - 2 * var(--pfv-right)) + 12px);
 }
-.mw[data-view='public-fire'] .pfv-key-slot {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-key-slot {
   --chrome-side: bottom;
   position: relative;
   /* its "Legend details" opens upward over the map controls (map.css .fxm-ctl is z-index 4) */
@@ -1135,7 +1138,7 @@
 
 /* ------------------------------------------------------------------------------------------------ bottom bar */
 /* 30 px: the prototype line left, the credits right (every credit text kept; it wraps when long, decision i-9) */
-.mw[data-view='public-fire'] .pfv-bottom {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-bottom {
   left: 0;
   right: 0;
   bottom: 0;
@@ -1144,7 +1147,7 @@
   align-items: stretch;
   gap: 0;
 }
-.mw[data-view='public-fire'] .pfv-foot {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1156,12 +1159,12 @@
   border-top: 1px solid rgba(200, 200, 200, 0.1);
   pointer-events: auto;
 }
-.mw[data-view='public-fire'] .pfv-note {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-note {
   flex: 0 0 auto;
   max-width: min(440px, 38%);
   margin: 0 !important;
 }
-.mw[data-view='public-fire'] .pfv-note > .fxc {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-note > .fxc {
   padding: 0;
   background: none;
   /* both lines whole: it wraps (two short lines) rather than cutting either */
@@ -1170,23 +1173,23 @@
   font: 400 11px / 15px var(--m-font-mono);
   color: var(--m-text-4);
 }
-.mw[data-view='public-fire'] .pfv-foot .mw-footer {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-foot .mw-footer {
   flex: 1 1 auto;
   min-width: 0;
   justify-content: flex-end;
 }
-.mw[data-view='public-fire'] .pfv-foot .mw-footer-attrib {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-foot .mw-footer-attrib {
   background: none;
   text-align: right;
   font: 400 10.5px / 14px var(--m-font-mono);
   color: var(--m-text-4);
 }
-.mw[data-view='public-fire'] .pfv-foot .fxm-attrib {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-foot .fxm-attrib {
   padding: 0;
   background: none;
   color: inherit;
 }
-.mw[data-view='public-fire'] .pfv-foot a {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-foot a {
   color: inherit;
 }
 
@@ -1219,19 +1222,19 @@
 /* ------------------------------------------------------------------------------------------------ what Public hides */
 /* the fire view says itself when the map data is not prepared, and shows its preparation under the facts (decision a);
    a model run's progress pill belongs to Command */
-.mw[data-view='public-fire'] .top-center .mw-notprepared,
-.mw[data-view='public-fire'] .top-center .fc-pill.is-forecast,
-.mw[data-view='public-fire'] .center-overlay:has(> .build-card) {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .top-center .mw-notprepared,
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .top-center .fc-pill.is-forecast,
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .center-overlay:has(> .build-card) {
   display: none;
 }
 
 /* the fire view has no timeline: App.tsx's "Skip to timeline" link would lead nowhere here (search and map stay) */
-.mw[data-view='public-fire'] .mw-skip a[href='#mw-timeline'] {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .mw-skip a[href='#mw-timeline'] {
   display: none;
 }
 
 /* "H": the panels go, the title, the bar and the controls stay */
-.mw[data-view='public-fire'].is-collapsed :is(.pfv-left, .pfv-card, .pfv-key-slot) {
+.mw:is([data-view='public-fire'], [data-view='public-flood']).is-collapsed :is(.pfv-left, .pfv-card, .pfv-key-slot) {
   display: none;
 }
 
@@ -1251,7 +1254,7 @@
 }
 /* the fire view's own text links (the note under the facts, the Layers drawer's Command link) */
 .pfv-prep .mw-link-btn,
-.mw[data-view='public-fire'] .mw-layers .mw-set-note .mw-link-btn {
+.mw:is([data-view='public-fire'], [data-view='public-flood']) .mw-layers .mw-set-note .mw-link-btn {
   display: inline;
   font-size: inherit;
   text-decoration: underline;
@@ -1261,7 +1264,7 @@
 /* ------------------------------------------------------------------------------------------------ medium sizes */
 /* narrower windows: a smaller circle at the edge; the title keeps its room between the circle and the cluster */
 @media (min-width: 761px) and (max-width: 1279px) {
-  .mw[data-view='public-fire'] {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) {
     --pfv-x: 28px;
     --pfv-circle: 248px;
     --pfv-col-w: 340px;
@@ -1269,85 +1272,85 @@
   .pfv-circle {
     --pfv-k: 0.795;
   }
-  .mw[data-view='public-fire'] .pfv-left.is-tight {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left.is-tight {
     --pfv-circle: 232px;
   }
-  .mw[data-view='public-fire'] .pfv-left.is-tight .pfv-circle {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left.is-tight .pfv-circle {
     --pfv-k: 0.744;
   }
-  .mw[data-view='public-fire'] .pfv-left.is-tighter {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left.is-tighter {
     --pfv-circle: 200px;
   }
-  .mw[data-view='public-fire'] .pfv-left.is-tighter .pfv-circle {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left.is-tighter .pfv-circle {
     --pfv-k: 0.641;
   }
 }
 /* shorter windows: a smaller circle, so the facts keep their room above the bar */
 @media (min-width: 761px) and (max-height: 900px) {
-  .mw[data-view='public-fire'] {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) {
     --pfv-circle: 232px;
     --pfv-circle-top: 84px;
   }
-  .mw[data-view='public-fire'] .pfv-left {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left {
     gap: 28px;
   }
   .pfv-circle {
     --pfv-k: 0.744;
   }
-  .mw[data-view='public-fire'] .pfv-facts .ro-row {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-facts .ro-row {
     padding: 7px 0;
   }
-  .mw[data-view='public-fire'] .pfv-left:has(.pfv-prep:not(.is-note)) {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left:has(.pfv-prep:not(.is-note)) {
     --pfv-circle: 200px;
     gap: 24px;
   }
-  .mw[data-view='public-fire'] .pfv-left:has(.pfv-prep:not(.is-note)) .pfv-circle {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left:has(.pfv-prep:not(.is-note)) .pfv-circle {
     --pfv-k: 0.641;
   }
-  .mw[data-view='public-fire'] .pfv-left.is-snug {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left.is-snug {
     gap: 20px;
   }
-  .mw[data-view='public-fire'] .pfv-left.is-snug .pfv-facts .ro-row {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left.is-snug .pfv-facts .ro-row {
     padding: 5px 0;
   }
-  .mw[data-view='public-fire'] .pfv-left.is-tight {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left.is-tight {
     --pfv-circle: 200px;
   }
-  .mw[data-view='public-fire'] .pfv-left.is-tight .pfv-circle {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left.is-tight .pfv-circle {
     --pfv-k: 0.641;
   }
-  .mw[data-view='public-fire'] .pfv-left.is-tighter {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left.is-tighter {
     --pfv-circle: 160px;
     gap: 14px;
   }
-  .mw[data-view='public-fire'] .pfv-left.is-tighter .pfv-circle {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left.is-tighter .pfv-circle {
     --pfv-k: 0.513;
   }
-  .mw[data-view='public-fire'] .pfv-left.is-tighter .pfv-facts .ro-row {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left.is-tighter .pfv-facts .ro-row {
     padding: 4px 0;
   }
 }
 @media (min-width: 761px) and (max-height: 800px) {
-  .mw[data-view='public-fire'] {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) {
     --pfv-circle: 184px;
   }
   .pfv-circle {
     --pfv-k: 0.59;
   }
-  .mw[data-view='public-fire'] .pfv-facts .ro-26 .ro-value {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-facts .ro-26 .ro-value {
     font-size: 22px;
   }
-  .mw[data-view='public-fire'] .pfv-left:has(.pfv-prep:not(.is-note)) {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left:has(.pfv-prep:not(.is-note)) {
     --pfv-circle: 160px;
   }
-  .mw[data-view='public-fire'] .pfv-left:has(.pfv-prep:not(.is-note)) .pfv-circle {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-left:has(.pfv-prep:not(.is-note)) .pfv-circle {
     --pfv-k: 0.513;
   }
-  .mw[data-view='public-fire'] :is(.pfv-left.is-tight, .pfv-left.is-tighter) {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) :is(.pfv-left.is-tight, .pfv-left.is-tighter) {
     --pfv-circle: 160px;
     gap: 14px;
   }
-  .mw[data-view='public-fire'] :is(.pfv-left.is-tight, .pfv-left.is-tighter) .pfv-circle {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) :is(.pfv-left.is-tight, .pfv-left.is-tighter) .pfv-circle {
     --pfv-k: 0.513;
   }
 }
@@ -1356,14 +1359,14 @@
 /* decision h: bar = X, the place and dates (small), search, menu; a strip with a 120 px circle and the distance chip;
    the facts in a bottom sheet (peek: acres, containment, the official line), the key inside it */
 @media (max-width: 760px) {
-  .mw[data-view='public-fire'] {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) {
     --pfv-right: var(--m-gap);
   }
-  .mw[data-view='public-fire'] .pfv-bar {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-bar {
     --tb-x: var(--m-gap);
     top: var(--m-topbar-top);
   }
-  .mw[data-view='public-fire'] .pfv-bar .tb-left {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-bar .tb-left {
     gap: 10px;
   }
   .pfv-title.is-compact {
@@ -1380,18 +1383,18 @@
     white-space: normal;
   }
   /* the place and dates take the bar's room (the right side keeps only its two buttons) */
-  .mw[data-view='public-fire'] .pfv-bar .tb-left {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-bar .tb-left {
     flex: 1 1 auto;
     min-width: 0;
   }
-  .mw[data-view='public-fire'] .pfv-bar .tb-right {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-bar .tb-right {
     flex: none;
   }
-  .mw[data-view='public-fire'] .pfv-bar .tb-left > .pfv-title {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-bar .tb-left > .pfv-title {
     flex: 1 1 auto;
     min-width: 0;
   }
-  .mw[data-view='public-fire'] .pfv-strip {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-strip {
     --chrome-side: top;
     position: absolute;
     top: calc(var(--m-chrome-top) + 4px);
@@ -1402,7 +1405,7 @@
     gap: 14px;
     pointer-events: none;
   }
-  .mw[data-view='public-fire'] .pfv-strip > * {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-strip > * {
     pointer-events: auto;
   }
   .pfv-circle.is-compact {
@@ -1452,7 +1455,7 @@
     width: calc(100vw - 2 * var(--m-gap));
   }
   /* the location card is a bottom sheet above the facts' peek (map-layout.css phones) */
-  .mw[data-view='public-fire'] .pfv-card {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-card {
     --chrome-side: bottom;
     top: auto;
     left: var(--m-gap);
@@ -1462,14 +1465,14 @@
     max-height: calc(100% - var(--m-chrome-top) - 140px - var(--mw-bottom-stack));
     z-index: 6;
   }
-  .mw[data-view='public-fire'] .pfv-cluster {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-cluster {
     bottom: calc(var(--mw-bottom-stack) + var(--m-gap));
   }
-  .mw[data-view='public-fire']:is(.has-selection, .has-sheet) .pfv-cluster,
-  .mw[data-view='public-fire']:has(.pfv-sheet.is-open) .pfv-cluster {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']):is(.has-selection, .has-sheet) .pfv-cluster,
+  .mw:is([data-view='public-fire'], [data-view='public-flood']):has(.pfv-sheet.is-open) .pfv-cluster {
     display: none;
   }
-  .mw[data-view='public-fire'] .pfv-bottom {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-bottom {
     left: 0;
     right: 0;
     bottom: 0;
@@ -1520,7 +1523,7 @@
   .pfv-sheet .pfv-facts-rows {
     padding: 4px 0;
   }
-  .mw[data-view='public-fire'] .pfv-sheet .pfv-facts .ro-row {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-sheet .pfv-facts .ro-row {
     padding: 6px 0;
   }
   .pfv-sheet .pfv-facts.is-peek .pfv-facts-rows {
@@ -1530,10 +1533,10 @@
     padding-top: 0;
     border-top: 0;
   }
-  .mw[data-view='public-fire'] .pfv-sheet .pfv-facts.is-peek .ro-26 .ro-value {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-sheet .pfv-facts.is-peek .ro-26 .ro-value {
     font-size: 20px;
   }
-  .mw[data-view='public-fire'] .pfv-sheet .pfv-facts.is-peek .ro-label {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-sheet .pfv-facts.is-peek .ro-label {
     letter-spacing: 0.08em;
   }
   .pfv-sheet .pfv-prep {
@@ -1553,20 +1556,20 @@
   .pfv-sheet .pfv-key-sep {
     display: none;
   }
-  .mw[data-view='public-fire'].has-sheet .pfv-sheet,
-  .mw[data-view='public-fire'].has-selection .pfv-sheet {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']).has-sheet .pfv-sheet,
+  .mw:is([data-view='public-fire'], [data-view='public-flood']).has-selection .pfv-sheet {
     display: none;
   }
-  .mw[data-view='public-fire'] .pfv-foot {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-foot {
     min-height: 0;
     padding: 4px var(--m-gap) calc(4px + env(safe-area-inset-bottom, 0px));
     background: rgba(12, 12, 12, 0.85);
   }
-  .mw[data-view='public-fire'] .pfv-note {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-note {
     flex: 1 1 auto;
     max-width: none;
   }
-  .mw[data-view='public-fire'] .pfv-note > .fxc {
+  .mw:is([data-view='public-fire'], [data-view='public-flood']) .pfv-note > .fxc {
     font-size: 10px;
     white-space: normal;
   }

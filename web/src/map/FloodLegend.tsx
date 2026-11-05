@@ -8,7 +8,22 @@
 import { ChevronDown, Info } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useFlood } from '../state/flood'
-import { FLOOD_LIST_ABSENCE, FLOOD_LIST_ABSENCE_SHORT, FLOOD_OVERVIEW, GAUGE_CATEGORY_DISPLAY, NOT_ALL_CLEAR } from '../ui/shell/floodCopy'
+import { useShallow } from 'zustand/react/shallow'
+import { useFloodOfficial } from '../official/floodHooks'
+import { satLoginNote } from '../ui/public/floodView'
+import {
+  FLOOD_LIST_ABSENCE,
+  FLOOD_LIST_ABSENCE_SHORT,
+  FLOOD_OVERVIEW,
+  FLOOD_PUBLIC,
+  GAUGE_CATEGORY_DISPLAY,
+  NFHL_NOTE,
+  NOT_ALL_CLEAR,
+  RFC_FIM_LABEL,
+  RFC_FIM_NOTE,
+  SAT_EDGE,
+  SAT_NO_VIEW_KEY,
+} from '../ui/shell/floodCopy'
 import { nationalGaugesDown, useNationalGauges } from './floodGaugeStatus'
 import { ScaleBar } from './MapAttribution'
 import type { GaugeTone } from './floodStyle'
@@ -44,6 +59,10 @@ export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant 
   const gaugesOn = useFlood((s) => s.layers.gauges)
   // the national gauge layer could not be read: only the listed floods' own gauges are drawn (WFO-R8)
   const gaugesDown = useNationalGauges(nationalGaugesDown) && gaugesOn && !floodOpen
+  // a flood view: what each of its layers is (the backend's own caveats; brief 5 web-flood-public)
+  const view = useFloodOfficial(useShallow((s) => ({ satellite: s.satellite.data, fim: s.fim.data, nfhl: s.nfhl.data })))
+  const floodplainOn = useFlood((s) => s.layers.floodplain)
+  const login = floodOpen ? satLoginNote(view.satellite) : null
   const compact = (
     <ul className="fxm-legend-row fxo-legend-row" aria-label="Legend">
       {!past && <Row sw="flood-large">{FLOOD_OVERVIEW.legendLarge}</Row>}
@@ -90,6 +109,49 @@ export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant 
             <Sw kind="warning" /> {FLOOD_OVERVIEW.legendWarningArea}
           </h3>
           <p>{FLOOD_OVERVIEW.legendWarningBody}</p>
+        </section>
+      )}
+      {floodOpen && view.satellite && (
+        <section>
+          <h3>
+            <span className="ffk-sw ffk-sw-sat" aria-hidden="true" /> {view.satellite.source.name}
+          </h3>
+          {view.satellite.caveats.map((c, i) => (
+            <p key={i}>{c}</p>
+          ))}
+          <p>
+            <span className="ffk-sw ffk-sw-noview" aria-hidden="true" /> {SAT_NO_VIEW_KEY} · <span className="ffk-sw ffk-sw-edge" aria-hidden="true" /> {SAT_EDGE}
+          </p>
+          {view.satellite.status !== 'available' && view.satellite.reason && <p className="fxm-legend-note">{view.satellite.reason}</p>}
+          {login?.short && <p className="fxm-legend-note ffk-login">{login.short}</p>}
+          {login?.long && <p className="fxm-legend-note">{login.long}</p>}
+        </section>
+      )}
+      {floodOpen && view.fim && (
+        <section>
+          <h3>
+            <span className="ffk-sw ffk-sw-forecast" aria-hidden="true" /> {RFC_FIM_LABEL}
+          </h3>
+          <p>{view.fim.coverage_note || RFC_FIM_NOTE}</p>
+          {view.fim.outside_note && <p>{view.fim.outside_note}</p>}
+          {view.fim.status !== 'available' && view.fim.reason && <p className="fxm-legend-note">{view.fim.reason}</p>}
+        </section>
+      )}
+      {floodOpen && (
+        <section>
+          <h3>
+            <span className="ffk-sw ffk-sw-channel" aria-hidden="true" /> {FLOOD_PUBLIC.keyChannel}
+          </h3>
+          <p>{FLOOD_PUBLIC.channelBody}</p>
+        </section>
+      )}
+      {floodOpen && floodplainOn && (
+        <section>
+          <h3>
+            <span className="ffk-sw ffk-sw-floodplain" aria-hidden="true" /> {view.nfhl?.source.name ?? 'FEMA'}
+          </h3>
+          <p>{view.nfhl?.coverage_note || NFHL_NOTE}</p>
+          {view.nfhl && view.nfhl.status !== 'available' && view.nfhl.reason && <p className="fxm-legend-note">{view.nfhl.reason}</p>}
         </section>
       )}
       <p className="fxm-legend-note">{FLOOD_LIST_ABSENCE}</p>

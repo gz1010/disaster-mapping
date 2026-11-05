@@ -14,8 +14,10 @@
 // Dev handle: window.__flood.
 import { create, type StoreApi, type UseBoundStore } from 'zustand'
 import { ApiError, describeError } from '../api/client'
-import { getFlood, getFloods } from '../api/floods'
+import { getJob } from '../api/client'
+import { getFlood, getFloods, postFloodBuild } from '../api/floods'
 import type { FloodDetailResponse, FloodManifest, FloodSummary, JobStatus } from '../api/types'
+import { activeBuildJob, jobFinished, pollDelay } from './floodBuild'
 import { EMPTY_SLOT, findFloodIn, getSlot, slotApply, slotFail, slotKey, slotPending, type FloodListKey, type FloodListSlot } from './floodCatalog'
 import { crossingHazard, replacingHistory } from './floodNav'
 import { WATCHES_SHOWN_BY_DEFAULT } from './floodOverview'
@@ -60,6 +62,8 @@ export interface FloodState {
   detailLoading: boolean
   /** Additive: the last detail request failed for another reason than 404 / 503 (the list's summary stays shown). */
   detailError: string | null
+  /** Additive (web-flood-public, C10): why the last preparation of the flood's map data could not start or failed. */
+  buildError: string | null
   gaugeLid: string | null
   cursorMs: number | null
   layers: Record<FloodLayerKey, boolean>
@@ -85,6 +89,7 @@ const CLOSED = {
   resolvedFrom: null,
   detailLoading: false,
   detailError: null,
+  buildError: null,
   gaugeLid: null,
   cursorMs: null,
 } as const
@@ -155,6 +160,8 @@ export const useFlood: UseBoundStore<StoreApi<FloodState>> = create<FloodState>(
       // an alias (rule 13): the canonical flood, and the address bar says its id (replace, never a new entry)
       if (canonical !== id) replacingHistory(apply)
       else apply()
+      // a preparation already running (started here before, or by the live loop's auto-build): follow it
+      if (activeBuildJob(d.job, canonical)) pollBuild(canonical, d.job!)
     } catch (e) {
       if (token !== openToken || get().floodId !== id) return
       const status = statusOf(e)
@@ -177,8 +184,23 @@ export const useFlood: UseBoundStore<StoreApi<FloodState>> = create<FloodState>(
     else write()
   },
 
-  // A typed stub: web-flood-public implements the build, job polling and manifest loading (C10, PLAN-5 §4.1).
-  startFloodBuild: async () => undefined,
+  // Prepare the open flood's map data (C10): start the backend's build job, follow it, then read the detail again so the
+  // manifest (the bundle's files) arrives. 409 (the synthetic fixture, a flood outside the lower 48) says why.
+  startFloodBuild: async (force = false) => {
+    const id = get().floodId
+    if (!id) return
+    if (activeBuildJob(get().job, id)) return
+    set({ buildError: null })
+    try {
+      const job = await postFloodBuild(id, force)
+      if (get().floodId !== id) return
+      set({ job })
+      pollBuild(id, job)
+    } catch (e) {
+      if (get().floodId !== id) return
+      set({ buildError: e instanceof ApiError && e.status === 409 ? conflictText(e) : describeError(e) })
+    }
+  },
 
   setFilter: (filter) => {
     if (slotKey(filter) === slotKey(get().filter)) return
@@ -191,6 +213,57 @@ export const useFlood: UseBoundStore<StoreApi<FloodState>> = create<FloodState>(
   setCursor: (cursorMs) => set({ cursorMs: cursorMs != null && Number.isFinite(cursorMs) ? cursorMs : null }),
   setFloodLayer: (k, on) => set((s) => (s.layers[k] === on ? {} : { layers: { ...s.layers, [k]: on } })),
 }))
+
+/** The backend's own reason for a 409 ("'fixture-flood' is a synthetic bundle; it cannot be rebuilt."). */
+function conflictText(e: ApiError): string {
+  try {
+    const body = JSON.parse(e.body) as { detail?: unknown; message?: unknown }
+    const d = typeof body.detail === 'string' ? body.detail : typeof body.message === 'string' ? body.message : null
+    if (d) return d
+  } catch {
+    // not JSON
+  }
+  return 'This flood cannot be prepared.'
+}
+
+let pollTimer: ReturnType<typeof setTimeout> | null = null
+let pollToken = 0
+
+/** Follow a build job until it finishes; then read the detail again (the manifest). Stops when the flood closes. */
+function pollBuild(floodId: string, job: JobStatus): void {
+  const token = ++pollToken
+  if (pollTimer) clearTimeout(pollTimer)
+  const still = () => token === pollToken && useFlood.getState().floodId === floodId
+  const step = async (j: JobStatus) => {
+    if (!still()) return
+    if (jobFinished(j)) {
+      if (j.status === 'error') {
+        useFlood.setState({ job: j, buildError: j.error || j.message || null })
+        return
+      }
+      try {
+        const d = await getFlood(floodId)
+        if (!still()) return
+        useFlood.setState({ job: j, summary: d.summary, manifest: d.manifest, resolvedFrom: d.resolved_from, buildError: null })
+      } catch (e) {
+        if (still()) useFlood.setState({ job: j, buildError: describeError(e) })
+      }
+      return
+    }
+    pollTimer = setTimeout(() => {
+      getJob(j.id)
+        .then((next) => {
+          if (!still()) return
+          useFlood.setState({ job: next })
+          void step(next)
+        })
+        .catch((e: unknown) => {
+          if (still()) useFlood.setState({ buildError: describeError(e), job: { ...j, status: 'error', error: describeError(e) } })
+        })
+    }, pollDelay(j))
+  }
+  void step(job)
+}
 
 /** Open a flood's view for the current preset (Public → the Public flood view, Command → the Command flood view
  *  directly, D14; Forensic → its flood branch): one history entry. */

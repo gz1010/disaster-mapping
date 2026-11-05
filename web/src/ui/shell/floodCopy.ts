@@ -326,6 +326,129 @@ export const FLOOD_OVERVIEW = {
   titleFloods: 'floods',
 } as const
 
+// ------------------------------------------------------------------------------------------------ Public flood view
+/** The circle's meaning line while the highest product is still to start (its onset after now). */
+export const CIRCLE_MEANING_UPCOMING = '{Sender} has issued a {event} for this area, starting {time}.'
+/** A watch's meaning ends with this when it is still to start. */
+export const CIRCLE_MEANING_WATCH_TAIL = 'Flooding is possible. Not an all-clear. Follow local officials.'
+
+/** The Public flood view (PLAN-5 §4.4): fact labels (upper-cased by the row's style), quiet values, the facts' foot,
+ *  the key, the title, the circle's tooltip and the preparation of a flood's map data (web-flood-public). */
+export const FLOOD_PUBLIC = {
+  // fact labels (rows 1-3 per kind, then started, the highest product, evacuations, last update; C4)
+  labelFim: 'Forecast flooded area (NWS, 5 days)',
+  labelStage: 'River stage (USGS)',
+  labelCrest: 'Forecast crest (NWS)',
+  labelDetection: 'Flash flood detection (NWS)',
+  labelDamage: 'Damage threat (NWS)',
+  labelGauges: 'River gauges',
+  labelWatchArea: 'Watch area (NWS)',
+  labelRiverForecast: 'River forecast (NWS)',
+  labelStarted: 'Started',
+  labelSeenSince: 'Seen by Fire-3d since',
+  labelProduct: '{event} (NWS)',
+  labelNoProduct: 'NWS flood product',
+  labelEvacuations: 'Evacuations',
+  labelLocal: "Local officials' alert",
+  labelUpdated: 'Last official update',
+  // quiet values (never "N/A", never an all-clear)
+  checking: 'Checking…',
+  unavailable: 'Unavailable right now',
+  pastDates: 'Not available for past dates',
+  inEffect: 'In effect',
+  startingSoon: 'Starting soon',
+  noneInEffect: 'None in effect',
+  noReading: 'No reading',
+  notGiven: 'Not given',
+  noUpdateTime: 'No update time given',
+  flashEmergency: 'Flash Flood Emergency',
+  andMore: '{areas} and {n} more',
+  andMoreOne: '{areas} and 1 more',
+  // the sub-lines' parts
+  until: 'until {time}',
+  sent: 'sent {time}',
+  reading: 'reading {time} ({age})',
+  issued: 'issued {time}',
+  startedNws: 'first NWS product of this flood',
+  startedGauge: 'first reading at flood stage at a member gauge',
+  startedFirstSeen: 'first listed by NWS products or gauges Fire-3d reads',
+  updatedWhat: 'newest NWS product or member gauge reading',
+  nwsAlertLink: 'NWS product',
+  gaugePageLink: 'NWS gauge page',
+  forecastLink: 'NWS forecast',
+  // the facts' foot
+  sourcesLine: 'NWS · USGS · checked {age}',
+  sourcesLineNoCheck: 'NWS · USGS',
+  demoLine: 'Demo data: a simulated flood, not an NWS product or gauge reading',
+  waterLink: 'NWS water',
+  waterUrl: 'https://water.noaa.gov',
+  // the circle
+  circleTip: 'Open this flood in the Command view: the river-level chart, every NWS product, the gauges and the experimental model',
+  circleLabel: '{name}: {status}. More in Command view',
+  thisFlood: 'This flood',
+  // the title
+  loadingFlood: 'Loading the flood…',
+  floodFallback: 'Flood',
+  // the key (each layer with its own source and time; C16 ages at render)
+  keyForecast: 'NWS forecast flooded area · issued {time}',
+  keyForecastNoTime: 'NWS forecast flooded area',
+  keyChannel: 'Main channel',
+  channelBody: "The river's usual channel and other mapped water, from OpenStreetMap (OpenFreeMap). It is not a flood layer: water outside it is drawn only by the layers above.",
+  keyWarning: 'NWS warning area',
+  keyNoLayer: 'No flood layer mapped here yet · see the facts',
+  keyLoading: 'Loading the flood layers…',
+  keyHiddenInLayers: ' (hidden in Layers)',
+  keyStaleTip: 'This satellite image is more than 3 days old: the water may have changed since',
+  keyStale: 'Old',
+  keyPicture: 'Satellite water: NASA picture, {date} (not measured here)',
+  // map data (bundle) preparation (C10)
+  notPrepared: "Fire-3d has not prepared this flood's map data yet (terrain and frozen copies of the water layers).",
+  prepare: 'Prepare map data (about 1 min)',
+  prepareFailed: "Fire-3d's last preparation of this flood's map data failed.",
+  prepareAgain: 'Prepare again (about 1 min)',
+  preparing: "Preparing this flood's map data (about 1 min)",
+  prepareNotListed: 'Only listed floods can be prepared.',
+  // phones
+  sheetMore: 'Show all official facts and the map key',
+  sheetLess: 'Show less',
+  // the Layers drawer of a flood view (FloodLayersPanel; D12, D21, D22)
+  layersTitle: 'Layers & settings',
+  layersWater: 'Water layers',
+  layersBackground: 'Background',
+  layersModel: 'Model output (experimental)',
+  layersEvac: 'Official evacuation zones',
+  layerSatellite: 'Water seen by satellite (NASA OPERA)',
+  layerSatelliteDesc: 'Measured water and partial water from the newest clear image; clouds and no data drawn grey. Days old, never "now".',
+  layerForecast: 'NWS forecast flooded area (next 5 days)',
+  layerForecastDesc: "NWS's experimental map of where river forecasts say water could reach; a forecast, not today's water",
+  layerWarnings: 'NWS warning areas',
+  layerWarningsDesc: 'The areas of the NWS flood products in effect, as NWS drew them',
+  layerGauges: 'River gauges (NWS)',
+  layerGaugesDesc: "This flood's gauges by NWS category, and gauges at action stage or above nearby",
+  layerChannel: 'Main channel',
+  layerChannelDesc: "The river's usual channel and other mapped water (OpenStreetMap)",
+  layerFloodplain: 'FEMA 1% annual-chance floodplain',
+  layerFloodplainDesc: 'Background for flood insurance, not current flooding · effective {date}',
+  layerFloodplainDescNoDate: 'Background for flood insurance, not current flooding',
+  layerCatfim: 'NWS category flood maps (experimental)',
+  layerCatfimDesc: "What NWS maps for the primary gauge's forecast category; not a forecast",
+  layerModel: 'National Water Model flooded area (experimental)',
+  layerModelDesc: 'Model output (NOAA National Water Model), never an NWS forecast',
+  layerEvac: 'Evacuation zones (official)',
+  layerEvacDesc: 'Current orders and warnings from local officials, where a state publishes them, with the issuing authority and update time',
+  layersPublicNote: 'The experimental model (NOAA National Water Model) and NWS category flood maps are in Command.',
+  layersCommandNote: 'Model output is experimental and is never an NWS forecast or advice on when to evacuate. Follow local officials.',
+  openCommand: 'Open Command ›',
+  forensicButton: 'Open Forensic workspace',
+  forensicNote: "The flood's layers draped on 3D terrain, its river gauges as bars and every NWS product version are in the Forensic workspace.",
+  units: 'Units',
+  basemap: 'Basemap',
+  legend: 'Legend',
+  // the point card's flood-view block
+  pointLayersTitle: 'Flood layers at this spot',
+  pointModelInCommand: 'The experimental model for this spot is in Command',
+} as const
+
 // ------------------------------------------------------------------------------------------------ the guard
 /** PLAN-5 §5.1: words Fire-3d never says in its own voice (case-insensitive, word-bounded: "extended" and
  *  "recommended" never match). RegExps, so the string scan below does not read them as copy. */
