@@ -196,10 +196,12 @@
 }
 
 /* ------------------------------------------------------------------------------------------------ column */
-/* the design's facts are 420 px wide (FloodView.dc.html "Official facts") */
+/* the design's facts are 420 px wide (FloodView.dc.html "Official facts"); the flood facts carry an issuer, an own time
+   and a link under most rows, so the column is 440 px from 1280 px: each of those lines stays on one line and the
+   circle keeps the design's 312 px at 1440 × 1000 */
 @media (min-width: 1280px) {
   .mw[data-view='public-flood'] {
-    --pfv-col-w: 420px;
+    --pfv-col-w: 440px;
   }
 }
 
