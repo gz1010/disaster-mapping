@@ -637,12 +637,16 @@ def test_merge_rebuilt_gauges_never_loses_members_or_detail():
     # the rebuild could not read the gauges at all: the earlier answer stays
     same, kept = flood_live.merge_rebuilt_gauges(older, {"status": "unavailable", "gauges": []}, ["AGYM7"])
     assert same is older and kept == ["gauges"]
-    # an ordinary rebuild (NWPS read): its answer, with the earlier observed rows; a gauge that left the flood is gone
+    # an ordinary rebuild (NWPS read): its answer, with the earlier observed rows; a gauge that left the flood (no
+    # longer at action stage in NWS's list) stays as a nearby gauge with its readings and the map's newest one
     fresh = _member("AGYM7", valid=4000, value=22.0)
-    ok, kept = flood_live.merge_rebuilt_gauges(older, {"status": "available", "caveats": [], "gauges": [fresh]},
-                                               ["AGYM7"])
-    assert kept == [] and [g["lid"] for g in ok["gauges"]] == ["AGYM7"]
+    now_near = {**_member("SJWF1", detail=False, valid=5000, value=3.0), "member": False}
+    ok, kept = flood_live.merge_rebuilt_gauges(older, {"status": "available", "caveats": [],
+                                                       "gauges": [fresh, now_near]}, ["AGYM7"])
+    assert kept == [] and [(g["lid"], g["member"]) for g in ok["gauges"]] == [("AGYM7", True), ("SJWF1", False)]
     assert [r[0] for r in ok["gauges"][0]["series"]["observed"]] == [500, 1000, 4000]
+    sj = ok["gauges"][1]
+    assert sj["impacts"] and sj["observed"]["valid_ms"] == 5000 and sj["series"]["observed"][-1] == [5000, 3.0, None]
     # a gauge the map has no detail for either: the caveat stays
     lone = {"status": "available", "caveats": [fcopy.GAUGE_DETAIL_DOWN], "gauges": [_member("NEW01", detail=False)]}
     m2, kept = flood_live.merge_rebuilt_gauges(older, lone, ["NEW01"])

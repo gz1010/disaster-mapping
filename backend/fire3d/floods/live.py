@@ -450,11 +450,11 @@ def _has_detail(g: dict) -> bool:
     return bool(g.get("data_attribution") or g.get("impacts") or g.get("reach_id") or g.get("hydronotes"))
 
 
-def keep_detail(old: dict, fresh: dict) -> dict:
-    """One member gauge that the rebuild could read only from the NWS gauge map: the earlier NWPS answer (impacts,
-    reach, forecast, data attribution, series) with the map's newer reading appended."""
+def keep_detail(old: dict, fresh: dict, *, member: bool = True) -> dict:
+    """One gauge that the rebuild could read only from the NWS gauge map (or not at all: ``fresh`` = ``old``): the
+    earlier NWPS answer (impacts, reach, forecast, data attribution, series) with the map's newer reading appended."""
     obs = fresh.get("observed") or {}
-    g = {**fresh, **{k: old[k] for k in _DETAIL_FIELDS if k in old}, "member": True,
+    g = {**fresh, **{k: old[k] for k in _DETAIL_FIELDS if k in old}, "member": member,
          "waterbody": old.get("waterbody") or fresh.get("waterbody"), "series": old.get("series")}
     if (obs.get("valid_ms") or 0) > ((old.get("observed") or {}).get("valid_ms") or 0):
         g["observed"] = obs
@@ -476,6 +476,9 @@ def merge_rebuilt_gauges(older: dict | None, rebuilt: dict | None, members: list
     * A member gauge the rebuild could read only from the NWS gauge map (NWPS busy or down: no impacts, no reach, no
       data attribution): the earlier NWPS answer with the map's newer reading (:func:`keep_detail`).
     * A member gauge of the flood now (``members``: the rebuilt summary's gauges) that the rebuild left out: put back.
+    * A gauge that has left the flood (NWS's list no longer has it at action stage or above): kept as a nearby gauge
+      (``member: false``) with its earlier detail and observed rows and the newest reading, so the bundle keeps the
+      readings it saw (as it keeps every product version); facts and leaders use members only.
     ``GAUGE_DETAIL_DOWN`` is dropped when no member gauge is left with the map's reading only."""
     if older is None or older.get("status") != "available":
         return rebuilt, []
@@ -504,6 +507,13 @@ def merge_rebuilt_gauges(older: dict | None, rebuilt: dict | None, members: list
         out = out[:n_members] + lost + out[n_members:]          # members first, nearby gauges after
         order = {lid: i for i, lid in enumerate(members or [])}
         out[:n_members + len(lost)] = sorted(out[:n_members + len(lost)], key=lambda g: order.get(g["lid"], 99))
+    if members is not None:                                     # gauges that left the flood: nearby, with history
+        gone = [lid for lid in prev if lid not in have and lid not in members]
+        if gone:
+            n_members = sum(1 for g in out if g.get("member"))
+            near = {g["lid"]: g for g in out[n_members:]}
+            hist = [keep_detail(prev[lid], near.get(lid) or prev[lid], member=False) for lid in gone]
+            out = out[:n_members] + hist + [g for g in out[n_members:] if g["lid"] not in set(gone)]
     caveats = list(rebuilt.get("caveats") or [])
     if down and not fallback_left:
         caveats = [c for c in caveats if c != fcopy.GAUGE_DETAIL_DOWN]
