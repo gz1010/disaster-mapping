@@ -5,9 +5,11 @@
 // parts, "NWS forecast flooded area · issued 10:20 AM", "Main channel", "NWS warning area" and, when switched on, "FEMA
 // 1% annual-chance floodplain · effective {date}". Without the NASA login the key says "No radar images: NASA login not
 // set up". The fire key's shape (ui/public/FireKey.tsx).
+import { useCallback, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useShallow } from 'zustand/react/shallow'
 import { useFloodOfficial } from '../../official/floodHooks'
-import { officialAlerts } from '../../official/floodModel'
+import { answerState, officialAlerts } from '../../official/floodModel'
 import { DRAW_SAT_PICTURE } from '../../map/floodAreaLayers'
 import { FloodLegend } from '../../map/FloodLegend'
 import { ScaleBar } from '../../map/MapAttribution'
@@ -15,7 +17,7 @@ import { openFloodSummary, useFlood } from '../../state/flood'
 import { gaugeCategoryRank } from '../../state/floodOverview'
 import { useTimeFormatFor } from '../../state/timeZone'
 import { useNow } from '../hooks'
-import { FLOOD_PUBLIC } from '../shell/floodCopy'
+import { FLOOD_PUBLIC, SAT_UNAVAILABLE } from '../shell/floodCopy'
 import { floodKeyItems, SAT_STALE_MS, upperDay, type FloodKeyItem } from './floodView'
 import { shownGranule } from '../../official/floodModel'
 import { fmtRelative } from '../../lib/time'
@@ -46,7 +48,24 @@ export function FloodKey({ details = true }: { details?: boolean }) {
   const tf = useTimeFormatFor(summary?.time_zone)
   const nowMs = useNow(60_000)
   const warnings = officialAlerts(off.alerts.data).some((a) => a.geometry != null) || (off.alerts.data?.zones?.features.length ?? 0) > 0
-  const items = floodKeyItems({ satellite: off.satellite.data, fim: off.fim.data, nfhl: off.nfhl.data, warnings, layers, tf, nowMs, pictureDrawn: DRAW_SAT_PICTURE })
+  // each answer's state, so a failed or running request is said, never a layer that silently vanishes (review WFP-R1);
+  // both are always asked for an open flood (not asked yet reads as loading)
+  const satState = answerState(off.satellite)
+  const fimState = answerState(off.fim)
+  const items = floodKeyItems({
+    satellite: off.satellite.data,
+    fim: off.fim.data,
+    nfhl: off.nfhl.data,
+    warnings,
+    layers,
+    tf,
+    nowMs,
+    pictureDrawn: DRAW_SAT_PICTURE,
+    satelliteState: satState === 'none' ? 'loading' : satState,
+    fimState: fimState === 'none' ? 'loading' : fimState,
+    satelliteError: off.satellite.error,
+    fimError: off.fim.error,
+  })
   const loading = off.satellite.loading && off.fim.loading && !off.satellite.data && !off.fim.data
   return (
     <div className="pfv-key ffk" role="group" aria-label="Map key">
@@ -77,9 +96,19 @@ export function FloodKey({ details = true }: { details?: boolean }) {
 export function FloodSatStatus() {
   const summary = useFlood((s) => openFloodSummary(s))
   const sat = useFloodOfficial((s) => s.satellite.data)
+  const failed = useFloodOfficial((s) => answerState(s.satellite) === 'unavailable')
+  const error = useFloodOfficial((s) => s.satellite.error)
   const on = useFlood((s) => s.layers.satellite)
   const tf = useTimeFormatFor(summary?.time_zone)
   const nowMs = useNow(60_000)
+  // satellite water could not be loaded (the request failed or the backend could not read NASA): said, amber, with
+  // SAT_UNAVAILABLE in the tooltip (review WFP-R1)
+  if (on && failed)
+    return (
+      <p className="ffv-sat-status is-stale" data-tip={[SAT_UNAVAILABLE, sat?.reason ?? error].filter(Boolean).join(' · ')}>
+        {FLOOD_PUBLIC.satStatusUnavailable}
+      </p>
+    )
   if (!sat || !on || sat.status !== 'available') return null
   const g = shownGranule(sat)
   if (sat.measured && g) {
@@ -99,7 +128,7 @@ export function FloodSatStatus() {
  *  flooded area (NOAA/NWS National Water Center, experimental), water seen by satellite (NASA JPL OPERA), the FEMA
  *  floodplain while it is on, and USGS for the gauges' measurements; each only while its layer shows data. The flood
  *  list's own credits (NWS, NOAA's river gauges) are in the map's credits already. */
-export function FloodLayerCredits() {
+export function FloodLayerCredits({ foot = false }: { foot?: boolean } = {}) {
   const layers = useFlood((s) => s.layers)
   const off = useFloodOfficial(useShallow((s) => ({ fim: s.fim.data, satellite: s.satellite.data, nfhl: s.nfhl.data, gauges: s.gauges.data })))
   const items: { id: string; text: string; href: string | null }[] = []
@@ -117,7 +146,7 @@ export function FloodLayerCredits() {
   if (usgs) items.push({ id: 'usgs', text: 'Gauge readings: U.S. Geological Survey (provisional data)', href: 'https://waterdata.usgs.gov/provisional-data-statement/' })
   if (!items.length) return null
   return (
-    <span className="ffv-credits" aria-label="Sources of the flood layers">
+    <span className={`ffv-credits${foot ? ' is-foot' : ''}`} aria-label="Sources of the flood layers">
       {items.map((a, i) => (
         <span key={a.id}>
           {i > 0 && ' · '}
@@ -131,5 +160,20 @@ export function FloodLayerCredits() {
         </span>
       ))}
     </span>
+  )
+}
+
+/** The flood layers' credits in the foot bar's credits (`#mw-credits`, App.tsx CreditsFooter) while the key that
+ *  carries them is hidden: panels collapsed, phones (there folded behind "© Credits" with the map's credits). Every
+ *  drawn layer stays credited (CLAUDE.md; PLAN-5 §4.4 foot bar; review WFP-R6). */
+export function FloodFootCredits({ show }: { show: boolean }) {
+  const [host, setHost] = useState<HTMLElement | null>(null)
+  // a hidden anchor next to the foot's credits finds their element once both are in the page
+  const anchor = useCallback((el: HTMLSpanElement | null) => setHost(el?.parentElement?.querySelector<HTMLElement>('#mw-credits') ?? null), [])
+  return (
+    <>
+      <span ref={anchor} hidden />
+      {show && host ? createPortal(<FloodLayerCredits foot />, host) : null}
+    </>
   )
 }

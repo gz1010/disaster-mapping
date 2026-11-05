@@ -131,7 +131,8 @@ export function floodViewGauges(): GaugePoint[] {
   const ans = useFloodOfficial.getState()
   const resp = ans.floodId === s.id ? ans.gauges.data : null
   if (resp && resp.status === 'available') {
-    const members = memberGaugesOf(resp).map(riverToPoint)
+    // the primary gauge with the newer of its two readings, as the stage row and the leader (review WFP-R2)
+    const members = memberGaugesOf(resp, s).map(riverToPoint)
     const nearby = resp.gauges.filter((g) => !g.member && gaugeCategoryRank(g.observed.category) >= 1).map(riverToPoint)
     return [...members, ...nearby]
   }
@@ -221,7 +222,8 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
     if (gaugesOn && view) {
       const g = useFloodOfficial.getState().gauges
       const pts = floodViewGauges()
-      const gk = `view|${fl.floodId}|${g.data?.retrieved_ms ?? 0}|${pts.length}|${ws.units}`
+      const pg = openFloodSummary(fl)?.primary_gauge
+      const gk = `view|${fl.floodId}|${g.data?.retrieved_ms ?? 0}|${pts.length}|${ws.units}|${pg?.lid ?? ''}:${pg?.observed_ms ?? 0}`
       if (gk !== gaugeKey) {
         gaugeKey = gk
         setData(FLOOD_GAUGE_SOURCE, gaugeFeatures(pts, ws.units, 0))
@@ -294,7 +296,18 @@ export function mountFloodLayers(map: MapLibreMap, opts: { beforeId?: string[]; 
     const nowMs = Date.now()
     const cursorBucket = fl.cursorMs == null ? 'now' : String(Math.round(fl.cursorMs / 600_000))
     const key = mine
-      ? [s.id, off.alerts.data?.retrieved_ms, off.alerts.data?.alerts.length, off.fim.data?.retrieved_ms, off.nfhl.data?.retrieved_ms, cursorBucket, Math.round(nowMs / 60_000)].join('|')
+      ? [
+          s.id,
+          off.alerts.data?.retrieved_ms,
+          off.alerts.data?.alerts.length,
+          off.fim.data?.retrieved_ms,
+          off.nfhl.data?.retrieved_ms,
+          // the satellite image's edge follows its answer (review WFP-R3: the image often arrives last)
+          off.satellite.data?.retrieved_ms,
+          off.satellite.data?.image?.url,
+          cursorBucket,
+          Math.round(nowMs / 60_000),
+        ].join('|')
       : ''
     if (key !== areaKey) {
       areaKey = key

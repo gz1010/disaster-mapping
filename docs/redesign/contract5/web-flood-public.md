@@ -135,3 +135,48 @@ point-card lines, official rows; the facts column is 440 px from 1280 px so the 
   start failed.
 - **Integration:** the 1024 px layout pass (the key with its credits gets tall); GIBS picture drawing; credits in the
   map footer; `location/CoordinateStrip.tsx` still says "No fire open" (WFO-R9).
+
+## Review fixes (WFP-R1..R12; `reports/review5-web-flood-public.json`)
+
+Additive; no store shape change beyond what is listed.
+
+- **Failed or running answers are said (R1).** `floodKeyItems` input gains `satelliteState?`, `fimState?` (`AnswerState`)
+  and `satelliteError?`, `fimError?`; new item keys `satUnavailable` / `fimUnavailable` (SAT_UNAVAILABLE /
+  RFC_FIM_UNAVAILABLE, amber, the error or the backend's reason as the tooltip) and `satChecking` / `fimChecking`.
+  `FloodSatStatus` shows `SATELLITE WATER · UNAVAILABLE`. `FloodLegend` details keep a satellite and a forecast-area
+  section when the request failed. `checkPoint` input gains `fimState?`, `satelliteState?`, `nfhlState?`: `unavailable`
+  adds the layer's unavailable line, `loading` a "checking" line; both (and a satellite pixel still being read) block
+  `NOTHING_COVERS`. `SatClassAt` gains `'clear'` (R8). Command's `FloodReadout` should pass the same states.
+- **One reading per gauge (R2).** `official/floodModel.ts`: `withNewerReading(gauge, summary.primary_gauge)`,
+  `primaryGaugeReading(summary, gaugesResp)`; `memberGaugesOf(resp, summary?)` and `primaryMemberGauge` apply it to the
+  primary gauge. Used by the stage row, `FloodLeader` (hollow grey diamond below flood stage, D9) and
+  `floodController.floodViewGauges` (map label). Command should read gauges through these too.
+- **Satellite edge (R3):** the area-sync key includes the satellite answer's `retrieved_ms` and image URL.
+- **Stale facts (R4):** `.mw[data-view='public-flood'] .pfv-facts .ro-row.is-stale .ro-value` amber (flood view only).
+- **Outage wording (R5):** `EVAC_UNAVAILABLE` (new, `floodCopy.ts`); `FloodEvacFact.tip?` (the request's error);
+  unavailable / not-available evacuation sub-lines end with "not an all-clear: follow local officials"; quiet fact rows
+  carry the request error or the backend's reason as their tooltip; a failed RFC FIM request says RFC_FIM_UNAVAILABLE.
+- **Credits (R6):** `FloodLayerCredits({ foot? })` and `FloodFootCredits({ show })` (`ui/public/FloodKey.tsx`): while
+  the key is hidden (panels collapsed, phones) the flood layers' credits are portalled into the foot bar's
+  `#mw-credits` (App.tsx `CreditsFooter`), so they fold behind "© Credits" on phones like the map's credits; the opened
+  phone panel is opaque in the flood view. Folding them into `lib/dataCredits.ts floodCredits()` stays open for the
+  integration.
+- **Product rows (R7):** watch area, detection and damage threat sub-lines: sender · `sent {time}` in the issuer's zone
+  · link "NWS product" (https only).
+- **Satellite classes (R8):** 252 `satSnowPoint` (no view of water), 254 `satOceanPoint` (not checked), picture
+  `'clear'` `satClearPoint`; `pngClassAt` returns 252 for near-white and `'clear'` for transparent pixels.
+- **Build polling (R9):** `state/floodBuild.ts` `POLL_LOST_AFTER` (4), `pollRetryDelay(failures)` (3 s, 6 s, 12 s,
+  then 20 s), `pollJobGone(status)` (404). A failed poll keeps the job's last status; after 4 in a row `buildError` is
+  `FLOOD_PUBLIC.prepareLost` while `floodPrepState` stays `building` with that `error`; a good poll clears it.
+- **R10:** no second `productsAt`: web-flood-command re-exports it from `official/floodModel.ts`. Signatures that
+  differ from §16.12 (for §16.16): `HazardDisc` (+ `label`, `tipName`, `rain`, `ref`, tone `'unknown'`),
+  `WaterTexture` (+ `rain`, `svgRef`), `distanceToArea` → `… | null`, `checkPoint` (+ `alertsStatus`, `zones`,
+  `satClass`, `tf`, `units`, `fimState`, `satelliteState`, `nfhlState`).
+- **R11:** `location/FloodPointCard.tsx` exports `FloodViewBlock` (tested); NWS event names in its lines are inside
+  `data-verbatim`.
+- **R12:** a flood without a member gauge: row 3 `NO_RFC_FORECAST` with sub `FLOOD_PUBLIC.noForecastNoGauge`.
+- New copy in `floodCopy.ts` (guard-tested): `EVAC_UNAVAILABLE`; `FLOOD_PUBLIC.keySatChecking`,
+  `keyForecastChecking`, `satStatusUnavailable`, `satSnowPoint`, `satOceanPoint`, `satClearPoint`, `satLoadingPoint`,
+  `fimCheckingPoint`, `prepareLost`, `noForecastNoGauge`.
+- For backend-flood-bundle-api: `/api/official/river-gauges?flood=` can lag `/api/floods` by about 3 h (either way);
+  the web shows the newer reading.

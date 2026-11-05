@@ -64,6 +64,7 @@ export function FloodMapData() {
         <p className="pfv-prep-text">
           {FLOOD_PUBLIC.preparing}
           {prep.step ? <span className="pfv-prep-step"> · {prep.step}</span> : null}
+          {prep.error ? <span className="pfv-prep-step"> · {prep.error}</span> : null}
         </p>
         <ProgressBar value={prep.progress} tone="fire" label="Map data preparation" />
       </div>

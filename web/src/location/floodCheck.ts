@@ -15,7 +15,7 @@ import type { FloodAlert, FloodAlertsResponse, FloodMapResponse, ModelOutputResp
 import { distanceToAreas } from '../lib/areaDistance'
 import { distance } from '../lib/plainLanguage'
 import { fmtAt, fmtDayDate, timeFmt, type TimeFmt } from '../lib/time'
-import { fimMapped, productsAt } from '../official/floodModel'
+import { fimMapped, productsAt, type AnswerState } from '../official/floodModel'
 import type { Units } from '../state/workspace'
 import {
   ALERTS_UNAVAILABLE,
@@ -40,9 +40,10 @@ import {
 import { polygonsOf } from '../ui/public/floodView'
 
 /** A DSWx class at the spot: 0 not water, 1 open water, 2 partial water, 252 snow/ice, 253 cloud, 254 ocean, 255 no
- *  data; `'noview'` when only the picture says "no view" (clouds and no data share its grey hatch, D25); undefined
- *  while unknown. */
-export type SatClassAt = number | 'noview' | null | undefined
+ *  data; `'noview'` when only the picture says "no view" (clouds and no data share its grey hatch, D25); `'clear'` when
+ *  the picture is clear there (the backend draws "not water" and NASA's ocean mask alike, so the line never asserts
+ *  "no water"; review WFP-R8); undefined while unknown. */
+export type SatClassAt = number | 'noview' | 'clear' | null | undefined
 
 export type FloodCheckKind = 'official' | 'forecast' | 'satellite' | 'background' | 'model' | 'note'
 
@@ -72,6 +73,12 @@ export interface FloodPointInput {
   alertsStatus?: FloodAlertsResponse['status'] | 'failed' | 'loading'
   zones?: FloodAlertsResponse['zones'] | null
   fim: FloodMapResponse | null
+  /** The forecast-area, satellite and FEMA answers' states when their body is null (official/floodModel.ts answerState;
+   *  review WFP-R1): `unavailable` (the request failed) says the layer's own "could not be loaded" text, `loading`
+   *  says it is being checked; either way NOTHING_COVERS is not said. Default: not asked. */
+  fimState?: AnswerState
+  satelliteState?: AnswerState
+  nfhlState?: AnswerState
   satellite: SatelliteWaterResponse | null
   /** The satellite class at the spot (map/the bundle's water_satellite.bin or the picture), when known. */
   satClass?: SatClassAt
@@ -147,6 +154,13 @@ export function checkPoint(i: FloodPointInput): FloodPointCheck {
       allAnswered = false
       lines.push({ key: 'fim', kind: 'forecast', text: fim.reason ?? RFC_FIM_UNAVAILABLE, tone: 'warn' })
     }
+  } else if (i.fimState === 'unavailable') {
+    // the request failed with no answer (review WFP-R1)
+    allAnswered = false
+    lines.push({ key: 'fim', kind: 'forecast', text: RFC_FIM_UNAVAILABLE, tone: 'warn' })
+  } else if (i.fimState === 'loading') {
+    allAnswered = false
+    lines.push({ key: 'fim', kind: 'forecast', text: FLOOD_PUBLIC.fimCheckingPoint, tone: 'quiet' })
   }
 
   // water seen by satellite (C2: no view and outside the image said so; dry pixels are never "no flooding")
@@ -164,12 +178,27 @@ export function checkPoint(i: FloodPointInput): FloodPointCheck {
       else if (i.satClass === 253) lines.push({ key: 'sat', kind: 'satellite', text: fillCopy(SAT_CLOUD_POINT, { date }), tone: 'quiet' })
       else if (i.satClass === 255) lines.push({ key: 'sat', kind: 'satellite', text: fillCopy(SAT_NODATA_POINT, { date }), tone: 'quiet' })
       else if (i.satClass === 'noview') lines.push({ key: 'sat', kind: 'satellite', text: fillCopy(FLOOD_PUBLIC.satNoViewPoint, { date }), tone: 'quiet' })
+      // snow or ice hides water as clouds do; NASA's ocean mask is not checked (review WFP-R8)
+      else if (i.satClass === 252) lines.push({ key: 'sat', kind: 'satellite', text: fillCopy(FLOOD_PUBLIC.satSnowPoint, { date }), tone: 'quiet' })
+      else if (i.satClass === 254) lines.push({ key: 'sat', kind: 'satellite', text: fillCopy(FLOOD_PUBLIC.satOceanPoint, { date }), tone: 'quiet' })
       else if (i.satClass === 1 || i.satClass === 2) {
         covered = true
         lines.push({ key: 'sat', kind: 'satellite', inside: true, text: fillCopy(FLOOD_PUBLIC.satWaterPoint, { date }) })
-      } else if (i.satClass === 0 || i.satClass === 252 || i.satClass === 254) lines.push({ key: 'sat', kind: 'satellite', text: fillCopy(FLOOD_PUBLIC.satNotWaterPoint, { date }) })
-      else lines.push({ key: 'sat', kind: 'satellite', text: fillCopy(FLOOD_PUBLIC.satCheckingPoint, { date }), tone: 'quiet' })
+      } else if (i.satClass === 0) lines.push({ key: 'sat', kind: 'satellite', text: fillCopy(FLOOD_PUBLIC.satNotWaterPoint, { date }) })
+      else if (i.satClass === 'clear') lines.push({ key: 'sat', kind: 'satellite', text: fillCopy(FLOOD_PUBLIC.satClearPoint, { date }) })
+      else {
+        // the spot is still being read: no "nothing covers" yet
+        allAnswered = false
+        lines.push({ key: 'sat', kind: 'satellite', text: fillCopy(FLOOD_PUBLIC.satCheckingPoint, { date }), tone: 'quiet' })
+      }
     }
+  } else if (i.satelliteState === 'unavailable') {
+    // the request failed with no answer (review WFP-R1)
+    allAnswered = false
+    lines.push({ key: 'sat', kind: 'satellite', text: SAT_UNAVAILABLE, tone: 'warn' })
+  } else if (i.satelliteState === 'loading') {
+    allAnswered = false
+    lines.push({ key: 'sat', kind: 'satellite', text: FLOOD_PUBLIC.satLoadingPoint, tone: 'quiet' })
   }
 
   // FEMA floodplain (background; C19)
@@ -190,7 +219,7 @@ export function checkPoint(i: FloodPointInput): FloodPointCheck {
       else if (nfhl.availability === 'mapped') lines.push({ key: 'nfhl', kind: 'background', text: NFHL_OUTSIDE, tone: 'quiet' })
       else if (nfhl.availability === 'no_digital_map') lines.push({ key: 'nfhl', kind: 'background', text: NFHL_NO_MAP, tone: 'quiet' })
     }
-  }
+  } else if (i.nfhlState === 'unavailable') lines.push({ key: 'nfhl', kind: 'background', text: NFHL_DOWN, tone: 'warn' })
 
   // model output (Command only, switched on): never merged with the lines above
   const model = i.model

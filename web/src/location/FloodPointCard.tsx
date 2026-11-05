@@ -27,7 +27,7 @@ import { fmtAt, timeFmt } from '../lib/time'
 import { useNow } from '../ui/hooks'
 import { useShallow } from 'zustand/react/shallow'
 import { useFloodOfficial, useSatClassAt } from '../official/floodHooks'
-import { officialAlerts } from '../official/floodModel'
+import { answerState, officialAlerts } from '../official/floodModel'
 import { openFloodSummary, pickFlood, useFlood } from '../state/flood'
 import { applyView } from '../ui/shell/views'
 import { checkPoint, type FloodCheckKind } from './floodCheck'
@@ -59,8 +59,23 @@ function usePointFloodAlerts(lat: number, lon: number, enabled = true) {
 
 const KIND_TAG: Record<FloodCheckKind, string | null> = { official: 'NWS', forecast: 'NWS forecast · experimental', satellite: 'Satellite', background: 'FEMA', model: 'Model · experimental', note: null }
 
+const asked = (st: ReturnType<typeof answerState>) => (st === 'none' ? 'loading' : st)
+
+/** A line's text with NWS's own event name inside data-verbatim (CONTRACT §16.0; review WFP-R11). */
+function CheckText({ text, event }: { text: string; event?: string }) {
+  const at = event ? text.indexOf(event) : -1
+  if (!event || at < 0) return <>{text}</>
+  return (
+    <>
+      {text.slice(0, at)}
+      <span data-verbatim="">{event}</span>
+      {text.slice(at + event.length)}
+    </>
+  )
+}
+
 /** A flood view: what each of the open flood's layers says about the spot (checkPoint), each line tagged. */
-function FloodViewBlock({ sel }: { sel: SelectedLocation }) {
+export function FloodViewBlock({ sel }: { sel: SelectedLocation }) {
   const fl = useFlood(useShallow((s) => ({ summary: openFloodSummary(s), cursorMs: s.cursorMs, floodplain: s.layers.floodplain })))
   const off = useFloodOfficial(useShallow((s) => ({ alerts: s.alerts, fim: s.fim, satellite: s.satellite, nfhl: s.nfhl })))
   const units = useWorkspace((s) => s.units)
@@ -77,6 +92,11 @@ function FloodViewBlock({ sel }: { sel: SelectedLocation }) {
     zones: a.data?.zones ?? null,
     fim: off.fim.data,
     satellite: off.satellite.data,
+    // each layer's own state: a failed request says so and a running one blocks NOTHING_COVERS (review WFP-R1)
+    // (both are always asked for an open flood: not asked yet reads as loading)
+    fimState: asked(answerState(off.fim)),
+    satelliteState: asked(answerState(off.satellite)),
+    nfhlState: fl.floodplain ? answerState(off.nfhl) : 'none',
     satClass,
     nfhl: fl.floodplain ? off.nfhl.data : null,
     model: null,
@@ -94,7 +114,9 @@ function FloodViewBlock({ sel }: { sel: SelectedLocation }) {
         {c.lines.map((l) => (
           <li key={l.key} className={`ffc-line is-${l.kind}${l.inside ? ' is-inside' : ''}${l.tone ? ` is-${l.tone}` : ''}`}>
             {KIND_TAG[l.kind] && <span className={`ffc-tag is-${l.kind}`}>{KIND_TAG[l.kind]}</span>}
-            <span className="ffc-text">{l.text}</span>
+            <span className="ffc-text">
+              <CheckText text={l.text} event={l.event} />
+            </span>
           </li>
         ))}
       </ul>

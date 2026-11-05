@@ -107,6 +107,11 @@
 .ffv-facts .ro-17 .ro-value {
   max-width: 100%;
 }
+/* an old gauge reading (more than 3 h, or NWS "Data Not Current") keeps the amber stale tone: the Public view's
+   value colour (view-public.css) would hide it otherwise (review WFP-R4); flood view only, the fire view unchanged */
+.mw[data-view='public-flood'] .pfv-facts .ro-row.is-stale .ro-value {
+  color: var(--m-stale);
+}
 
 /* ------------------------------------------------------------------------------------------------ key */
 /* several layers, each with its own time: the key wraps onto a second line rather than cutting a time */
@@ -115,6 +120,16 @@
   row-gap: 8px;
 }
 .ffk-item.is-satellite .pfv-key-time.is-stale {
+  color: var(--m-stale);
+}
+/* a layer whose answer could not be loaded says so in amber; one still loading is quiet (review WFP-R1) */
+.ffk-item:is(.is-satUnavailable, .is-fimUnavailable) .pfv-key-text {
+  color: var(--m-stale);
+}
+.ffk-item:is(.is-satChecking, .is-fimChecking) .pfv-key-text {
+  color: var(--m-text-3);
+}
+.fxm-legend-note.ffk-unavailable {
   color: var(--m-stale);
 }
 .ffk-sw {
@@ -344,6 +359,23 @@
 }
 .ffk .ffv-credits a {
   color: inherit;
+}
+/* the same credits in the foot bar's credits while the key is hidden (panels collapsed, phones; review WFP-R6) */
+.ffv-credits.is-foot {
+  display: block;
+}
+.ffv-credits.is-foot a {
+  color: inherit;
+}
+/* phones: "© Credits" opens the full credits over the facts sheet; an opaque panel so they stay readable (the
+   Public view's foot rule clears its background; flood view only) */
+@media (max-width: 760px) {
+  .mw[data-view='public-flood'] .pfv-foot .mw-footer.is-open .mw-footer-attrib {
+    border-radius: var(--m-radius-sm);
+    background: var(--m-panel-raised);
+    text-align: left;
+    line-height: 15px;
+  }
 }
 
 /* the flood facts carry an issuer and an own time under most rows: a little less padding than the fire view's 11 px,

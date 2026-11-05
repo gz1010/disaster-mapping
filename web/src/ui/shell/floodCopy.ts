@@ -212,6 +212,9 @@ export const INSIDE_WARNING = 'Inside the NWS {event} area (until {time}).'
 export const CURSOR_FUTURE_PRODUCTS = 'NWS products in effect now; NWS has issued none for this future time. An NWS end time is not a forecast of when flooding stops.'
 export const EVAC_NONE_LISTED = 'None listed'
 export const EVAC_NONE_LISTED_SUB = 'None listed in {source} for this area · checked {time} · not an all-clear: follow local officials.'
+/** The flood's evacuation answer could not be loaded (the request failed with no answer; review WFP-R5): flood wording,
+ *  never an all-clear. */
+export const EVAC_UNAVAILABLE = 'Official evacuation zones could not be loaded right now. That is not an all-clear: follow local officials.'
 /** (B) */
 export const OR_EVAC_FIRE_ONLY = "Oregon's evacuation feed covers wildfires only; flood evacuations are not shown here. Not an all-clear: follow local officials."
 export const INSIDE_FIM = 'Inside the NWS forecast flooded area (5-day maximum).'
@@ -403,6 +406,10 @@ export const FLOOD_PUBLIC = {
   keyStale: 'Old',
   keyPicture: 'Satellite water: NASA picture, {date} (not measured here)',
   keySatNone: 'Water seen by satellite: no usable image',
+  // an answer still loading (review WFP-R1; a failed one shows SAT_UNAVAILABLE / RFC_FIM_UNAVAILABLE)
+  keySatChecking: 'Water seen by satellite · checking…',
+  keyForecastChecking: 'NWS forecast flooded area · checking…',
+  satStatusUnavailable: 'SATELLITE WATER · UNAVAILABLE',
   // map data (bundle) preparation (C10)
   notPrepared: "Fire-3d has not prepared this flood's map data yet (terrain and frozen copies of the water layers).",
   prepare: 'Prepare map data (about 1 min)',
@@ -410,6 +417,10 @@ export const FLOOD_PUBLIC = {
   prepareAgain: 'Prepare again (about 1 min)',
   preparing: "Preparing this flood's map data (about 1 min)",
   prepareNotListed: 'Only listed floods can be prepared.',
+  // the job could not be read for a while (review WFP-R9): it may still be running on the server
+  prepareLost: 'Fire-3d lost contact with the preparation ({error}); it may still be running.',
+  // a flood without a member gauge has no NWS river forecast point (review WFP-R12)
+  noForecastNoGauge: 'This flood has no river gauge; NWS river forecasts are made at gauges.',
   // phones
   sheetMore: 'Show all official facts and the map key',
   sheetLess: 'Show less',
@@ -453,6 +464,13 @@ export const FLOOD_PUBLIC = {
   satNotWaterPoint: 'The {date} satellite pass saw no water at this spot; dry pixels do not mean no flooding.',
   satNoViewPoint: 'No satellite view of this spot on the {date} pass (clouds or no data).',
   satCheckingPoint: 'Water seen by satellite: image of {date} (checking this spot…)',
+  // snow or ice hides water as clouds do; NASA masks the ocean; a clear pixel of the picture is "not water" or "not
+  // checked" (review WFP-R8)
+  satSnowPoint: 'Snow or ice covered this spot on the {date} pass: no satellite view of water here.',
+  satOceanPoint: "NASA's {date} pass masks this spot as ocean; its water is not checked here.",
+  satClearPoint: 'The {date} satellite pass shows no water at this spot (or did not check it there); dry pixels do not mean no flooding.',
+  satLoadingPoint: 'Water seen by satellite: checking…',
+  fimCheckingPoint: 'NWS forecast flooded area: checking…',
   fimNotMappedPoint: 'NWS forecast flooded area: not mapped here. Outside NWS\'s mapped area, flooding is unknown, not absent.',
   modelInCommand: 'The experimental model for this spot is in Command',
 } as const

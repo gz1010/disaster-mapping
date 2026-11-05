@@ -10,6 +10,7 @@ import { useState, type ReactNode } from 'react'
 import { useFlood } from '../state/flood'
 import { useShallow } from 'zustand/react/shallow'
 import { useFloodOfficial } from '../official/floodHooks'
+import { answerState } from '../official/floodModel'
 import { satLoginNote } from '../ui/public/floodView'
 import {
   FLOOD_LIST_ABSENCE,
@@ -21,8 +22,10 @@ import {
   NOT_ALL_CLEAR,
   RFC_FIM_LABEL,
   RFC_FIM_NOTE,
+  RFC_FIM_UNAVAILABLE,
   SAT_EDGE,
   SAT_NO_VIEW_KEY,
+  SAT_UNAVAILABLE,
 } from '../ui/shell/floodCopy'
 import { nationalGaugesDown, useNationalGauges } from './floodGaugeStatus'
 import { ScaleBar } from './MapAttribution'
@@ -61,6 +64,13 @@ export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant 
   const gaugesDown = useNationalGauges(nationalGaugesDown) && gaugesOn && !floodOpen
   // a flood view: what each of its layers is (the backend's own caveats; brief 5 web-flood-public)
   const view = useFloodOfficial(useShallow((s) => ({ satellite: s.satellite.data, fim: s.fim.data, nfhl: s.nfhl.data })))
+  // a request that failed with no answer still gets its line (review WFP-R1): never a layer that silently vanishes
+  const failed = useFloodOfficial(
+    useShallow((s) => ({
+      satellite: !s.satellite.data && answerState(s.satellite) === 'unavailable' ? s.satellite.error : null,
+      fim: !s.fim.data && answerState(s.fim) === 'unavailable' ? s.fim.error : null,
+    })),
+  )
   const floodplainOn = useFlood((s) => s.layers.floodplain)
   const login = floodOpen ? satLoginNote(view.satellite) : null
   const compact = (
@@ -122,9 +132,19 @@ export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant 
           <p>
             <span className="ffk-sw ffk-sw-noview" aria-hidden="true" /> {SAT_NO_VIEW_KEY} · <span className="ffk-sw ffk-sw-edge" aria-hidden="true" /> {SAT_EDGE}
           </p>
-          {view.satellite.reason && <p className="fxm-legend-note">{view.satellite.reason}</p>}
+          {view.satellite.status === 'unavailable' && <p className="fxm-legend-note ffk-unavailable">{SAT_UNAVAILABLE}</p>}
+          {view.satellite.reason && view.satellite.reason !== SAT_UNAVAILABLE && <p className="fxm-legend-note">{view.satellite.reason}</p>}
           {login?.short && <p className="fxm-legend-note ffk-login">{login.short}</p>}
           {login?.long && <p className="fxm-legend-note">{login.long}</p>}
+        </section>
+      )}
+      {floodOpen && !view.satellite && failed.satellite != null && (
+        <section>
+          <h3>
+            <span className="ffk-sw ffk-sw-sat" aria-hidden="true" /> {FLOOD_PUBLIC.layerSatellite}
+          </h3>
+          <p className="fxm-legend-note ffk-unavailable">{SAT_UNAVAILABLE}</p>
+          {failed.satellite && <p className="fxm-legend-note">{failed.satellite}</p>}
         </section>
       )}
       {floodOpen && view.fim && (
@@ -134,7 +154,18 @@ export function FloodLegend({ variant = 'row' }: { variant?: FloodLegendVariant 
           </h3>
           <p>{view.fim.coverage_note || RFC_FIM_NOTE}</p>
           {view.fim.outside_note && <p>{view.fim.outside_note}</p>}
-          {view.fim.status !== 'available' && view.fim.reason && <p className="fxm-legend-note">{view.fim.reason}</p>}
+          {view.fim.status === 'unavailable' && <p className="fxm-legend-note ffk-unavailable">{RFC_FIM_UNAVAILABLE}</p>}
+          {view.fim.status !== 'available' && view.fim.reason && view.fim.reason !== RFC_FIM_UNAVAILABLE && <p className="fxm-legend-note">{view.fim.reason}</p>}
+        </section>
+      )}
+      {floodOpen && !view.fim && failed.fim != null && (
+        <section>
+          <h3>
+            <span className="ffk-sw ffk-sw-forecast" aria-hidden="true" /> {RFC_FIM_LABEL}
+          </h3>
+          <p>{RFC_FIM_NOTE}</p>
+          <p className="fxm-legend-note ffk-unavailable">{RFC_FIM_UNAVAILABLE}</p>
+          {failed.fim && <p className="fxm-legend-note">{failed.fim}</p>}
         </section>
       )}
       {floodOpen && (

@@ -188,13 +188,16 @@ export function binClassAt(data: Uint8Array, m: Pick<FloodManifest, 'grid'>, lon
   return data[row * w + col] ?? null
 }
 
-/** The picture's class around a pixel (5 × 5): its grey "no view" hatch (clouds and no data look alike, D25), water
- *  blue, else no water. */
+/** The picture's class around a pixel (5 × 5; backend/fire3d/floods/satellite.py palette_rgba): its grey "no view"
+ *  hatch (clouds and no data look alike, D25), water blue, the near-white of snow or ice (252: no view of water, as
+ *  clouds), else `'clear'`: the picture draws "not water" and NASA's ocean mask (254) both transparent, so a clear
+ *  pixel never says "no water" on its own (review WFP-R8). */
 export function pngClassAt(img: Pick<ImageData, 'width' | 'height' | 'data'>, fx: number, fy: number): SatClassAt {
   const cx = Math.floor(fx * img.width)
   const cy = Math.floor(fy * img.height)
   let water = false
   let grey = false
+  let snow = false
   for (let dy = -2; dy <= 2; dy++)
     for (let dx = -2; dx <= 2; dx++) {
       const x = cx + dx
@@ -204,9 +207,10 @@ export function pngClassAt(img: Pick<ImageData, 'width' | 'height' | 'data'>, fx
       const [r, g, b, a] = [img.data[i], img.data[i + 1], img.data[i + 2], img.data[i + 3]]
       if (a < 16) continue
       if (Math.abs(r - g) < 24 && Math.abs(g - b) < 24 && r < 200) grey = true
+      else if (r >= 200 && g >= 200 && b >= 200) snow = true
       else if (b > r + 40) water = true
     }
-  return grey ? 'noview' : water ? 1 : 0
+  return grey ? 'noview' : water ? 1 : snow ? 252 : 'clear'
 }
 
 /** The satellite class at a spot for the point check (C2): the bundle's classes when they are the shown image, else

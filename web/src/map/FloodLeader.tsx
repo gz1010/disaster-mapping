@@ -8,7 +8,8 @@
 // the map, under the circle or the view's panels, or when it would cross them (map/leaderLayout.ts segmentHitsRect), as
 // the fire view's leader (ui/public/ReportedPoint.tsx) is.
 import { useEffect, useMemo, useState, type RefObject } from 'react'
-import { useFloodAreas } from '../official/floodHooks'
+import { useFloodAreas, useFloodOfficial } from '../official/floodHooks'
+import { primaryGaugeReading } from '../official/floodModel'
 import { useSearchUi } from '../location/searchUi'
 import { openFloodSummary, useFlood } from '../state/flood'
 import { useWorkspace } from '../state/workspace'
@@ -74,6 +75,7 @@ const insideRect = (x: number, y: number, r: Rect) => x >= r.left && x <= r.righ
 
 export function FloodLeader({ circle, leader }: { circle: RefObject<HTMLElement | null>; leader: boolean }) {
   const summary = useFlood((s) => openFloodSummary(s))
+  const gauges = useFloodOfficial((s) => (summary && s.floodId === summary.id ? s.gauges.data : null))
   const areas = useFloodAreas()
   const target = useMemo(() => leaderTarget(summary, areas.warnings), [summary, areas.warnings])
   const lngLat = useMemo(() => (target ? ([target.lon, target.lat] as const) : null), [target])
@@ -102,8 +104,11 @@ export function FloodLeader({ circle, leader }: { circle: RefObject<HTMLElement 
       if (!rects.some((r) => segmentHitsRect(a, b, r))) line = { x1: a.x, y1: a.y, x2: b.x, y2: b.y }
     }
   }
-  const cat = summary?.primary_gauge?.observed_category ?? null
-  const fill = CATEGORY_COLORS[gaugeTone(cat)]
+  // the same reading as the stage row and the map's label: the newer of the list's and the gauges answer's (WFP-R2);
+  // below flood stage the diamond is grey and hollow (D9)
+  const tone = gaugeTone(primaryGaugeReading(summary, gauges)?.category ?? null)
+  const fill = CATEGORY_COLORS[tone]
+  const hollow = tone === 'below'
   return (
     <svg className="pfv-overlay ffv-overlay" width="100%" height="100%" aria-hidden="true" data-leader={target.kind}>
       {line && <line className="ffv-leader" x1={line.x1.toFixed(1)} y1={line.y1.toFixed(1)} x2={line.x2.toFixed(1)} y2={line.y2.toFixed(1)} stroke={FLOOD_TOKENS['m-flood-lead']} strokeWidth="1.5" />}
@@ -112,7 +117,17 @@ export function FloodLeader({ circle, leader }: { circle: RefObject<HTMLElement 
           {gauge ? (
             <>
               <circle r="22" fill={FLOOD_TOKENS['m-flood-lead']} fillOpacity="0.22" />
-              <rect x="-6.5" y="-6.5" width="13" height="13" transform="rotate(45)" fill={fill} stroke={FLOOD_TOKENS['m-flood-ink-2']} strokeWidth="1.5" />
+              <rect
+                x="-6.5"
+                y="-6.5"
+                width="13"
+                height="13"
+                transform="rotate(45)"
+                fill={hollow ? 'none' : fill}
+                stroke={hollow ? fill : FLOOD_TOKENS['m-flood-ink-2']}
+                strokeWidth={hollow ? 2 : 1.5}
+                data-tone={tone}
+              />
             </>
           ) : (
             <circle r="6" fill="none" stroke={FLOOD_ALERT} strokeWidth="2" />

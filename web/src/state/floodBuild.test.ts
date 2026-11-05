@@ -109,3 +109,77 @@ describe('startFloodBuild: start, poll with progress, read the manifest (canned 
     expect(polls).toBeLessThanOrEqual(1)
   })
 })
+
+// review WFP-R9: one failed poll is not a failed job
+import { POLL_LOST_AFTER, pollJobGone, pollRetryDelay } from './floodBuild'
+
+describe('job polling survives failed polls (review WFP-R9)', () => {
+  let script: (string | number)[] = []
+  let polls = 0
+  beforeEach(() => {
+    vi.useFakeTimers()
+    polls = 0
+    const detailReady: FloodDetailResponse = { ...DETAIL(), summary: { ...flash(), bundle_status: 'ready' }, resolved_from: 'live' }
+    vi.stubGlobal('fetch', async (url: string) => {
+      const u = String(url)
+      if (/\/build/.test(u)) return new Response(JSON.stringify(job('queued')), { status: 200 })
+      if (/\/api\/jobs\/job-1/.test(u)) {
+        const next = script[Math.min(polls, script.length - 1)]
+        polls++
+        if (typeof next === 'number') return new Response('{"detail":"busy"}', { status: next })
+        return new Response(JSON.stringify(next === 'done' ? job('done', 1) : job('running', 0.5)), { status: 200 })
+      }
+      if (/\/api\/floods\/fixture-flood-major$/.test(u)) return new Response(JSON.stringify(detailReady), { status: 200 })
+      return new Response('{}', { status: 404 })
+    })
+    useFlood.setState({ floodId: 'fixture-flood-major', summary: flash(), manifest: null, job: null, buildError: null })
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+    useFlood.setState({ floodId: null, summary: null, manifest: null, job: null, buildError: null })
+  })
+
+  it('helpers: a growing wait capped at 20 s; only a 404 ends the job', () => {
+    expect(pollRetryDelay(1)).toBe(3000)
+    expect(pollRetryDelay(2)).toBe(6000)
+    expect(pollRetryDelay(10)).toBe(20_000)
+    expect(pollJobGone(404)).toBe(true)
+    expect(pollJobGone(503)).toBe(false)
+    expect(pollJobGone(null)).toBe(false)
+  })
+  it('a 503 between running polls keeps the job running (no error, no "failed"), then follows it to done', async () => {
+    script = ['running', 503, 'running', 'done']
+    await useFlood.getState().startFloodBuild()
+    await vi.advanceTimersByTimeAsync(900) // running
+    await vi.advanceTimersByTimeAsync(1600) // 503
+    expect(useFlood.getState().job?.status).toBe('running')
+    expect(useFlood.getState().buildError).toBeNull()
+    expect(floodPrepState({ id: 'fixture-flood-major', summary: flash(), manifest: null, job: useFlood.getState().job, loading: false, error: useFlood.getState().buildError }).kind).toBe('building')
+    await vi.advanceTimersByTimeAsync(3100) // retry: running
+    await vi.advanceTimersByTimeAsync(1600) // done
+    await vi.advanceTimersByTimeAsync(10)
+    expect(useFlood.getState().job?.status).toBe('done')
+    expect(useFlood.getState().manifest).not.toBeNull()
+  })
+  it(`${POLL_LOST_AFTER} failures in a row: "lost contact" beside the progress, still building and still polling; contact back clears it`, async () => {
+    script = ['running', 503, 503, 503, 503, 'running']
+    await useFlood.getState().startFloodBuild()
+    await vi.advanceTimersByTimeAsync(900 + 1500 + 3000 + 6000 + 12_000 + 100)
+    expect(polls).toBe(5)
+    const st = useFlood.getState()
+    expect(st.job?.status).toBe('running')
+    expect(st.buildError).toMatch(/^Fire-3d lost contact with the preparation \(.+\); it may still be running\.$/)
+    expect(floodPrepState({ id: 'fixture-flood-major', summary: flash(), manifest: null, job: st.job, loading: false, error: st.buildError })).toMatchObject({ kind: 'building', error: st.buildError })
+    await vi.advanceTimersByTimeAsync(20_100)
+    expect(polls).toBe(6)
+    expect(useFlood.getState().buildError).toBeNull()
+  })
+  it('a 404 (the server no longer knows the job): failed, Prepare again', async () => {
+    script = ['running', 404]
+    await useFlood.getState().startFloodBuild()
+    await vi.advanceTimersByTimeAsync(900 + 1600)
+    expect(useFlood.getState().job?.status).toBe('error')
+    expect(floodPrepState({ id: 'fixture-flood-major', summary: flash(), manifest: null, job: useFlood.getState().job, loading: false, error: useFlood.getState().buildError }).kind).toBe('failed')
+  })
+})

@@ -428,3 +428,100 @@ describe('leader end (D10, C4)', () => {
     expect(t.lat).toBeLessThanOrEqual(Math.max(...ys))
   })
 })
+
+// ------------------------------------------------------------------------------------------------ review fixes
+import { FloodLegend } from '../../map/FloodLegend'
+import { FloodSatStatus } from './FloodKey'
+import { EVAC_UNAVAILABLE, FLOOD_PUBLIC, SAT_UNAVAILABLE } from '../shell/floodCopy'
+
+describe('review WFP-R1: a failed or running satellite / forecast-area request is said, never a silent gap', () => {
+  const layers = { satellite: true, forecastArea: true, warnings: true, channel: true, floodplain: false }
+  const base = { nfhl: null, warnings: true, layers, tf, nowMs: FIXTURE_NOW_MS }
+  it('failed requests (no answer): SAT_UNAVAILABLE and RFC_FIM_UNAVAILABLE items, the request error in the tooltip', () => {
+    const items = floodKeyItems({ ...base, satellite: null, fim: null, satelliteState: 'unavailable', fimState: 'unavailable', satelliteError: 'API 503', fimError: 'API 429' })
+    expect(items.map((i) => i.key)).toEqual(['satUnavailable', 'fimUnavailable', 'channel', 'warning'])
+    expect(items[0]).toMatchObject({ text: SAT_UNAVAILABLE, tip: 'API 503' })
+    expect(items[1]).toMatchObject({ text: RFC_FIM_UNAVAILABLE_TEXT, tip: 'API 429' })
+  })
+  it('requests still running: "checking" items', () => {
+    const items = floodKeyItems({ ...base, satellite: null, fim: null, satelliteState: 'loading', fimState: 'loading' })
+    expect(items.slice(0, 2).map((i) => i.text)).toEqual([FLOOD_PUBLIC.keySatChecking, FLOOD_PUBLIC.keyForecastChecking])
+  })
+  it('answers that say unavailable: the same items, the backend reason in the tooltip', () => {
+    const items = floodKeyItems({ ...base, satellite: SATELLITE_UNAVAILABLE(), fim: RFC_FIM_UNAVAILABLE() })
+    expect(items.map((i) => i.key)).toContain('satUnavailable')
+    expect(items.map((i) => i.key)).toContain('fimUnavailable')
+  })
+  it('a layer switched off says nothing', () => {
+    expect(floodKeyItems({ ...base, layers: { ...layers, satellite: false, forecastArea: false }, satellite: null, fim: null, satelliteState: 'unavailable', fimState: 'unavailable' }).map((i) => i.key)).toEqual(['channel', 'warning'])
+  })
+  it('rendered: the key, the satellite status and the legend details say the layers could not be loaded', () => {
+    const s = real(DETAIL().summary)
+    const failed: Answer<never> = { data: null, loading: false, error: 'API 503' }
+    ssrState(useFlood, { floodId: s.id, summary: s } as never)
+    ssrState(useFloodOfficial, { floodId: s.id, alerts: ans(ALERTS()), gauges: ans(GAUGES()), fim: failed, satellite: failed, nfhl: NO_ANSWER, local: NO_ANSWER } as never)
+    const key = renderToStaticMarkup(createElement(FloodKey))
+    expect(key).toContain(SAT_UNAVAILABLE)
+    expect(key).toContain(RFC_FIM_UNAVAILABLE_TEXT)
+    expect(renderToStaticMarkup(createElement(FloodSatStatus))).toContain(FLOOD_PUBLIC.satStatusUnavailable)
+    const Legend = () => FloodLegend({ variant: 'panel' })
+    const legend = renderToStaticMarkup(createElement(Legend))
+    expect(legend).toContain(SAT_UNAVAILABLE)
+    expect(legend).toContain(RFC_FIM_UNAVAILABLE_TEXT)
+    expect(floodWordingProblems(stripVerbatim(key + legend))).toEqual([])
+  })
+})
+
+describe('review WFP-R2: one reading per gauge (the newer of the list and the gauges answer)', () => {
+  const s = real(DETAIL().summary)
+  const pg = s.primary_gauge!
+  it('the list has the newer reading: the stage row shows it with its own time and category', () => {
+    const at = GAUGES().gauges[0].observed.valid_ms! + 3 * H
+    const newer = { ...s, primary_gauge: { ...pg, observed_value: 19.4, observed_category: 'major' as const, observed_ms: at } }
+    const later = at + 10 * 60_000
+    const stage = floodFacts(input({ summary: newer, nowMs: later })).find((r) => r.key === 'stage')!
+    expect(stage.value).toBe('19.4')
+    expect(stage.sub).toMatch(/^Major flooding \(NWS\) · /)
+    expect(stage.sub).toMatch(/\(10 min ago\)$/)
+    expect(stage.tone).toBe('alert')
+  })
+  it('the gauges answer has the newer reading: the stage row keeps it (a below-stage reading is never shown as the list\'s minor)', () => {
+    const older = { ...s, primary_gauge: { ...pg, observed_value: 2.03, observed_category: 'minor' as const, observed_ms: FIXTURE_NOW_MS - 5 * H } }
+    const g = GAUGES()
+    g.gauges = g.gauges.map((x) => (x.lid === pg.lid ? { ...x, observed: { ...x.observed, value: 1.3, category: 'no_flooding' as const, valid_ms: FIXTURE_NOW_MS - 20 * 60_000 } } : x))
+    const stage = floodFacts(input({ summary: older, gauges: ans(g) })).find((r) => r.key === 'stage')!
+    expect(stage.value).toBe('1.3')
+    expect(stage.sub).toMatch(/^Below flood stage\./)
+  })
+})
+
+describe('review WFP-R5, R7, R12: outage wording, product sources, no-gauge forecast', () => {
+  it('R5: a failed forecast-area request says RFC_FIM_UNAVAILABLE (not an all-clear), the error in the tooltip', () => {
+    const fim = floodFacts(input({ fim: { data: null, loading: false, error: 'Unavailable right now: test outage (HTTP 503)' } })).find((r) => r.key === 'fim')!
+    expect(fim.sub).toBe(RFC_FIM_UNAVAILABLE_TEXT)
+    expect(fim.tip).toBe('Unavailable right now: test outage (HTTP 503)')
+  })
+  it('R5: a failed evacuation request says EVAC_UNAVAILABLE (flood wording, not an all-clear), the error in the tooltip', () => {
+    const evac = floodFacts(input({ evac: { data: null, loading: false, error: 'The Fire-3d server could not get data from this source.' } })).find((r) => r.key === 'evac')!
+    expect(evac.sub).toBe(EVAC_UNAVAILABLE)
+    expect(evac.sub).toMatch(/not an all-clear/)
+    expect(evac.tip).toBe('The Fire-3d server could not get data from this source.')
+  })
+  it('R7: detection, damage threat and watch area name the issuer, its own sent time and link to the product', () => {
+    const withUrl = <T extends { alerts: { url: string | null }[] }>(r: T): T => ({ ...r, alerts: r.alerts.map((a) => ({ ...a, url: 'https://api.weather.gov/alerts/urn:oid:example' })) })
+    const flash = floodFacts({ ...flashInput(), alerts: ans(withUrl(ALERTS_FLASH())) })
+    for (const k of ['detection', 'damage'] as const) {
+      const r = flash.find((x) => x.key === k)!
+      expect(r.sub).toMatch(/· sent [A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d{2} [AP]M [A-Z]{3,4}$/)
+      expect(r.link?.url).toMatch(/^https:\/\//)
+    }
+    const watch = floodFacts({ ...watchInput(), alerts: ans(withUrl(alertsWatch as unknown as FloodAlertsResponse)) }).find((x) => x.key === 'watchArea')!
+    expect(watch.sub).toMatch(/· sent /)
+    expect(watch.link?.url).toMatch(/^https:\/\//)
+  })
+  it('R12: a flood without a gauge says why there is no forecast point under NO_RFC_FORECAST', () => {
+    const r = floodFacts(watchInput()).find((x) => x.key === 'riverForecast')!
+    expect(r.value).toBe('No NWS river forecast for this gauge')
+    expect(r.sub).toBe(FLOOD_PUBLIC.noForecastNoGauge)
+  })
+})

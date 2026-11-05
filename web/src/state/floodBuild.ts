@@ -28,8 +28,9 @@ export function floodPrepState(s: { id: string | null; summary: FloodSummary | n
   const none: FloodPrepState = { kind: 'none', progress: null, step: null, error: null }
   if (!s.id || !s.summary || s.loading) return none
   const job = activeBuildJob(s.job, s.id)
+  // building: a lost contact with the job (the poll keeps trying) is said next to the progress (review WFP-R9)
   if (job || s.manifest?.status === 'building' || s.summary.bundle_status === 'building')
-    return { kind: 'building', progress: job && job.status === 'running' ? job.progress : null, step: job ? (job.status === 'queued' ? 'queued' : job.step || 'running') : null, error: null }
+    return { kind: 'building', progress: job && job.status === 'running' ? job.progress : null, step: job ? (job.status === 'queued' ? 'queued' : job.step || 'running') : null, error: job ? (s.error ?? null) : null }
   if (s.manifest?.status === 'ready') return none
   // fixture-flood answers 409 (bundle only): never offered
   if (s.id === 'fixture-flood') return none
@@ -41,6 +42,21 @@ export function floodPrepState(s: { id: string | null; summary: FloodSummary | n
 /** How long to wait before the next poll of a job (ms): quick while queued, then every 1.5 s. */
 export function pollDelay(job: Pick<JobStatus, 'status'>): number {
   return job.status === 'queued' ? 800 : 1500
+}
+
+/** A poll of a running job that failed (review WFP-R9): one failed request is not a failed job. The poller keeps the
+ *  job's last known status and asks again after a growing wait (3 s, 6 s, 12 s, then every 20 s); only the job itself
+ *  saying 'error', or the server no longer knowing it (404), ends the preparation. After POLL_LOST_AFTER failures in a
+ *  row the views say contact was lost (the job may still be running), and the poller goes on asking. */
+export const POLL_LOST_AFTER = 4
+
+export function pollRetryDelay(failures: number): number {
+  return Math.min(20_000, 1500 * 2 ** Math.max(1, failures))
+}
+
+/** The server no longer knows the job (it restarted): the preparation is over (Prepare again). */
+export function pollJobGone(status: number | null | undefined): boolean {
+  return status === 404
 }
 
 /** The job finished (done or failed): stop polling. */

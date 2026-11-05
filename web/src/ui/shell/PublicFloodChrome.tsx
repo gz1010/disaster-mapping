@@ -31,7 +31,7 @@ import { useWorkspace } from '../../state/workspace'
 import { FireMenu } from '../public/FireMenu'
 import { FloodFacts } from '../public/FloodFacts'
 import { FloodHazardCircle } from '../public/FloodHazardCircle'
-import { FloodKey, FloodSatStatus } from '../public/FloodKey'
+import { FloodFootCredits, FloodKey, FloodSatStatus } from '../public/FloodKey'
 import { FloodDistanceChip, FloodTitle } from '../public/FloodTitle'
 import { useFactsFit } from '../public/useFactsFit'
 import { DEMO_TAG, FLOOD_LAST_KNOWN, FLOOD_OVERVIEW, FLOOD_PUBLIC, fillCopy, NOT_ALL_CLEAR } from './floodCopy'
@@ -191,6 +191,8 @@ export function PublicFloodChrome({ credits }: { credits: ReactNode }) {
             <FixedCopy variant="bar" extra={NOT_ALL_CLEAR} />
           </div>
           {credits}
+          {/* the flood layers' credits join the map's while the key (which carries them) is hidden (WFP-R6) */}
+          <FloodFootCredits show={narrow || collapsed} />
         </div>
       </div>
     </>
