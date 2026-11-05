@@ -1,7 +1,7 @@
 """Flood routes (brief 5, CONTRACT 16.7), mounted by one ``include_router`` line in ``api/app.py``.
 
-Built by ``backend-flood-sources`` (M4): ``GET /api/floods`` (the live list; the historical lists come with
-``backend-flood-live`` M2), ``GET /api/floods/status`` (from the list until the flood live loop owns it) and
+Built by ``backend-flood-sources`` (M4): ``GET /api/floods`` (the live list; the year lists of ``floods/history.py``
+since ``backend-flood-live`` M2), ``GET /api/floods/status`` (from the flood live loop, ``floods/live.py``) and
 ``GET /api/floods/{id}`` (PLAN-5 3.2 rule 13: live list -> year lists -> registry alias -> bundle summary ->
 last-known summary -> 404; 503 ``FLOOD_LISTS_503`` when the lists could not decide and nothing is on disk).
 
@@ -33,6 +33,7 @@ from ..floods import build as flood_build
 from ..floods import catalog, store
 from ..floods import copy as fcopy
 from ..floods import gauges as flood_gauges
+from ..floods import history as flood_history
 from ..floods import live as flood_live
 from ..floods import maps as flood_maps
 from ..floods import satellite as flood_satellite
@@ -69,20 +70,45 @@ def _bundle_now(s: dict) -> dict:
 @router.get("/api/floods")
 def list_floods(request: Request, mode: str = Query("live", pattern="^(live|historical)$"), year: int | None = None,
                 refresh: int = 0) -> Response:
-    """``FloodListResponse``: the live list (cached 5 min; 60 s while degraded); historical lists answer an empty
-    list that says past floods are not listed yet (``backend-flood-live`` M2 adds them). With both lists down the
-    answer is still a 200 (every source ``unavailable`` with ``FLOOD_LISTS_DOWN``, the ready bundles on disk only),
-    never a 503: the sources say why (contract5 note, deviation of CONTRACT 16.7; review BFS-R6)."""
+    """``FloodListResponse``: the live list (cached 5 min; 60 s while degraded), or a past year's list
+    (``floods/history.py``: built once in the background, ``preparing: true`` until then; ``past_rule``). With both
+    lists down the live answer is still a 200 (every source ``unavailable`` with ``FLOOD_LISTS_DOWN``, the ready
+    bundles on disk only), never a 503: the sources say why (contract5 note, deviation of CONTRACT 16.7; BFS-R6)."""
     if mode == "historical":
-        y = year or time.gmtime().tm_year
-        return _json({"hazard": "flood", "mode": "historical", "updated_ms": int(time.time() * 1000), "year": y,
-                      "preparing": False, "floods": [],
-                      "sources": [{"id": "iem_archive", "name": fcopy.SOURCE_NAMES["iem_archive"],
-                                   "status": "unavailable", "retrieved_ms": None, "reason": fcopy.PAST_NOT_YET,
-                                   "stale": False}],
-                      "products_in_effect": None}, request)
+        y = year or flood_history.default_year()
+        lst = flood_history.year_list(y)
+        rows = [_bundle_now(r) for r in lst["floods"]]
+        if y == flood_history.default_year() and rows:
+            rows = _with_live_rows(rows)
+        return _json({**lst, "floods": rows}, request)
     lst = catalog.public_list(catalog.flood_list(refresh=bool(refresh)))
     return _json({**lst, "floods": [_bundle_now(r) for r in lst["floods"]]}, request)
+
+
+def _with_live_rows(rows: list[dict]) -> list[dict]:
+    """This year's past floods with the ones still in the live list served as their live rows (current state; the
+    web opens them as live floods). The cached live list only: a failure leaves the year rows as they are."""
+    try:
+        live = {s["id"]: s for s in catalog.flood_list().get("floods") or []}
+    except Exception as e:  # noqa: BLE001 - the year list never fails because of the live list
+        log.info("year list: no live list to overlay (%s)", e)
+        return rows
+    return [_bundle_now(catalog.public_list(live[r["id"]])) if r["id"] in live else r for r in rows]
+
+
+def _resolve(flood_id: str) -> tuple[dict, str]:
+    """PLAN-5 3.2 rule 13 with the year step: the live list -> the year lists (cached; never a build) -> a registry
+    alias -> the bundle's frozen summary -> the last-known summary (``catalog.resolve``). Raises as
+    ``catalog.resolve``."""
+    if store.valid_id(flood_id) and not flood_id.startswith(store.FIXTURE_ID):
+        lst = catalog.flood_list()
+        hit = next((s for s in lst.get("floods") or [] if s["id"] == flood_id), None)
+        if hit is not None:
+            return hit, "live"
+        past = flood_history.find(flood_id)
+        if past is not None:
+            return past, "year"
+    return catalog.resolve(flood_id)
 
 
 @router.get("/api/floods/status")
@@ -96,7 +122,7 @@ def flood_status() -> Response:
 def get_flood(flood_id: str) -> Response:
     """``FloodDetailResponse`` ``{summary, manifest, job, resolved_from}`` (rule 13)."""
     try:
-        summary, resolved = catalog.resolve(flood_id)
+        summary, resolved = _resolve(flood_id)
     except catalog.FloodNotFound:
         return _error(404, fcopy.FLOOD_NOT_LISTED_DETAIL)
     except catalog.ListsUnavailable:
@@ -232,7 +258,7 @@ def _summary(flood_id: str) -> dict:
     if not store.valid_id(flood_id):
         raise _Answer(404, fcopy.FLOOD_ROUTE_NOT_LISTED)
     try:
-        return catalog.resolve(flood_id)[0]
+        return _resolve(flood_id)[0]
     except catalog.FloodNotFound:
         raise _Answer(404, fcopy.FLOOD_ROUTE_NOT_LISTED) from None
     except catalog.ListsUnavailable:
@@ -378,8 +404,12 @@ def get_flood_alerts(request: Request, flood: str | None = Query(None, max_lengt
             bdir = _synthetic(flood)
             if bdir is not None:
                 return _json(_frozen(bdir, "flood-alerts.json", "warnings.json"), request)
+            if flood_history.is_past(at_ms, now):          # the IEM archive (backend-flood-live M2)
+                return _json(flood_history.past_flood_alerts(_summary(flood), now=now, at_ms=at_ms), request)
             return _json(flood_zones.flood_alerts(_summary(flood), now=now, at_ms=at_ms), request)
         if bbox:
+            if flood_history.is_past(at_ms, now):
+                return _json(flood_history.past_area_alerts(_bbox(bbox), now=now, at_ms=at_ms), request)
             return _json(flood_zones.bbox_alerts(_bbox(bbox), now=now, at_ms=at_ms), request)
         raise _Answer(422, "flood-alerts needs flood= or bbox=")
     return _answer(run)
@@ -408,10 +438,17 @@ def get_river_gauges(request: Request, flood: str | None = Query(None, max_lengt
     def run() -> Response:
         now = _now()
         with_series = bool(series)
-        if at_ms is not None and at_ms < now - PAST_TOLERANCE_MS and scope != "national":
-            # never today's readings for a past time (USGS history comes with backend-flood-live)
+        if at_ms is not None and flood_history.is_past(at_ms, now) and scope != "national":
+            # never today's readings for a past time: USGS's measured readings (backend-flood-live M2)
+            if flood and _synthetic(flood) is None:
+                return _json(flood_history.past_flood_gauges(_summary(flood), now=now, at_ms=at_ms), request)
+            if lid and not flood and _LID.match(lid) and not _FICTIONAL_LID.match(lid.upper()):
+                return _json(flood_history.past_gauges([lid.upper()], now=now, at_ms=at_ms, member=False), request)
+            if bbox and not flood and not lid:
+                return _json(flood_history.past_area_gauges(_bbox(bbox), now=now, at_ms=at_ms), request)
             return _json({**flood_gauges.envelope("river_gauges", now=now, flood_id=flood, status="not_available_for_past_dates",
-                                                  reason=fcopy.GAUGES_PAST_NOT_YET, reason_code="past_date", at_ms=at_ms,
+                                                  reason=flood_history.PAST_GAUGE_NOT_KEPT,
+                                                  reason_code="past_date", at_ms=at_ms,
                                                   caveats=[fcopy.GAUGE_NOT_ALL_CLEAR]),
                           "gauges": [], "area_bbox": None}, request)
         if flood:

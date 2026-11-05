@@ -341,6 +341,13 @@ def test_one_gauge_names_its_river_and_its_fetch_time(api, monkeypatch):
 
 def test_past_gauges_are_never_todays_readings(api):
     past = 1700000000000
-    for q in (f"flood={api.fid}", "lid=AGYM7&series=1", "bbox=-94.8,39.6,-94.6,39.8"):
+    # backend-flood-live M2: a flood's or a gauge's past readings are USGS's (not reachable here: no reading at all),
+    # an area at a past time is not served; never today's readings
+    from fire3d.floods import history
+
+    for q in (f"flood={api.fid}", "lid=AGYM7&series=1"):
         g = ok(api.get(f"/api/official/river-gauges?{q}&at_ms={past}"), C.RiverGaugesResponse)
-        assert g["status"] == "not_available_for_past_dates" and g["gauges"] == [] and g["reason"] == fcopy.GAUGES_PAST_NOT_YET
+        assert all((x["observed"]["valid_ms"] or 0) <= past and x["forecast"] is None for x in g["gauges"])
+        assert fcopy.THRESHOLDS_TODAY in g["caveats"] or g["status"] == "unavailable"
+    g = ok(api.get(f"/api/official/river-gauges?bbox=-94.8,39.6,-94.6,39.8&at_ms={past}"), C.RiverGaugesResponse)
+    assert g["status"] == "not_available_for_past_dates" and g["gauges"] == [] and g["reason"] == history.PAST_AREA_GAUGES

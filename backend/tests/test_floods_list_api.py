@@ -52,7 +52,7 @@ def _ok(r, model):
     return body
 
 
-def test_live_list_status_and_gzip(client: TestClient) -> None:
+def test_live_list_status_and_gzip(client: TestClient, monkeypatch) -> None:
     body = _ok(client.get("/api/floods"), C.FloodListResponse)
     assert body["hazard"] == "flood" and body["mode"] == "live" and len(body["floods"]) >= 30
     assert {s["id"] for s in body["sources"]} == {"nws_alerts", "nwps_gauges", "rfc_forecasts", "iem_archive"}
@@ -62,8 +62,15 @@ def test_live_list_status_and_gzip(client: TestClient) -> None:
     assert "Accept-Encoding" in raw.headers.get("vary", "") and orjson.loads(raw.content) == body
     st = _ok(client.get("/api/floods/status"), C.FloodLiveStatus)
     assert st["active_floods"] == sum(1 for s in body["floods"] if s["status"] == "active") and st["auto_build"] is False
+    # past years (backend-flood-live M2, floods/history.py): built once in the background; until then "preparing"
+    from fire3d.floods import history
+
+    history.reset_state()
+    monkeypatch.setattr(history, "_start", lambda year, y: None)          # no background build in this test
     past = _ok(client.get("/api/floods", params={"mode": "historical", "year": 2025}), C.FloodListResponse)
-    assert past["floods"] == [] and past["year"] == 2025 and past["sources"][0]["reason"] == cat.PAST_NOT_YET
+    assert past["floods"] == [] and past["year"] == 2025 and past["preparing"] is True
+    assert past["past_rule"] == history.PAST_RULE and past["sources"][0]["id"] == "iem_archive"
+    history.reset_state()
     assert client.get("/api/floods", params={"mode": "weird"}).status_code == 422
 
 
