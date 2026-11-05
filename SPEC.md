@@ -1,4 +1,4 @@
-# Fire-3d — Build Spec v1
+# Disaster Mapping — Build Spec v1
 
 Source of truth for every build agent. Sections marked **(Contract)** are interfaces other modules depend on:
 implement them exactly. If a contract is wrong or impossible, make the smallest compatible change, keep old fields
@@ -6,15 +6,19 @@ working, and list the deviation in your report. Sections marked **(Guidance)** d
 may improve on.
 
 Reference UI (a mocked demo we are rebuilding on real data): `docs/reference/firetrace-demo.png`. View it.
-Do **not** use the name "FireTrace" anywhere. The app is called **Fire-3d**, tagline "Wildfire Forensics & Forecast".
+Do **not** use the name "FireTrace" anywhere. The app is called **Disaster Mapping** (wildfires and floods; brief 6).
+It was called Fire-3d until brief 6: internal names keep the old name so `.env`, `data/`, saved preferences and old
+links keep working (the `fire3d` Python package, the `FIRE3D_*` settings, URL parameters, storage keys, CSS classes;
+the GitHub repository is now `disaster-mapping`). Historical documents keep their wording.
 
 ---
 
 ## 0. Product
 
-A 3D wildfire analysis app for the **lower 48 US states and DC** (brief 3; it started with California), built on
+A wildfire and flood mapping app for the **lower 48 US states and DC** (floods since brief 5, §5.3 and §8.8-8.11).
+For wildfires it is a 3D analysis app (brief 3; it started with California), built on
 real data. Alaska, Hawaii and US territories are not supported yet: their fires are not listed, and a point there says
-"Fire-3d does not support Alaska, Hawaii or US territories yet." The national fire list comes from NIFC WFIGS (IRWIN);
+"Disaster Mapping does not support Alaska, Hawaii or US territories yet." The national fire list comes from NIFC WFIGS (IRWIN);
 in California CAL FIRE stays the record and WFIGS adds only the fires CAL FIRE does not list
 (docs/redesign/CONTRACT.md §14.1-14.2). The brief-2 text below describes California, where it still holds:
 
@@ -71,7 +75,7 @@ in California CAL FIRE stays the record and WFIGS adds only the fires CAL FIRE d
 | Weather ensemble (**live only**) | `https://ensemble-api.open-meteo.com/v1/ensemble?…&models=gfs025` (31 members: control + `_member01…30`) or `models=ecmwf_ifs025` (51) | Keys look like `wind_speed_10m_member07`. Multi-location works. **Only covers ~the last 90 days plus the forecast** (range 2026-07-16…2026-11-21 on 2026-10-16), so it cannot be used for 2025. |
 | Weather historical | `https://historical-forecast-api.open-meteo.com/v1/forecast?…&start_date=YYYY-MM-DD&end_date=…&models=gfs_hrrr` | Archived HRRR forecasts; works for 2025. Fallback: `https://archive-api.open-meteo.com/v1/archive` (ERA5). Free tier limits per IP: daily (~10k), hourly (~5k) and per-minute (~600) weighted calls; a refusal is HTTP 429 with a JSON body such as {"error":true,"reason":"Daily API request limit exceeded. Please try again tomorrow."} (resets 00:00 UTC). Cache everything; never cache an error body (§8.4). |
 | ADS-B | `https://api.adsb.lol/v2/point/{lat}/{lon}/{radius_nm}`, `https://api.adsb.lol/v2/type/{ICAO type}`; fallback `https://opendata.adsb.fi/api/v2/lat/{lat}/lon/{lon}/dist/{nm}` (free for non-commercial use) when adsb.lol is unreachable | Response `{ac:[…], now, total}` (adsb.fi: `{aircraft:[…], now (s), resultCount}`). Aircraft fields: `hex`, `flight` (callsign, space-padded), `r` (registration), `t` (ICAO type), `lat`, `lon`, `alt_baro` (ft, or the string "ground"), `alt_geom`, `gs` (kt), `track`, `category`, `seen`, `squawk`. |
-| NWS fire weather alerts (no key; added 2026-10-18) | `GET https://api.weather.gov/alerts/active?area=CA&event=Red%20Flag%20Warning,Fire%20Weather%20Watch` (header `User-Agent: Fire-3d/0.1 (research prototype)`, `Accept: application/geo+json`); zone polygons `GET https://api.weather.gov/zones/fire/{UGC}` | GeoJSON CAP alerts; fire weather alerts carry `geometry: null` and list their fire weather zones in `geocode.UGC` / `affectedZones`; P-VTEC in `parameters.VTEC` (e.g. `/O.CON.KLOX.FW.W.0005.000000T0000Z-261018T0300Z/`). Open data, free to use; a User-Agent is required (optional contact via `FIRE3D_NWS_CONTACT`). NWS keeps no archive: past dates answer an empty list. Cached 2 min (alerts) / 30 days (zones). |
+| NWS fire weather alerts (no key; added 2026-10-18) | `GET https://api.weather.gov/alerts/active?area=CA&event=Red%20Flag%20Warning,Fire%20Weather%20Watch` (header `User-Agent: Disaster-Mapping/0.1 (research prototype)`, `Accept: application/geo+json`); zone polygons `GET https://api.weather.gov/zones/fire/{UGC}` | GeoJSON CAP alerts; fire weather alerts carry `geometry: null` and list their fire weather zones in `geocode.UGC` / `affectedZones`; P-VTEC in `parameters.VTEC` (e.g. `/O.CON.KLOX.FW.W.0005.000000T0000Z-261018T0300Z/`). Open data, free to use; a User-Agent is required (optional contact via `FIRE3D_NWS_CONTACT`). NWS keeps no archive: past dates answer an empty list. Cached 2 min (alerts) / 30 days (zones). |
 | NWS alert archive (Iowa Environmental Mesonet, no key; added 2026-10-18) | `GET https://mesonet.agron.iastate.edu/json/vtec_events_bypoint.py?lat=&lon=&sdate=YYYY-MM-DD&edate=`, `/json/vtec_event.py?wfo=LOX&year=2025&phenomena=FW&significance=W&etn=1`, `/geojson/vtec_event.py?…` (same query) | Public domain ("may be used freely by anyone for any lawful purpose"), an archived copy of NWS products, not an NWS source. bypoint lists events by their start date (look back about 14 days); `vtec_event` gives per-zone `utc_product_issue`, `utc_issue`, `utc_expire` (final; a watch upgraded or cancelled before it began ends before it begins) and the original text products (`report`, `svs[]`); the geojson features' `id` is the UGC. Cached 30 days (30 min while the window touches the last day). |
 | NIFC WFIGS Incident Locations (no key; brief 3) | `https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Incident_Locations{_Current,_YearToDate,}/FeatureServer/0/query` with `IncidentTypeCategory='WF'` (+ `UniqueFireIdentifier LIKE '<year>-%' AND IncidentSize>=<min>` for year lists), explicit `outFields`, `outSR=4326`, `f=json`, 2,000 rows per page | The national fire list and each fire's agency record (`sources/wfigs.py`; Current 5 min, YearToDate 30 min, all years 24 h, one record by IRWIN id 10 min). Item licence is a disclaimer only, no use restriction (checked 2026-10-22/23). Credit "NIFC WFIGS (IRWIN)". |
 | NWCG Unit Identifier codes (brief 3) | PMS 931 (Sep 2022), https://www.nwcg.gov/publications/pms931 | Plain names of protecting-agency codes, `backend/fire3d/data/nwcg_agency_codes.json`. NWCG publications are public domain, use permitted when credited to NWCG (checked 2026-10-23). Credit "Agency names: NWCG unit identifiers". |
@@ -100,7 +104,7 @@ in California CAL FIRE stays the record and WFIGS adds only the fires CAL FIRE d
 ## 3. Repo layout
 
 ```
-Fire-3d/
+Fire-3d/   (repository root; the GitHub repository is now disaster-mapping)
   SPEC.md  PLAN.md  README.md  dev.sh  .gitignore
   .env                                   FIRMS_MAP_KEY (gitignored, chmod 600; never copy the key elsewhere)
   docs/reference/firetrace-demo.png      reference for layout and features
@@ -382,16 +386,21 @@ data/floods/{id}/
   layers/floodplain.bin        render  uint8    0 none, 1 0.2 % band, 2 SFHA, 3 floodway (FEMA NFHL, background)
   layers/water_satellite.bin   render  uint8    OPERA DSWx WTR classes 0, 1, 2, 252, 253, 254, 255; 255 outside the image
   layers/water_model.bin       render  uint8    0/255 National Water Model analysis flooded area (model output, separate)
+  layers/water_pass_<key>.bin  render  uint8    brief 6: DSWx classes of one satellite pass (the 8 newest passes that saw
+                                                the area; 255 outside the pass), named in timeline.json (§8.11)
   warnings.json                FloodAlertsResponse (the flood's NWS products, verbatim; every version seen, §8.9)
   gauges.json                  RiverGaugesResponse (member gauges with 30-day series and the RFC forecast; nearby gauges)
   satellite.json + satellite.png   SatelliteWaterResponse (absolute times only) and its PNG (clouds and no data hatched)
   maps/rfc_fim.geojson  maps/catfim_<lid>_<category>.geojson  maps/nfhl.geojson  model/nwm_analysis.geojson
   model/nwm_series_<lid>.json  ModelOutputResponse per member forecast point with an NWM reach
+  timeline.json                brief 6: FloodTimelineResponse frozen at build (every satellite pass of the flood's window
+                               with its view shares over the bundle grid; every version of its NWS products; §8.11)
 ```
 
 - **Area:** the flood's NWS polygons and member gauges, padded 3 km, square, 8-60 km; longer floods are cut to 60 km
   around the primary gauge (else the flood's point) and `aoi_note` says so. 1024² UTM render grid (59 m at 60 km).
-- **Steps** (weights): catalog 0.05, terrain 0.35, maps 0.20, gauges 0.15, satellite 0.20, finish 0.05, the network
+- **Steps** (weights): catalog 0.05, terrain 0.30, maps 0.15, gauges 0.15, satellite 0.15, timeline 0.15 (brief 6;
+  after the satellite step, so its reads never take the satellite step's request slots), finish 0.05, the network
   steps in parallel. Terrain is required (a failure fails the job and keeps any earlier bundle); every other step that
   fails writes its `layer_status` entry (`unavailable` + a reason: `NFHL_DOWN`, `RFC_FIM_UNAVAILABLE`, `NAIP_DOWN`, ...)
   and a manifest warning, and the bundle is still `ready`.
@@ -414,16 +423,16 @@ data/floods/{id}/
 
 FastAPI on port **8710** (`fire3d.api.app:app`). Vite proxies `/api` there by default (`VITE_API_TARGET` overrides).
 **Port 8000 is NOT ours:** an unrelated local app (the user's MeetingPipelines uvicorn) permanently listens on
-127.0.0.1:8000, and 8765 is also busy. Never stop those processes. Fire-3d's default API port is **8710**
+127.0.0.1:8000, and 8765 is also busy. Never stop those processes. Disaster Mapping's default API port is **8710**
 everywhere: `vite.config.ts` default proxy target `http://localhost:8710`, `dev.sh`, the CLI `serve` default,
 and README.
 
 | Method | Path | Response |
 |---|---|---|
 | GET | `/api/health` | `{ok: true, version}` |
-| GET | `/api/incidents?mode=live\|historical&min_acres=300&year=<current UTC year>&state=` | `{mode, updated_ms, incidents: IncidentListRow[], year?, sources}`. **Brief 3 (CONTRACT §14.1, §14.2):** the lower 48 states + DC from NIFC WFIGS, with CAL FIRE as the record in California (WFIGS adds only the California fires CAL FIRE does not list; a California fire is active when either agency says so; a CAL FIRE complex is one row). Live: every active wildfire in the lower 48, whatever its size, sorted by `detections_24h` then acres. Historical: the wildfires of `year` (default: the current UTC year) of `min_acres` (default 300) or more, by acres. Prescribed burns, complex parents outside California, Alaska, Hawaii and territories are never listed. `state` (USPS code) filters rows. `sources[]` (`ListSource`: `id` "calfire" \| "wfigs", `name`, `status` "available" \| "unavailable", `retrieved_ms`, `reason`, `stale`) says which lists answered and when Fire-3d fetched them; with WFIGS down only California (CAL FIRE) is listed, with CAL FIRE down California's WFIGS rows still list; `stale: true` when a list could not be refreshed and an older copy is shown (CONTRACT §14.16). Both lists down: 200 with the bundles on disk of listed fires only (never synthetic bundles or failed builds), both sources `unavailable` with one reason. A failed list is remembered for 60 s, so every answer stays within seconds during an outage (§14.16). gzip when the request accepts it (`Vary: Accept-Encoding`). Brief 2 text, still true for California: `{mode, updated_ms, incidents: IncidentListRow[], year?}`. Historical: CAL FIRE's list of `year` (default 2025; e.g. `year=2026` for the current season, refreshed every 30 min and overlaid with the fresher live-list records), default `min_acres=300`, sorted by acres desc; every row keeps mode `"historical"` (`is_active` says whether CAL FIRE still lists the fire as active; `/api/incidents/{id}` resolves such a fire as live); the response says which `year` it lists. Live: all active `Type ∈ {Wildfire, Fire}` incidents, sorted by `detections_24h` then acres (`year` is ignored). Rows (BRIEF-2) are `IncidentSummary` + `bbox_lonlat: [w, s, e, n] \| null`: the analysis area (`manifest.grid.bbox_lonlat`) of a ready bundle, else null. |
+| GET | `/api/incidents?mode=live\|historical&min_acres=300&year=<current UTC year>&state=` | `{mode, updated_ms, incidents: IncidentListRow[], year?, sources}`. **Brief 3 (CONTRACT §14.1, §14.2):** the lower 48 states + DC from NIFC WFIGS, with CAL FIRE as the record in California (WFIGS adds only the California fires CAL FIRE does not list; a California fire is active when either agency says so; a CAL FIRE complex is one row). Live: every active wildfire in the lower 48, whatever its size, sorted by `detections_24h` then acres. Historical: the wildfires of `year` (default: the current UTC year) of `min_acres` (default 300) or more, by acres. Prescribed burns, complex parents outside California, Alaska, Hawaii and territories are never listed. `state` (USPS code) filters rows. `sources[]` (`ListSource`: `id` "calfire" \| "wfigs", `name`, `status` "available" \| "unavailable", `retrieved_ms`, `reason`, `stale`) says which lists answered and when Disaster Mapping fetched them; with WFIGS down only California (CAL FIRE) is listed, with CAL FIRE down California's WFIGS rows still list; `stale: true` when a list could not be refreshed and an older copy is shown (CONTRACT §14.16). Both lists down: 200 with the bundles on disk of listed fires only (never synthetic bundles or failed builds), both sources `unavailable` with one reason. A failed list is remembered for 60 s, so every answer stays within seconds during an outage (§14.16). gzip when the request accepts it (`Vary: Accept-Encoding`). Brief 2 text, still true for California: `{mode, updated_ms, incidents: IncidentListRow[], year?}`. Historical: CAL FIRE's list of `year` (default 2025; e.g. `year=2026` for the current season, refreshed every 30 min and overlaid with the fresher live-list records), default `min_acres=300`, sorted by acres desc; every row keeps mode `"historical"` (`is_active` says whether CAL FIRE still lists the fire as active; `/api/incidents/{id}` resolves such a fire as live); the response says which `year` it lists. Live: all active `Type ∈ {Wildfire, Fire}` incidents, sorted by `detections_24h` then acres (`year` is ignored). Rows (BRIEF-2) are `IncidentSummary` + `bbox_lonlat: [w, s, e, n] \| null`: the analysis area (`manifest.grid.bbox_lonlat`) of a ready bundle, else null. |
 | GET | `/api/incidents/{id}` | `{summary: IncidentSummary, manifest: IncidentManifest \| null, job: JobStatus \| null}` |
-| POST | `/api/incidents/{id}/build?force=false` | `JobStatus`. Builds or rebuilds the bundle in the background; returns the existing job if one is running. Brief 3 (CONTRACT §14.2): an id is buildable only when a CAL FIRE or NIFC WFIGS list knows it (never a manifest alone) and its state is in the lower 48 + DC: unknown id 404 "unknown incident"; Alaska, Hawaii or a territory 422 "Fire-3d does not support Alaska, Hawaii or US territories yet."; a local or synthetic bundle (`fixture-demo`, `fixture-east`) 409 "'{id}' is a local or synthetic bundle; it cannot be rebuilt." (a non-forced build of a ready one returns it untouched); the source lists unreachable (no list that answered knows the id) 503 "The fire lists could not be reached right now; try again later." (also `GET /api/incidents/{id}` of a listed fire without a bundle, the incident record and `/api/extras/*` by incident), never "a local or synthetic bundle". |
+| POST | `/api/incidents/{id}/build?force=false` | `JobStatus`. Builds or rebuilds the bundle in the background; returns the existing job if one is running. Brief 3 (CONTRACT §14.2): an id is buildable only when a CAL FIRE or NIFC WFIGS list knows it (never a manifest alone) and its state is in the lower 48 + DC: unknown id 404 "unknown incident"; Alaska, Hawaii or a territory 422 "Disaster Mapping does not support Alaska, Hawaii or US territories yet."; a local or synthetic bundle (`fixture-demo`, `fixture-east`) 409 "'{id}' is a local or synthetic bundle; it cannot be rebuilt." (a non-forced build of a ready one returns it untouched); the source lists unreachable (no list that answered knows the id) 503 "The fire lists could not be reached right now; try again later." (also `GET /api/incidents/{id}` of a listed fire without a bundle, the incident record and `/api/extras/*` by incident), never "a local or synthetic bundle". |
 | POST | `/api/incidents/{id}/forecast` body `{start_ms?: number, horizon_h?: number = 72, ensemble?: "auto" \| "gfs025" \| "ecmwf_ifs025" \| "perturbed" \| "none", members?: number}` | `JobStatus`. Default `start_ms`: live = `time_range.now_ms`, the latest observation of the fire: a confirmed satellite pass after the last detection counts (§8.3), so a fire that went quiet starts at the latest pass with its last mapped area, not at its last detection; historical = 24 h after ignition. `"auto"`: live → gfs025, historical → perturbed. |
 | GET | `/api/jobs/{job_id}` | `JobStatus` |
 | GET | `/api/bundles/{id}/{path:path}` | Static bundle files, gzip, `Cache-Control: no-cache` + ETag. Path traversal must be impossible. |
@@ -433,10 +442,10 @@ and README.
 | GET | `/api/accuracy-regions` | Brief 3 (CONTRACT §14.4). `AccuracyRegionsResponse`: `backend/fire3d/data/regional_accuracy.json` (schema 1) plus `served_ms`; all ten regions (NWCC, NRCC, GBCC, SWCC, SACC-SP, SACC-SE, RMCC, EACC, ONCC, OSCC), a region missing from the file served as `untested`. Status: `tested` with >= 2 fires and >= 16 scored leads, else `limited` with >= 1 fire, else `untested`. Each region's `fires[]` (`AccuracyFire`) carries the fire's own `growth_ratio_median` (optional; brief 3 integration); the region's is null when its fires erred in opposite directions. `Cache-Control: no-cache`. |
 | GET | `/api/geocode?q=<US street address \| US town \| ZIP code \| county>` | Brief 3 (CONTRACT §14.10): local matches come from `backend/fire3d/data/gazetteer_us.json` (2026 Census Gazetteer Files, every state; replaces `gazetteer_ca.json`); each gains `state`, `state_name`, `county`, `supported` (false in Alaska, Hawaii, territories), `name`/`matched_address` "<Name>, <ST>", `place_type` (Census LSAD in plain words) and `place_type_label`; "Springfield, IL", "Springfield IL", "83702 ID" parse; no match: "No US city, town, county or ZIP code matches '<q>'." Brief 2 text: Map-first redesign (shapes in docs/redesign/CONTRACT.md §6 and §13 location). A street address (house number first) is proxied to the US Census Geocoder (`Public_AR_Current`, cached 30 days); a California town or a 5-digit ZIP code is matched locally in `backend/fire3d/data/gazetteer_ca.json` (2026 Census Gazetteer Files, no upstream call; replies say `kind` and `local: true`). Coordinates are parsed by the browser (400 here). 503 when the local index is missing. |
 | GET | `/api/extras/{evacuations,cameras,cameras/latest,imagery,sources}` | Optional official and public sources (CONTRACT §12.1): Cal OES evacuation zones, public cameras, recent satellite imagery; `?incident=<id>` or `?bbox=w,s,e,n`. Upstream failures answer 200 with an honest status, never invented data. Brief 3 (CONTRACT §14.8): evacuations come from a state registry (Cal OES in California, Oregon OEM in Oregon); every other state answers `unavailable` + `reason_code: "state_not_available"` without an upstream request ("Official evacuation zones are not available in this state ({State}). Follow local officials."); the answer adds `states[]` and per-source fields. Cameras outside California answer `state_not_available`. |
-| GET | `/api/official/calfire?incident={id}` | BRIEF-2. `CalFireOfficial`: CAL FIRE's current record of the incident (its own numbers and `Updated` time), every change of acres, containment, active or final status Fire-3d has recorded since it first checked (append-only `data/official/calfire/<UniqueId>.jsonl`, outside the bundles), and caveats. Each call is a check and records the current record. Past fires have only CAL FIRE's final record. Brief 3 (§14.5): a fire whose `record_source` is "wfigs" answers `unavailable` + `not_covered` ("CAL FIRE does not list this fire; its official record is published by NIFC WFIGS."); any listed id resolves (no 404 for a listed fire without a bundle). |
+| GET | `/api/official/calfire?incident={id}` | BRIEF-2. `CalFireOfficial`: CAL FIRE's current record of the incident (its own numbers and `Updated` time), every change of acres, containment, active or final status Disaster Mapping has recorded since it first checked (append-only `data/official/calfire/<UniqueId>.jsonl`, outside the bundles), and caveats. Each call is a check and records the current record. Past fires have only CAL FIRE's final record. Brief 3 (§14.5): a fire whose `record_source` is "wfigs" answers `unavailable` + `not_covered` ("CAL FIRE does not list this fire; its official record is published by NIFC WFIGS."); any listed id resolves (no 404 for a listed fire without a bundle). |
 | GET | `/api/official/fire-weather?incident={id}&at_ms=&margin_km=15` | BRIEF-2. `FireWeather`: NWS Red Flag Warnings and Fire Weather Watches whose zones meet the incident's analysis area + `margin_km`, verbatim, with `covers_reported_location` and `nearest_km`. The present (no `at_ms`, or within 6 h of now, or later): the live NWS list (one statewide request, cached 2 min; zone polygons cached 30 days). An older `at_ms`, or any `at_ms` of a historical incident: the Iowa Environmental Mesonet archive (`archived: true`); a historical incident without `at_ms`, or an archive failure, is `not_available_for_past_dates`, never "no alerts". Without `incident`: every current California alert.  Brief 3 (§14.6): one cached national request (`area=` the 48 states + DC); per fire, alerts are kept only when a UGC's state is in the fire's states before any zone loads. Adds `states_checked` (the states this answer covers; `[]` when none could be checked), `alert_states`, and each alert's `time_zone` (all required since the integration; the web still reads a cached answer without `states_checked` as ["CA"]). |
 | GET | `/api/official/incident-record?incident={id}` | Brief 3 (CONTRACT §14.5). `IncidentRecord`: the fire's NIFC WFIGS (IRWIN) record (WFIGS rows and California rows matched to one WFIGS record) with the protecting agency, its own times and a link. A California row without a match, one matched to several records none of which has its name (the reason names them; several records that all carry its name, such as the Lucas Fire's two LUCAS records, are one record: the largest, then the newest), a CAL FIRE complex row and a synthetic or local bundle answer `unavailable` + `not_covered` with their reasons; an unknown id is 404; WFIGS down is `upstream_error`; the source lists unreachable for the id 503. |
-| GET | `/api/official/local-alerts?incident={id}&at_ms=&margin_km=15` or `?bbox=w,s,e,n` | Brief 3 (CONTRACT §14.7). `LocalAlerts`: local officials' messages relayed by the NWS (live and the last 7 days) and FEMA's IPAWS archive via OpenFEMA (older days, labelled archived), verbatim, each with a `source_url`. `incident` xor `bbox` (else 400); unknown incident 404. An area that touches no lower-48 state (Alaska, Hawaii, territories, outside the US) answers `unavailable` / `state_not_available` with both channels `not_checked` ("Fire-3d checks local officials' alerts in the lower 48 states only." plus the §14.14 sentence), with no NWS request. Every `at_ms` query parameter (here, fire weather and `/api/extras/*`) is limited to 2100-01-01 (larger: 422; CONTRACT §14.16). |
+| GET | `/api/official/local-alerts?incident={id}&at_ms=&margin_km=15` or `?bbox=w,s,e,n` | Brief 3 (CONTRACT §14.7). `LocalAlerts`: local officials' messages relayed by the NWS (live and the last 7 days) and FEMA's IPAWS archive via OpenFEMA (older days, labelled archived), verbatim, each with a `source_url`. `incident` xor `bbox` (else 400); unknown incident 404. An area that touches no lower-48 state (Alaska, Hawaii, territories, outside the US) answers `unavailable` / `state_not_available` with both channels `not_checked` ("Disaster Mapping checks local officials' alerts in the lower 48 states only." plus the §14.14 sentence), with no NWS request. Every `at_ms` query parameter (here, fire weather and `/api/extras/*`) is limited to 2100-01-01 (larger: 422; CONTRACT §14.16). |
 
 ```ts
 interface JobStatus {
@@ -466,16 +475,18 @@ interface Aircraft {
 | GET | `/api/floods?mode=live\|historical&year=` | `FloodListResponse` `{hazard: "flood", mode, updated_ms, year?, past_rule?, preparing?, floods: FloodSummary[], sources: FloodListSource[], products_in_effect}`. Live: NWS flood products in effect or upcoming in the lower 48 + DC (Flood Warning, Flash Flood Warning, Flood Watch, Flash Flood Watch, Flood Advisory and their statements; coastal and lakeshore products are out) and river gauges observed at minor flooding or worse, grouped per river or area (§8.8), ordered by `floodRank` (CONTRACT §16.8); watches are included (the web hides them by default). Historical (`year` 2026 or 2025, default this year; §8.10): `past_rule` `"moderate_or_worse"`, `preparing: true` while the one-time year build runs, then the year's floods (mode `historical`; a row whose id or any VTEC key the live list holds is served as that live row, once; floods still in effect when the year was built are left to the live list; row ids follow registry aliases written after the build); other years an empty list whose `iem_archive` source says which years are kept. `sources[]` (`nws_alerts`, `nwps_gauges`, `rfc_forecasts`; `iem_archive` for past years, and in the live list the IEM copy of NWS warnings that links gauges to them): NWS down → floods from gauges only (`FLOOD_NWS_DOWN`; their caveat says NWS could not be reached); gauges down → from NWS products only (`FLOOD_GAUGES_DOWN`); both down → the flood bundles on disk only (`FLOOD_LISTS_DOWN`), still a 200 whose sources say why (not CONTRACT §16.7's 503; contract5 note); never "no floods" for an outage. `products_in_effect` is null when NWS could not be read. Cached 5 min (60 s while degraded); a cold build makes at most 6 upstream requests. |
 | GET | `/api/floods/status` | `FloodLiveStatus` `{last_refresh_ms, next_refresh_ms, active_floods, gauges_in_flood, auto_build}` from the flood live loop (§8.9) once it has run a cycle, else from the cached list; counts null when the lists could not be read (never 0); `auto_build` only while the loop runs with auto-build on. |
 | GET | `/api/floods/{id}` | `FloodDetailResponse` `{summary, manifest: FloodManifest \| null, job: JobStatus \| null, resolved_from}`. Resolution (PLAN-5 §3.2 rule 13): the live list → the year lists → a registry alias (the canonical summary, live or a year row; the web replaces the URL) → the bundle's frozen summary → the registry's last-known summary → 404. 503 "The flood lists could not be reached right now; try again later." when the lists could not decide and nothing is on disk, never 404. `fixture-flood-<kind>` ids are 404 here (fixture server only). |
-| POST | `/api/floods/{id}/build?force=0\|1` | `JobStatus` (kind "build", `incident_id` = the flood id). 409 for `fixture-flood`, a flood outside the lower 48, or a past (year-list) flood (`PAST_NO_BUNDLE`: "Fire-3d prepares 3D data for current floods only: NWS's forecast maps, the model and river forecasts are not kept for a past flood's dates."). |
+| POST | `/api/floods/{id}/build?force=0\|1` | `JobStatus` (kind "build", `incident_id` = the flood id). 409 for `fixture-flood`, a flood outside the lower 48, or a past (year-list) flood (`PAST_NO_BUNDLE`: "Disaster Mapping prepares 3D data for current floods only: NWS's forecast maps, the model and river forecasts are not kept for a past flood's dates."). |
 | GET | `/api/floods/{id}/files/{path}` | Flood bundle files (gzip except JPEG / PNG, weak ETag + 304, `Cache-Control: no-cache`, traversal-safe; dotfiles such as the lock and `.staging/`, and the fixture's canned `api/` answers, are 404); `.geojson` as `application/geo+json`. |
 | GET | `/api/floods/{id}/maps?kind=rfc_fim\|catfim\|nfhl&lid=&category=&at_ms=` | `FloodMapResponse`: the NWS forecast flooded area (next 5 days, experimental), NWS category flood maps (experimental), FEMA's 1 % floodplain (background, with `availability` and effective dates); past times `not_available_for_past_dates` (CatFIM answers today's library with a caveat). A past (year-list) flood asked without `at_ms` is answered at its last NWS product's time (FEMA: today's map either way). |
 | GET | `/api/floods/{id}/model?kind=nwm_analysis\|nwm_5day\|nwm_high_flow\|nwm_series&lid=&at_ms=` | `ModelOutputResponse` (National Water Model, experimental model output; `MODEL_CAVEAT` always); past times `not_available_for_past_dates`; a past (year-list) flood asked without `at_ms` is answered at its last NWS product's time, so never today's model output. |
+| GET | `/api/floods/{id}/timeline?wait=0..30` | Brief 6 (§8.11). `FloodTimelineResponse` `{kind: "flood_timeline", flood_id, now_ms, start_ms, end_ms, passes: FloodPassHistory, products: FloodProductHistory, synthetic}`. `passes`: every satellite pass over the flood's window (oldest first; `view` clear \| partly_hidden \| no_view \| unknown, `usable`, view shares and water areas over the 2D map area, `image` `{url, bounds_lonlat}` for usable passes, `caveat` = that pass's `SAT_CAVEAT` or `PASS_NO_VIEW`, `shown_key` = the pass the satellite layer shows); passes still being read after `wait` seconds (default 20) come back `view: "unknown"` with `complete: false` (ask again). `products`: a `FloodEnvelope` (`kind: "flood_alerts"`) with every version of every NWS product of the flood (`FloodTimelineProduct` = `FloodAlert` + `vtec_key`, `replaced_ms`, `shown_from_ms`, `shown_until_ms`; oldest first), zone outlines in `zones`, `archive_source` (IEM) when archived copies are included, `complete`. Observation and official blocks are separate, never merged. `fixture-flood` answers from its bundle (`synthetic: true`). |
+| GET | `/api/floods/{id}/passes/{key}.png?area=<8 hex>` | Brief 6. The PNG of one pass of the timeline (water `#2a8ce6`, partial water lighter, clouds and no data the hatched grey "no view", outside the pass transparent; lon/lat bounds in the JSON). 404 `SATELLITE_IMAGE_GONE` when it is no longer kept or the map area changed; `key` `[A-Za-z0-9_-]`, `area` 8 hex digits (else 404 / 422). |
 | GET | `/api/floods/{id}/satellite?at_ms=` and `/api/floods/{id}/satellite.png?granule=` | `SatelliteWaterResponse` (water seen by satellite, NASA OPERA DSWx; `login` "not_configured" \| "configured" \| "refused", never the token) and its PNG (cloud and no-data pixels drawn as "no view", never transparent). A past (year-list) flood asked without `at_ms` is answered at its last NWS product's time. |
 | GET | `/api/official/flood-alerts?flood=<id>\|bbox=w,s,e,n&at_ms=` | `FloodAlertsResponse`: NWS flood products verbatim with issuer, own times, IANA zone and link, from the one national request the list uses (2 min); a flood: its own events (VTEC key, else CAP id) and attached watches; an area or point (w = e, s = n): every product touching it, watches included, with `covers_point`; zone-based products drawn from at most 20 NWS zone outlines, then whole counties (`ZONES_AS_COUNTIES`); `ALERTS_UNAVAILABLE` when NWS cannot be read (never `NO_PRODUCT`); a flood at a past time (`at_ms` older than 6 h): its archived products from the IEM archive (§8.10: every version sent by then, the event's own segment verbatim, `archived: true`, source IEM; `not_available_for_past_dates` before the flood's first product; `unavailable` when IEM cannot be read); an area at a past time `not_available_for_past_dates` (products are served per flood); 422 without `flood` or `bbox`. |
 | GET | `/api/official/river-gauges?flood=<id>\|bbox=\|lid=\|scope=national&min=action&series=0\|1&at_ms=` | `RiverGaugesResponse`: gauges, NWS flood categories and thresholds, USGS-measured readings (provisional), the official RFC forecast with its issue time; `bbox` and nearby gauges from the NWS `riv_gauges` map service (layer 0, and layer 15 for which are forecast points), NWPS per `lid` only; a nearby gauge's forecast is `rfc_max_forecast`'s when it is listed there, else null (`is_forecast_point` still says it has one; `?lid=` has it exactly); members fall back to the map's reading with `GAUGE_DETAIL_DOWN` when NWPS cannot be read; `bbox` of a point looks 10 km around it; 404 for a `lid` NOAA does not know; the fixture's fictional `ZZ…` gauges answer from its bundle; an `at_ms` older than 6 h (§8.10): a flood's member gauges or one `lid` with USGS's measured stage and flow around that time (provisional), NWS's flood stages of today (`THRESHOLDS_TODAY`), no forecast (`PAST_NO_FORECAST`), the reading's category `unknown`; an area `not_available_for_past_dates`; never today's readings for a past time; 422 without a scope. |
 | GET | `/api/official/local-alerts?...&hazard=fire\|flood`, `/api/extras/evacuations?...&hazard=fire\|flood` | The existing answers; `hazard` defaults to `fire` (byte-for-byte as before). `flood`: local messages about flood, water, levees or dams; Oregon's wildfire-only evacuation feed answers not-available (`OR_EVAC_FIRE_ONLY`); Cal OES `event_type` verbatim. |
 
-Official endpoints (BRIEF-2; built in `backend/fire3d/api/official.py`, details in `docs/redesign/CONTRACT.md` §13). An upstream failure is not an HTTP error: they answer 200 with `status: "unavailable"` (or `"not_available_for_past_dates"` for the archive). Errors: 400 bad id, 404 unknown incident, 422 bad query, 429 Fire-3d's own request limit (NWS 30/min, IEM 30/min). JSON is `Cache-Control: no-store`.
+Official endpoints (BRIEF-2; built in `backend/fire3d/api/official.py`, details in `docs/redesign/CONTRACT.md` §13). An upstream failure is not an HTTP error: they answer 200 with `status: "unavailable"` (or `"not_available_for_past_dates"` for the archive). Errors: 400 bad id, 404 unknown incident, 422 bad query, 429 Disaster Mapping's own request limit (NWS 30/min, IEM 30/min). JSON is `Cache-Control: no-store`.
 
 ```ts
 interface IncidentListRow extends IncidentSummary { bbox_lonlat: [number, number, number, number] | null }
@@ -484,7 +495,7 @@ interface OfficialEnvelope {
   status: "available" | "unavailable" | "not_available_for_past_dates";
   reason_code: "past_date" | "upstream_error" | "not_covered" | "state_not_available" | null; reason: string | null;
   source: { name: string; url: string; credit: string; license?: string; terms_url?: string };
-  retrieved_ms: number | null;        // when Fire-3d fetched it from the source
+  retrieved_ms: number | null;        // when Disaster Mapping fetched it from the source
   source_updated_ms: number | null;   // the source's own update time
   requested_at_ms: number | null; now_ms: number; incident_id: string | null; caveats: string[];
 }
@@ -975,7 +986,7 @@ flood (no zone outline, product text, gauge detail or series) is requested in th
 5. A gauge at minor or worse that no product names is a flood at level `gauge_only` ("No NWS flood product names this
    gauge right now."); a gauge at action joins a flood but never starts one. A gauge that may measure tidal or lake
    water (SHEF code HM / HC, a tidal datum note such as "(in MHHW)", a coastal word in its waterbody, or within 10 km of
-   such a gauge) says instead that Fire-3d does not read NWS Coastal Flood or Lakeshore Flood products, which may be in
+   such a gauge) says instead that Disaster Mapping does not read NWS Coastal Flood or Lakeshore Flood products, which may be in
    effect there; while NWS cannot be read the caveat is "NWS flood products could not be reached right now. …".
    A gauge-only flood whose gauge stands inside the area of a non-watch NWS product lists that product too (attached
    like a watch: never a join, never its own registry key), so it is never shown as "no NWS flood product here" while
@@ -990,9 +1001,9 @@ flood (no zone outline, product text, gauge detail or series) is requested in th
    registry's first-seen time (`started_basis` `nws_product` / `first_seen`); a member gauge's first crossing of flood
    stage refines it (`gauge`) only when its series is already cached.
 8. **Status:** `active` while a product is in effect or upcoming or a member gauge read minor or worse within 6 h, else
-   `inactive` (never shown as a word); a flood that left the lists stays listed (inactive) for 48 h after Fire-3d last
+   `inactive` (never shown as a word); a flood that left the lists stays listed (inactive) for 48 h after Disaster Mapping last
    saw it, with every product `ended` (it left NWS's active list), `expires_ms` null, `emergency` false and the level it
-   last had. It is listed so only when Fire-3d can tell: NWS answered, the gauges answered when it has any, and none of
+   last had. It is listed so only when Disaster Mapping can tell: NWS answered, the gauges answered when it has any, and none of
    its products is listed now with another flood; during an outage it is not listed (its detail answers its last-known
    summary, its products in effect until their own NWS end time).
 9. **Names:** "<River> flood", "<Place> flash flood", "<Water> flood" / "<Place> flood", "Flood watch: <first area>
@@ -1001,7 +1012,7 @@ flood (no zone outline, product text, gauge detail or series) is requested in th
    suffix that no longer separates two floods is dropped; never "fire".
 10. **Ids** `flood-{YYYYMMDD}-{slug}-{h6}` stay stable through `data/floods/registry.jsonl`: VTEC keys are permanent,
     a gauge key is an episode `NWSLI@first_seen_ms`, kept until its flood has been quiet longer than 48 h (judged from
-    the flood's last-known summary, never from Fire-3d's own build gaps: a restart after a night off keeps the ids);
+    the flood's last-known summary, never from Disaster Mapping's own build gaps: a restart after a night off keeps the ids);
     a gauge flooding again later gets a new id; merges keep the older id (`aliases`), a split keeps it on the part with
     the anchor, and the other part's keys are reassigned to its new id (stable through later NWS updates; a live
     part's id is never aliased to another live part). During an outage an id's last-known summary is not
@@ -1029,13 +1040,13 @@ catches its own errors). Every `REFRESH_S` = 900 s (`FIRE3D_FLOOD_LIVE_INTERVAL_
    loop (or before its first cycle) the status comes from the cached list (`next_refresh_ms` = the list cache's).
 2. **One budget a cycle: `PREFETCH_MAX` = 20 upstream requests** for the background prefetch **and** the append
    step of 3 together (NWS and NWPS requests alike; never in the list build; C9), each counted at its largest cost
-   before it is made, so the loop never uses up Fire-3d's own NWS or NWPS limit (30 a minute each). The **prefetch**
+   before it is made, so the loop never uses up Disaster Mapping's own NWS or NWPS limit (30 a minute each). The **prefetch**
    takes at most 20 − `APPEND_SHARE` (8) = 12: the product text of river products in effect (their H-VTEC gauge id:
    the list then links the right gauge; warnings first, newest first; at most 6 requests), the NWS zone outlines of
    zone-based products (most watches; flood-alerts answers then draw NWS's own zones instead of whole counties; at
    most 3), the 30-day series of member gauges at minor or worse (the list then refines a flood's start from the
    first crossing of flood stage; at most 3); a share left unused goes to the next kind. NWS calls run on the shared
-   `NWS_LIMITER`, NWPS calls on their own; Fire-3d's own rate limit ends a kind for the cycle (a product text it
+   `NWS_LIMITER`, NWPS calls on their own; Disaster Mapping's own rate limit ends a kind for the cycle (a product text it
    refused is asked again in a later cycle).
 3. **Ready live flood bundles of listed floods** (at most 8 a cycle, the least recently refreshed first; never while
    a build or refresh of that flood runs):
@@ -1106,7 +1117,7 @@ A failed or partial build is retried after 10 min and never replaces a complete 
   `naming.clean_water`: "Whitewater River (KS)" names "Whitewater River flood"; the largest place in a flash flood's
   polygon), duplicates numbered.
 - **Ids:** a VTEC key in the registry gives its live id (and the live name from the last-known summary), so a 2026
-  flood Fire-3d saw live keeps its id; rows of one live id are merged. Served rows follow the registry's aliases at
+  flood Disaster Mapping saw live keeps its id; rows of one live id are merged. Served rows follow the registry's aliases at
   the time of the request (a merge recorded after the build), so an old id resolves as an alias of the canonical flood. Other ids are deterministic
   (`flood-{YYYYMMDD of the first product}-{slug of the name before duplicate suffixes}-{h6 of the gauge or the oldest
   VTEC key}`; the slug keeps the gauge's raw waterbody, so cleaning the shown name changed no id). The disk copies carry
@@ -1125,6 +1136,51 @@ A failed or partial build is retried after 10 min and never replaces a complete 
   flood's span ± a few days (at most 40 days), NWS thresholds and impacts of today (`THRESHOLDS_TODAY`), no forecast
   (`PAST_NO_FORECAST`); NWS forecast maps and the National Water Model `not_available_for_past_dates`; satellite water
   from the passes of the 10 days before `at_ms` (2023 on).
+
+### 8.11 A flood's time history (`fire3d/floods/timeline.py`; brief 6, decision 2)
+
+Flood animation is made of real time steps only: satellite passes and NWS product versions. **Nothing is drawn
+between two passes**, and no water is interpolated or invented between two images. User-facing strings are in
+`fire3d/floods/copy_time.py` (under the PLAN-5 §5.1 wording guard).
+
+- **Window** (`flood_window`): from 10 days before the flood's start to now; a past (year-list) flood from 10 days
+  before its start to 3 days after its last NWS product. At most 45 days (the newest part is kept). Before 2023
+  (NASA's archive): `not_available_for_past_dates`, `PASSES_BEFORE_ARCHIVE`.
+- **Passes:** one Earthdata GIS catalog search over the window (DSWx-HLS, cached 6 h); with `EARTHDATA_TOKEN` NASA's
+  catalogue (CMR) adds DSWx-S1 radar passes and HLS passes Earthdata GIS has not loaded yet (PO.DAAC). The tiles of
+  one overpass are sensed up to a minute or two apart, so passes of one product and sensor less than 10 minutes apart
+  are **one pass** (the key of the earliest; e.g. `DSWx-HLS_20261029T1756_L9`). At most 40 passes (`truncated`).
+- **Each pass is read once**, locked to its own granules (`esriMosaicLockRaster`, so the image time is exact),
+  cached 30 days: the route reads it on the satellite route's lon/lat grid (about 30 m, ≤ 1600 px) and makes its PNG
+  and view shares from that read; the bundle reads it on the render grid. Shares over the whole area: `clear_pct`
+  (seen clearly: not cloud, not no data), `cloud_pct`, `nodata_pct` (no data and outside the pass), `water_km2`,
+  `partial_km2` (they include the river's normal water). `view`: `clear` (≥ 50 % seen clearly), `partly_hidden`,
+  `no_view` (< 1 %: listed with `PASS_NO_VIEW`, `usable: false`, never drawn as water), `unknown` (not read yet or
+  could not be read; `PASSES_PARTIAL`). `shown_key`: the pass the satellite layer shows (the route's satellite answer
+  or the bundle's `satellite.json`; it can be a no-view pass when that is what the satellite step chose), else the
+  newest pass that saw at least half of the area clearly, else the clearest.
+- **Polite reads:** at most 3 at a time; a read waits while fewer than 8 Earthdata GIS request slots (of 30 a
+  minute) are left, so the satellite route's own probes never starve; a cached read never waits. The route waits at
+  most `wait` seconds (default 20) and answers unfinished passes as `unknown` with `complete: false`; the reads go on
+  in the background, so asking again a few seconds later completes the list. Measured 2026-11-05 (Moenkopi Wash,
+  6 passes): 8 s cold, 0.03 s cached; one read about 3 s and 1 MB.
+- **Bundle:** the newest 24 passes are read on the render grid (the build waits for request slots: it is a
+  background job) and the classes of the 8 newest usable ones are kept as `layers/water_pass_<key>.bin` (1 MB each;
+  gzip on the wire); the others are listed with `layer: null` (`PASSES_BUNDLE_LIMIT`). `timeline.json` keeps the
+  answer with `stats_over: "bundle_grid"` and no 2D image.
+- **NWS products** (`product_history`): every event of the flood (its products' VTEC keys, at most 20) from IEM's
+  `json/vtec_event.py` (the issuance and every follow-up statement; one version per product segment carrying the
+  event, its own text verbatim, its `LAT...LON` polygon; zone outlines from `geojson/vtec_event.py` for versions
+  without one) plus NWS's live copies (CAP, in effect now). A live copy replaces the archived copy of the same version
+  (same event, issued within 10 minutes, same action). Each version keeps its issuer, its own times, its verbatim
+  text and its link (IEM's product page for archived copies, `archived: true`). `shown_from_ms` = its issue time;
+  `shown_until_ms` = the earliest of its own end time and the next version's issue time (`replaced_ms`); CAN and UPG
+  versions end at their own issue time; null = open (a river warning "until further notice"). `phase` follows from
+  them at `now`. Measured 2026-11-05: St Johns River (5 events) 97 versions, 233 KB; Ducktown flash flood (4 events)
+  12 versions. Archive down with the live copies read: `PRODUCTS_ARCHIVE_DOWN` (some events: `PRODUCTS_ARCHIVE_PARTIAL`);
+  nothing read: `unavailable` with `ALERTS_UNAVAILABLE` (a past flood: `PAST_ALERTS_DOWN`), never "no product"; a
+  flood with no product at all: `PRODUCTS_NONE`. Answers are kept 5 min (products) and 10 min (the whole answer, once
+  complete).
 
 ## 9. Frontend
 
@@ -1315,7 +1371,7 @@ interface AppState {
 - The **3D canvas is full-bleed** (whole window). UI panels float above it as dark glass.
 - `panelsCollapsed` (key **H** or a button) hides everything except a minimal top bar for a cinematic view.
 - **Header (≈52 px, floating, full width):**
-  - Logo mark + "Fire-3d" + "Wildfire Forensics & Forecast".
+  - Logo mark + "Disaster Mapping" (brief 6; the brief-2 tagline is gone).
   - Incident picker: dropdown with a **Live / 2025** segmented control and search. Rows show name, acres,
     containment, start date, status chip, and bundle status (ready / build needed / building). The 2025 list has
     a ≥ 100 ac toggle.
@@ -1417,7 +1473,7 @@ interface AppState {
   Chrome (headless; it tries GPU flags and falls back to SwiftShader) and prints console errors. Inspect screenshots
   with the Read tool.
 - **Ports:** integration uses API **8710** / web 5173 (8000 is occupied by an unrelated app; see §6). Module
-  agents use only the ports their prompts assign. Wherever a prompt says "port 8000" for the Fire-3d API,
+  agents use only the ports their prompts assign. Wherever a prompt says "port 8000" for the Disaster Mapping API,
   use 8710.
 - **Scene isolation:** the scene agent develops in `web/scene-dev.html` + `web/src/scene/dev/`, a standalone page that
   mounts only `<Scene/>` and loads the fixture into the store itself. App.tsx supports `VITE_SCENE=off`, which

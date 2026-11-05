@@ -24,3 +24,9 @@ time history and the 3D terrain products, their routes in `api/floods.py`, `floo
 - 2026-11-05: read BRIEF-6, BRIEF-5, PLAN-5 §3.3-3.8 and §5, CONTRACT §16, the OPERA / satellite / history / zones /
   build / routes code. Measured: Earthdata GIS pass read ~3 s (1600 px, ~1 MB); IEM event detail 0.1-1.3 s;
   St Johns event KMLB.FL.W.0003 has 68 versions; NWM flowlines 535-1105 lines per 60 km area (2 s).
+- 2026-11-05: **M1 done.** `floods/timeline.py`, `floods/copy_time.py`, routes `/timeline` and `/passes/{key}.png`,
+  bundle step "timeline" (`timeline.json`, `layers/water_pass_<key>.bin`, at most 8), contracts (Python + TS),
+  SPEC §5.3 / §6 / §8.11 and the title / intro rename (every SPEC "Fire-3d" now "Disaster Mapping" except the history
+  note and the repo folder), `scripts/check_bundle.py` knows the new layers (declared in the contract6 note),
+  `tests/test_floods_timeline.py` (13). Backend suite 1441 passed; web typecheck clean.
+  Real runs: Moenkopi Wash 6 passes (8 s cold); Grand River 3 passes, all no view; St Johns 97 product versions.
