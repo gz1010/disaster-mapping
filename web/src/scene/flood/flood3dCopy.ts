@@ -56,6 +56,7 @@ export const FLOOD_3D = {
   groupTerrain3dTag: 'experimental',
   // river view (entry control, camera)
   riverView: 'River view',
+  riverViewShort: 'River',
   riverViewTip: 'A lower, closer look along the main river',
   // hover readout
   probeDepth: 'DEPTH',

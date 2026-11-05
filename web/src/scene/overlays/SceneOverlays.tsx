@@ -25,11 +25,12 @@ import { useStore, type Quality } from '../../state/store'
 import { useTimeFormat } from '../../state/timeZone'
 import { useForensicFlood } from '../../ui/forensic-flood/forensicFloodState'
 import { useNow } from '../../ui/hooks'
+import { NARROW_QUERY, useMediaQuery } from '../../ui/shell/hooks'
 import { useCompassDrag } from '../../ui/useCompassDrag'
 import { useAssetsError, useAssetsLoading } from '../assets'
 import { fillCopy } from '../../ui/shell/floodCopy'
 import { FLOOD_3D } from '../flood/flood3dCopy'
-import { depthOnScreen, useSatelliteOnScreen } from '../flood/flood3dHooks'
+import { depthOnScreen, useProductsOnScreen, useSatelliteOnScreen } from '../flood/flood3dHooks'
 import { floodAssetStore, useFloodAssetsError, useFloodAssetsLoading } from '../flood/floodAssets'
 import { floodProbeRows } from '../flood/floodProbe'
 import { boostOptions, fmtFactor } from '../flood/heightBoost'
@@ -188,7 +189,11 @@ function ViewDock() {
   const autoBoost = floodAssetStore((s) => (floodId != null && s.assets?.manifest.id === floodId ? s.assets.flood.boost.factor : null))
   const [fs, toggleFs] = useFullscreen()
   const exOptions = autoBoost != null ? boostOptions(autoBoost, exaggeration) : EXAGGERATIONS.includes(exaggeration) ? EXAGGERATIONS : [...EXAGGERATIONS, exaggeration].sort((a, b) => a - b)
-  const exLabel = (v: number) => (autoBoost == null ? `${v}×` : fillCopy(v === autoBoost ? FLOOD_3D.heightAuto : FLOOD_3D.height, { n: fmtFactor(v) }))
+  // phones (brief 6): a flood's dock keeps "Height ×3" (without "· auto"), the 2D / 3D switch, the scale and "Frame";
+  // depth of field and full screen give way so the row fits
+  const narrow = useMediaQuery(NARROW_QUERY)
+  const compactFlood = autoBoost != null && narrow
+  const exLabel = (v: number) => (autoBoost == null ? `${v}×` : fillCopy(v === autoBoost && !compactFlood ? FLOOD_3D.heightAuto : FLOOD_3D.height, { n: fmtFactor(v) }))
   const exTitle = autoBoost != null ? fillCopy(FLOOD_3D.heightTip, { n: fmtFactor(exaggeration) }) : 'Vertical exaggeration'
   const setEx = (v: number) => {
     if (autoBoost != null && floodId != null) useForensicFlood.getState().setBoost(floodId, v === autoBoost ? null : v)
@@ -228,24 +233,28 @@ function ViewDock() {
           </select>
         </label>
         <span className="sc-sep" />
-        <button
-          type="button"
-          className="sc-icon-btn"
-          aria-pressed={dof && dofAvailable}
-          disabled={!dofAvailable}
-          style={dofAvailable ? undefined : { opacity: 0.35 }}
-          onClick={() => setDof(!dof)}
-          title={dofAvailable ? `Depth of field ${dof ? 'on' : 'off'}` : 'Depth of field (3D view, medium/high quality)'}
-          aria-label="Toggle depth of field"
-        >
-          <Aperture />
-        </button>
+        {!compactFlood && (
+          <button
+            type="button"
+            className="sc-icon-btn"
+            aria-pressed={dof && dofAvailable}
+            disabled={!dofAvailable}
+            style={dofAvailable ? undefined : { opacity: 0.35 }}
+            onClick={() => setDof(!dof)}
+            title={dofAvailable ? `Depth of field ${dof ? 'on' : 'off'}` : 'Depth of field (3D view, medium/high quality)'}
+            aria-label="Toggle depth of field"
+          >
+            <Aperture />
+          </button>
+        )}
         <button type="button" className="sc-icon-btn" onClick={() => issue('frame-fire')} title={`Frame the ${what}`} aria-label={`Frame the ${what}`}>
           <Crosshair />
         </button>
-        <button type="button" className="sc-icon-btn" aria-pressed={fs} onClick={toggleFs} title={fs ? 'Exit fullscreen' : 'Fullscreen'} aria-label="Toggle fullscreen">
-          {fs ? <Minimize2 /> : <Maximize2 />}
-        </button>
+        {!compactFlood && (
+          <button type="button" className="sc-icon-btn" aria-pressed={fs} onClick={toggleFs} title={fs ? 'Exit fullscreen' : 'Fullscreen'} aria-label="Toggle fullscreen">
+            {fs ? <Minimize2 /> : <Maximize2 />}
+          </button>
+        )}
       </div>
     </div>
   )
@@ -372,9 +381,10 @@ function FloodProbeReadout({ area }: { area: { w: number; h: number } }) {
   const fl = assets?.flood
   // brief 6 (playback): the satellite pass on screen at the chart's handle
   const satOnScreen = useSatelliteOnScreen(fl ?? null)
+  const products = useProductsOnScreen(fl ?? null)
   if (!probe || interacting || style === 'realistic' || !assets || !fl || probe.screenX == null || probe.screenY == null) return null
   const slopeDeg = (Math.atan(probe.slope) * 180) / Math.PI
-  const { rows, note } = floodProbeRows({ flood: fl, layers: L, extent: assets.extent, point: { x: probe.x, z: probe.z, lon: probe.lon, lat: probe.lat }, cursorMs, nowMs, tf, depth: depthOnScreen.getState().data, satOnScreen })
+  const { rows, note } = floodProbeRows({ flood: fl, layers: L, extent: assets.extent, point: { x: probe.x, z: probe.z, lon: probe.lon, lat: probe.lat }, cursorMs, nowMs, tf, depth: depthOnScreen.getState().data, satOnScreen, products })
   const pw = area.w || 4000
   const ph = area.h || 4000
   let x = probe.screenX + 18

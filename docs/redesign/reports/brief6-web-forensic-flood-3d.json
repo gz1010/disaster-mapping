@@ -1,0 +1,89 @@
+{
+  "role": "web-forensic-flood-3d",
+  "brief": 6,
+  "summary": "The 3D flood view now (1) opens at an automatic height boost from the bundle's relief (or the same rule on the grid for older bundles), always labelled 'Height ×10 · auto' in the view dock (phones too) and in the scene key, adjustable up to ×20 and kept per flood; (2) shows the estimated water surface (FwDET) as a semi-transparent sheet tinted by depth (light to dark blue) inside the mapped water only, with DEPTH_LABEL, its water's own date and the backend's caveat, and a 'Depth of' choice (satellite water or NWS forecast area); (3) offers 'Height above the river' (HAND, violet 0-1 / 1-2 / 2-5 m bands, off by default, 'Not a flood map'); (4) opens in a river view: a lower (21 deg above the horizon), closer camera looking along the main river near the primary gauge, with a 'River view' button, while 'Frame flood' still fits the whole flood; (5) follows the river-level chart's handle: the satellite drape, depth surface, image edge, key, Layers tab date and hover readout show the pass from passAt (a kept pass's own classes and depth from the bundle, else its 2D picture with no depth surface and a note, else nothing before the first pass), and the 3D warning lines use productsAt. Fire Forensic is unchanged (0.11 % pixels differ below the top bar, labels only).",
+  "milestones": [
+    "M1 height boost",
+    "M2 depth surface + height above the river",
+    "M3 river view",
+    "M4 drapes follow the playback pass",
+    "final screenshots, gates, notes"
+  ],
+  "commits": [
+    "425332f brief 6 web-forensic-flood-3d: M1-M3 height boost, depth surface, height above the river, river view (tests, progress)",
+    "57c7cd8 brief 6 web-forensic-flood-3d: M4 drapes follow the playback pass",
+    "(this commit) brief 6 web-forensic-flood-3d: final"
+  ],
+  "note_on_snapshot": "Most of M1-M3's code landed in the orchestrator's wave-2 snapshot ee6ac13 before the M1-M3 commit.",
+  "files": [
+    "web/src/scene/flood/heightBoost.ts",
+    "web/src/scene/flood/heightBoost.test.ts",
+    "web/src/scene/flood/terrain3d.ts",
+    "web/src/scene/flood/depthChoice.ts",
+    "web/src/scene/flood/depthChoice.test.ts",
+    "web/src/scene/flood/depthMesh.ts",
+    "web/src/scene/flood/depthMesh.test.ts",
+    "web/src/scene/flood/DepthSurface.tsx",
+    "web/src/scene/flood/riverFrame.ts",
+    "web/src/scene/flood/riverFrame.test.ts",
+    "web/src/scene/flood/floodPassDrape.ts",
+    "web/src/scene/flood/floodPassDrape.test.ts",
+    "web/src/scene/flood/bundleRaster.ts",
+    "web/src/scene/flood/flood3dHooks.ts",
+    "web/src/scene/flood/flood3dCopy.ts",
+    "web/src/scene/flood/floodAssets.ts",
+    "web/src/scene/flood/FloodFx.tsx",
+    "web/src/scene/flood/floodProbe.ts",
+    "web/src/scene/flood/floodProbe.test.ts",
+    "web/src/scene/terrain/terrainMaterial.ts",
+    "web/src/scene/terrain/Terrain.tsx",
+    "web/src/scene/camera/CameraRig.tsx",
+    "web/src/scene/sceneStore.ts",
+    "web/src/scene/overlays/SceneOverlays.tsx",
+    "web/src/scene/overlays/overlays.css",
+    "web/src/ui/forensic-flood/forensicFloodState.ts",
+    "web/src/ui/forensic-flood/floodForensicView.ts",
+    "web/src/ui/forensic-flood/floodForensicView.test.ts",
+    "web/src/ui/forensic-flood/FloodLayersTab.tsx",
+    "web/src/ui/forensic-flood/FloodForensic.tsx",
+    "web/src/ui/forensic-flood/floodForensicCopy.ts",
+    "web/src/styles/forensic-flood.css",
+    "docs/redesign/contract6/web-forensic-flood-3d.md",
+    "docs/redesign/CONTRACT.md (section 17 pointer)",
+    "docs/redesign/progress/brief6-web-forensic-flood-3d.md"
+  ],
+  "screenshots": [
+    "docs/screenshots/brief6-web-forensic-flood-3d-before-fixture.png",
+    "docs/screenshots/brief6-web-forensic-flood-3d-before-stjohns.png",
+    "docs/screenshots/brief6-web-forensic-flood-3d-before-calcasieu.png",
+    "docs/screenshots/brief6-web-forensic-flood-3d-after-fixture.png",
+    "docs/screenshots/brief6-web-forensic-flood-3d-after-stjohns.png",
+    "docs/screenshots/brief6-web-forensic-flood-3d-after-calcasieu.png",
+    "docs/screenshots/brief6-web-forensic-flood-3d-fixture-low-ground.png",
+    "docs/screenshots/brief6-web-forensic-flood-3d-calcasieu-low-ground.png",
+    "docs/screenshots/brief6-web-forensic-flood-3d-stjohns-pass-depth.png",
+    "docs/screenshots/brief6-web-forensic-flood-3d-stjohns-pass-picture.png",
+    "docs/screenshots/brief6-web-forensic-flood-3d-phone.png",
+    "docs/screenshots/brief6-web-forensic-flood-3d-fire-regression.png"
+  ],
+  "gates": {
+    "backend": "uv run pytest -q: 1466 passed",
+    "web": "typecheck ok; lint 0 errors, 55 warnings all in src/scene (baseline); vitest 149 files, 1888 passed, 2 skipped; build ok"
+  },
+  "scans": {
+    "FIRMS_MAP_KEY": "0 tracked files contain it (count only)",
+    "EARTHDATA_TOKEN": "not set in this session"
+  },
+  "known_issues": [
+    "Real flat floods (St Johns, Calcasieu) still look flat-ish even at x10 and in the river view: their relief rule could not reach its 2% target (target_reached false), so the key says 'Still flat at x10: raise it, or use River view.' The dock offers x15 and x20 for them.",
+    "On real floods the satellite 'no view' cross-hatch (brief 5, never transparent) covers much of the area (St Johns: 66% no data) and dominates the river view; the depth surface is visible only where the pass saw water (Calcasieu: a few ponds at action stage). That is the data, not hidden water.",
+    "Depth estimates are shallow and noisy on flat ground (St Johns satellite p90 0.46 m); the tint is mostly the light end of the ramp there. The backend's DEPTH_CAVEAT is in the key's fold-out.",
+    "The height above the river tints almost the whole view on a flat floodplain (Calcasieu: most land is within 0-5 m of the river); the bands are lighter than first drafted but still a wash there. It stays off by default.",
+    "A pass with no bundle raster (older than the 8 kept, or newer than the build) is draped from the route's 2D picture through an affine map of its lon/lat box (tens of metres of error across 60 km are possible); the hover readout says that spot is not read, and no depth surface is shown.",
+    "While stepping, the scene key keeps the 'NWS warning area' line when the bundle has products even at a handle time with none drawn (the lines and the hover follow productsAt).",
+    "With the closer framing a gauge bar label can sit partly under the key column (brief 5's label placement hides most of it; seen once on Calcasieu: '22:20 CST' peeking out).",
+    "The map's hand-off now keeps the river view when the map was more than 1.25 x farther than the river view; a close map view keeps its place. A 'frame-river' command counts as a turn in ui/shell/handoff.ts (not in NON_TURNING), so the map takes the river view's heading back only after the user pressed 'River view'.",
+    "In one fixture screenshot the 'Height above the river' checkbox drew its check without the orange fill (the row note showed, so the layer was on); not reproduced in the Calcasieu shot."
+  ],
+  "notes_for_others": "final-check: the README's Forensic flood paragraph can say: 'A flood opens in the river view: a lower, closer look along the main river, at an automatic height boost (\"Height x10 · auto\" in the view dock; change it there, up to x20). Inside the mapped water a semi-transparent surface shows the estimated depth (deeper = darker blue; \"Estimated depth (from the terrain at the water's edge), experimental\"). Layers > From the terrain > Height above the river tints land 0-1, 1-2 and 2-5 m above the nearest river channel (off by default; \"Not a flood map\"). Moving the river-level chart's handle (or Play) changes the satellite pass, its depth surface and the NWS warning lines in 3D too.' Use docs/screenshots/brief6-web-forensic-flood-3d-after-*.png and -stjohns-pass-depth.png for the README. Dev handles: window.__forensicFlood.getState().setBoost(id, 15), setLayerVisible('hand', true), setDepthFrom('forecast'); window.__flood.getState().setCursor(ms)."
+}

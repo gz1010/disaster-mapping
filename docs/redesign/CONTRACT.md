@@ -5128,6 +5128,12 @@ uses it, and keep `SPEC.md`, `backend/fire3d/contracts.py` and `web/src/api/floo
   `state/floodTimelineData.ts`, Play / step on the river-level chart (both variants; no autoplay; reduced motion one
   step per press; keys Space, comma, full stop), and the 2D map at the handle (`satelliteAtHandle`,
   `warningsAtHandle`). Strings: `web/src/ui/timeline/floodPlaybackCopy.ts`.
+- **3D flood view (web-forensic-flood-3d):** `docs/redesign/contract6/web-forensic-flood-3d.md`: the height boost
+  (`scene/flood/heightBoost.ts`, "Height ×10 · auto" in the view dock and the key, per-flood choice in
+  `forensicFloodState.boost`), the estimated water surface with depth tint (`DepthSurface.tsx`, `depthChoice.ts`,
+  inside the mapped water only), the height above the river (HAND drape, layer `hand`, off by default), the river view
+  (`riverFrame.ts`, camera command `'frame-river'`), and the satellite drape, depth surface, warning lines and hover
+  readout following the chart's handle (`floodPassDrape.ts`, `flood3dHooks.ts`). Strings: `scene/flood/flood3dCopy.ts`.
 - **SPEC:** §5.3 (bundle files: `timeline.json`, `layers/water_pass_<key>.bin`, `layers/depth_pass_<key>.bin`,
   `layers/hand.bin`, `layers/depth_satellite.bin`, `layers/depth_forecast.bin`, `maps/flowlines.geojson`), §5.4 (3D
   terrain products: relief and height boost, height above the river, FwDET depth), §6 (routes), §8.11 (time history).

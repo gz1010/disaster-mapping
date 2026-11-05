@@ -53,8 +53,8 @@ function EntryControls({ narrow, dockFull, onDock, sheetOpen, onSheet }: { narro
   return (
     <div className="fx-entry glass" role="group" aria-label="3D view">
       {hasRiver && (
-        <button type="button" className="fx-entry-btn" onClick={() => useSceneStore.getState().issueCameraCommand('frame-river')} data-tip={FLOOD_3D.riverViewTip}>
-          <Waves size={15} aria-hidden="true" /> {FLOOD_3D.riverView}
+        <button type="button" className="fx-entry-btn" onClick={() => useSceneStore.getState().issueCameraCommand('frame-river')} data-tip={FLOOD_3D.riverViewTip} aria-label={FLOOD_3D.riverView}>
+          <Waves size={15} aria-hidden="true" /> {narrow ? FLOOD_3D.riverViewShort : FLOOD_3D.riverView}
         </button>
       )}
       <button type="button" className="fx-entry-btn" onClick={() => useSceneStore.getState().issueCameraCommand('frame-fire')} data-tip={FLOOD_FORENSIC.frameFloodTip}>

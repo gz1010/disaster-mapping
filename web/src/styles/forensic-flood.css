@@ -921,3 +921,11 @@ p.fxf-key-future {
   opacity: 0.4;
   cursor: default;
 }
+
+/* brief 6: three entry controls on a phone row (River, Frame flood, Layers & analysis): a little tighter */
+@media (max-width: 760px) {
+  .fxf-app .fx-entry-btn {
+    gap: 6px;
+    padding: 0 8px;
+  }
+}

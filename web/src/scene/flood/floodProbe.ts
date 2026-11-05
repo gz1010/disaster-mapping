@@ -112,6 +112,9 @@ export function floodProbeRows(i: {
   /** Brief 6 (playback): the satellite pass on screen at the chart's handle (scene/flood/flood3dHooks.ts
    *  useSatelliteOnScreen); absent: the 3D data's own satellite layer. */
   satOnScreen?: { sat: SatelliteWaterResponse | null; has: boolean; arr: Uint8Array | null; imageOnly: boolean; note: string | null } | null
+  /** Brief 6 (playback): the NWS products drawn at the handle (flood3dHooks useProductsOnScreen: the time history's
+   *  versions before now); absent: warningsAt on the bundle's copy. */
+  products?: { alerts: FloodAlert[]; zones: FloodAlertsResponse['zones'] } | null
 }): FloodProbe {
   const { flood: fl, layers: L, extent, point: p, tf, nowMs } = i
   const on = (k: FloodForensicLayer) => shownOpacity(L[k]) > 0
@@ -126,9 +129,10 @@ export function floodProbeRows(i: {
   const resp = fl.warnings
   const known = resp?.status === 'available'
   if (resp && known) {
-    const drawn = warningsAt(resp.alerts, i.cursorMs, nowMs).alerts
+    const drawn = i.products ? i.products.alerts : warningsAt(resp.alerts, i.cursorMs, nowMs).alerts
+    const zones = i.products ? i.products.zones : resp.zones
     for (const a of drawn) {
-      if (!productAreas(a, resp.zones).some((poly) => pointInRings(p.lon, p.lat, poly))) continue
+      if (!productAreas(a, zones).some((poly) => pointInRings(p.lon, p.lat, poly))) continue
       covered = true
       if (!on('warnings')) continue
       const zoned: TimeFmt = { tz: a.time_zone || tf.tz, clock: tf.clock }

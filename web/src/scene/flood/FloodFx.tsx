@@ -2,8 +2,9 @@
 //   FloodFxDriver  the per-frame shared fx uniforms (exaggeration, viewport, fog) the draped lines and labels read
 //                  (the fire FxDriver is not mounted for a flood)
 //   WarningLines   NWS warning areas as pink lines draped on the terrain (scene/fx/lines.ts ribbons), the products drawn
-//                  at the hydrograph handle (floodGeo.warningsAt, C1): before now the ones in effect then; after now the
-//                  ones in effect NOW. Warnings 2 px, advisories 1.6 px, watches dashed
+//                  at the hydrograph handle (brief 6: state/floodTimeline.ts productsAt via useProductsOnScreen: before
+//                  now the time history's versions from GET /timeline, each from its issue time until its own end;
+//                  at and after now the ones in effect NOW, C1). Warnings 2 px, advisories 1.6 px, watches dashed
 //   SatelliteEdge  the satellite image's edge (thin dashed grey), so "no view" outside it never reads as dry ground
 //   DrapeLabels    "MODEL · EXPERIMENTAL" (amber) and "NWS CATEGORY MAP · EXPERIMENTAL" on those drapes when switched on
 //   GaugeBars      the river gauges as thin bars (GaugeBars.tsx)
@@ -22,12 +23,10 @@ import * as THREE from 'three'
 import { apiPathUrl } from '../../api/floods'
 import { dataTexture } from '../../lib/raster'
 import { lonLatToLocal } from '../../lib/reproject'
-import { useFlood } from '../../state/flood'
 import { useFloodTimelineSync } from '../../state/floodTimelineData'
 import { useStore } from '../../state/store'
 import { shownOpacity, useForensicFlood } from '../../ui/forensic-flood/forensicFloodState'
 import { FLOOD_FORENSIC } from '../../ui/forensic-flood/floodForensicCopy'
-import { useNow } from '../../ui/hooks'
 import type { IncidentAssets } from '../assets'
 import { GLSL_COMMON, GLSL_OUTPUT, GLSL_VERT, ORDER, STYLE_INDEX, fogDensity, fxUniforms } from '../fx/common'
 import { GLSL_RIBBON_FRAG, GLSL_RIBBON_VERT, drape, ribbonGeometry, type RibbonLine } from '../fx/lines'
@@ -37,7 +36,8 @@ import type { FloodSceneAssets } from './floodAssets'
 import { useBundleRaster } from './bundleRaster'
 import { DepthSurface } from './DepthSurface'
 import { imageAffine, passDrapeGpu, usePassDrape } from './floodPassDrape'
-import { clipRingToBox, polygonsLocal, warningsAt } from './floodGeo'
+import { useProductsOnScreen } from './flood3dHooks'
+import { clipRingToBox, polygonsLocal } from './floodGeo'
 import { GaugeBars } from './GaugeBars'
 import { boostInUse } from './heightBoost'
 import { SAT_NO_VIEW } from './satClasses'
@@ -142,10 +142,10 @@ const PRODUCT_STYLE = (event: string): [number, number] => {
 function WarningLines({ assets, flood }: { assets: IncidentAssets; flood: FloodSceneAssets }) {
   const visible = useForensicFlood((s) => s.layers.warnings.visible)
   const opacity = useForensicFlood((s) => s.layers.warnings.opacity)
-  const cursorMs = useFlood((s) => s.cursorMs)
-  const now = useNow(60_000)
-  const resp = flood.warnings
-  const drawn = useMemo(() => (resp && resp.status === 'available' ? warningsAt(resp.alerts, cursorMs, now).alerts : []), [resp, cursorMs, now])
+  // brief 6 (playback): before now the time history's versions (GET /timeline), else the bundle's copy (productsAt)
+  const shown = useProductsOnScreen(flood)
+  const drawn = useMemo(() => shown?.alerts ?? [], [shown])
+  const zones = shown?.zones ?? null
   const drawnKey = drawn.map((a) => a.id).join('|')
   const geometry = useMemo(() => {
     if (!drawn.length) return null
@@ -156,13 +156,13 @@ function WarningLines({ assets, flood }: { assets: IncidentAssets; flood: FloodS
     for (const a of drawn) {
       const [wf, dashed] = PRODUCT_STYLE(a.event)
       const data: [number, number, number, number] = [a.emergency ? 1 : 0.92, a.emergency ? 1.25 : wf, dashed, 0]
-      const polys = a.geometry ? polygonsLocal(a.geometry, grid) : (resp?.zones.features ?? []).filter((f) => f.properties.alert_ids.includes(a.id)).flatMap((f) => polygonsLocal(f.geometry, grid))
+      const polys = a.geometry ? polygonsLocal(a.geometry, grid) : (zones?.features ?? []).filter((f) => f.properties.alert_ids.includes(a.id)).flatMap((f) => polygonsLocal(f.geometry, grid))
       for (const poly of polys) drapedOutline(poly, half, assets.heightAt, maxSeg, data, lines)
     }
     return lines.length ? ribbonGeometry(lines) : null
     // drawnKey stands for `drawn`
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drawnKey, assets.heightAt, assets.extent, flood.manifest.grid, resp])
+  }, [drawnKey, assets.heightAt, assets.extent, flood.manifest.grid, zones])
   useEffect(() => () => geometry?.dispose(), [geometry])
   const material = useMemo(() => lineMaterial('#ee7aa0', 2.2, warningOpacity, 0.012), [])
   useEffect(() => () => material.dispose(), [material])

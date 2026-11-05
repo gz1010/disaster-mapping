@@ -2,10 +2,10 @@
 // (the scene key, the Layers tab, the hover readout): the height boost in use and the depth surface on screen.
 import { useMemo } from 'react'
 import { create } from 'zustand'
-import type { SatelliteWaterResponse } from '../../api/types'
+import type { FloodAlert, FloodAlertsResponse, SatelliteWaterResponse } from '../../api/types'
 import { satelliteAtHandle } from '../../map/floodAreaLayers'
 import { useFlood } from '../../state/flood'
-import { gapNote } from '../../state/floodTimeline'
+import { gapNote, productsAt } from '../../state/floodTimeline'
 import { timelineFor, useFloodTimeline } from '../../state/floodTimelineData'
 import { useStore } from '../../state/store'
 import { useTimeFormat } from '../../state/timeZone'
@@ -75,4 +75,22 @@ export function useSatelliteOnScreen(flood: Pick<FloodSceneAssets, 'manifest' | 
     if (d.mode === 'raster') return { sat: routeSat, has: true, noView: partly, arr: raster, imageOnly: false, note }
     return { sat: routeSat, has: true, noView: partly, arr: null, imageOnly: true, note }
   }, [flood, d, cursorMs, route, nowMs, tf, raster])
+}
+
+/** Brief 6 (playback): the NWS products the 3D view draws at the chart's handle (state/floodTimeline.ts productsAt):
+ *  before now the time history's versions from GET /timeline (each from its issue time until its own end or the next
+ *  version), at and after now the bundle's copy (warnings.json, kept current by the live loop) by brief 5's rule; the
+ *  zone outlines of the same source. Null when the bundle's copy could not be read. */
+export function useProductsOnScreen(flood: Pick<FloodSceneAssets, 'manifest' | 'warnings'> | null): { alerts: FloodAlert[]; zones: FloodAlertsResponse['zones'] } | null {
+  const floodId = useFlood((s) => s.floodId)
+  const cursorMs = useFlood((s) => s.cursorMs)
+  const route = useFloodTimeline((s) => timelineFor(s, floodId))
+  const nowMs = useNow(60_000)
+  const resp = flood?.warnings ?? null
+  return useMemo(() => {
+    if (!resp || resp.status !== 'available') return null
+    const products = route?.products?.status === 'available' ? route.products.products : null
+    const r = productsAt(products, resp.alerts, cursorMs, nowMs)
+    return { alerts: r.alerts, zones: r.source === 'timeline' && route?.products?.zones ? route.products.zones : resp.zones }
+  }, [resp, route, cursorMs, nowMs])
 }
