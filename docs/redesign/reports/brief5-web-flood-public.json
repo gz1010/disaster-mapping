@@ -6,7 +6,7 @@
     "M1 HazardDisc split, water texture, flood circle, title, status words (9ca467d)",
     "M2 official flood model and hooks, facts per kind, key, evacuation rows, distance, preparation (a75891f)",
     "M3 map area layers, leader, point check, official rows, Layers drawer, phones, screenshots (fe8211e; code also in the wave-2 snapshots 90f3d97, be6c394)",
-    "review fixes WFP-R1..R12 (brief 5 web-flood-public: review fixes)"
+    "review fixes WFP-R1..R12 (1f329fe)"
   ],
   "files": [
     "web/src/ui/shell/PublicFloodChrome.tsx",

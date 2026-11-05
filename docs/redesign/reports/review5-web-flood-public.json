@@ -136,5 +136,7 @@
     "Public fire view (not changed here): on phones its opened '© Credits' panel is transparent over the facts sheet, as the flood view's was (fixed only for the flood view, which this role owns).",
     "The fixture server answers every demo flood's evacuations with the New Mexico fixture ('Not available in this state · New Mexico' on a Texas or Colorado demo flood)."
   ],
-  "commits": []
+  "commits": [
+    "1f329fe brief 5 web-flood-public: review fixes"
+  ]
 }
