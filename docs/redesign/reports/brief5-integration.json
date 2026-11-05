@@ -933,6 +933,8 @@
   ],
   "gates": "backend: uv run pytest -q -> 1406 passed, 0 skipped (no network). web: typecheck clean; lint 55 warnings, all in src/scene (exit 0); npm test 136 files, 1788 passed, 2 skipped (older fire tests that need real fire bundles; no flood test skipped); build ok. Parity test_flood_contracts.py and test_floods_copy.py green. Count-only scans of the diff and new files: 0 FIRMS key values, EARTHDATA_TOKEN unset, 0 Bearer credentials, 0 'FireTrace'.",
   "servers": "API 8759 and Vite 5219, stopped at the end",
-  "commits": []
+  "commits": [
+   "a3232d2 brief 5 integration: part 2 (live loop and past floods end to end; past names; Command past floods; year-tab bar status; chart notes; Forensic on a real auto-built bundle; CONTRACT 16; SPEC 8.10; gates)"
+  ]
  }
 }
