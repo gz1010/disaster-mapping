@@ -10,67 +10,13 @@
 //   - Keys while the chart is shown: Space plays or pauses (not while typing or on another control), the comma and full
 //     stop keys step back and forward.
 //   - NWS's event names are NWS's own words: rendered inside data-verbatim.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useShallow } from 'zustand/react/shallow'
-import type { FloodPass } from '../../api/types'
-import type { TimeFmt } from '../../lib/time'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useFlood } from '../../state/flood'
-import {
-  changeLabel,
-  floodKeyframes,
-  gapNote,
-  isUsablePass,
-  keyframeIndexAt,
-  keyframeLabel,
-  passAt,
-  passesOf,
-  passLabel,
-  PLAY_STEP_MS,
-  playSummary,
-  step,
-  STEP_EPS_MS,
-  type FloodKeyframe,
-  type StepLabel,
-} from '../../state/floodTimeline'
-import { timelineFor, useFloodTimeline, useFloodTimelineSync } from '../../state/floodTimelineData'
+import { isUsablePass, keyframeIndexAt, passLabel, PLAY_STEP_MS, step, STEP_EPS_MS, type StepLabel } from '../../state/floodTimeline'
 import { PLAYBACK } from './floodPlaybackCopy'
-import { lastStep, moveHandle, playbackAxisStart, playPress, playTick, setPlaying, useFloodPlayback } from './floodPlayback'
-import { xFrac, type HydrographModel, type HydroProductTick } from './hydrographModel'
-
-/** What the chart needs from the flood's time steps. */
-export interface PlaybackView {
-  floodId: string
-  frames: FloodKeyframe[]
-  passes: FloodPass[]
-  /** 'none' (not asked), 'loading', 'available', 'unavailable' (the request failed with no answer). */
-  status: 'none' | 'loading' | 'available' | 'unavailable'
-  /** The backend's own words when there is no step (the passes' or products' reason), else null. */
-  reason: string | null
-  /** The chart's start while stepping (null: the usual 72 h). */
-  startMs: number | null
-  /** The NWS changes as chart ticks (null: the products' send times, brief 5). */
-  ticks: HydroProductTick[] | null
-  nowMs: number
-  past: boolean
-  /** The flood's zone (pass times). */
-  tf: TimeFmt
-}
-
-/** The open flood's steps for the chart (asks the timeline while mounted). */
-export function usePlaybackView(floodId: string, nowMs: number, past: boolean, tf: TimeFmt): PlaybackView {
-  useFloodTimelineSync(floodId)
-  const t = useFloodTimeline(useShallow((s) => ({ data: timelineFor(s, floodId), mine: s.floodId === floodId, loading: s.loading, error: s.error })))
-  const engaged = useFloodPlayback((s) => s.engaged && s.floodId === floodId)
-  const frames = useMemo(() => floodKeyframes(t.data, nowMs), [t.data, nowMs])
-  const passes = useMemo(() => passesOf(t.data), [t.data])
-  const ticks = useMemo(
-    () => (t.data ? frames.flatMap((f) => f.changes.map((c) => ({ t: c.t, label: changeLabel(c, tf, nowMs).text, emergency: c.product.emergency }))) : null),
-    [t.data, frames, tf, nowMs],
-  )
-  const status = t.data ? 'available' : !t.mine ? 'loading' : t.error ? 'unavailable' : 'loading'
-  const reason = t.data && !frames.length ? (t.data.passes?.reason ?? t.data.products?.reason ?? null) : null
-  return { floodId, frames, passes, status, reason, startMs: playbackAxisStart(frames, engaged, nowMs), ticks, nowMs, past, tf }
-}
+import { lastStep, moveHandle, playPress, playTick, setPlaying, useFloodPlayback } from './floodPlayback'
+import { stepWords, type PlaybackView } from './hydrographPlaybackView'
+import { xFrac, type HydrographModel } from './hydrographModel'
 
 /** prefers-reduced-motion, live. */
 function useReducedMotion(): boolean {
@@ -143,7 +89,9 @@ export function PlayRow({ view, variant }: { view: PlaybackView; variant: 'slim'
 
   // keys: Space, comma, full stop (one listener for the mounted chart; the latest handlers through refs)
   const keys = useRef({ togglePlay, stepTo, has })
-  keys.current = { togglePlay, stepTo, has }
+  useEffect(() => {
+    keys.current = { togglePlay, stepTo, has }
+  }, [togglePlay, stepTo, has])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || !keys.current.has) return
@@ -203,24 +151,6 @@ export function PlayRow({ view, variant }: { view: PlaybackView; variant: 'slim'
   )
 }
 
-/** The words of the row at the handle. */
-export function stepWords(view: PlaybackView, cursorMs: number | null): { label: StepLabel | null; gap: string | null; note: string | null; onStep: boolean } {
-  const { frames, nowMs, tf, past } = view
-  if (view.status === 'loading') return { label: null, gap: null, note: PLAYBACK.loading, onStep: false }
-  if (view.status === 'unavailable') return { label: null, gap: null, note: PLAYBACK.unavailable, onStep: false }
-  if (view.status !== 'available') return { label: null, gap: null, note: null, onStep: false }
-  if (!frames.length) return { label: null, gap: null, note: [PLAYBACK.none, view.reason].filter(Boolean).join(' '), onStep: false }
-  // at now: what Play steps through; after now the chart's own note says what the map keeps (C1)
-  if (cursorMs == null) return { label: { text: playSummary(frames, tf, nowMs), event: null }, gap: null, note: null, onStep: false }
-  if (cursorMs >= nowMs - STEP_EPS_MS) return { label: null, gap: null, note: null, onStep: false }
-  const i = keyframeIndexAt(frames, cursorMs)
-  const label = i >= 0 ? keyframeLabel(frames[i], tf, nowMs, past) : null
-  const at = passAt(view.passes, cursorMs)
-  const gap = view.passes.length ? gapNote(at, cursorMs, tf, nowMs) : null
-  const noImage = at.onPass && at.pass && !at.pass.image ? PLAYBACK.noImage : null
-  return { label, gap, note: noImage, onStep: i >= 0 }
-}
-
 /** A label with NWS's event name inside data-verbatim. */
 function LabelText({ label }: { label: StepLabel }) {
   const at = label.event ? label.text.indexOf(label.event) : -1
@@ -263,7 +193,7 @@ export function PassMarks({ view, model: m, width, cursorMs }: { view: PlaybackV
         const usable = isUsablePass(p)
         const tip = usable ? passLabel(p, view.tf, view.nowMs, view.past) : `${passLabel(p, view.tf, view.nowMs, view.past)} · ${p.caveat ?? ''}`.replace(/ · $/, '')
         return (
-          <path key={p.key} d={`M${(x - 3.5).toFixed(1)} 0L${(x + 3.5).toFixed(1)} 0L${x.toFixed(1)} 6Z`} className={`hg-pass${usable ? '' : ' is-noview'}${p.key === current ? ' is-current' : ''}`}>
+          <path key={p.key} d={`M${(x - 4.5).toFixed(1)} 0L${(x + 4.5).toFixed(1)} 0L${x.toFixed(1)} 7.5Z`} className={`hg-pass${usable ? '' : ' is-noview'}${p.key === current ? ' is-current' : ''}`}>
             <title>{tip}</title>
           </path>
         )

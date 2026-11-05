@@ -14,7 +14,7 @@ export const PLAYBACK = {
   pause: 'Pause the time steps',
   prev: 'Previous time step',
   next: 'Next time step',
-  playTip: 'Play: the satellite passes and NWS product changes, one step at a time, up to now (Space)',
+  playTip: 'Play: the satellite passes and NWS product changes, one step at a time, to the latest step (Space)',
   /** prefers-reduced-motion: Play never runs on its own; each press shows the next step. */
   playReducedTip: 'Reduced motion is on: each press of Play shows the next step (Space)',
   pauseTip: 'Pause (Space)',

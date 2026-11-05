@@ -1,5 +1,6 @@
 // The river-level chart rendered on the server (PLAN-5 §4.6): slim and dock, the line key with issuer and issue time,
-// the NWS levels, LATEST, NOW, the handle as a keyboard slider (no play button), the future-products note after now
+// the NWS levels, LATEST, NOW, the handle as a keyboard slider (brief 6: the flood's time steps, never playing by
+// themselves; HydrographPlayback.test.ts), the future-products note after now
 // (C1), the model on the flow axis only and never without a reach (D20, C28), empty and failed states, and no banned
 // word in Disaster Mapping's own words.
 import { createElement } from 'react'
@@ -45,7 +46,7 @@ afterEach(() => {
 })
 
 describe('Hydrograph (slim)', () => {
-  it('draws the observed and forecast lines with their words, the NWS levels, LATEST and NOW; no play button', () => {
+  it('draws the observed and forecast lines with their words, the NWS levels, LATEST and NOW; Play is never pressed by itself', () => {
     const html = render()
     expect(html).toContain('ZZRF1 · Ridge Fork River at Example Crossing')
     expect(html).toContain('OBSERVED · USGS')
@@ -57,7 +58,11 @@ describe('Hydrograph (slim)', () => {
     expect(html).toContain('hg-line is-forecast')
     expect(html).toContain('>NOW</button>')
     expect(html).toContain('CREST 18.0 FT THU 17:00')
-    expect(html).not.toMatch(/aria-label="Play|Pause playback/)
+    // brief 6 (BRIEF-6 decision 2): the flood's time steps replace brief 5's "no play button" (D13); no autoplay: Play is
+    // not pressed and, before the time history arrives, cannot be
+    expect(html).toContain('aria-label="Play the time steps" aria-pressed="false"')
+    expect(html).not.toContain('aria-label="Pause the time steps"')
+    expect(html).toContain('Loading the flood’s time steps…')
     // product times as ticks with their own words
     expect((html.match(/class="hg-product/g) ?? []).length).toBe(3)
   })

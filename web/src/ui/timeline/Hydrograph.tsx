@@ -38,7 +38,8 @@ import {
   type GaugeCategoryKey,
 } from '../shell/floodCopy'
 import { gaugeKey, gaugeOf, useHydroData, useHydrographData } from './hydrographData'
-import { PassMarks, PlayRow, usePlaybackView, type PlaybackView } from './HydrographPlayback'
+import { PassMarks, PlayRow } from './HydrographPlayback'
+import { usePlaybackView, type PlaybackView } from './hydrographPlaybackView'
 import {
   buildHydrograph,
   clampCursor,
@@ -585,6 +586,20 @@ function Slider({ model: m, readout, plotW, height, helpId, futureNote }: { mode
   )
 }
 
+/** The day labels that fit: inside `maxRight`, clear of LATEST's span, each clear of the last one kept. */
+function dayLabels<T extends { x: number; label: string }>(days: readonly T[], maxRight: number, latest: [number, number] | null): T[] {
+  const out: T[] = []
+  let lastRight = Number.NEGATIVE_INFINITY
+  for (const d of days) {
+    const w = d.label.length * 6.4 + 6
+    if (d.x + w > maxRight || d.x < lastRight) continue
+    if (latest && d.x + w > latest[0] && d.x < latest[1]) continue
+    out.push(d)
+    lastRight = d.x + w
+  }
+  return out
+}
+
 /** Under the plot: day labels at local midnights (the gauge's zone) and LATEST <time> · <age> (+ STALE). */
 function AxisRow({ model: m, plotW }: { model: HydrographModel; plotW: number }) {
   const latestX = m.latest ? xFrac(m, m.latest.t) * plotW : null
@@ -592,17 +607,7 @@ function AxisRow({ model: m, plotW }: { model: HydrographModel; plotW: number })
   const latestLeft = latestX != null ? Math.min(plotW - latestW, Math.max(0, latestX - latestW / 2)) : null
   // each label clears the last one kept (brief 6: the wider axis while stepping has days narrower than a label, and
   // comparing with the previous day dropped every label)
-  let lastRight = Number.NEGATIVE_INFINITY
-  const days = m.dayTicks
-    .map((d) => ({ ...d, x: xFrac(m, d.t) * plotW }))
-    .filter((d) => {
-      const w = d.label.length * 6.4 + 6
-      if (d.x + w > plotW + GUTTER) return false
-      if (latestLeft != null && d.x + w > latestLeft - 4 && d.x < latestLeft + latestW + 4) return false
-      if (d.x < lastRight) return false
-      lastRight = d.x + w
-      return true
-    })
+  const days = dayLabels(m.dayTicks.map((d) => ({ ...d, x: xFrac(m, d.t) * plotW })), plotW + GUTTER, latestLeft != null ? [latestLeft - 4, latestLeft + latestW + 4] : null)
   return (
     <div className="hg-axis">
       {days.map((d) => (

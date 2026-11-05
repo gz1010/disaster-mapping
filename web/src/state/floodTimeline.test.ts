@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import type { FloodAlert, FloodPass, FloodTimelineProduct, FloodTimelineResponse } from '../api/types'
 import { DAY_MS, HOUR_MS, MINUTE_MS, type TimeFmt } from '../lib/time'
 import { floodWordingProblems } from '../ui/shell/floodCopy'
+import { SQUARE as TEST_SQUARE, testPass, testTimeline, versionBuilder } from './floodTimeline.testutil'
 import {
   beforeNowText,
   floodKeyframes,
@@ -26,71 +27,9 @@ import {
 const NOW = Date.UTC(2026, 10, 5, 15, 0) // Nov 5 2026 15:00 UTC
 const TF: TimeFmt = { tz: 'America/New_York', clock: '24h' }
 
-function pass(key: string, t: number, view: FloodPass['view'], extra: Partial<FloodPass> = {}): FloodPass {
-  const usable = view === 'clear' || view === 'partly_hidden'
-  return {
-    key,
-    product: 'DSWx-HLS',
-    platform: 'Landsat 9',
-    acquired_ms: t,
-    route: 'earthdata_gis',
-    granules: [key],
-    url: null,
-    view,
-    usable,
-    clear_pct: view === 'clear' ? 90 : view === 'partly_hidden' ? 35 : view === 'no_view' ? 0 : null,
-    cloud_pct: view === 'partly_hidden' ? 49 : view === 'no_view' ? 84 : view === 'clear' ? 0 : null,
-    nodata_pct: view === 'unknown' ? null : 16,
-    water_km2: usable ? 3 : null,
-    partial_km2: usable ? 1 : null,
-    image: usable ? { url: `/api/floods/f/passes/${key}.png?area=abcd1234`, bounds_lonlat: [-82, 29, -81, 30] } : null,
-    layer: null,
-    caveat: null,
-    ...extra,
-  }
-}
-
-const SQUARE = (d: number) => ({ type: 'Polygon', coordinates: [[[-81.5, 29.5], [-81.5 + d, 29.5], [-81.5 + d, 29.9], [-81.5, 29.9], [-81.5, 29.5]]] })
-
-function version(id: string, vtec: string, action: string, sent: number, until: number | null, extra: Partial<FloodTimelineProduct> = {}): FloodTimelineProduct {
-  const [office, phen, sig, etn] = vtec.split('.')
-  return {
-    id,
-    url: `https://api.weather.gov/alerts/${id}`,
-    office_url: null,
-    event: 'Flood Warning',
-    vtec: { office, phenomena: phen, significance: sig, etn: Number(etn), action, year: 2026 },
-    hvtec: null,
-    sender_name: 'NWS Melbourne FL',
-    sent_ms: sent,
-    effective_ms: sent,
-    onset_ms: sent,
-    expires_ms: sent + 12 * HOUR_MS,
-    ends_ms: until,
-    headline: null,
-    nws_headline: null,
-    description: null,
-    instruction: null,
-    area_desc: null,
-    ugcs: ['FLC127'],
-    message_type: null,
-    status: 'Actual',
-    phase: until != null && until <= NOW ? 'ended' : 'in_effect',
-    archived: true,
-    time_zone: 'America/New_York',
-    emergency: false,
-    damage_threat: null,
-    detection: null,
-    geometry: SQUARE(0.2) as FloodAlert['geometry'],
-    covers_point: null,
-    flood_ids: ['f'],
-    vtec_key: `${vtec}.2026`,
-    replaced_ms: null,
-    shown_from_ms: sent,
-    shown_until_ms: until,
-    ...extra,
-  }
-}
+const pass = testPass
+const version = versionBuilder(NOW)
+const SQUARE = TEST_SQUARE
 
 const P = {
   before: pass('DSWx-HLS_20261023T0915_L8', NOW - 13 * DAY_MS, 'clear'),
@@ -119,48 +58,7 @@ const C = [
 const D = [version('d1', 'KMLB.FA.Y.0007', 'NEW', NOW - 3 * HOUR_MS, null, { event: 'Flood Advisory', geometry: null, ugcs: ['FLZ141'], archived: false, phase: 'in_effect' })]
 const PRODUCTS = [...A, ...B, ...C, ...D].sort((a, b) => (a.shown_from_ms ?? 0) - (b.shown_from_ms ?? 0))
 
-function timeline(passes: FloodPass[] = Object.values(P), products: FloodTimelineProduct[] = PRODUCTS): FloodTimelineResponse {
-  return {
-    kind: 'flood_timeline',
-    flood_id: 'f',
-    now_ms: NOW,
-    start_ms: NOW - 15 * DAY_MS,
-    end_ms: NOW,
-    synthetic: false,
-    passes: {
-      status: 'available',
-      reason_code: null,
-      reason: null,
-      login: 'not_configured',
-      login_note: null,
-      source: { name: 'NASA OPERA DSWx', url: 'https://www.jpl.nasa.gov/go/opera' },
-      retrieved_ms: NOW,
-      start_ms: NOW - 15 * DAY_MS,
-      end_ms: NOW,
-      complete: true,
-      truncated: false,
-      stats_over: 'map_area',
-      passes,
-      shown_key: P.latest.key,
-      caveats: [],
-    },
-    products: {
-      kind: 'flood_alerts',
-      status: 'available',
-      reason: null,
-      source: { name: 'NWS', url: 'https://api.weather.gov' },
-      retrieved_ms: NOW,
-      now_ms: NOW,
-      flood_id: 'f',
-      synthetic: false,
-      caveats: [],
-      products,
-      zones: { type: 'FeatureCollection', features: [] },
-      archive_source: null,
-      complete: true,
-    } as unknown as FloodTimelineResponse['products'],
-  } as unknown as FloodTimelineResponse
-}
+const timeline = (passes: FloodPass[] = Object.values(P), products: FloodTimelineProduct[] = PRODUCTS): FloodTimelineResponse => testTimeline(NOW, passes, products)
 
 describe('passes', () => {
   it('usable passes are clear or partly hidden; never no-view or unread', () => {
