@@ -129,4 +129,23 @@ describe('catfim category words (§5.3: never a raw value)', () => {
     expect(catfimCategoryWord('action')).toBe('action-stage')
     expect(catfimCategoryWord('major')).toBe('major')
   })
+
+  it('brief 6: the depth estimate inside its mapped water only, and the height above the river while it is on', () => {
+    // the depth surface's raster: water (1.2 m) in the north-west cell only, 255 elsewhere
+    const depth = Uint8Array.from([12, 255, 255, 254])
+    const f = { ...flood(), has: { ...flood().has, hand: true }, arrays: { ...flood().arrays, hand: Uint8Array.from([5, 30, 255, 254]) } }
+    const at = (cell: { x: number; z: number }, on: Partial<Record<FloodForensicLayer, boolean>> = {}) =>
+      floodProbeRows({ flood: f, layers: layers(on), extent: EXTENT, point: { ...cell, ...OUTSIDE_ALL }, cursorMs: null, nowMs: NOW, tf: TF, depth })
+    expect(text(at(CELL.nw), 'depth')).toMatch(/^About 1\.2 m deep here/)
+    // outside the mapped water: no depth line (never "0 m")
+    expect(at(CELL.ne).rows.find((r) => r.key === 'depth')).toBeUndefined()
+    expect(text(at(CELL.se), 'depth')).toMatch(/^More than 25 m/)
+    // the height above the river is off by default
+    expect(at(CELL.nw).rows.find((r) => r.key === 'hand')).toBeUndefined()
+    expect(text(at(CELL.nw, { hand: true }), 'hand')).toMatch(/about 0\.5 m above the nearest river channel .*Not a flood map\.$/)
+    expect(text(at(CELL.sw, { hand: true }), 'hand')).toMatch(/^More than 10 km from a mapped river channel/)
+    // the depth line goes when the depth layer is off
+    expect(at(CELL.nw, { depth: false }).rows.find((r) => r.key === 'depth')).toBeUndefined()
+    for (const c of [CELL.nw, CELL.ne, CELL.sw, CELL.se]) for (const row of at(c, { hand: true }).rows) expect(floodWordingProblems(row.text)).toEqual([])
+  })
 })

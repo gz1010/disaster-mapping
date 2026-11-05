@@ -5,8 +5,13 @@ playback pass. Ports API 8764, Vite 5224.
 
 - [x] Read BRIEF-6, contract6/backend-flood-time-3d.md, contract5/web-flood-forensic.md, CONTRACT §16-17.
 - [x] Before screenshots: docs/screenshots/brief6-web-forensic-flood-3d-before-{fixture,stjohns,calcasieu}.png
-- [ ] M1 height boost (auto from manifest.terrain3d.relief, "Height ×N" label, control with ×8 / ×10)
-- [ ] M2 depth surface (FwDET) + low-ground layer (HAND, off by default) + key / Layers tab
-- [ ] M3 closer framing along the main river
+- [x] M1 height boost (auto from manifest.terrain3d.relief or the same rule on the grid, "Height ×N · auto" in the view dock, kept on phones; key line; per-flood user choice; fire value restored)
+- [x] M2 depth surface (FwDET mesh, depth tint) + height above the river (HAND drape, off by default) + key / Layers tab / hover rows
+- [x] M3 river view (lower, closer, along the main river; 'River view' entry control; hand-off keeps it when the map was wider)
 - [ ] M4 drapes follow passAt(handle) (waits for "brief 6 web-flood-playback: M1 floodTimeline")
 - [ ] Final: screenshots, gates, report, contract6 note
+
+Notes:
+- The orchestrator's snapshot ee6ac13 holds most of M1-M3's code; the milestone commit adds the rest.
+- WIP screenshots in the scratchpad looked right on fixture-flood, St Johns (×10, river view looking north) and
+  Calcasieu (×10; satellite water there is a few ponds, the NWS forecast area and the no-view hatch dominate).
