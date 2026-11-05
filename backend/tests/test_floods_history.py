@@ -218,6 +218,21 @@ def test_year_rows_name_the_issuing_office():
     assert history.sender_of("ABQ", {}) == "NWS ABQ"
 
 
+def test_year_names_drop_state_notes_and_keep_their_ids():
+    """Integration (part 2): a gauge's waterbody "Whitewater River (KS)" names "Whitewater River flood", as the live
+    list does (``naming.clean_water``); the id is still made from the raw name, so past ids do not change."""
+    t0 = 1_743_638_400_000                               # 2025-04-03
+    gauges = _gauges()
+    gauges["FREI3"] = {**gauges["FREI3"], "waterbody": "White River (IN)"}
+    rows = history.build_rows({(e := _ev("FREI3", 30, t0)).key: e}, 2025, gauges=gauges, reg=reg_mod.get_registry(),
+                              names={})
+    assert [r["name"] for r in rows] == ["White River flood"] and rows[0]["rivers"] == ["White River"]
+    assert rows[0]["id"] == naming.make_flood_id(rows[0]["started_ms"], "White River (IN) flood", "FREI3")
+    plain = dict(gauges, FREI3={**gauges["FREI3"], "waterbody": "White River"})
+    same = history.build_rows({e.key: e}, 2025, gauges=plain, reg=reg_mod.get_registry(), names={})
+    assert same[0]["id"] == naming.make_flood_id(same[0]["started_ms"], "White River flood", "FREI3")
+
+
 def test_year_rows_leave_out_floods_still_in_effect():
     """Review BFL-R3: a flood whose newest product had not expired when the year was built is current (the live
     list serves it), never a past row with "ended" products."""

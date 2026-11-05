@@ -275,7 +275,10 @@ export function checkPoint(i: FloodPointInput): FloodPointCheck {
       [lon, lat],
     )
     if (d?.inside) lines.push({ key: 'model', kind: 'model', inside: true, text: fillCopy(MODEL_AT_POINT, { time: model.reference_ms != null ? fmtAt(model.reference_ms, tf, { zone: true }) : '—' }) })
-  } else if (model && model.status !== 'available') lines.push({ key: 'model', kind: 'model', text: model.reason ?? FLOOD_COMMAND.modelUnavailable, tone: 'warn' })
+  } else if (model && model.status === 'not_available_for_past_dates')
+    // a past flood (integration): not kept for its dates, never an outage
+    lines.push({ key: 'model', kind: 'model', text: model.reason ?? FLOOD_COMMAND.modelPast, tone: 'quiet' })
+  else if (model && model.status !== 'available') lines.push({ key: 'model', kind: 'model', text: model.reason ?? FLOOD_COMMAND.modelUnavailable, tone: 'warn' })
   else if (!model && i.modelState === 'unavailable') lines.push({ key: 'model', kind: 'model', text: FLOOD_COMMAND.modelUnavailable, tone: 'warn' })
   else if (!model && i.modelState === 'loading') lines.push({ key: 'model', kind: 'model', text: FLOOD_COMMAND.modelChecking, tone: 'quiet' })
 
@@ -293,6 +296,7 @@ export function checkPoint(i: FloodPointInput): FloodPointCheck {
 export function catfimCheck(resp: FloodMapResponse | null, state: AnswerState, point: [number, number], asked: { lid: string; category: string } | null = null): FloodCheckLine | null {
   const base = { key: 'catfim', kind: 'official' as const, layer: 'catfim' as const }
   if (resp && resp.map === 'catfim') {
+    if (resp.status === 'not_available_for_past_dates') return { ...base, text: resp.reason ?? FLOOD_COMMAND.catfimPast, tone: 'quiet' }
     if (resp.status !== 'available') return { ...base, text: resp.reason ?? CATFIM_UNAVAILABLE, tone: 'warn' }
     const l = catfimLine(resp, point)
     if (l) return { ...base, text: l.text, inside: l.inside, tone: l.inside ? undefined : 'quiet' }

@@ -71,7 +71,16 @@ function Row({ sw, children, title }: { sw: string; children: ReactNode; title?:
 /** A Command layer's chip with its state while on (review WFC-R9): its label when drawn, "none here", "could not be
  *  loaded" (amber, the reason in its tooltip) or "checking". */
 function LayerChip({ sw, label, state, tip }: { sw: string; label: string; state: ExtraLayerState; tip?: string }) {
-  const word = state === 'empty' ? FLOOD_COMMAND.chipNone : state === 'unavailable' ? FLOOD_COMMAND.chipUnavailable : state === 'checking' ? FLOOD_COMMAND.chipChecking : null
+  const word =
+    state === 'empty'
+      ? FLOOD_COMMAND.chipNone
+      : state === 'unavailable'
+        ? FLOOD_COMMAND.chipUnavailable
+        : state === 'checking'
+          ? FLOOD_COMMAND.chipChecking
+          : state === 'past'
+            ? FLOOD_COMMAND.chipPast
+            : null
   return (
     <li className={state === 'unavailable' ? 'cfv-chip-warn' : state === 'drawn' ? undefined : 'cfv-chip-quiet'} title={tip}>
       <span className={`ffk-sw ${sw}`} aria-hidden="true" />
@@ -87,6 +96,7 @@ function LayerChip({ sw, label, state, tip }: { sw: string; label: string; state
  *  "checking"; nothing when drawn. */
 function ModelStateNote({ state, reason }: { state: ExtraLayerState; reason: string | null }) {
   if (state === 'drawn') return null
+  if (state === 'past') return <p className="fxm-legend-note">{reason ?? FLOOD_COMMAND.modelPast}</p>
   if (state === 'unavailable')
     return (
       <>

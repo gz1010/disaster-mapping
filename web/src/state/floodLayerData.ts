@@ -55,11 +55,14 @@ export function catfimTarget(summary: Pick<FloodSummary, 'primary_gauge'> | null
 /** What a Command layer shows while its toggle is on (review WFC-R9): 'drawn' (an available answer with something to
  *  draw), 'empty' (available, nothing to draw: "none"), 'unavailable' (its answer says it could not be loaded, or the
  *  request failed: never a silent layer, never "checking" forever), 'checking' (asked, no answer yet). */
-export type ExtraLayerState = 'drawn' | 'empty' | 'unavailable' | 'checking'
+/** `past`: the answer is `not_available_for_past_dates` (a past flood: the model and NWS's maps are not kept for its
+ *  dates; integration), never "could not be loaded". */
+export type ExtraLayerState = 'drawn' | 'empty' | 'unavailable' | 'checking' | 'past'
 
 export function extraLayerState(a: Answer<FloodMapResponse | ModelOutputResponse> | null | undefined): ExtraLayerState {
   const d = a?.data
   if (d) {
+    if (d.status === 'not_available_for_past_dates') return 'past'
     if (d.status !== 'available') return 'unavailable'
     return (d.features?.features?.length ?? 0) > 0 ? 'drawn' : 'empty'
   }

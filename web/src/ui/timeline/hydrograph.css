@@ -380,6 +380,10 @@
   position: absolute;
   bottom: 8px;
   left: 6px;
+  /* a backing so a line passing under the note never strikes it through (integration) */
+  padding: 0 4px;
+  border-radius: 2px;
+  background: rgba(14, 14, 14, 0.72);
   max-width: calc(100% - 100px);
   overflow: hidden;
   text-overflow: ellipsis;

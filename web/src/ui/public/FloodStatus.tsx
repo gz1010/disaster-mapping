@@ -8,6 +8,7 @@ import { useFlood } from '../../state/flood'
 import { getSlot } from '../../state/floodCatalog'
 import { floodListHealth, hiddenWatches, knownFloodCount } from '../../state/floodOverview'
 import { useNow } from '../hooks'
+import { PAST_RULE_NOTE } from '../shell/floodCopy'
 import { FLOOD_COUNT_TIP, floodCountPart } from './floodOverviewText'
 import { barDate } from './overviewText'
 
@@ -26,18 +27,19 @@ export function FloodStatus() {
         failed: slot.error != null,
         bothDown: health === 'both_down',
         archiveDown: health === 'archive_down',
+        year: typeof st.filter === 'number' ? st.filter : null,
       }
     }),
   )
-  const part = floodCountPart({ count: s.count, loaded: s.loaded, loading: s.loading, failed: s.failed, bothDown: s.bothDown, archiveDown: s.archiveDown, hiddenWatches: s.hidden })
+  const part = floodCountPart({ count: s.count, loaded: s.loaded, loading: s.loading, failed: s.failed, bothDown: s.bothDown, archiveDown: s.archiveDown, hiddenWatches: s.hidden, year: s.year })
   return (
-    <span className="ovw-status fxo-status" data-tip={FLOOD_COUNT_TIP}>
+    <span className="ovw-status fxo-status" data-tip={s.year != null ? PAST_RULE_NOTE : FLOOD_COUNT_TIP}>
       <span className="ovw-status-date">{barDate(nowMs)}</span>
       <span className="ovw-status-sep" aria-hidden="true">
         {' · '}
       </span>
       <span className={`ovw-status-count is-${part.tone}`}>{part.text}</span>
-      <span className="mw-sr-only">. {FLOOD_COUNT_TIP}</span>
+      <span className="mw-sr-only">. {s.year != null ? PAST_RULE_NOTE : FLOOD_COUNT_TIP}</span>
     </span>
   )
 }

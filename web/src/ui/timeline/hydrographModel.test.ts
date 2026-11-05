@@ -364,6 +364,19 @@ describe('hydrographModel: empty states (PLAN-5 §5.5) and wording', () => {
     // no data: the NWS levels set the range, none pinned
     expect(m.thresholds.every((t) => t.pinned === null)).toBe(true)
   })
+  it("a past flood's reading: no category from today's levels, no age against its reference time (integration)", () => {
+    const live = build({ gauge: primary() })
+    const past = build({ gauge: primary(), past: true })
+    expect(live.past).toBe(false)
+    expect(past.past).toBe(true)
+    expect(cursorReadout(live, null, TF).category).not.toBeNull()
+    const r = cursorReadout(past, null, TF)
+    expect(r.category).toBeNull()
+    expect(r.line1).not.toMatch(/MINOR|MODERATE|MAJOR|ACTION|BELOW/)
+    expect(past.latest?.label).toMatch(/^LAST READING SHOWN /)
+    expect(past.latest?.label).not.toMatch(/AGO|STALE/)
+    expect(past.latest?.stale).toBe(false)
+  })
 
   it("no banned word in the chart's own words", () => {
     const m = build({ axis: 'flow', model: MODEL_SERIES() })

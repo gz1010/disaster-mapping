@@ -126,6 +126,8 @@ export interface FloodCountInput {
   archiveDown?: boolean
   /** Watch-only floods hidden by "Show watches" (C27). */
   hiddenWatches: number
+  /** A year tab (integration): the count says it is that year's past floods, never "N FLOODS" next to today's date. */
+  year?: number | null
 }
 
 /** The count part of the bar: "31 FLOODS" (+ " · 3 WATCHES HIDDEN"), or why there is no count (never "0" unknown).
@@ -137,6 +139,7 @@ export function floodCountPart(i: FloodCountInput): { text: string; tone: 'count
   if (i.archiveDown) return { text: BAR_STATUS.listDown, tone: 'warn' }
   if (i.count == null) return { text: BAR_STATUS.listDown, tone: 'warn' }
   const n = i.count
+  if (i.year != null) return { text: fillCopy(n === 1 ? BAR_STATUS.pastOne : BAR_STATUS.past, { N: n.toLocaleString('en-US'), YEAR: i.year }), tone: 'count' }
   const watches = i.hiddenWatches > 0 ? (i.hiddenWatches === 1 ? BAR_STATUS.watchesHiddenOne : fillCopy(BAR_STATUS.watchesHidden, { n: i.hiddenWatches })) : ''
   return { text: `${n.toLocaleString('en-US')} FLOOD${n === 1 ? '' : 'S'}${watches}`, tone: 'count' }
 }

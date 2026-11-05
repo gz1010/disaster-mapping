@@ -1,6 +1,6 @@
 {
  "role": "integration",
- "part": 1,
+ "part": "1 and 2",
  "summary": "Integration part 1 for brief 5. I ran the app end to end on real data (real API, live loop off, port 8759; Vite 5219). (1) The live flood list was checked one by one against the NWS flood products in effect (37 events: every one is in a listed flood) and the river gauges at minor or worse (every lower-48 one is in a flood; Puerto Rico's tide gauge is out by rule 1). The table, with a check note per flood, is live_list_table below. Two real bundles were built and checked (Rio Grande at Alamosa, CO: river gauge ALAC2 with a West Gulf RFC forecast; Ducktown flash flood: NWS Morristown and Peachtree City Flash Flood Warnings), and the Public overview (Fires and Floods, same camera), the Public flood view, the Command flood view and Forensic were shown on real floods, at 1440x1000, 1024x768 and on a phone. (2) Real data found real problems, fixed with tests: the gauge-only flood at Copperhill, TN (Ocoee River gauge at major) said 'No NWS flood product here right now' while NWS Morristown's Flash Flood Emergency for Copperhill covered the gauge (now a gauge-only flood lists the products over its gauge, attached like a watch); two 'San Juan River flood (UT)' entries 3 km apart (areal warnings now join by the river they name); a flood's id changed with each NWS update after a split, and a live id could be aliased to another (fixed in assign_ids); a gauge in flood under only a watch would be hidden as watch-only; waterbody state and position notes in names; a forecast crest whose time had passed was shown as 'FORECAST CREST' (now 'Highest NWS forecast' in Public, Command, Official now and the chart); the gauge-only circle meaning ignored the backend's outage and tide-gauge caveats; 'No fire open' in Floods; the dock chart cut 'MODERATE 11.0'; a past flood's Forensic card offered a build that answers 409. (3) CONTRACT section 16 now carries every as-built note (16.16 per role, including backend-flood-live, which was fixed during this step) and the resolved deviations (GET /api/floods answers 200 with both lists down; 16.7 route limits; 16.8 rules; 16.10-16.12 signatures; 16.14 all new backend and web strings, now tested against the code; 16.15 OPERA credit). SPEC 8.8 follows the catalog changes; the contract triple's parity test is green. (4) README has a Floods section, the optional EARTHDATA_TOKEN set-up, flood CLI and routes, and a Flood data credits table with terms. Incident: a throw-away debug test of mine ran without the isolation fixture and removed the real data/floods at 09:53 UTC; I moved the remains aside, regenerated fixture-flood and rebuilt the 8 real bundles (all check_bundle 0 problems); the registry history is lost, so some flood ids differ from earlier reports.",
  "files": [
   "backend/fire3d/floods/catalog.py",
@@ -836,7 +836,6 @@
   "Four gauges forecast to reach minor flood stage with no NWS product (BFFU1 UT, BOWD1 DE, DESI4 IA, PLMF1 FL) are not floods: D2 starts floods from observed readings only. They show as diamonds on the map.",
   "The 'Ducktown flash flood' is named after NWS Morristown's first listed place (TN) while its point and county come from the largest polygon (Fannin County, GA).",
   "Floods that left the lists are not carried over in this container until seen again (last-known summaries were lost in the incident); older flood ids that only the lost registry knew answer 404 here (data/ is local and gitignored).",
-  "Command, past floods (from backend-flood-live's note): the model chip says 'could not be loaded' for a not_available_for_past_dates answer; the slim chart labels a past reading with today's category and its age against now.",
   "The fixture server answers every demo flood's evacuations with the New Mexico fixture (older test-tooling issue).",
   "Phones, Command flood view: the map controls take two rows under the title bar (the same layout as Command fire).",
   "The national flood list can name two tide-gauge floods by one place ('Key Largo flood (FL)' and '(FL, 2)').",
@@ -846,8 +845,7 @@
   "Analysis-tab small multiples in Forensic (each gauge has a 'Chart' button that shows it in the dock).",
   "Data-status block in Command's Official now (there is no flood updates feed).",
   "Flood layers' credit lines stay as the key's last line / the foot portal; not folded into lib/dataCredits.ts (they already reach the foot bar).",
-  "NASA GIBS picture stays undrawn (web-flood-public's reason: its colours read like a hazard map); the key says 'no usable image' with the backend's reason.",
-  "Part 2: live loop and past floods end to end, the Command past-flood seams above, final SPEC check."
+  "NASA GIBS picture stays undrawn (web-flood-public's reason: its colours read like a hazard map); the key says 'no usable image' with the backend's reason."
  ],
  "gates": "backend: uv run pytest -q -> 1405 passed, 0 skipped (no network). web: typecheck clean; lint 55 warnings, all in src/scene (exit 0); npm test 136 files, 1786 passed, 2 skipped (older fire tests; no flood test skipped); build ok. Contract parity test (test_flood_contracts.py) 77 passed; test_floods_copy.py now also checks CONTRACT 16.14's as-built string table against the code. Count-only scans of the diff since 6fbbf9d: 0 FIRMS key value, EARTHDATA_TOKEN unset (n/a), 0 Bearer credentials, 0 'FireTrace'. Every real bundle: check_bundle --hazard flood 0 problems.",
  "test_skips": {
@@ -858,5 +856,83 @@
  "commits": [
   "f63e25c brief 5 integration: M1 real data (...)",
   "a3d111d brief 5 integration: part 1 report, as-built note, CONTRACT 16.14-16.16 (...), gates"
- ]
+ ],
+ "part2": {
+  "summary": "Integration part 2 (2026-11-05 10:19-10:50 UTC, API 8759 / Vite 5219), after every role was built, reviewed and fixed. (1) The flood live loop ran end to end on the real sources (FIRE3D_LIVE=1, a scratch copy of data/floods): two cycles; the first appended to all 8 ready bundles and auto-built the one top-4 flood without a bundle (the Toccoa River / Ocoee River flood at Copperhill, TN, under NWS Morristown's Flash Flood Emergency) in 82 s; the second appended to 4; /api/floods/status came from the loop (40 active floods, 38 gauges in flood, auto_build true); check_bundle 0 problems on all 10 bundles; 0 'request limit' lines, 0 errors; the fire loop ran beside it. No refresh job was due (every bundle had been rebuilt less than an hour before). Past floods: the 2026 (2,109) and 2025 (1,977) tabs follow U1 (a) (past_rule moderate_or_worse; the fallback is unused); a 2025 major river flood (Turkey River, IA: H-VTEC severity 3 in two of 8 archived products) and a 2025 Flash Flood Emergency (Bluefield, WV) were walked through detail, archived products, USGS readings, build (409 PAST_NO_BUNDLE) and model (not_available_for_past_dates). Fixed on the way: past river names kept the gauge's state note ('Whitewater River (KS) flood (KS, 3)'; now cleaned as in the live list, ids unchanged, SCHEMA 3); Command for a past flood said 'could not be loaded' on the model chip, gave a past reading today's category and an age against the flood's last product (now 'not kept for past dates', no category, 'LAST READING SHOWN AUG 20 06:30'); a year tab's bar status read 'NOV 5 2026 · 1,977 FLOODS' (now '1,977 PAST FLOODS IN 2025', tooltip the past rule); chart notes were struck through by the record line (now backed). (2) Forensic on the auto-built real bundle and on fixture-flood: the dock mounts the real Hydrograph variant='dock' (no placeholder was left), members are never tagged NEARBY, the handle row never overlaps NOW or CREST, and 'MODERATE 17.0' shows whole. (3) CONTRACT 16.12 / 16.14 / 16.16 now fold every contract5 note (the web-flood-forensic review fixes' exact names and 'Integration (part 2)'); SPEC 8.10 updated; the triple is unchanged and its parity test is green. (4) All gates pass.",
+  "files": [
+   "backend/fire3d/floods/history.py",
+   "backend/tests/test_floods_history.py",
+   "web/src/ui/timeline/hydrographModel.ts",
+   "web/src/ui/timeline/hydrographModel.test.ts",
+   "web/src/ui/timeline/hydrograph.css",
+   "web/src/state/floodLayerData.ts",
+   "web/src/map/FloodLegend.tsx",
+   "web/src/map/FloodLegend.test.ts",
+   "web/src/location/floodCheck.ts",
+   "web/src/ui/public/FloodStatus.tsx",
+   "web/src/ui/public/floodOverviewText.ts",
+   "web/src/ui/public/floodOverviewText.test.ts",
+   "web/src/ui/shell/floodCopy.ts",
+   "SPEC.md",
+   "docs/redesign/CONTRACT.md",
+   "docs/redesign/contract5/integration.md",
+   "docs/redesign/progress/brief5-integration.md",
+   "docs/redesign/reports/brief5-integration.json"
+  ],
+  "screenshots": [
+   "docs/screenshots/brief5-integration-real-forensic-autobuilt.png",
+   "docs/screenshots/brief5-integration-past-2025.png",
+   "docs/screenshots/brief5-integration-past-2026.png",
+   "docs/screenshots/brief5-integration-past-public.png",
+   "docs/screenshots/brief5-integration-past-command.png",
+   "docs/screenshots/brief5-integration-past-forensic.png"
+  ],
+  "live_loop": {
+   "env": "FIRE3D_LIVE=1 FIRE3D_AUTO_BUILD_LIVE=0 FIRE3D_AUTO_BUILD_FLOODS=1 FIRE3D_FLOOD_LIVE_INTERVAL_S=420; FIRE3D_DATA_DIR = scratch copy of data/floods; main HTTP cache",
+   "cycle_1_utc": "10:20: prefetch series 2; appended to 8 bundles; refresh due for none; auto-build candidates [flood-20261105-toccoa-river-ocoee-river-flood-b13cea], built in 81.8 s",
+   "cycle_2_utc": "10:27: appended to 4 bundles (St. Johns, Moenkopi Wash, Peace, Platte); refresh due for none",
+   "status": {
+    "active_floods": 40,
+    "gauges_in_flood": 38,
+    "auto_build": true
+   },
+   "check_bundle": "0 problems on all 10 bundles (9 real + fixture-flood) after both cycles",
+   "log": "0 'request limit' lines, 0 ERROR/Traceback; fire loop cycle 149 fires; count-only scan: 0 FIRMS key values (EARTHDATA_TOKEN not set)"
+  },
+  "past_floods": {
+   "rule": "past_rule 'moderate_or_worse' (U1 (a)); PAST_RULE_FALLBACK unused",
+   "2026": {
+    "floods": 2109,
+    "flash": 1500,
+    "river_moderate": 470,
+    "river_major": 139,
+    "emergencies": 41
+   },
+   "2025": {
+    "floods": 1977,
+    "flash": 1207,
+    "river_moderate": 564,
+    "river_major": 206,
+    "emergencies": 47
+   },
+   "walked": [
+    "flood-20250818-turkey-river-flood-521e74: resolved_from year; 8 archived NWS La Crosse WI products (H-VTEC severity 3 in two: major); SPLI4 654 USGS points, category unknown, THRESHOLDS_TODAY, PAST_NO_FORECAST; build 409; model not_available_for_past_dates",
+    "flood-20250215-bluefield-flash-flood-f42ce1: resolved_from year; 6 archived NWS Blacksburg VA products, CATASTROPHIC, emergency; build 409; model not_available_for_past_dates"
+   ]
+  },
+  "known_issues": [
+   "Forensic Analysis-tab small multiples are still below the cut line: each gauge's 'Chart' button shows it in the dock; small multiples need a third chart variant and their own review.",
+   "No refresh job was due during this run (bundles rebuilt < 1 h before after part 1's incident); backend-flood-live measured six refreshes with the same code earlier on Nov 5.",
+   "A past flood's Command area figure can read 'Water seen by satellite in this area: 0.0 mi²' when the pass was nearly all cloud (Turkey River: 99.2 %); the line's caveat names the cloud share and says dry pixels do not mean no flooding.",
+   "The main data/floods/years/*.json copies are SCHEMA 2; the first request after this commit rebuilds them once (about 30 s a year from the HTTP cache).",
+   "Copperhill, TN: the Ocoee River gauge flood and the Ducktown flash flood are still one event listed twice (decision for the user; see part 1).",
+   "The EARTHDATA_TOKEN path is still tested only with a fake token and a mock transport."
+  ],
+  "cut_line_left": [
+   "Forensic Analysis-tab small multiples (see known_issues)."
+  ],
+  "gates": "backend: uv run pytest -q -> 1406 passed, 0 skipped (no network). web: typecheck clean; lint 55 warnings, all in src/scene (exit 0); npm test 136 files, 1788 passed, 2 skipped (older fire tests that need real fire bundles; no flood test skipped); build ok. Parity test_flood_contracts.py and test_floods_copy.py green. Count-only scans of the diff and new files: 0 FIRMS key values, EARTHDATA_TOKEN unset, 0 Bearer credentials, 0 'FireTrace'.",
+  "servers": "API 8759 and Vite 5219, stopped at the end",
+  "commits": []
+ }
 }

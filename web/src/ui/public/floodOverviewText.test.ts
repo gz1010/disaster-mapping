@@ -68,6 +68,9 @@ describe('flood overview words', () => {
     expect(floodCountPart({ ...base, hiddenWatches: 3 }).text).toBe('6 FLOODS · 3 WATCHES HIDDEN')
     expect(floodCountPart({ ...base, count: 1, hiddenWatches: 0 }).text).toBe('1 FLOOD')
     expect(floodCountPart({ ...base, loaded: false, loading: true }).text).toBe('LOADING FLOODS')
+    // a year tab (integration): that year's past floods, never "N FLOODS" next to today's date
+    expect(floodCountPart({ ...base, count: 1977, hiddenWatches: 0, year: 2025 }).text).toBe('1,977 PAST FLOODS IN 2025')
+    expect(floodCountPart({ ...base, count: 1, hiddenWatches: 0, year: 2025 }).text).toBe('1 PAST FLOOD IN 2025')
     expect(floodCountPart({ ...base, loaded: false, failed: true }).text).toBe('FLOOD LIST UNAVAILABLE')
     expect(floodCountPart({ ...base, count: null, bothDown: true }).text).toBe('FLOOD LISTS UNAVAILABLE')
     expect(floodCountPart({ ...base, count: 0, bothDown: true }).text).toBe('FLOOD LISTS UNAVAILABLE')

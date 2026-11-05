@@ -78,7 +78,7 @@ log = logging.getLogger(__name__)
 
 PAST_YEARS = (2026, 2025)                                    # CONTRACT 16.8
 PAST_RULE = "moderate_or_worse"                              # PLAN-5 3.6 target rule (a bulk severity route exists)
-SCHEMA = 2                                                   # bump when the year rows change shape or rule
+SCHEMA = 3                                                   # bump when the year rows change shape or rule
 # 2: last_product_ms / updated_ms from each row's own product, ended_ms from the newest product, events still in
 #    effect at build time left to the live list, product senders named (review BFL-R2, R3, R10)
 WATCHWARN_URL = f"{nws.IEM_ROOT}/cgi-bin/request/gis/watchwarn.py"
@@ -503,9 +503,16 @@ def summarize(group: list[Event], gauges: dict[str, dict], names: dict[str, str]
     states = sorted(({u[:2] for ev in group for u in ev.ugcs} & l48) | ({state} if state in l48 else set()))
     county = regions.county_at(lon, lat)
     tz = regions.time_zone_at(lon, lat) or (regions.main_zone(state) if state else None) or "UTC"
-    rivers = [row["waterbody"]] if (row and row.get("waterbody")) else []
+    raw_rivers = [row["waterbody"]] if (row and row.get("waterbody")) else []
+    # integration (part 2): the name drops the waterbody's state and position notes as the live list does
+    # ("Whitewater River (KS)" -> "Whitewater River"); the id keeps the raw name, so past ids do not change
+    rivers = [w for w in (naming.clean_water(r) for r in raw_rivers) if w]
+    county_name = county.name if county else None
     base = naming.flood_name(kind="river" if river else "flash", level="warning", rivers=rivers, texts=[],
-                             area_desc=None, geom=union, county=county.name if county else None)
+                             area_desc=None, geom=union, county=county_name)
+    id_name = base if rivers == raw_rivers else naming.flood_name(
+        kind="river" if river else "flash", level="warning", rivers=raw_rivers, texts=[], area_desc=None, geom=union,
+        county=county_name)
     emergency = any(ev.emergency for ev in group)
     last = max(ev.last_ms for ev in group)
     ended = max(ev.expire_ms for ev in group)
@@ -524,6 +531,7 @@ def summarize(group: list[Event], gauges: dict[str, dict], names: dict[str, str]
         "offices": sorted({f"K{ev.wfo}" for ev in group}), "bundle_status": "none", "bundle_built_ms": None,
         "aliases": [], "synthetic": False, "caveat": None,
         "_keys": [ev.vtec_key for ev in group], "_anchor": lid or min(ev.vtec_key for ev in group), "_base_name": base,
+        "_id_name": id_name,
     }
     return s_
 
@@ -541,7 +549,7 @@ def assign(rows: list[dict], reg: reg_mod.Registry) -> list[dict]:
                 r["name"] = r["_base_name"] = lk[0]["name"]
                 r["_live_name"] = True
         else:
-            fid = naming.make_flood_id(r["started_ms"], r["_base_name"], r["_anchor"])
+            fid = naming.make_flood_id(r["started_ms"], r.get("_id_name") or r["_base_name"], r["_anchor"])
         r["id"] = fid
         if fid in by_id:
             by_id[fid] = _merge(by_id[fid], r)

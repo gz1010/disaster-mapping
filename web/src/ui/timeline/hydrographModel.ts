@@ -179,6 +179,9 @@ export interface HydrographModel {
   stageOnly: boolean
   /** The gauge has NWS flood levels for this axis. */
   hasLevels: boolean
+  /** A past flood (integration): `nowMs` is its last NWS product; a reading gets no category from today's NWS levels
+   *  (the backend sends `unknown`, THRESHOLDS_TODAY) and no age against that time. */
+  past: boolean
 }
 
 export interface HydrographInput {
@@ -460,6 +463,12 @@ export function buildHydrograph(input: HydrographInput): HydrographModel {
 
   const latest = latestPt
     ? (() => {
+        // a past flood (integration): the last reading before its last NWS product, with its date and no age (an age
+        // against that time read as "10 MIN AGO" next to a reading years old)
+        if (input.past) {
+          const label = upper(fillCopy(HYDRO.latestPast, { time: `${fmtDayDate(latestPt.t, tf.tz)} ${fmtClock(latestPt.t, tf)}` }))
+          return { t: latestPt.t, v: latestPt.v, label, stale: false, ageText: '' }
+        }
         const stale = nowMs - latestPt.t > HYDRO_STALE_MS
         const ageText = fmtRelative(latestPt.t, nowMs)
         const label = upper(`${fillCopy(HYDRO.latest, { time: fmtClock(latestPt.t, tf), age: ageText })}${stale ? ` · ${HYDRO.stale}` : ''}`)
@@ -558,6 +567,7 @@ export function buildHydrograph(input: HydrographInput): HydrographModel {
     forecastLabelShort,
     modelLabel: upper(HYDRO.model),
     hasLevels,
+    past: input.past === true,
     stageOnly,
   }
 }
@@ -625,7 +635,8 @@ export function cursorReadout(m: HydrographModel, cursorMs: number | null, tf: T
   const hit = obs ?? fc
   const kind: CursorReadout['kind'] = obs ? 'observed' : fc ? 'forecast' : 'none'
   const levels = levelsFromThresholds(m)
-  const category = hit ? categoryOf(hit.v, levels) : null
+  // a past reading gets no category from today's NWS levels (integration; backend-flood-live deviation 4)
+  const category = hit && !m.past ? categoryOf(hit.v, levels) : null
   const value = hit ? `${hit.snapped ? '' : '≈'}${fmtValue(hit.v, m.axis, m.units)} ${m.unit}` : ''
   const word = kind === 'observed' ? upper(HYDRO.observedWord) : kind === 'forecast' ? upper(HYDRO.forecastWord) : upper(HYDRO.noValue)
   const line1 = [hit ? `${value} ${word}` : word, category ? categoryWord(category) : null].filter(Boolean).join(' · ')

@@ -1102,12 +1102,15 @@ A failed or partial build is retried after 10 min and never replaces a complete 
   newest product had not expired when the year was built is left out (it is current: the live list serves it).
 - **Grouping:** one river flood per gauge episode (warnings at one gauge less than 48 h apart; the same gauge flooding
   again later is another flood); flash floods joined when their issuance polygons overlap 30 % of the smaller within
-  12 h. Names as §8.8 rule 9 (the gauge's river; the largest place in a flash flood's polygon), duplicates numbered.
+  12 h. Names as §8.8 rule 9 (the gauge's river without its state or position notes, as the live list's
+  `naming.clean_water`: "Whitewater River (KS)" names "Whitewater River flood"; the largest place in a flash flood's
+  polygon), duplicates numbered.
 - **Ids:** a VTEC key in the registry gives its live id (and the live name from the last-known summary), so a 2026
   flood Fire-3d saw live keeps its id; rows of one live id are merged. Served rows follow the registry's aliases at
   the time of the request (a merge recorded after the build), so an old id resolves as an alias of the canonical flood. Other ids are deterministic
   (`flood-{YYYYMMDD of the first product}-{slug of the name before duplicate suffixes}-{h6 of the gauge or the oldest
-  VTEC key}`).
+  VTEC key}`; the slug keeps the gauge's raw waterbody, so cleaning the shown name changed no id). The disk copies carry
+  `SCHEMA` (3); a copy of an older schema is rebuilt once from the cached month answers.
 - **Rows:** `mode: "historical"`, `status: "inactive"`, level `warning`, `started_ms` = the first product's issue time
   (`nws_product`), `last_product_ms` and `updated_ms` = the newest product's own time (each CSV row's product id;
   IEM's `utc_prodissue` is the issuance product's time on every follow-up row), `ended_ms` = the newest product's

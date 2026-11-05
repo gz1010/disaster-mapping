@@ -40,6 +40,14 @@ describe('Command layer states (WFC-R9)', () => {
     expect(extraLayerState(NO_ANSWER)).toBe('checking')
   })
 
+  it("a past flood's model: 'not kept for past dates', never 'could not be loaded' (integration)", () => {
+    const past = { ...MODEL_UNAVAILABLE(), status: 'not_available_for_past_dates', reason: 'National Water Model output is not kept here for past dates.' } as never
+    expect(extraLayerState(ans(past))).toBe('past')
+    const html = render('chips', { model: ans(past) })
+    expect(html).toContain(`${FLOOD_COMMAND.chipModel} · ${FLOOD_COMMAND.chipPast}`)
+    expect(html).not.toContain(FLOOD_COMMAND.chipUnavailable)
+  })
+
   it('chips: a failed or empty layer says so on its chip', () => {
     const html = render('chips', { catfim: ans(null, 'HTTP 503'), model: ans(MODEL_UNAVAILABLE()) })
     expect(html).toContain(`${FLOOD_COMMAND.chipCatfim} · ${FLOOD_COMMAND.chipUnavailable}`)

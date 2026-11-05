@@ -101,3 +101,77 @@ the lists are not carried over until they are seen again. `data/` is gitignored 
   products never join by distance; the Flash Flood Warning names "the Ocoee River" in its text). Linking a gauge to a
   Flash Flood Warning whose text names its river (as rule 2 does for areal products) would make one river flood, but
   its Public facts would then show the river rows instead of detection and damage threat: a decision for the user.
+
+# Part 2 (brief 5 integration, 2026-11-05 10:19-10:50 UTC)
+
+After every role was built, reviewed and fixed. API 8759 / Vite 5219. Folded into CONTRACT §16.16 ("Integration
+(part 2)").
+
+## The live loop end to end (real sources)
+
+- Run: `FIRE3D_LIVE=1 FIRE3D_AUTO_BUILD_LIVE=0 FIRE3D_AUTO_BUILD_FLOODS=1 FIRE3D_FLOOD_LIVE_INTERVAL_S=420`, a scratch
+  copy of `data/floods` (`FIRE3D_DATA_DIR`; the loop changes ready bundles), the main HTTP cache.
+- Cycle 1 (10:20 UTC): list built (both lists `available`), prefetch 2 series, appended to all 8 ready bundles,
+  refresh due for none (every bundle was rebuilt less than `REFRESH_MIN_AGE_H` ago), auto-build candidates = the one
+  top-4 flood without a bundle (the Toccoa River / Ocoee River flood at Copperhill, TN, under the Flash Flood
+  Emergency): built in 82 s; the other three of the top 4 (Ducktown, St. Johns, Peace) were ready.
+- Cycle 2 (10:27 UTC): appended to 4 bundles (`refreshed_ms` set), refresh due for none.
+- `/api/floods/status` from the loop: `active_floods` 40, `gauges_in_flood` 38, `auto_build` true.
+- `check_bundle --hazard flood`: 0 problems on all 10 bundles of the scratch folder after both cycles.
+- Log: 0 "request limit" lines, 0 errors; the fire loop ran its own cycle beside it (149 fires); count-only secret
+  scan of the log: 0 FIRMS key values (EARTHDATA_TOKEN not set here).
+
+## Past floods end to end (U1 (a))
+
+- 2026: 2,109 floods (1,500 flash, 470 moderate river, 139 major river; 41 Flash Flood Emergencies); 2025: 1,977
+  (1,207 flash, 564 moderate, 206 major; 47 emergencies); `past_rule: "moderate_or_worse"` (the U1 (a) rule; the
+  fallback is unused), `preparing` true while building (about 30 s each from the cached month answers), source
+  `iem_archive` `available`.
+- Walked on the real API: Turkey River flood (IA, 2025, SPLI4): detail `resolved_from: "year"`; 8 archived NWS La
+  Crosse products verbatim with their H-VTEC (severity 3 in two of them: major, as its row says); USGS readings (654
+  points, category `unknown`, `THRESHOLDS_TODAY`, `PAST_NO_FORECAST`); build 409 `PAST_NO_BUNDLE`; model
+  `not_available_for_past_dates`. Bluefield flash flood (WV, 2025): 6 archived NWS Blacksburg products, damage threat
+  CATASTROPHIC, emergency.
+- Screenshots: `brief5-integration-past-2025.png`, `-past-2026.png`, `-past-public.png`, `-past-command.png`,
+  `-past-forensic.png`.
+
+## Changes
+
+1. `backend/fire3d/floods/history.py` `summarize`: a past river flood's name uses `naming.clean_water` (the 2025 list
+   had "Whitewater River (KS) flood (KS, 3)"); `_id_name` keeps the raw name for `make_flood_id`, so no past id
+   changed; `SCHEMA` 3 (the disk copies are rebuilt once). Test `test_year_names_drop_state_notes_and_keep_their_ids`.
+2. `web/src/ui/timeline/hydrographModel.ts`: `HydrographModel.past`; a past flood's reading gets no category from
+   today's levels (`cursorReadout`) and its latest mark reads `HYDRO.latestPast` ("LAST READING SHOWN AUG 20 06:30"),
+   never an age against the flood's last product, never STALE. Test in `hydrographModel.test.ts`.
+3. `web/src/state/floodLayerData.ts` `ExtraLayerState` + `'past'`; `map/FloodLegend.tsx` chip "not kept for past
+   dates" (`FLOOD_COMMAND.chipPast`) and the details note (`modelPast`); `location/floodCheck.ts`: the model and
+   CatFIM lines at a past date say the answer's reason, quiet (`catfimPast`). Test in `FloodLegend.test.ts`.
+4. `web/src/ui/public/FloodStatus.tsx`, `floodOverviewText.ts` `floodCountPart({ year })`: a year tab's bar status
+   reads "{N} PAST FLOODS IN {YEAR}" (`BAR_STATUS.past` / `pastOne`), its tooltip `PAST_RULE_NOTE`; before, "NOV 5
+   2026 · 1,977 FLOODS" read as floods today. Test in `floodOverviewText.test.ts`.
+5. `web/src/ui/timeline/hydrograph.css` `.hg-notes`: a dark backing, so the record line never strikes the note
+   through ("No NWS river forecast for this gauge right now", "River forecasts are not kept for past dates.").
+
+## Forensic and the dock
+
+- Forensic on the auto-built real bundle (`brief5-integration-real-forensic-autobuilt.png`: CPHT1 at major, the
+  NWS warning lines, satellite water of Oct 27 with its age in amber) and on `fixture-flood` (dock with a crest): the
+  dock mounts the real `Hydrograph variant="dock"` (web-flood-forensic did it; no placeholder left), members are never
+  tagged NEARBY (fixed in web-flood-command's review fixes), the handle has its own row above the plot so NOW and
+  CREST never overlap it, and the 92 px gutter (part 1) shows "MODERATE 17.0" whole.
+
+## Contract and SPEC
+
+- CONTRACT §16.12 `buildHydrograph` `past?`; §16.14 the new web strings; §16.16 the web-flood-forensic review fixes'
+  exact names (`floodProbeRows`, `catfimCategoryLabel` / `Word`, `floodOverlayRects`, `placeBarLabel`, `ScreenRect`,
+  `layerNote`, `floodplainEffective`, `dockNoProduct`, `COPY_FRESH_MS`, `overviewProduct`, `SceneKeyItem.notes` /
+  `.more`) and "Integration (part 2)". Every `contract5/*.md` note is now folded.
+- SPEC §8.10: past names (cleaned waterbody, raw slug in the id), `SCHEMA` 3. The triple did not change; the parity
+  test (`test_flood_contracts.py`) and the 16.14 string test (`test_floods_copy.py`) are green.
+
+## Left (with reasons)
+
+- Forensic Analysis-tab small multiples (below web-flood-forensic's cut line): each gauge's "Chart" button shows it in
+  the dock; small multiples need a third chart variant and its own review, so they stay for a later step.
+- Refresh jobs were not due in this run (every bundle was rebuilt less than an hour before, after part 1's incident);
+  backend-flood-live measured six refreshes (satellite and forecast map) with the same code on 2026-11-05.

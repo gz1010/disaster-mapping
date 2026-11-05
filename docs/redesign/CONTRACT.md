@@ -4679,7 +4679,8 @@ export function HazardSwitch(p: { size?: 'sm' | 'md' }): JSX.Element
 // ui/timeline/Hydrograph.tsx + hydrographModel.ts (web-flood-command M1)
 export function Hydrograph(p: { variant: 'slim' | 'dock'; floodId: string; lid: string | null }): JSX.Element
 export function buildHydrograph(input: { gauge: RiverGauge; model: ModelOutputResponse | null; products: FloodAlert[];
-  nowMs: number; widthPx: number; axis: 'stage' | 'flow'; units: 'us' | 'metric'; zone: string }): HydrographModel
+  nowMs: number; widthPx: number; axis: 'stage' | 'flow'; units: 'us' | 'metric'; zone: string;
+  past?: boolean /* integration part 2: no category from today's levels, no age; HydrographModel.past */ }): HydrographModel
 // No NWM line when gauge.reach_id is null. Flow-mode handle label: NWS observed/forecast flow on line 1, NWM on its own
 // line prefixed "MODEL · NWM · EXPERIMENTAL"; never one combined value. Crest caret, or "HIGH … AT END · STILL RISING"
 // when gauge.forecast.crest_at_end.
@@ -4815,7 +4816,10 @@ New **web** strings since PLAN-5 §5 (in `ui/shell/floodCopy.ts`, guard-tested):
 `INSIDE_WARNING_UPCOMING`, `CURSOR_FUTURE_ISSUED`, `NOTHING_COVERS_OFFICIAL` (the roles' notes); integration:
 `CIRCLE_MEANING.gaugeWatch`, `GAUGE_ONLY_COASTAL_CAVEAT` (copy of the backend's), `PAST_NO_BUNDLE` (copy),
 `FLOOD_COMMAND.highestPassedSub`, `highestPassedVerdict`, `HYDRO.highestPassedTip`, `FLOOD_PUBLIC.labelHighestForecast`,
-and `PAST_RULE_NOTE` now reads "… river floods that reached or were forecast to reach moderate or major flood stage …".
+and `PAST_RULE_NOTE` now reads "… river floods that reached or were forecast to reach moderate or major flood stage …";
+integration part 2 (past floods): `HYDRO.latestPast` ("Last reading shown {time}"), `FLOOD_COMMAND.chipPast` ("not kept
+for past dates"), `FLOOD_COMMAND.modelPast`, `FLOOD_COMMAND.catfimPast`, `BAR_STATUS.past` / `pastOne` ("{N} PAST FLOODS
+IN {YEAR}").
 
 `{…}` slots are filled by the backend in the issuer's or the flood's own zone (`SAT_CAVEAT` dates in the flood's zone),
 always as absolute times: no backend string and no bundle file carries a relative age ("4 d ago"); the web adds ages at
@@ -4980,6 +4984,17 @@ real entry points and every deviation, with how it was resolved. Every role was 
   `dockNoProduct`, `overviewProduct`), `FloodHeader`, `FloodRightPanel` (Layers, Analysis, Evidence, Notes),
   `FloodLayersTab`, `FloodEvidenceTab`, `FloodDock` (the real `Hydrograph variant="dock"`), `forensic-flood.css`;
   hand-off `openEventGrid()`.
+- **Review fixes, exact names (folded by integration part 2; `contract5/web-flood-forensic.md` "Review fixes"):**
+  `scene/flood/floodProbe.ts` `floodProbeRows({ flood, layers, extent, point: { x, z, lon, lat }, cursorMs, nowMs, tf })
+  → { rows: ProbeRow[], note }` (`ProbeRow { key, label, text, tone? }`; rows only where a layer shows water or holds
+  the spot, never "not flooded"), `cellAt`, `catfimCategoryLabel(category)` ("Moderate flooding (NWS)"),
+  `catfimCategoryWord(category)`; `scene/flood/floodOverlayRects.ts` `setFloodOverlayRect(id, rect | null)`,
+  `floodOverlayRects()`; `gaugeBarMath.placeBarLabel(anchor, size, wPx, hPx, offset, insets, blocked) → { flip, hidden,
+  box }` and `ScreenRect`; `floodForensicView.layerNote(k, flood)`, `floodplainEffective(flood)`, `dockNoProduct({
+  cursorMs, nowMs, savedMs, tf })`, `COPY_FRESH_MS` (30 min: "No NWS flood product here right now" only while the saved
+  copy is younger), `overviewProduct(warnings, built_ms, now) → { kind: 'unavailable', text } | { kind: 'product', alert }
+  | { kind: 'none' }`; `SceneKeyItem.notes?: string[]` and `.more?: { title, texts }` ("About these layers"); the key's
+  amber `future` item from `futureProductsNote(warningsAt(…))`.
 - **Below the cut line, left:** small multiples in the Analysis tab (each gauge has a "Chart" button that shows it in
   the dock).
 
@@ -5031,6 +5046,32 @@ Changes:
   flood; `PAST_RULE_NOTE` "reached or were forecast to reach" (BFL-R9).
 - **Docs:** README "Floods (brief 5)", the optional `EARTHDATA_TOKEN` set-up, flood CLI and routes, "Flood data" credits
   with terms; this section, 16.7, 16.8, 16.10-16.12, 16.14, 16.15; SPEC 8.8.
+
+#### Integration (part 2, 2026-11-05; `contract5/integration.md` "Part 2")
+
+Checked end to end against the real sources on port 8759 with `FIRE3D_LIVE=1 FIRE3D_AUTO_BUILD_LIVE=0
+FIRE3D_AUTO_BUILD_FLOODS=1` and a scratch copy of `data/floods`: two flood loop cycles (list, prefetch, appends to 8 and
+4 ready bundles, `refreshed_ms` set; the first cycle auto-built the one top-4 flood without a bundle, the Toccoa River /
+Ocoee River flood, in 82 s); `/api/floods/status` from the loop (40 active floods, 38 gauges in flood, `auto_build`
+true); `check_bundle --hazard flood` 0 problems on all 10 bundles after the cycles; 0 "request limit" lines; the fire
+loop ran beside it. Past floods: 2026 (2,109) and 2025 (1,977) under **U1 (a)** (`past_rule: "moderate_or_worse"`; the
+fallback is unused); a 2025 major river flood (Turkey River at Spillville, H-VTEC severity 3 in two of its 8 archived
+products) and a 2025 Flash Flood Emergency (Bluefield, WV; CATASTROPHIC) walked through detail (`resolved_from:
+"year"`), archived products, USGS readings, build (409) and model (`not_available_for_past_dates`). Changes:
+
+- **Past names** (`history.summarize`): the gauge's waterbody is cleaned as in the live list ("Whitewater River (KS)
+  flood (KS, 3)" → "Whitewater River flood (KS, 3)"); ids keep the raw name's slug (`_id_name`), so no past id
+  changed; `SCHEMA` 3 rebuilds the disk copies once (SPEC 8.10).
+- **Command, past floods (backend-flood-live's note):** the hydrograph gives a past reading no category from today's
+  levels and no age against the flood's last product (`HydrographModel.past`; "LAST READING SHOWN AUG 20 06:30");
+  `ExtraLayerState` gains `'past'` (the model and CatFIM chips say "not kept for past dates", never "could not be
+  loaded"); the point check's model and CatFIM lines say the answer's past-date reason, quiet.
+- **Year tabs' bar status:** "NOV 5 2026 · 1,977 PAST FLOODS IN 2025" (`floodCountPart({ year })`), its tooltip the
+  past rule; it said "1,977 FLOODS" next to today's date.
+- **Chart notes** (`.hg-notes`) have a dark backing, so the record line never strikes them through.
+- Forensic on real bundles (the auto-built Toccoa River / Ocoee River flood; Rio Grande) and on `fixture-flood`: the dock
+  `Hydrograph variant="dock"` is mounted (no placeholder was left), members are never tagged NEARBY, the handle row sits
+  above the plot (NOW and CREST never overlap it) and the 92 px gutter shows "MODERATE 17.0" whole.
 
 #### Final check
 

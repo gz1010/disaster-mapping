@@ -63,6 +63,9 @@ export const BAR_STATUS = {
   loading: 'LOADING FLOODS',
   listDown: 'FLOOD LIST UNAVAILABLE',
   listsDown: 'FLOOD LISTS UNAVAILABLE',
+  // a year tab (integration): that year's past floods, not floods today
+  past: '{N} PAST FLOODS IN {YEAR}',
+  pastOne: '1 PAST FLOOD IN {YEAR}',
 } as const
 
 /** The hazard circle's status line (PLAN-5 §5.2, D19): the NWS product, never "ACTIVE", "ENDED", "OVER" or "CLEAR". */
@@ -270,6 +273,8 @@ export const HYDRO = {
   forecastWord: 'forecast (NWS)',
   noValue: 'no reading at this time',
   latest: 'Latest {time} · {age}',
+  // a past flood (integration): the last reading before its last NWS product, never an age against that time
+  latestPast: 'Last reading shown {time}',
   stale: 'Stale',
   now: 'Now',
   backToNow: 'Back to now',
@@ -395,6 +400,8 @@ export const FLOOD_COMMAND = {
   chipNone: 'none here',
   chipUnavailable: 'could not be loaded',
   chipChecking: 'checking…',
+  // a past flood (integration): the model and NWS's maps are not kept for its dates
+  chipPast: 'not kept for past dates',
   // model and CatFIM in the legend details and the readout
   catfimFor: 'NWS category flood map: {category} flooding at {lid} (experimental map library)',
   catfimNone: 'No NWS category flood map for this flood',
@@ -406,6 +413,8 @@ export const FLOOD_COMMAND = {
   tagCatfimTip: "NWS's category flood map library (experimental): what NWS maps for a flood category at a gauge; not a forecast",
   tagFemaEffective: 'FEMA · effective {date}',
   modelChecking: 'Model output: checking…',
+  modelPast: 'National Water Model output is not kept for past dates.',
+  catfimPast: 'NWS category flood maps are not shown for past dates.',
   modelUnavailable: 'National Water Model output could not be loaded right now.',
   modelNone: 'The model maps no flooded area or high-flow reach in this flood’s area at its latest analysis (model output; not an all-clear).',
   highFlowTitle: 'Model high-flow reaches (NOAA National Water Model)',
